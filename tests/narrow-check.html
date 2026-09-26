@@ -1,0 +1,33 @@
+<!doctype html>
+<!-- Dev-only: renders the built showcase at several widths at once so
+     responsive layout can be verified in one screenshot. -->
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>cli-mono — responsive check</title>
+		<style>
+			body { margin: 0; background: #1b1b1b; font: 11px/1.5 monospace; color: #bbb; }
+			.wrap { display: flex; gap: 12px; padding: 12px; align-items: flex-start; }
+			.col { flex: 1; }
+			.col > p { margin: 0 0 6px; color: #8a8a8a; }
+			.frame { border: 1px solid #444; height: 560px; }
+			iframe { width: 100%; height: 100%; border: 0; display: block; }
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<div class="col" style="max-width: 360px">
+				<p>360px</p>
+				<div class="frame"><iframe src="/index.html" title="360"></iframe></div>
+			</div>
+			<div class="col" style="max-width: 480px">
+				<p>480px</p>
+				<div class="frame"><iframe src="/index.html" title="480"></iframe></div>
+			</div>
+			<div class="col">
+				<p>760px</p>
+				<div class="frame"><iframe src="/index.html" title="760"></iframe></div>
+			</div>
+		</div>
+	</body>
+</html>

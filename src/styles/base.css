@@ -86,7 +86,14 @@ pre {
 	border-radius: var(--radius-sm);
 	padding: 1.3em 1.5em;
 	overflow-x: auto;
+	/* Without these, a long line inside a flex/grid column widens the
+	   whole page instead of scrolling inside the block. Verified on a
+	   380px viewport. */
+	max-width: 100%;
+	min-width: 0;
 	margin: 0 0 1.4em;
+	/* Firefox needs the box contained for the scroll to engage */
+	overflow-wrap: break-word;
 }
 pre > code {
 	all: unset;
@@ -94,6 +101,9 @@ pre > code {
 	font-size: 0.82rem;
 	line-height: 1.7;
 	color: var(--ink);
+	display: block;
+	min-width: 0;
+	max-width: 100%;
 }
 
 /* blockquote */

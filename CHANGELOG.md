@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `pre` no longer widens the page on narrow viewports. A long line inside a
+  flex or grid column stretched the document instead of scrolling inside the
+  block, producing ~21px of horizontal overflow at 380px. `max-width: 100%` and
+  `min-width: 0` on both `pre` and `pre > code` contain it; the block now
+  scrolls internally.
+- The header nav and link row can shrink (`flex-wrap: wrap` + `min-width: 0`),
+  so a long nav wraps instead of forcing horizontal page scroll. A mid-range
+  breakpoint tightens the link metrics so five links plus the brand stay on one
+  row instead of stranding the last one.
+- The key-value grid stacks below 520px. The two-column layout gave the value
+  cell ~118px on a phone, which wrapped file paths through the middle of an
+  identifier.
+
 ## [0.1.0] - 2025-09-26
 
 Initial release. The design system behind oem/log, pulled apart into reusable

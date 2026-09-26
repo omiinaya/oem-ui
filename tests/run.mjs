@@ -126,6 +126,26 @@ check('row body is a flex baseline row (prevents title/desc collision)', () => {
 	assert(/display:\s*flex/.test(b) && /align-items:\s*baseline/.test(b), 'row body must flex+baseline');
 });
 
+check('pre can never widen the page (narrow-viewport overflow guard)', () => {
+	const pre = base.match(/(^|\n)pre\s*\{[^}]*\}/)[0];
+	// A long line in a pre inside a flex/grid column must scroll INSIDE the
+	// block. Without max-width/min-width the block stretches and the whole
+	// document gains horizontal scroll. This was a real 21px overflow at
+	// 380px, so it is guarded from here on.
+	assert(/overflow-x:\s*auto/.test(pre), 'pre must scroll internally');
+	assert(/max-width:\s*100%/.test(pre), 'pre must have max-width:100%');
+	assert(/min-width:\s*0/.test(pre), 'pre must have min-width:0');
+});
+check('header nav can shrink (flex-wrap + min-width:0)', () => {
+	const h = read('src/astro/Header.astro');
+	const nav = h.match(/\.cm-header__nav\s*\{[^}]*\}/)[0];
+	const links = h.match(/\.cm-header__links\s*\{[^}]*\}/)[0];
+	assert(/flex-wrap:\s*wrap/.test(nav), 'nav must wrap');
+	assert(/min-width:\s*0/.test(nav), 'nav needs min-width:0 to shrink');
+	assert(/flex-wrap:\s*wrap/.test(links), 'link row must wrap');
+	assert(/min-width:\s*0/.test(links), 'link row needs min-width:0 to shrink');
+});
+
 /* ================= runtime ================= */
 console.log('\nruntime (cli-mono.js)');
 const runtimeSrc = read('src/js/cli-mono.js');

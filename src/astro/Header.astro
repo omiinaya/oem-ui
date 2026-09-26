@@ -106,12 +106,17 @@ const FOUC = `(function(){try{var s=localStorage.getItem("cm-theme");if(s==="lig
 		align-items: center;
 		justify-content: space-between;
 		gap: 1rem;
+		/* allow the flex children to shrink so a long nav wraps
+		   instead of forcing horizontal page scroll */
+		flex-wrap: wrap;
+		min-width: 0;
 		height: 60px;
 	}
 	.cm-header__brand {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+		min-width: 0;
 		text-decoration: none;
 		color: var(--ink);
 		font-family: var(--font-mono);
@@ -120,7 +125,14 @@ const FOUC = `(function(){try{var s=localStorage.getItem("cm-theme");if(s==="lig
 	.cm-header__prompt { color: var(--ink-faint); }
 	.cm-header__name { font-weight: 700; color: var(--ink); }
 	.cm-header__brand:hover .cm-header__name { color: var(--accent-bright); }
-	.cm-header__links { display: flex; align-items: center; }
+	/* min-width:0 lets this shrink below its content width so the link
+	   row wraps instead of widening the page on narrow viewports. */
+	.cm-header__links {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		min-width: 0;
+	}
 	:global(.cm-header__link) {
 		font-family: var(--font-mono);
 		font-size: 0.8rem;
@@ -187,5 +199,12 @@ const FOUC = `(function(){try{var s=localStorage.getItem("cm-theme");if(s==="lig
 	@media (max-width: 360px) {
 		:global(.cm-header__link) { padding: 0 0.5rem; font-size: 0.78rem; }
 		.cm-header__controls { gap: 0.6rem; }
+	}
+	/* Between the stack breakpoint and here, five links plus the brand do not
+	   quite fit on one line and a single link strands on its own row. Tighten
+	   the metrics so they stay together instead of orphaning one. */
+	@media (min-width: 641px) and (max-width: 900px) {
+		:global(.cm-header__link) { padding: 0 0.45rem; font-size: 0.76rem; }
+		.cm-header__nav { gap: 0.6rem; }
 	}
 </style>

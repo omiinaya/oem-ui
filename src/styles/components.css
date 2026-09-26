@@ -336,6 +336,14 @@
 .cm-kv dt { color: var(--ink-faint); }
 .cm-kv dd { margin: 0; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
 
+/* Below this width the two columns starve the value cell (a file path gets
+   ~118px and wraps through the middle of an identifier). Stack instead. */
+@media (max-width: 520px) {
+	.cm-kv { grid-template-columns: 1fr; gap: 0.15rem; }
+	.cm-kv dd { margin-bottom: 0.55rem; }
+	.cm-kv dt { font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
+}
+
 /* ---------- tag / chip ---------- */
 .cm-tag {
 	display: inline-flex; align-items: center; gap: 0.35rem;
