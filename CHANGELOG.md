@@ -9,10 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Form controls.** `input`, `textarea`, `select`, `label`, `fieldset` and
+  `legend` are now element defaults in `base.css`, so a bare `<input>` with
+  no class is already on-brand — which is the form every one of the 59
+  files across the fleet that uses a text field was re-declaring. Text is
+  floored at 16px so iOS does not zoom on focus, and every control clears
+  `--tap` on a coarse pointer. Checkboxes and radios are drawn rather than
+  native, and the `select` arrow is CSS because the platform one vanishes
+  against a dark surface.
+- **Form layout:** `.cm-field`, `.cm-field__label`, `.cm-field__help`,
+  `.cm-field__error`, `.cm-field__req`, `.cm-field-row` (two columns that
+  collapse to one), `.cm-form`, `.cm-form__actions` (right-aligned, full
+  width and stacked below 520px).
 - The showcase is reachable from the LAN. `dev` and `preview` now bind
   `0.0.0.0` (set in both `astro.config.mjs` and the npm scripts) instead of
   Astro's `127.0.0.1` default, which refused connections from any other
   device. A contract test fails if either location loses the bind.
+- `scripts/install.sh`. The repo is private and unpublished, so every
+  install path the README documented was a 404: `raw.githubusercontent` is
+  not readable anonymously, `npm i cli-mono` was never published, and the
+  URLs pointed at branch `main` while the default branch is `master`.
+  The installer copies the four files into one fixed layout (`--flat` for
+  projects serving from a static dir), idempotently, and two tests keep the
+  docs honest — one fails if Install prescribes a dead path, the other runs
+  the real installer and diffs the result against the source.
 - Mobile ergonomics belong to the shared layer. On coarse pointers every
   text-bearing component now floors at `--min-font` (12px) and interactive
   targets meet `--tap` (44px), so a new component inherits both by existing
@@ -31,6 +51,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The invalid form state never applied. `:not()` counts its argument for
+  specificity, so the base `input:not(…):not(…):not(…)` rule landed at
+  (0,3,1) and beat a plain `[aria-invalid]` at (0,1,1) — the state was
+  written and silently lost in the cascade. The rule now matches the base
+  selector's specificity, and a test asserts the counts. The state is
+  carried by border weight and colour, since the palette is greyscale and
+  hue would be the only cue available to a colourblind reader.
 - The kicker's `~/` prefix rendered as `~ /`. The parent's `letter-spacing`
   is inherited by generated content, so tracking was applied between the two
   glyphs; the pseudo-element now zeroes it and restores the same gap as a

@@ -157,6 +157,40 @@ so every route begins its content at the same y. This is deliberate: the
 thing that most reliably makes a site feel unpolished is content that jumps
 between pages.
 
+### Forms
+
+Controls are **element defaults**, not classes. A bare `<input>` is already
+on-brand; you only add classes for the layout around it.
+
+```html
+<div class="cm-field">
+  <label class="cm-field__label" for="url">url <span class="cm-field__req">*</span></label>
+  <input id="url" type="url" placeholder="https://" aria-invalid="true" aria-describedby="url-err">
+  <p class="cm-field__error" id="url-err">! must include the scheme.</p>
+</div>
+
+<div class="cm-field-row">…</div>          <!-- two columns, stacks on a phone -->
+<form class="cm-form">
+  <div class="cm-form__actions">…</div>    <!-- right-aligned, stacks below 520px -->
+</form>
+```
+
+- Text is **16px minimum** so iOS does not zoom the viewport on focus. The
+  mobile floor is 12px; forms deliberately sit above it.
+- `aria-invalid="true"` gives a 2px border instead of 1px. The palette is
+  greyscale, so the state is carried by weight, not hue — the only cue a
+  colourblind reader would otherwise miss.
+- `.cm-field__help` is the neutral hint; `.cm-field__error` is the failure
+  message. Keep the `!` prefix so the state does not rely on colour alone.
+- Checkboxes and radios are drawn in CSS; `select` has a CSS arrow, because
+  the platform one disappears against a dark surface.
+
+> **Specificity trap.** The base rule is
+> `input:not([type=checkbox]):not([type=radio]):not([type=range])`, and
+> `:not()` counts its argument — that is (0,3,1). A plain
+> `input[aria-invalid='true']` is (0,1,1) and **loses silently**. Match the
+> base selector when you add a state; a test asserts the counts.
+
 ### Everything else
 
 ```html

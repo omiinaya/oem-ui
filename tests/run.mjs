@@ -273,6 +273,55 @@ check('the showcase is LAN-reachable, not localhost-only', () => {
 	);
 });
 
+check('form controls are element defaults, so a bare input is on-brand', () => {
+	// 59 files across the fleet use an <input>; none of them had a class on
+	// it. If these are scoped to .cm-* they would still re-declare the field.
+	const b = read('src/styles/base.css');
+	const formBlock = b.slice(b.indexOf('form controls'));
+	assert(formBlock.length > 400, 'form defaults are not in the base layer');
+	for (const sel of ["input:not([type='checkbox'])", 'textarea', 'select']) {
+		assert(formBlock.includes(sel), `${sel} has no base default`);
+	}
+	// the tap target, inherited rather than opt-in
+	const coarse = b.slice(b.indexOf('pointer: coarse'));
+	for (const sel of ['input', 'textarea', 'select']) {
+		assert(new RegExp(`^\\s*${sel},?$`, 'm').test(coarse.split('@media')[0] + coarse)
+			|| coarse.includes(`${sel},`), `${sel} missing from the coarse-pointer block`);
+	}
+	// never below the type floor, and never below 16px on iOS (it zooms)
+	const fsz = formBlock.match(/font-size:\s*([^;]+)/);
+	assert(fsz && fsz[1].includes('--min-font'), 'form text is not floored at --min-font');
+	// aria-invalid must OUTSPECIFY the base input rule. The base uses :not()
+	// three times and :not() counts its argument, so it lands at (0,3,1);
+	// a plain [aria-invalid] is (0,1,1) and silently loses. Assert the counts.
+	const spec = (sel) => (sel.match(/:not\(/g) || []).length
+		+ (sel.match(/\[[^\]]+\]/g) || []).length;
+	const baseSel = "input:not([type='checkbox']):not([type='radio']):not([type='range'])";
+	// parse the real rule block. Strip comments first: the doc note above the
+	// rule mentions the selector in prose, and matching that yields garbage.
+	const invRule = (formBlock.replace(/\/\*[\s\S]*?\*\//g, '')
+		.match(/[^{}\n]*\[aria-invalid='true'\][^{]*\{[^}]*\}/g) || []).join('\n');
+	assert(invRule.length > 0, 'no aria-invalid rule found');
+	const invSel = (invRule.match(/^[^{}\n]*/) || [''])[0].split(',')[0].trim();
+	assert(invSel.length > 0, `could not parse the invalid selector from: ${invRule.slice(0, 80)}`);
+	assert(spec(invSel) >= spec(baseSel),
+		`aria-invalid specificity ${spec(invSel)} < base ${spec(baseSel)}: the invalid state never applies (${invSel})`);
+	// and the state is visible without relying on hue (the palette is grey)
+	assert(/border-width:\s*2px/.test(invRule), 'invalid state has no non-hue cue');
+
+	// the components layer owns the layout, the base layer owns the control
+	const comp = read('src/styles/components.css');
+	for (const sel of ['.cm-field', '.cm-field__label', '.cm-form__actions']) {
+		assert(comp.includes(sel), `${sel} is missing from the components layer`);
+	}
+	// and the showcase proves they render
+	const idx = read('src/pages/index.astro');
+	assert(idx.includes('id="forms"'), 'showcase has no forms section');
+	assert(/<input[^>]*type="checkbox"/.test(idx), 'showcase renders no checkbox');
+	assert(/<textarea/.test(idx), 'showcase renders no textarea');
+	assert(/<select/.test(idx), 'showcase renders no select');
+});
+
 check('the install docs only promise paths that actually work', () => {
 	const readme = read('README.md');
 	// The repo is private and unpublished, so raw.githubusercontent and npm

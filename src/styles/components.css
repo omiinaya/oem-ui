@@ -543,3 +543,55 @@
 		font-size: max(var(--min-font), 0.82rem);
 	}
 }
+
+/* ---------- form layout: wrapper, group, actions, help, error ----------
+   The inputs themselves are element defaults in base.css. These wrap
+   them: a field is a label + control + optional help, and a form is a
+   stack of fields. Both are what every form screen re-declares. */
+.cm-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	margin-bottom: 1rem;
+}
+.cm-field__label {
+	font-size: max(var(--min-font), 0.78rem);
+	text-transform: uppercase;
+	letter-spacing: 0.12em;
+	color: var(--ink-dim);
+}
+.cm-field__req { color: var(--ink-faint); }
+.cm-field__help {
+	font-size: max(var(--min-font), 0.78rem);
+	color: var(--ink-faint);
+}
+.cm-field__error {
+	font-size: max(var(--min-font), 0.78rem);
+	color: var(--ink);
+	display: flex;
+	align-items: baseline;
+	gap: 0.35rem;
+}
+.cm-field__error::before { content: '!'; opacity: 0.7; }
+
+/* two fields side by side, collapsing to one column on a phone */
+.cm-field-row {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+	gap: 0 var(--gutter);
+}
+.cm-form { display: flex; flex-direction: column; }
+/* actions sit apart from the last field and align to the right */
+.cm-form__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.6rem;
+	justify-content: flex-end;
+	padding-top: 0.5rem;
+	border-top: 1px solid var(--line-soft);
+	margin-top: 0.5rem;
+}
+@media (max-width: 520px) {
+	.cm-form__actions { justify-content: stretch; }
+	.cm-form__actions .cm-btn { flex: 1 1 100%; justify-content: center; }
+}

@@ -38,6 +38,7 @@ import { SITE } from '../astro/config';
 				{ href: '#buttons', label: 'buttons' },
 				{ href: '#lists', label: 'lists' },
 				{ href: '#prose', label: 'prose' },
+				{ href: '#forms', label: 'forms' },
 				{ href: '#readme', label: 'readme' },
 			]}
 		/>
@@ -77,6 +78,55 @@ import { SITE } from '../astro/config';
 					<PostRow href="#3" index={1} title="Ship as a library" description="dark default, FOUC-safe theme toggle." date={new Date('2025-09-24')} />
 				</ul>
 				<div class="cm-list-more"><a href="#">$ cat all →</a></div>
+			</section>
+
+			<section id="forms" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
+				<h2>forms</h2>
+				<p class="cm-kv__hint" style="margin-bottom:1rem">
+					inputs are element defaults, so a bare <code>&lt;input&gt;</code> is already
+					on-brand. <code>.cm-field</code> and friends are the layout around them.
+				</p>
+				<form class="cm-form" onsubmit="return false">
+					<div class="cm-field-row">
+						<div class="cm-field">
+							<label class="cm-field__label" for="f-name">handle <span class="cm-field__req">*</span></label>
+							<input id="f-name" type="text" placeholder="omiinaya" required />
+							<span class="cm-field__help">lowercase, no spaces.</span>
+						</div>
+						<div class="cm-field">
+							<label class="cm-field__label" for="f-kind">kind</label>
+							<select id="f-kind">
+								<option>site</option>
+								<option>repo</option>
+								<option>service</option>
+							</select>
+						</div>
+					</div>
+
+					<div class="cm-field">
+						<label class="cm-field__label" for="f-url">url <span class="cm-field__req">*</span></label>
+						<input id="f-url" type="url" placeholder="https://" aria-invalid="true" />
+						<span class="cm-field__error">must include the scheme.</span>
+					</div>
+
+					<div class="cm-field">
+						<label class="cm-field__label" for="f-notes">notes</label>
+						<textarea id="f-notes" rows="3" placeholder="what is it for?"></textarea>
+					</div>
+
+					<fieldset class="cm-field">
+						<legend>visibility</legend>
+						<label><input type="checkbox" checked /> listed in nav</label>
+						<label><input type="checkbox" /> pinned</label>
+						<label><input type="radio" name="f-vis" checked /> public</label>
+						<label><input type="radio" name="f-vis" /> unlisted</label>
+					</fieldset>
+
+					<div class="cm-form__actions">
+						<button type="reset" class="cm-btn">cancel</button>
+						<button type="submit" class="cm-btn cm-btn--primary">save</button>
+					</div>
+				</form>
 			</section>
 
 			<section id="prose" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">

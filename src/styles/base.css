@@ -181,6 +181,90 @@ button:focus-visible,
 	.cm-prose { padding: 0; }
 }
 
+/* ============ form controls ============
+   Every text input on the fleet is a mono field on a panel surface with a
+   1px line, and all 59 files that use one re-declare exactly that. These
+   are ELEMENT defaults, not a component, so they live in the base layer:
+   a bare <input> with no class is already on-brand, and the touch
+   ergonomics below apply to it without opting in. */
+input:not([type='checkbox']):not([type='radio']):not([type='range']),
+textarea,
+select {
+	font-family: var(--font-mono);
+	font-size: max(var(--min-font), 1rem);
+	color: var(--ink);
+	background: var(--bg-2);
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	padding: 0.55rem 0.7rem;
+	width: 100%;
+	/* A 44px box on a real phone; without this the field is 36px and
+	   the OS zooms the page on focus (iOS zooms below 16px). */
+	min-height: var(--tap);
+	line-height: 1.5;
+}
+textarea { min-height: calc(var(--tap) * 2); resize: vertical; }
+select {
+	/* The native arrow is drawn for the platform, not for a mono UI, and
+	   it disappears against a dark surface. */
+	appearance: none;
+	background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+		linear-gradient(135deg, currentColor 50%, transparent 50%);
+	background-position: calc(100% - 1.1rem) 52%, calc(100% - 0.75rem) 52%;
+	background-size: 0.35rem 0.35rem, 0.35rem 0.35rem;
+	background-repeat: no-repeat;
+	padding-right: 2.2rem;
+}
+input::placeholder,
+textarea::placeholder { color: var(--ink-faint); opacity: 1; }
+input:disabled,
+textarea:disabled,
+select:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+/* Invalid only once touched or submitted, so a pristine form is calm.
+   The palette is greyscale by design, so the state is carried by weight
+   and a doubled border rather than a red hue. NOTE: the base selector
+   above uses :not() three times, and :not() counts its argument, giving
+   it (0,3,1) — higher than a plain [aria-invalid] (0,1,1), which silently
+   lost the cascade. Match the specificity or this never applies. */
+input:not([type='checkbox']):not([type='radio']):not([type='range'])[aria-invalid='true'],
+textarea[aria-invalid='true'],
+select[aria-invalid='true'] {
+	border-color: var(--ink-dim);
+	border-width: 2px;
+}
+
+/* checkbox / radio: a square or circle, drawn rather than native */
+input[type='checkbox'],
+input[type='radio'] {
+	appearance: none;
+	width: 1.05rem;
+	height: 1.05rem;
+	margin: 0;
+	flex: none;
+	border: 1px solid var(--line);
+	background: var(--bg-2);
+	cursor: pointer;
+}
+input[type='checkbox'] { border-radius: 3px; }
+input[type='radio'] { border-radius: 50%; }
+input[type='checkbox']:checked,
+input[type='radio']:checked { background: var(--ink-dim); border-color: var(--ink-dim); }
+input[type='checkbox']:checked {
+	/* a tick, drawn with a rotated border so it needs no image or font */
+	box-shadow: inset 0 0 0 3px var(--bg-2);
+	background-image: linear-gradient(45deg, transparent 44%, var(--bg-2) 44%, var(--bg-2) 56%, transparent 56%),
+		linear-gradient(-45deg, transparent 44%, var(--bg-2) 44%, var(--bg-2) 56%, transparent 56%);
+}
+input[type='radio']:checked { box-shadow: inset 0 0 0 3px var(--bg-2); }
+
+/* the label is the tap target, so a phone-sized hit area is the text row */
+label { display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+fieldset { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 1rem; margin: 0; }
+legend { padding: 0 0.4rem; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.12em; }
+
 /* ============ touch ergonomics ============
    Phones get a coarse pointer, so every interactive element must clear
    44px on its short axis (WCAG 2.5.5) and no text may render below
@@ -191,6 +275,9 @@ button:focus-visible,
 	button,
 	summary,
 	label,
+	input,
+	textarea,
+	select,
 	[role='button'],
 	[role='tab'] {
 		min-height: var(--tap);
