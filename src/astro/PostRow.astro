@@ -1,0 +1,34 @@
+---
+/**
+ * cli-mono <PostRow> — one enumerated row (index | title+desc | date | chevron).
+ * Used by both the compact home list and the stacked index page.
+ */
+interface Props {
+	href: string;
+	index: number | string;
+	title: string;
+	description?: string;
+	date?: Date;
+	stacked?: boolean;
+}
+
+const { href, index, title, description, date, stacked = false } = Astro.props;
+const fmt = (d: Date) =>
+	d.toLocaleDateString('en-us', { year: 'numeric', month: 'short', day: 'numeric' });
+---
+
+<li>
+	<a href={href} class:list={['cm-row', stacked && 'cm-rows--stacked']}>
+		<span class="cm-row__idx">{typeof index === 'number' ? String(index).padStart(2, '0') : index}</span>
+		<div class="cm-row__body">
+			<span class="cm-row__title">{title}</span>
+			{description && <span class="cm-row__desc">{description}</span>}
+		</div>
+		{date && (
+			<span class="cm-row__meta">
+				<time datetime={date.toISOString()}>{fmt(date)}</time>
+			</span>
+		)}
+		<span class="cm-row__sym" aria-hidden="true">▸</span>
+	</a>
+</li>

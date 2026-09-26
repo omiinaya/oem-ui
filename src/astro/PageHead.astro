@@ -1,0 +1,19 @@
+---
+/**
+ * cli-mono <PageHead> — the opening block of a page: kicker / title / sub.
+ * Uses --head-top so every route starts its content at the same y.
+ */
+interface Props {
+	title: string;
+	kicker?: string;
+	sub?: string;
+}
+
+const { title, kicker, sub } = Astro.props;
+---
+
+<header class="cm-head">
+	{kicker && <p class="cm-kicker">{kicker}</p>}
+	<h1>{title}</h1>
+	{sub && <p class="cm-head__sub">{sub}</p>}
+</header>

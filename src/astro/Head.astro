@@ -1,0 +1,52 @@
+---
+/**
+ * cli-mono <Head> — meta, fonts, theme-color, FOUC guard.
+ * Copy-paste. Import your own global stylesheet where noted.
+ */
+import { SITE } from './config';
+
+interface Props {
+	title: string;
+	description?: string;
+	/** path to your global.css, relative to this component */
+	stylesHref?: string;
+}
+
+const { title, description = SITE.description, stylesHref } = Astro.props;
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://example.com');
+const fullTitle = title === SITE.title ? title : `${title} — ${SITE.title}`;
+---
+
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="generator" content={Astro.generator} />
+
+<!-- theme-color must match tokens.css: #0a0a0a dark / #fafafa light -->
+<meta name="theme-color" content="#0a0a0a" />
+
+<!-- canonical -->
+<link rel="canonical" href={canonicalURL} />
+<title>{fullTitle}</title>
+<meta name="description" content={description} />
+
+<!-- open graph / twitter -->
+<meta property="og:type" content="website" />
+<meta property="og:url" content={Astro.url} />
+<meta property="og:title" content={fullTitle} />
+<meta property="og:description" content={description} />
+<meta name="twitter:card" content="summary" />
+
+<!--
+	FOUC guard. MUST come before any stylesheet link so a light-theme
+	user never sees a black flash. Keep it inline and first.
+-->
+<script is:inline>
+	(function () {
+		try {
+			var s = localStorage.getItem('cm-theme');
+			if (s === 'light') document.documentElement.setAttribute('data-theme', 'light');
+		} catch (e) {}
+	})();
+</script>
+
+{stylesHref && <link rel="stylesheet" href={stylesHref} />}

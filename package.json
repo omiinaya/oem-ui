@@ -1,0 +1,30 @@
+{
+  "name": "cli-mono",
+  "version": "0.1.0",
+  "description": "Mono/terminal design system extracted from oem/log. Zero-dependency CSS + JS, optional Astro components.",
+  "type": "module",
+  "license": "MIT",
+  "private": false,
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "test": "node tests/run.mjs"
+  },
+  "keywords": [
+    "design-system",
+    "component-library",
+    "monospace",
+    "cli",
+    "terminal",
+    "astro",
+    "css"
+  ],
+  "devDependencies": {
+    "astro": "^7.3.5"
+  }
+}

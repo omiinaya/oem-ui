@@ -1,0 +1,162 @@
+/* ============================================================
+   cli-mono — base layer
+   Requires tokens.css to be loaded first.
+   Element defaults, reset, scrollbar, prose rhythm.
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+	overflow-y: scroll;
+	scroll-behavior: smooth;
+}
+
+/* ============ themed scrollbar (mono) ============ */
+*::-webkit-scrollbar { width: 12px; height: 12px; }
+*::-webkit-scrollbar-track { background: var(--bg-3); }
+*::-webkit-scrollbar-thumb {
+	background: var(--accent-dim);
+	border-radius: 0;
+	border: 3px solid var(--bg-3);
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--ink-dim); }
+*::-webkit-scrollbar-corner { background: var(--bg-3); }
+
+body {
+	margin: 0;
+	background-color: var(--bg);
+	background-image: var(--vignette);
+	background-attachment: fixed;
+	color: var(--ink);
+	font-family: var(--font-body);
+	font-size: 16px;
+	line-height: 1.7;
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+main,
+.cm-shell {
+	width: var(--maxw);
+	max-width: calc(100% - (2 * var(--gutter)));
+	margin: 0 auto;
+	/* no top padding: --head-top (on the head block) is the single
+	   source for vertical start position. Padding here too would double it
+	   and put the post page out of line with the rest. */
+	padding: 0 var(--gutter) 6rem;
+}
+
+a {
+	color: var(--ink-dim);
+	text-decoration: none;
+	transition: color var(--cm-t) var(--cm-ease);
+}
+a:hover { color: var(--accent-bright); }
+
+/* headings */
+h1, h2, h3, h4, h5, h6 {
+	margin: 0 0 0.6em;
+	color: var(--ink);
+	font-weight: 700;
+	line-height: 1.25;
+	letter-spacing: -0.01em;
+}
+h1 { font-size: 2.1rem; }
+h2 { font-size: 1.45rem; margin-top: 2em; }
+h3 { font-size: 1.2rem; margin-top: 1.6em; }
+
+p { margin: 0 0 1.1em; }
+
+/* inline code */
+code {
+	font-family: var(--font-mono);
+	font-size: 0.9em;
+	background: var(--bg-3);
+	border: 1px solid var(--line);
+	border-radius: 4px;
+	padding: 0.15em 0.4em;
+	color: var(--ink);
+}
+
+/* pre blocks */
+pre {
+	background: var(--bg-2);
+	border: 1px solid var(--line);
+	border-left: 2px solid var(--accent-dim);
+	border-radius: var(--radius-sm);
+	padding: 1.3em 1.5em;
+	overflow-x: auto;
+	margin: 0 0 1.4em;
+}
+pre > code {
+	all: unset;
+	font-family: var(--font-mono);
+	font-size: 0.82rem;
+	line-height: 1.7;
+	color: var(--ink);
+}
+
+/* blockquote */
+blockquote {
+	margin: 0 0 1.4em;
+	padding: 0.5em 0 0.5em 1.1em;
+	border-left: 2px solid var(--accent-dim);
+	background: var(--bg-2);
+	border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+	color: var(--ink-dim);
+	font-size: 1em;
+}
+
+ul, ol { padding-left: 1.4em; margin: 0 0 1.2em; }
+li { margin-bottom: 0.4em; }
+li::marker { color: var(--ink-dim); }
+
+hr { border: none; border-top: 1px solid var(--line); margin: 2em 0; }
+
+img { max-width: 100%; height: auto; border-radius: var(--radius); }
+
+table {
+	width: 100%; border-collapse: collapse; margin: 0 0 1.4em; font-size: 0.9em;
+}
+th, td { padding: 0.6em 0.9em; border: 1px solid var(--line); text-align: left; }
+th { background: var(--bg-3); color: var(--ink); }
+
+::selection { background: var(--selection-bg); color: var(--selection-color); }
+
+/* ============ accessibility helpers ============ */
+.cm-sr-only {
+	border: 0; padding: 0; margin: 0; position: absolute !important;
+	height: 1px; width: 1px; overflow: hidden;
+	clip: rect(1px 1px 1px 1px); clip-path: inset(50%); white-space: nowrap;
+}
+
+/* Visible keyboard focus everywhere. The house style: a 1px dim
+   outline that brightens on interaction. Never remove it without
+   replacing it. */
+:focus-visible {
+	outline: 1px solid var(--accent-dim);
+	outline-offset: 2px;
+}
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible { outline-color: var(--ink-dim); }
+
+@media (prefers-reduced-motion: reduce) {
+	html { scroll-behavior: auto; }
+	*, *::before, *::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+}
+
+/* ============ responsive baseline ============ */
+@media (max-width: 680px) {
+	main,
+	.cm-shell { padding: 0 var(--gutter) 4rem; }
+	:root { --head-top: 2rem; --head-h1: 1.7rem; }
+	body { font-size: 15px; }
+	h1 { font-size: 1.7rem; }
+	pre { padding: 1.1em 1.1em; font-size: 0.78rem; }
+	.cm-prose { padding: 0; }
+}

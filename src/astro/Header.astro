@@ -1,0 +1,191 @@
+---
+/**
+ * cli-mono <Header> — sticky top nav with brand, nav links, theme toggle.
+ * Copy this file into your project as-is. All site data comes from props.
+ */
+import { SITE } from './config';
+
+interface Link {
+	href: string;
+	label: string;
+}
+
+interface Props {
+	links?: Link[];
+	brand?: string;
+	homeHref?: string;
+	showThemeToggle?: boolean;
+	extraLinks?: Link[]; // rendered right of the theme toggle (e.g. GitHub)
+}
+
+const {
+	links = [],
+	brand = SITE.title,
+	homeHref = '/',
+	showThemeToggle = true,
+	extraLinks = [],
+} = Astro.props;
+
+const FOUC = `(function(){try{var s=localStorage.getItem("cm-theme");if(s==="light"){document.documentElement.setAttribute("data-theme","light");}}catch(e){}})();`;
+---
+
+<header class="cm-header" data-cm-header>
+	<script is:inline set:html={FOUC} />
+	<nav class="cm-header__nav">
+		<a href={homeHref} class="cm-header__brand" aria-label="Home">
+			<span class="cm-header__prompt" aria-hidden="true">$</span>
+			<span class="cm-header__name">{brand}</span>
+			<span class="cm-cursor" aria-hidden="true"></span>
+		</a>
+
+		{
+			links.length > 0 && (
+				<div class="cm-header__links">
+					{links.map((l) => (
+						<a href={l.href} class="cm-header__link">
+							{l.label}
+						</a>
+					))}
+				</div>
+			)
+		}
+
+		<div class="cm-header__controls">
+			{
+				showThemeToggle && (
+					<button
+						class="cm-icon-btn"
+						type="button"
+						data-cm-theme-toggle
+						aria-label="Toggle theme"
+						title="Toggle theme"
+					>
+						<span data-cm-theme-icon aria-hidden="true">☀</span>
+					</button>
+				)
+			}
+			{
+				extraLinks.map((l) => (
+					<a
+						href={l.href}
+						class="cm-header__icon-link"
+						aria-label={l.label}
+						title={l.label}
+					>
+						<span class="cm-sr-only">{l.label}</span>
+						<slot name={`icon-${l.label.toLowerCase()}`} />
+						<Fragment set:html={l.icon} />
+					</a>
+				))
+			}
+		</div>
+	</nav>
+</header>
+
+<style>
+	.cm-header {
+		position: sticky;
+		top: 0;
+		z-index: 100;
+		margin: 0;
+		padding: 0 var(--gutter);
+		background: var(--header-bg);
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
+		border-bottom: 1px solid var(--line);
+	}
+	/* scroll state hook, toggled by cli-mono.js */
+	.cm-header.is-scrolled {
+		border-bottom-color: var(--accent-dim);
+		box-shadow: 0 8px 24px -18px rgba(0, 0, 0, 0.9);
+	}
+	.cm-header__nav {
+		max-width: var(--maxw);
+		margin: 0 auto;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		height: 60px;
+	}
+	.cm-header__brand {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		text-decoration: none;
+		color: var(--ink);
+		font-family: var(--font-mono);
+		font-size: 0.95rem;
+	}
+	.cm-header__prompt { color: var(--ink-faint); }
+	.cm-header__name { font-weight: 700; color: var(--ink); }
+	.cm-header__brand:hover .cm-header__name { color: var(--accent-bright); }
+	.cm-header__links { display: flex; align-items: center; }
+	:global(.cm-header__link) {
+		font-family: var(--font-mono);
+		font-size: 0.8rem;
+		color: var(--ink-dim);
+		padding: 0 0.7rem;
+		border-left: 1px solid var(--line);
+		text-decoration: none;
+		transition: color var(--cm-t) var(--cm-ease);
+	}
+	:global(.cm-header__link:hover) { color: var(--ink); }
+	:global(.cm-header__link.is-active),
+	:global(.cm-header__link[aria-current='page']) {
+		color: var(--ink);
+		font-weight: 700;
+		text-decoration: underline;
+		text-underline-offset: 5px;
+		text-decoration-color: var(--ink-faint);
+	}
+	.cm-header__controls { display: flex; align-items: center; gap: 0.85rem; }
+	.cm-icon-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		border: 1px solid var(--line);
+		border-radius: 6px;
+		background: transparent;
+		color: var(--ink-dim);
+		cursor: pointer;
+		font-size: 0.95rem;
+		transition: color var(--cm-t) var(--cm-ease),
+			border-color var(--cm-t) var(--cm-ease), background var(--cm-t) var(--cm-ease);
+	}
+	.cm-icon-btn:hover {
+		color: var(--ink);
+		border-color: var(--ink-dim);
+		background: var(--bg-2);
+	}
+	.cm-header__icon-link {
+		display: flex;
+		align-items: center;
+		color: var(--ink-faint);
+		transition: color var(--cm-t) var(--cm-ease);
+	}
+	.cm-header__icon-link:hover { color: var(--ink); }
+
+	@media (max-width: 640px) {
+		.cm-header__nav {
+			flex-wrap: wrap;
+			height: auto;
+			row-gap: 0.4rem;
+			padding: 0.55rem 0;
+		}
+		.cm-header__brand { margin-right: auto; }
+		.cm-header__links {
+			order: 3;
+			width: 100%;
+			border-top: 1px solid var(--line);
+			padding-top: 0.45rem;
+			justify-content: flex-start;
+		}
+	}
+	@media (max-width: 360px) {
+		:global(.cm-header__link) { padding: 0 0.5rem; font-size: 0.78rem; }
+		.cm-header__controls { gap: 0.6rem; }
+	}
+</style>

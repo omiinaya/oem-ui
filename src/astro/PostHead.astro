@@ -1,0 +1,35 @@
+---
+/**
+ * cli-mono <PostHead> — kicker / title / byline for an article page.
+ */
+import { SITE } from './config';
+
+interface Props {
+	title: string;
+	date: Date;
+	updatedDate?: Date;
+	kicker?: string;
+}
+
+const { title, date, updatedDate, kicker = 'note' } = Astro.props;
+const fmt = (d: Date) =>
+	d.toLocaleDateString('en-us', { year: 'numeric', month: 'short', day: 'numeric' });
+---
+
+<header class="cm-head cm-post-head">
+	<p class="cm-kicker">{kicker}</p>
+	<h1>··· {title} ···.md</h1>
+	<div class="cm-byline">
+		<span>{SITE.author}</span>
+		<span class="cm-byline__sep" aria-hidden="true">·</span>
+		<time datetime={date.toISOString()}>{fmt(date)}</time>
+		{
+			updatedDate && (
+				<>
+					<span class="cm-byline__sep" aria-hidden="true">·</span>
+					<span>updated {fmt(updatedDate)}</span>
+				</>
+			)
+		}
+	</div>
+</header>

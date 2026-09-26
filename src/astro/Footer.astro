@@ -1,0 +1,50 @@
+---
+/**
+ * cli-mono <Footer> — meta row + dashed status line.
+ * Copy-paste. All copy comes from props with sensible defaults.
+ */
+import { SITE } from './config';
+
+interface Props {
+	items?: string[]; // meta fragments, e.g. ['astro', 'static', 'no tracking']
+	contactHref?: string;
+	contactLabel?: string;
+	status?: string;
+}
+
+const {
+	items = [],
+	contactHref,
+	contactLabel = 'contact',
+	status,
+} = Astro.props;
+---
+
+<footer class="cm-footer">
+	<div class="cm-footer__inner">
+		<div class="cm-footer__meta">
+			<span>© <span data-cm-year>{new Date().getFullYear()}</span> {SITE.author}</span>
+			{items.map((it) => (
+				<>
+					<span class="cm-footer__bar" aria-hidden="true">·</span>
+					<span>{it}</span>
+				</>
+			))}
+			{
+				contactHref && (
+					<>
+						<span class="cm-footer__bar" aria-hidden="true">·</span>
+						<a href={contactHref}>{contactLabel}</a>
+					</>
+				)
+			}
+		</div>
+		{
+			status && (
+				<div class="cm-footer__status" aria-hidden="true">
+					<span class="cm-footer__dot">●</span> {status}
+				</div>
+			)
+		}
+	</div>
+</footer>

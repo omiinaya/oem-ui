@@ -1,0 +1,187 @@
+/* ============================================================
+   cli-mono — design tokens
+   Extracted from the oem/log design system (log.oem.ngo).
+   Pure black/grey/white, monospace, terminal identity.
+   DARK IS THE DEFAULT. Light is an explicit opt-in via
+   [data-theme='light'] (or :root[data-theme='light']).
+
+   Zero dependencies. No build step. Drop this file in first,
+   then base.css, then components.css.
+   ============================================================ */
+
+:root {
+	/* ---- layout ------------------------------------------------
+	   ONE content width for every page. Page-specific widths were
+	   the cause of layout shifting on every navigation. --gutter is the
+	   single source of side padding for main/header/footer, and
+	   --head-top / --head-h1 are the single source for the top-of-page
+	   head block so every route starts its content at the same y. */
+	--maxw: 860px;
+	--gutter: 1.25rem;
+	--head-top: 3rem;
+	--head-h1: 2rem;
+	--radius: 10px;
+	--radius-sm: 6px;
+
+	/* ---- type --------------------------------------------------
+	   everything is mono: that IS the identity */
+	--font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, 'SF Mono',
+		Menlo, Consolas, monospace;
+	--font-body: var(--font-mono);
+
+	/* ---- motion ------------------------------------------------
+	   every interactive transition in the system is one of these.
+	   0.12s is the house value: present, not sluggish. */
+	--cm-t-fast: 0.1s;
+	--cm-t: 0.12s;
+	--cm-t-slow: 0.2s;
+	--cm-ease: ease;
+
+	/* ---- scrollbar (dark default) ------------------------------
+	   width:thin + always-visible gutter so short pages reserve the same
+	   12px a scrolling page uses. Without this the content box differs by
+	   12px between scrolling and non-scrolling pages and every
+	   navigation nudges the layout sideways. */
+	scrollbar-width: thin;
+	scrollbar-color: #3a3a3a #0a0a0a;
+}
+
+/* ================= dark — DEFAULT ================= */
+:root,
+:root[data-theme='dark'] {
+	color-scheme: dark;
+
+	/* palette — pure black-grey, zero chroma */
+	--bg: #0a0a0a;
+	--bg-2: #101010;
+	--bg-3: #161616;
+	--panel: #111111;
+	--line: #262626;
+	--line-soft: #1c1c1c;
+
+	--ink: #e8e8e8;
+	--ink-dim: #9c9c9c;
+	--ink-faint: #8b8b8b;
+
+	/* accent = neutral white-grey highlight (no color) */
+	--accent: #e8e8e8;
+	--accent-bright: #ffffff;
+	--accent-dim: #5c5c5c;
+	--accent-glow: rgba(255, 255, 255, 0.06);
+
+	/* secondary — muted greys, kept for component compat */
+	--cyan: #b3b3b3;
+	--green: #b3b3b3;
+
+	/* header / footer surfaces */
+	--header-bg: rgba(10, 10, 10, 0.92);
+	--footer-bg: #080808;
+
+	/* shadow */
+	--shadow-1: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+	--shadow-card: 0 20px 50px -24px rgba(0, 0, 0, 0.8);
+
+	/* selection */
+	--selection-bg: rgba(255, 255, 255, 0.14);
+	--selection-color: #ffffff;
+
+	/* terminal vignette */
+	--vignette: radial-gradient(120% 90% at 50% 0%, transparent 62%, rgba(0, 0, 0, 0.5));
+}
+
+/* ================= light — explicit opt-in ================= */
+:root[data-theme='light'] {
+	color-scheme: light;
+	--bg: #fafafa;
+	--bg-2: #ffffff;
+	--bg-3: #f0f0f0;
+	--panel: #f5f5f5;
+	--line: #d6d6d6;
+	--line-soft: #e2e2e2;
+
+	--ink: #111111;
+	--ink-dim: #4a4a4a;
+	--ink-faint: #6d6d6d;
+
+	--accent: #111111;
+	--accent-bright: #000000;
+	--accent-dim: #666666;
+	--accent-glow: rgba(0, 0, 0, 0.06);
+
+	--cyan: #333333;
+	--green: #333333;
+
+	--header-bg: rgba(250, 250, 250, 0.92);
+	--footer-bg: #f0f0f0;
+
+	--shadow-1: 0 1px 0 rgba(0, 0, 0, 0.04) inset;
+	--shadow-card: 0 20px 50px -26px rgba(0, 0, 0, 0.18);
+
+	--selection-bg: rgba(0, 0, 0, 0.12);
+	--selection-color: #000000;
+
+	--vignette: radial-gradient(120% 90% at 50% 0%, transparent 62%, rgba(0, 0, 0, 0.06));
+
+	scrollbar-color: #b8b8b8 #f0f0f0;
+}
+
+/* ============================================================
+   Theming a NON-document root (a shadow root, an iframe, a
+   scoped container) — prefix any ancestor with [data-cm-theme]
+   and the token set applies to that subtree only:
+
+     <div data-cm-theme="light"> ... </div>
+
+   data-theme is reserved for the document element.
+   ============================================================ */
+[data-cm-theme='dark'],
+[data-cm-theme='dark'] {
+	color-scheme: dark;
+	--bg: #0a0a0a;
+	--bg-2: #101010;
+	--bg-3: #161616;
+	--panel: #111111;
+	--line: #262626;
+	--line-soft: #1c1c1c;
+	--ink: #e8e8e8;
+	--ink-dim: #9c9c9c;
+	--ink-faint: #8b8b8b;
+	--accent: #e8e8e8;
+	--accent-bright: #ffffff;
+	--accent-dim: #5c5c5c;
+	--accent-glow: rgba(255, 255, 255, 0.06);
+	--header-bg: rgba(10, 10, 10, 0.92);
+	--footer-bg: #080808;
+	--shadow-1: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+	--shadow-card: 0 20px 50px -24px rgba(0, 0, 0, 0.8);
+	--selection-bg: rgba(255, 255, 255, 0.14);
+	--selection-color: #ffffff;
+	--vignette: radial-gradient(120% 90% at 50% 0%, transparent 62%, rgba(0, 0, 0, 0.5));
+	scrollbar-color: #3a3a3a #0a0a0a;
+}
+
+[data-cm-theme='light'],
+[data-cm-theme='light'] {
+	color-scheme: light;
+	--bg: #fafafa;
+	--bg-2: #ffffff;
+	--bg-3: #f0f0f0;
+	--panel: #f5f5f5;
+	--line: #d6d6d6;
+	--line-soft: #e2e2e2;
+	--ink: #111111;
+	--ink-dim: #4a4a4a;
+	--ink-faint: #6d6d6d;
+	--accent: #111111;
+	--accent-bright: #000000;
+	--accent-dim: #666666;
+	--accent-glow: rgba(0, 0, 0, 0.06);
+	--header-bg: rgba(250, 250, 250, 0.92);
+	--footer-bg: #f0f0f0;
+	--shadow-1: 0 1px 0 rgba(0, 0, 0, 0.04) inset;
+	--shadow-card: 0 20px 50px -26px rgba(0, 0, 0, 0.18);
+	--selection-bg: rgba(0, 0, 0, 0.12);
+	--selection-color: #000000;
+	--vignette: radial-gradient(120% 90% at 50% 0%, transparent 62%, rgba(0, 0, 0, 0.06));
+	scrollbar-color: #b8b8b8 #f0f0f0;
+}

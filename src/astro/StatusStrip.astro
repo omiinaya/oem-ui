@@ -1,0 +1,17 @@
+---
+/**
+ * cli-mono <StatusStrip> — label/value line on a flat panel.
+ * status: 'ok' | 'warn' | 'err' (adds the ● / ▲ / ✕ mark)
+ */
+interface Props {
+	label: string;
+	status?: 'ok' | 'warn' | 'err';
+}
+
+const { label, status } = Astro.props;
+---
+
+<div class:list={['cm-status', status && `cm-status--${status}`]}>
+	<span class="cm-status__label">{label}</span>
+	<span class="cm-status__value"><slot /></span>
+</div>

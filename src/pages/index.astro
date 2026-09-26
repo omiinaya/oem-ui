@@ -1,0 +1,118 @@
+---
+// Runtime and styles. The <script src> at the bottom of <body> is what
+// bundles the runtime — a frontmatter `import` of a side-effect-only file
+// gets tree-shaken away, so use the tag form.
+import '../styles/tokens.css';
+import '../styles/base.css';
+import '../styles/components.css';
+import PageHead from '../astro/PageHead.astro';
+import Header from '../astro/Header.astro';
+import Footer from '../astro/Footer.astro';
+import StatusStrip from '../astro/StatusStrip.astro';
+import PostRow from '../astro/PostRow.astro';
+import { SITE } from '../astro/config';
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<title>cli-mono — component library</title>
+		<meta name="description" content="Zero-dependency mono design system: CSS, JS and Astro components." />
+		<script is:inline>
+			(function () {
+				try {
+					var s = localStorage.getItem('cm-theme');
+					if (s === 'light') document.documentElement.setAttribute('data-theme', 'light');
+				} catch (e) {}
+			})();
+		</script>
+	</head>
+	<body>
+		<Header
+			brand={SITE.title}
+			homeHref="/"
+			links={[
+				{ href: '#foundation', label: 'foundation' },
+				{ href: '#buttons', label: 'buttons' },
+				{ href: '#lists', label: 'lists' },
+				{ href: '#prose', label: 'prose' },
+				{ href: '#readme', label: 'readme' },
+			]}
+		/>
+		<main>
+			<PageHead kicker="design system" title="cli-mono" sub="mono/terminal components. dark default. works anywhere." />
+			<StatusStrip label="status" status="ok">
+				css, js and astro components verified. build-testable.
+			</StatusStrip>
+
+			<section id="foundation" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
+				<h2>foundation</h2>
+				<dl class="cm-kv">
+					<dt>tokens</dt><dd><code>src/styles/tokens.css</code> (CSS vars, themes)</dd>
+					<dt>base</dt><dd><code>src/styles/base.css</code> (elements, prose, scrollbar)</dd>
+					<dt>components</dt><dd><code>src/styles/components.css</code> (classes .cm-*)</dd>
+					<dt>runtime</dt><dd><code>src/js/cli-mono.js</code> (theme, header, spy, copy)</dd>
+				</dl>
+			</section>
+
+			<section id="buttons" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
+				<h2>buttons</h2>
+				<div class="cm-btn-group">
+					<a class="cm-btn">Default</a>
+					<a class="cm-btn cm-btn--primary">Primary</a>
+					<a class="cm-btn cm-btn--ghost">Ghost</a>
+					<a class="cm-btn cm-btn--sm">Small</a>
+					<a class="cm-btn cm-btn--block">Block</a>
+				</div>
+			</section>
+
+			<section id="lists" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
+				<h2>lists / rows</h2>
+				<div class="cm-list-head" style="margin-bottom:0.4rem">Index / compact</div>
+				<ul class="cm-rows cm-rows--inline">
+					<PostRow href="#1" index={3} title="Extract components from a design" description="separate tokens, base, components and runtime." date={new Date('2025-09-26')} />
+					<PostRow href="#2" index={2} title="Make them portable" description="zero deps, plain classes, works in any framework." date={new Date('2025-09-25')} />
+					<PostRow href="#3" index={1} title="Ship as a library" description="dark default, FOUC-safe theme toggle." date={new Date('2025-09-24')} />
+				</ul>
+				<div class="cm-list-more"><a href="#">$ cat all →</a></div>
+			</section>
+
+			<section id="prose" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
+				<h2>prose</h2>
+				<div class="cm-prose">
+					<h2>A heading</h2>
+					<p>CLI mono is the design language: sharp, flat, mono, high-contrast, dark by default. Transitions are <code>0.12s</code>, corners stay square, and borders do the lifting.</p>
+					<blockquote>Only touch a line if you can explain why it moved. The layout must be stable between scrolling and non-scrolling pages.</blockquote>
+					<pre><code>{`:root { --maxw: 860px; --gutter: 1.25rem; }`}</code></pre>
+				</div>
+			</section>
+
+			<section id="readme" class="cm-section cm-section--pad">
+				<h2>usage</h2>
+				<div class="cm-term">
+					<div class="cm-term__bar">
+						<span class="cm-term__dot"></span><span class="cm-term__dot"></span><span class="cm-term__dot"></span>
+						<span class="cm-term__title">README</span>
+					</div>
+					<div class="cm-term__body">
+						<pre># cli-mono
+npm i -D cli-mono@workspace or copy src/ into your project.
+Include tokens.css, base.css, components.css and cli-mono.js.
+Astro: import Header/Footer/Head/PageHead/PostHead from 'cli-mono/astro'.</pre>
+					</div>
+				</div>
+			</section>
+		</main>
+		<Footer
+			items={['astro', 'static', 'zero deps']}
+			contactHref="mailto:omar@mrxlab.net"
+			status="all systems nominal — sig: static only"
+		/>
+
+	<!-- Runtime. Use a real script tag: a frontmatter import of a
+	     side-effect-only file gets tree-shaken out of the bundle. -->
+	<script src="../js/cli-mono.js"></script>
+	</body>
+	</html>
