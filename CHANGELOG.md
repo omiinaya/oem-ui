@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The showcase is reachable from the LAN. `dev` and `preview` now bind
+  `0.0.0.0` (set in both `astro.config.mjs` and the npm scripts) instead of
+  Astro's `127.0.0.1` default, which refused connections from any other
+  device. A contract test fails if either location loses the bind.
+
 ### Fixed
 
 - `pre` no longer widens the page on narrow viewports. A long line inside a

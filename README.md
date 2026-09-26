@@ -233,10 +233,25 @@ props, so one library serves many projects.
 
 ```bash
 npm install
-npm run dev       # showcase at :4321
+npm run dev       # showcase on the LAN at http://<lan-ip>:4321
 npm run build     # static build
-npm test          # contract tests (contrast, tokens, runtime, a11y)
+npm test          # contract tests (contrast, tokens, runtime, a11y, LAN bind)
 ```
+
+Both `dev` and `preview` bind `0.0.0.0`, so the showcase is reachable from any
+device on your network. Astro's default is `127.0.0.1`, which gives you a
+"connection refused" from a phone or laptop no matter what port you open, so
+the bind is set in `astro.config.mjs` **and** in the npm scripts, with a test
+that fails if either one loses it. Verify on the LAN IP, not localhost:
+
+```bash
+hostname -I | awk '{print $1}'                    # your LAN IP
+curl -s -o /dev/null -w '%{http_code}\n' http://$(hostname -I | awk '{print $1}'):4321/
+```
+
+This is a static showcase with no write routes and no credentials, so it is
+fine unauthenticated inside your own network. It is bound to the LAN only: no
+DNS record points at it and no port is forwarded on the router.
 
 The `showcase/` and `src/pages/index.astro` pages render every component, so
 `npm run build` is a real compile of the whole library.

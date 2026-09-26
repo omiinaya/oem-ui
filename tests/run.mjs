@@ -247,6 +247,20 @@ check('Head ships the FOUC guard before the stylesheet', () => {
 	assert(/stylesHref\s*&&\s*<link/.test(markup), 'stylesheet must be prop-driven, not hardcoded');
 });
 
+check('the showcase is LAN-reachable, not localhost-only', () => {
+	// Astro defaults to 127.0.0.1, which refuses connections from a
+	// phone or laptop on the LAN. The bind must be explicit in BOTH the
+	// config and the npm scripts, or one of them silently loses it.
+	const cfg = read('astro.config.mjs');
+	assert(/host:\s*true/.test(cfg), 'astro.config.mjs must set server.host = true');
+	const pkg = JSON.parse(read('package.json'));
+	assert(/-host\s+0\.0\.0\.0|--host\b/.test(pkg.scripts.dev), 'dev script must pass --host');
+	assert(
+		/-host\s+0\.0\.0\.0|--host\b/.test(pkg.scripts.preview),
+		'preview script must pass --host',
+	);
+});
+
 /* ================= docs ================= */
 console.log('\ndocs & license');
 for (const f of ['README.md', 'LICENSE', 'AGENTS.md', 'CLAUDE.md', 'CONTRIBUTING.md', 'CHANGELOG.md']) {

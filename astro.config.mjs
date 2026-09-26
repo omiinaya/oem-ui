@@ -9,4 +9,9 @@ export default defineConfig({
 	base: '/',
 	outDir: './dist',
 	build: { format: 'directory' },
+	// The dev/preview servers bind 0.0.0.0 so the showcase is reachable
+	// from any device on the LAN. Astro's default is 127.0.0.1, which
+	// means "connection refused" from a phone or laptop. The npm scripts
+	// also pass --host 0.0.0.0 for older Astro versions that ignore this.
+	server: { host: true },
 });
