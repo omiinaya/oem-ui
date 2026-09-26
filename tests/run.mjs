@@ -496,6 +496,34 @@ check('nav separators sit BETWEEN items, never before the first', () => {
 		'no adjacent-sibling separator rule — pipes are not scoped to between-items');
 });
 
+check('a drawn checkbox/radio stays square inside a flex row', () => {
+	// The row has min-height:var(--tap) so the LABEL is the tap target. A
+	// child with a fixed height in that row still got stretched: measured
+	// 17x44 (ratio 2.62) instead of 17x17, which read as a tall slab.
+	const base = read('src/styles/base.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	const r = /input\[type='checkbox'\],\s*input\[type='radio'\]\s*\{([^}]*)\}/.exec(base);
+	assert(r, 'checkbox/radio rule missing from base.css');
+	assert(/min-height:\s*0/.test(r[1]),
+		'checkbox/radio have no min-height:0 — the row stretches them into a slab');
+	assert(/aspect-ratio:\s*1/.test(r[1]),
+		'checkbox/radio do not declare aspect-ratio: 1, so square is a hope not a rule');
+});
+
+check('a control boundary clears WCAG 1.4.11 (3:1), not 1.4.11 (1.25:1)', () => {
+	// --line against the fieldset surface is 1.25:1: the unchecked box was
+	// literally invisible. A control's own edge is a UI boundary, not a
+	// decorative divider, so it must clear 3:1.
+	const base = read('src/styles/base.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	const m = /input\[type='checkbox'\],\s*input\[type='radio'\]\s*\{\s*border-color:\s*var\((--[a-z-]+)\)/.exec(base);
+	assert(m, 'checkbox/radio do not set an explicit border-color');
+	const tok = m[1];
+	assert(tok !== '--line',
+		`checkbox/radio border uses ${tok}, which is a decorative divider colour (< 3:1)`);
+	// And the token it does use must be one the WCAG suite already checks.
+	assert(/--(ink-dim|ink-faint|ink)/.test(tok),
+		`checkbox/radio border-color uses ${tok}, which is not a text-grade token`);
+});
+
 check('a sticky header reserves its height for anchor jumps', () => {
 	// position:sticky header above the content means a nav link lands the
 	// section heading underneath it: #buttons resolved to top:63px while

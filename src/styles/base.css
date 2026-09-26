@@ -259,6 +259,9 @@ input[type='radio'] {
 	appearance: none;
 	width: 1.05rem;
 	height: 1.05rem;
+	min-height: 0;          /* the row's min-height must not stretch it */
+	align-self: center;     /* belt and braces against a stretch parent */
+	aspect-ratio: 1;        /* a checkbox is square; state it, do not hope */
 	margin: 0;
 	flex: none;
 	font-family: var(--font-mono);
@@ -268,15 +271,38 @@ input[type='radio'] {
 }
 input[type='checkbox'] { border-radius: 3px; }
 input[type='radio'] { border-radius: 50%; }
+/* The control's own edge is a UI boundary, not a decorative divider, so it
+   must clear 3:1 (WCAG 1.4.11). --line is 1.4:1 against bg-2, which made
+   the unchecked state effectively invisible. */
+input[type='checkbox'],
+input[type='radio'] { border-color: var(--ink-dim); }
 input[type='checkbox']:checked,
 input[type='radio']:checked { background: var(--ink-dim); border-color: var(--ink-dim); }
-input[type='checkbox']:checked {
-	/* a tick, drawn with a rotated border so it needs no image or font */
-	box-shadow: inset 0 0 0 3px var(--bg-2);
-	background-image: linear-gradient(45deg, transparent 44%, var(--bg-2) 44%, var(--bg-2) 56%, transparent 56%),
-		linear-gradient(-45deg, transparent 44%, var(--bg-2) 44%, var(--bg-2) 56%, transparent 56%);
+/* The tick is a rotated pseudo-element, not two diagonal gradients: at a
+   17px box a 44-56% gradient band is ~2px, and combined with a 3px inset
+   shadow it left a dot instead of a tick. A rotated L has crisp edges and
+   needs no image, font or gradient. */
+input[type='checkbox']:checked,
+input[type='radio']:checked {
+	background: var(--ink-dim);
+	border-color: var(--ink-dim);
 }
-input[type='radio']:checked { box-shadow: inset 0 0 0 3px var(--bg-2); }
+input[type='checkbox']:checked::after {
+	content: '';
+	position: absolute;
+	left: 50%;
+	top: 46%;
+	width: 0.32rem;
+	height: 0.6rem;
+	border: solid var(--bg-2);
+	border-width: 0 2px 2px 0;
+	transform: translate(-50%, -50%) rotate(42deg);
+}
+input[type='checkbox'] { position: relative; }
+/* A checked radio keeps a ring: a filled disc with an inner punch-out. */
+input[type='radio']:checked {
+	box-shadow: inset 0 0 0 3.5px var(--bg-2);
+}
 
 /* the label is the tap target, so a phone-sized hit area is the text row */
 label { display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; }

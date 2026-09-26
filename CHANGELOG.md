@@ -34,6 +34,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Drawn checkboxes and radios stretched into slabs.** Inside a label row
+  carrying `min-height: var(--tap)`, a fixed-height child still stretched:
+  measured 17x44 (ratio 2.62) instead of 17x17. Now `min-height: 0`,
+  `align-self: center` and `aspect-ratio: 1`.
+- **The unchecked state was invisible.** `--line` against the fieldset
+  surface measured **1.25:1**; WCAG 1.4.11 requires 3:1 for a UI
+  component's own edge. Now `--ink-dim` at 6.88:1.
+- **The tick rendered as a dot.** Two 44-56% diagonal gradients inside a 3px
+  inset shadow left a ~2px band on a 17px box. Replaced with a rotated
+  pseudo-element.
+
 - **Checkboxes and radios fell back to Arial.** `appearance: none` removes the
   native control and its font, so every drawn box rendered in Arial inside an
   all-mono design system. They now set `font-family: var(--font-mono)`.
