@@ -10,7 +10,7 @@
  * checks execute the actual cli-mono.js runtime against a minimal fake DOM so a
  * regression in the theme logic fails the build.
  */
-import { readFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, statSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -703,6 +703,41 @@ console.log('\ndocs & license');
 for (const f of ['README.md', 'LICENSE', 'AGENTS.md', 'CLAUDE.md', 'CONTRIBUTING.md', 'CHANGELOG.md']) {
 	check(`ships ${f}`, () => assert(read(f).trim().length > 0, `${f} empty`));
 }
+
+/* ================= drift guard ================= */
+console.log('\ndrift guard');
+check('ships an executable drift checker', () => {
+	assert(exists('scripts/check-design-sync.sh'), 'scripts/check-design-sync.sh missing');
+	const st = statSync(join(root, 'scripts/check-design-sync.sh'));
+	assert(st.mode & 0o111, 'check-design-sync.sh is not executable');
+});
+
+check('the drift checker fails on a stale consumer', async () => {
+	// Prove the check CAN fail. A sync check that never fails is decoration:
+	// silent drift is how 177 lines stayed stale while the site kept building
+	// and rendering fine, and nobody noticed for a week.
+	const dir = mkdtempSync(join(tmpdir(), 'cm-drift-'));
+	try {
+		const inst = spawnSync('bash', [join(root, 'scripts/install.sh'), dir], { encoding: 'utf8' });
+		assert(inst.status === 0, `installer exited ${inst.status}: ${inst.stderr}`);
+		assert(/in sync/.test(
+			spawnSync('bash', [join(root, 'scripts/check-design-sync.sh'), dir], {
+				encoding: 'utf8', env: { ...process.env, OEM_UI_SRC: root },
+			}).stdout,
+		), 'a freshly installed consumer should report in sync');
+
+		// Break exactly one file, the way a hand-edit would.
+		writeFileSync(join(dir, 'src/styles/cli-mono/base.css'), '/* drift */\n');
+		const r = spawnSync('bash', [join(root, 'scripts/check-design-sync.sh'), dir], {
+			encoding: 'utf8', env: { ...process.env, OEM_UI_SRC: root },
+		});
+		assert(r.status === 1, `expected exit 1 on drift, got ${r.status}`);
+		assert(/STALE/.test(r.stdout), `expected STALE, got: ${r.stdout.trim()}`);
+		assert(/install\.sh/.test(r.stdout), 'output should name the fix command');
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
 
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {

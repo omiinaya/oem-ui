@@ -9,6 +9,22 @@ runtime, and optional Astro components you can copy in.
 
 ---
 
+## Keeping a consumer in sync
+
+Vendored files go stale silently — the site still builds, still renders,
+and just quietly keeps whatever bugs the library has already fixed. Check
+and fix with:
+
+```bash
+/root/projects/oem-ui/scripts/check-design-sync.sh          # scan every project
+/root/projects/oem-ui/scripts/check-design-sync.sh /path/to/site
+/root/projects/oem-ui/scripts/install.sh /path/to/site      # re-install
+```
+
+`check-design-sync.sh` exits 1 on drift and names the fix command. Run it
+in CI if you can; until then, run it after any change to the three CSS
+layers or the runtime.
+
 ## Why this exists
 
 A good-looking design that lives inside one project is a design you have to

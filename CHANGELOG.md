@@ -21,6 +21,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`scripts/check-design-sync.sh`** — detects when a consumer project's
+  vendored files drift from oem-ui source. With no arguments it scans every
+  project under `/root/projects`; given paths it checks those. Exits 1 and
+  names the fix command. Covered by two tests, both mutation-checked: the
+  checker is executable, and it *fails* on a deliberately broken consumer.
+
+  This exists because drift is silent. oem-links kept building and rendering
+  fine for a week while 177 lines stayed stale, so every fix made in oem-ui
+  after the initial migration was invisible there.
+
 - **Layout regression tests.** The page had two left rails (content at 40px,
   header at 20px) because `main` reserves the gutter in `max-width` and then
   adds horizontal padding on top. Six new tests assert one left rail, one
