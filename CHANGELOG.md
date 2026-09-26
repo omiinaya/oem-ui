@@ -34,6 +34,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The drawn checkbox/radio still stretched on iOS.** Verified in real
+  WebKit (the iOS engine) rather than Chromium: the box measured
+  16.8×44, ratio 0.38 — a clear oval. `min-height: 0`, `align-self: center`
+  and `aspect-ratio: 1` pin it to a square mark. The label row keeps the
+  44px tap target; the control is the mark, the row is the target.
+- `-webkit-appearance: none` now sits alongside `appearance: none`; the
+  bare alias is ignored by older WebKit for form controls.
+
 - **Drawn checkboxes and radios stretched into slabs.** Inside a label row
   carrying `min-height: var(--tap)`, a fixed-height child still stretched:
   measured 17x44 (ratio 2.62) instead of 17x17. Now `min-height: 0`,

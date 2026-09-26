@@ -220,6 +220,9 @@ textarea { min-height: calc(var(--tap) * 2); resize: vertical; }
 select {
 	/* The native arrow is drawn for the platform, not for a mono UI, and
 	   it disappears against a dark surface. */
+	/* WebKit honours -webkit-appearance on form controls; bare `appearance`
+	   is an alias older WebKit ignores, so it would draw the native control. */
+	-webkit-appearance: none;
 	appearance: none;
 	background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
 		linear-gradient(135deg, currentColor 50%, transparent 50%);
@@ -256,12 +259,22 @@ select[aria-invalid='true'] {
    fallback is Arial, which is wrong for this design system. */
 input[type='checkbox'],
 input[type='radio'] {
+	/* -webkit-appearance is the property WebKit actually honours on a form
+	   control; the bare `appearance` alias is ignored by older WebKit, so
+	   the native widget painted OVER the drawn one on iOS Safari. */
+	-webkit-appearance: none;
 	appearance: none;
-	width: 1.05rem;
-	height: 1.05rem;
-	min-height: 0;          /* the row's min-height must not stretch it */
-	align-self: center;     /* belt and braces against a stretch parent */
-	aspect-ratio: 1;        /* a checkbox is square; state it, do not hope */
+	--cm-box: 1.05rem;
+	width: var(--cm-box);
+	height: var(--cm-box);
+	min-width: var(--cm-box);
+	/* The label row carries min-height:var(--tap) so the ROW is the tap
+	   target. Without these, that min-height stretches the box: measured
+	   16.8x44 (ratio 0.38, a clear oval) in real WebKit at 390px. The
+	   controls are square marks; the row is the target. */
+	min-height: 0;
+	align-self: center;
+	aspect-ratio: 1;
 	margin: 0;
 	flex: none;
 	font-family: var(--font-mono);
@@ -270,7 +283,11 @@ input[type='radio'] {
 	cursor: pointer;
 }
 input[type='checkbox'] { border-radius: 3px; }
-input[type='radio'] { border-radius: 50%; }
+/* Half the box in px, not 50%. WebKit resolves a percentage radius against
+   the border box, so a 1px border on a 16.8px control rounds the curve
+   unevenly and the circle paints as an OVAL on iOS Safari. A fixed px
+   radius has no percentage to mis-resolve. */
+input[type='radio'] { border-radius: calc(var(--cm-box) / 2); }
 /* The control's own edge is a UI boundary, not a decorative divider, so it
    must clear 3:1 (WCAG 1.4.11). --line is 1.4:1 against bg-2, which made
    the unchecked state effectively invisible. */

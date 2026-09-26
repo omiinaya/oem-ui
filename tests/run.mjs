@@ -524,6 +524,30 @@ check('a control boundary clears WCAG 1.4.11 (3:1), not 1.4.11 (1.25:1)', () => 
 		`checkbox/radio border-color uses ${tok}, which is not a text-grade token`);
 });
 
+check('the radio radius is a FIXED px value, not 50%', () => {
+	// WebKit (the iOS engine) painted an oval from a percentage radius on
+	// this replaced element. A fixed px radius cannot drift, so the rule
+	// must not go back to 50%.
+	const base = read('src/styles/base.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	// Selectors are comma-separated, so `input[type='radio']:checked` is one
+	// rule and `input[type='radio'] { ... }` is another. Collect every
+	// declaration block whose selector mentions the radio.
+	const radioRules = [...base.matchAll(/([^{}]*input\[type='radio'\][^{}]*)\{([^}]*)\}/g)]
+		.map(m => m[2]).join('\n');
+	assert(radioRules.length > 0, 'no input[type=radio] rule found');
+	// The radius is derived from the box, not hardcoded, so the two can
+	// never drift apart. What matters is that it is a LENGTH: a percentage
+	// is what WebKit rendered as an oval.
+	assert(/border-radius:\s*calc\(var\(--cm-box\)\s*\/\s*2\)/.test(radioRules),
+		`radio radius must be calc(var(--cm-box) / 2); found: ${radioRules.trim()}`);
+	assert(!/border-radius:\s*50%/.test(radioRules),
+		'radio radius is a percentage; WebKit renders that oval');
+	// -webkit-appearance is the property WebKit actually honours for form
+	// controls; bare `appearance` is an alias older WebKit ignores.
+	assert(/-webkit-appearance:\s*none/.test(base),
+		'missing -webkit-appearance:none — WebKit would draw the native control');
+});
+
 check('a sticky header reserves its height for anchor jumps', () => {
 	// position:sticky header above the content means a nav link lands the
 	// section heading underneath it: #buttons resolved to top:63px while
