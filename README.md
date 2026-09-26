@@ -21,29 +21,41 @@ any project can adopt:
 
 ## Install
 
-### Option A — copy the files (recommended for a repo that owns its stack)
+The repo is **private** and **not published to npm**, so the two paths below
+are the only ones that work today. Everything on this fleet is local, so the
+installer is the default.
+
+### Option A — the installer (recommended)
 
 ```bash
-curl -sL https://raw.githubusercontent.com/omiinaya/cli-mono/main/src/styles/tokens.css     -o src/styles/cli-mono/tokens.css
-curl -sL https://raw.githubusercontent.com/omiinaya/cli-mono/main/src/styles/base.css       -o src/styles/cli-mono/base.css
-curl -sL https://raw.githubusercontent.com/omiinaya/cli-mono/main/src/styles/components.css -o src/styles/cli-mono/components.css
-curl -sL https://raw.githubusercontent.com/omiinaya/cli-mono/main/src/js/cli-mono.js        -o src/js/cli-mono.js
+/root/projects/cli-mono/scripts/install.sh <your-project-dir>
 ```
 
-Copying beats installing: the library is ~25KB of CSS and ~7KB of JS, it will
-never change under you, and there is no version to track.
-
-### Option B — install as a package
+Copies the four files into `<your-project-dir>` in one fixed layout, so every
+project on the fleet ends up with identical paths. Idempotent — re-run it any
+time to pull the current library.
 
 ```bash
-npm i cli-mono
+# for a project that serves static files from a flat dir
+/root/projects/cli-mono/scripts/install.sh <your-project-dir> --flat
 ```
 
-```js
-import 'cli-mono/styles/tokens.css';
-import 'cli-mono/styles/base.css';
-import 'cli-mono/styles/components.css';
+### Option B — copy the files by hand
+
+```bash
+cp -r /root/projects/cli-mono/src/styles <your-project>/src/
+cp /root/projects/cli-mono/src/js/cli-mono.js <your-project>/src/js/
 ```
+
+### Not available yet
+
+- `curl https://raw.githubusercontent.com/...` returns **404** — a private
+  repo is not readable anonymously. The README used to document this; it was
+  wrong and the install silently produced nothing.
+- `npm i cli-mono` returns **404** — never published. Publishing would also
+  make the repo public, which is a deliberate choice, not an oversight.
+
+Both become live the day this repo goes public, with no code change.
 
 ### Wire it up
 

@@ -10,18 +10,30 @@
  * checks execute the actual cli-mono.js against a minimal fake DOM so a
  * regression in the theme logic fails the build.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import vm from 'node:vm';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const read = (p) => readFileSync(join(root, p), 'utf8');
+const read = (p) => readFileSync(isAbsolute(p) ? p : join(root, p), 'utf8');
+// `exists` accepts absolute paths as-is; only relative ones resolve against
+// the repo root, so the installer test can point at a temp dir.
+const exists = (p) => existsSync(isAbsolute(p) ? p : join(root, p));
 
 let passed = 0;
 const failures = [];
+const pending = [];
 
+// Checks may be async (installer tests shell out); queue them and drain at
+// the end so a slow test does not interleave with the rest of the output.
 function check(name, fn) {
+	if (fn.constructor.name === 'AsyncFunction') {
+		pending.push([name, fn]);
+		return;
+	}
 	try {
 		const r = fn();
 		if (r === false) throw new Error('returned false');
@@ -261,6 +273,55 @@ check('the showcase is LAN-reachable, not localhost-only', () => {
 	);
 });
 
+check('the install docs only promise paths that actually work', () => {
+	const readme = read('README.md');
+	// The repo is private and unpublished, so raw.githubusercontent and npm
+	// both 404. Documenting them as the install path ships a silent no-op.
+	const shell = readme.slice(readme.indexOf('## Install'), readme.indexOf('## Layers'));
+	// A curl inside a ```bash fence is a prescription; the same string in
+	// prose ("returns 404") is a warning. Only flag fenced shell lines.
+	const fences = [...readme.matchAll(/```bash\n([\s\S]*?)```/g)].map(m => m[1]);
+	const prescribesCurl = fences.some(b => /curl[^|]*raw\.githubusercontent/.test(b));
+	assert(!prescribesCurl,
+		'Install prescribes a curl from raw.githubusercontent (404 while private)');
+	const npmLine = /npm i cli-mono/.test(shell);
+	assert(npmLine === false || /not available|404|unpublished/i.test(shell),
+		'Install recommends `npm i cli-mono` without saying it is unpublished');
+	// The installer is the real path, and it must exist and be executable.
+	assert(/scripts\/install\.sh/.test(shell), 'Install does not mention scripts/install.sh');
+	assert(exists('scripts/install.sh'), 'scripts/install.sh is missing');
+	assert(/^#!/.test(read('scripts/install.sh')), 'install.sh has no shebang');
+	// The default branch is master; docs pointing at `main` 404 even once public.
+	assert(!/githubusercontent\.com\/omiinaya\/cli-mono\/main\//.test(readme),
+		'README points at branch `main` but the default branch is `master`');
+});
+
+check('the installer lands byte-identical files in a fixed layout', async () => {
+	// Run the real installer into a temp dir and diff against the source.
+	const dir = mkdtempSync(join(tmpdir(), 'cm-install-'));
+	try {
+		const r = spawnSync('bash', [join(root, 'scripts/install.sh'), dir], { encoding: 'utf8' });
+		assert(r.status === 0, `installer exited ${r.status}: ${r.stderr}`);
+		for (const f of ['tokens.css', 'base.css', 'components.css']) {
+			const got = join(dir, 'src/styles/cli-mono', f);
+			assert(exists(got), `${f} not installed at the documented path`);
+			assert(read(got) === read(`src/styles/${f}`), `${f} differs from source`);
+		}
+		const js = join(dir, 'src/js/cli-mono.js');
+		assert(read(js) === read('src/js/cli-mono.js'), 'cli-mono.js differs from source');
+
+		// --flat is what a plain HTML project uses; it must not nest under src/.
+		const flat = mkdtempSync(join(tmpdir(), 'cm-flat-'));
+		try {
+			const r2 = spawnSync('bash', [join(root, 'scripts/install.sh'), flat, '--flat'],
+				{ encoding: 'utf8' });
+			assert(r2.status === 0, `flat install exited ${r2.status}: ${r2.stderr}`);
+			assert(exists(join(flat, 'cli-mono/tokens.css')), '--flat put CSS in the wrong place');
+			assert(exists(join(flat, 'cli-mono.js')), '--flat put JS in the wrong place');
+		} finally { rmSync(flat, { recursive: true, force: true }); }
+	} finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 check('mobile ergonomics live in the base layer, not per-component', () => {
 	// A new component must inherit touch targets and the type floor by
 	// existing, not by remembering to opt in. So the rules belong in the
@@ -393,6 +454,18 @@ check('the header is styled in the shared layer, not scoped in the Astro file', 
 console.log('\ndocs & license');
 for (const f of ['README.md', 'LICENSE', 'AGENTS.md', 'CLAUDE.md', 'CONTRIBUTING.md', 'CHANGELOG.md']) {
 	check(`ships ${f}`, () => assert(read(f).trim().length > 0, `${f} empty`));
+}
+
+/* ================= async checks (installer) ================= */
+for (const [name, fn] of pending.splice(0)) {
+	try {
+		await fn();
+		passed++;
+		console.log(`  ok  ${name}`);
+	} catch (e) {
+		failures.push([name, e.message]);
+		console.log(`FAIL  ${name}\n        ${e.message}`);
+	}
 }
 
 /* ================= result ================= */

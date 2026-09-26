@@ -13,8 +13,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `0.0.0.0` (set in both `astro.config.mjs` and the npm scripts) instead of
   Astro's `127.0.0.1` default, which refused connections from any other
   device. A contract test fails if either location loses the bind.
+- Mobile ergonomics belong to the shared layer. On coarse pointers every
+  text-bearing component now floors at `--min-font` (12px) and interactive
+  targets meet `--tap` (44px), so a new component inherits both by existing
+  rather than by remembering to opt in. The floor is checked exhaustively:
+  any selector declaring text under 12px must be covered, so the next
+  small-text component cannot ship unfloored.
+- `tests/mobile-check.html`, a dev-only harness that renders the built
+  showcase at four device widths at once.
+
+### Changed
+
+- The header is styled in `components.css` rather than inside
+  `Header.astro`'s `<style>` block. With the CSS scoped to the Astro file,
+  every other framework got an unstyled header — the exact opposite of a
+  reusable system. A test fails if the rules appear in both layers.
 
 ### Fixed
+
+- The kicker's `~/` prefix rendered as `~ /`. The parent's `letter-spacing`
+  is inherited by generated content, so tracking was applied between the two
+  glyphs; the pseudo-element now zeroes it and restores the same gap as a
+  margin, so the space after the prefix still matches the rest of the line.
+- Inline `code` inside prose and key-value lists rendered at 11.81px on a
+  phone. It is sized in `em`, which compounds below the floor, and was not
+  matched by the `pre > code` rule; it is now floored at its definition.
 
 - `pre` no longer widens the page on narrow viewports. A long line inside a
   flex or grid column stretched the document instead of scrolling inside the
