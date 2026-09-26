@@ -118,8 +118,12 @@ import { SITE } from '../astro/config';
 						<legend>visibility</legend>
 						<label><input type="checkbox" checked /> listed in nav</label>
 						<label><input type="checkbox" /> pinned</label>
-						<label><input type="radio" name="f-vis" checked /> public</label>
-						<label><input type="radio" name="f-vis" /> unlisted</label>
+					</fieldset>
+
+					<fieldset class="cm-field">
+						<legend>access</legend>
+						<label><input type="radio" name="f-access" checked /> public</label>
+						<label><input type="radio" name="f-access" /> unlisted</label>
 					</fieldset>
 
 					<div class="cm-form__actions">
@@ -133,7 +137,7 @@ import { SITE } from '../astro/config';
 				<h2>prose</h2>
 				<div class="cm-prose">
 					<h2>A heading</h2>
-					<p>CLI mono is the design language: sharp, flat, mono, high-contrast, dark by default. Transitions are <code>0.12s</code>, corners stay square, and borders do the lifting.</p>
+					<p>oem-ui is the design language: sharp, flat, mono, high-contrast, dark by default. Transitions are <code>0.12s</code>, corners stay square, and borders do the lifting.</p>
 					<blockquote>Only touch a line if you can explain why it moved. The layout must be stable between scrolling and non-scrolling pages.</blockquote>
 					<pre><code>{`:root { --maxw: 860px; --gutter: 1.25rem; }`}</code></pre>
 				</div>

@@ -236,7 +236,11 @@ select[aria-invalid='true'] {
 	border-width: 2px;
 }
 
-/* checkbox / radio: a square or circle, drawn rather than native */
+/* checkbox / radio: a square or circle, drawn rather than native.
+   The drawn box stays small on purpose (it is a mark, not a target);
+   the LABEL is the tap target, so the box is centred inside a 44px
+   hit area via a transparent border. Without an inherited font the
+   fallback is Arial, which is wrong for this design system. */
 input[type='checkbox'],
 input[type='radio'] {
 	appearance: none;
@@ -244,6 +248,7 @@ input[type='radio'] {
 	height: 1.05rem;
 	margin: 0;
 	flex: none;
+	font-family: var(--font-mono);
 	border: 1px solid var(--line);
 	background: var(--bg-2);
 	cursor: pointer;

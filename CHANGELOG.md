@@ -21,6 +21,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Checkbox/radio tap targets.** The drawn box is ~17px by design (it is a
+  mark, not a target), but the row around it was only 17px tall too. The
+  `.cm-field label` now has `min-height: var(--tap)`, so the whole row is a
+  44px target on touch.
+
+### Fixed
+
+- **Checkboxes and radios fell back to Arial.** `appearance: none` removes the
+  native control and its font, so every drawn box rendered in Arial inside an
+  all-mono design system. They now set `font-family: var(--font-mono)`.
+- **Nav links hid their own headings.** The header is `position: sticky` with
+  a z-index above the content, so jumping to `#buttons` resolved to top:63px
+  while the header bottom was 61px — the heading rendered underneath it.
+  `html` now has `scroll-padding-top` driven by a real `--header-h` token
+  that the runtime publishes from the measured header via a `ResizeObserver`
+  (the header wraps to two rows on a phone: 165px vs 61px, so no static value
+  is correct).
+- **The demo form mixed input types in one fieldset.** "listed in nav" and
+  "pinned" are checkboxes while "public" and "unlisted" were radios in the
+  same fieldset, implying a relationship that does not exist. Split into
+  `visibility` (checkboxes) and `access` (radios).
+
+
 - **Form controls.** `input`, `textarea`, `select`, `label`, `fieldset` and
   `legend` are now element defaults in `base.css`, so a bare `<input>` with
   no class is already on-brand — which is the form every one of the 59

@@ -382,6 +382,69 @@ check('the installer lands byte-identical files in a fixed layout', async () => 
 	} finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+check('checkbox and radio rows are real tap targets, and on-brand', () => {
+	// The drawn box is ~17px because appearance:none removes the native
+	// control. That is fine for a MARK, but the tap target is the label.
+	// Measured on a phone: without min-height the whole row is 17px.
+	const comp = read('src/styles/components.css');
+	const labelRule = /\.cm-field label\s*\{([^}]*)\}/.exec(comp);
+	assert(labelRule, '.cm-field label rule is missing (checkbox rows lose their tap target)');
+	assert(/min-height:\s*var\(--tap\)/.test(labelRule[1]),
+		'.cm-field label has no min-height: var(--tap) — the checkbox row is not a 44px target');
+
+	// appearance:none drops the native widget AND its font, so the box
+	// silently falls back to Arial in an all-mono design system.
+	const base = read('src/styles/base.css');
+	const boxRule = /input\[type='checkbox'\],\s*input\[type='radio'\]\s*\{([^}]*)\}/.exec(base);
+	assert(boxRule, 'checkbox/radio rule not found in base.css');
+	assert(/font-family:\s*var\(--font-mono\)/.test(boxRule[1]),
+		'checkbox/radio do not inherit the mono font — they fall back to Arial');
+});
+
+check('the demo form does not mix checkbox and radio in one fieldset', () => {
+	// A fieldset is one question. Showing "listed in nav" (checkbox) beside
+	// "public" (radio) implied a relationship that does not exist.
+	const page = read('src/pages/index.astro');
+	for (const fs of page.matchAll(/<fieldset[^>]*>([\s\S]*?)<\/fieldset>/g)) {
+		const types = new Set([...fs[1].matchAll(/type="(checkbox|radio)"/g)].map(m => m[1]));
+		assert(types.size <= 1,
+			`a fieldset mixes ${[...types].join(' and ')}; split it into two questions`);
+	}
+});
+
+check('a fieldset with a choice must have a legend', () => {
+	// An unlabelled radio group is unusable with a screen reader; the
+	// legend is what names the question.
+	const page = read('src/pages/index.astro');
+	for (const fs of page.matchAll(/<fieldset([^>]*)>([\s\S]*?)<\/fieldset>/g)) {
+		if (!/type="(checkbox|radio)"/.test(fs[2])) continue;
+		assert(/<legend>/.test(fs[2]),
+			`a fieldset with choices has no <legend>: ${fs[1].trim().slice(0, 60)}`);
+	}
+});
+
+check('a sticky header reserves its height for anchor jumps', () => {
+	// position:sticky header above the content means a nav link lands the
+	// section heading underneath it: #buttons resolved to top:63px while
+	// the header bottom was 61px.
+	const comp = read('src/styles/components.css');
+	assert(/html\s*\{[^}]*scroll-padding-top/.test(comp),
+		'no scroll-padding-top on html — sticky header covers anchor targets');
+
+	// The height is dynamic: the header wraps to two rows on a phone (165px)
+	// vs one on a desktop (61px), so a static token in CSS would be wrong.
+	const js = read('src/js/cli-mono.js');
+	assert(/--header-h/.test(js),
+		'runtime never publishes --header-h, so scroll-padding-top falls back to a guess');
+	// Strip comments first: the word "ResizeObserver" appears in a comment,
+	// so a bare regex passed even with the observer removed.
+	const jsCode = js.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+	assert(/new\s+ResizeObserver\([^)]*\)\.observe\(/.test(jsCode),
+		'--header-h is set once at init and never updated on resize');
+	assert(/window\.addEventListener\(\s*['"]resize['"]/.test(jsCode),
+		'no resize listener either — the header height can never be refreshed');
+});
+
 check('mobile ergonomics live in the base layer, not per-component', () => {
 	// A new component must inherit touch targets and the type floor by
 	// existing, not by remembering to opt in. So the rules belong in the

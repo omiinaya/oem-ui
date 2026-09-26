@@ -82,6 +82,19 @@
 			header.classList.toggle('is-scrolled', window.scrollY > 4);
 			ticking = false;
 		}
+		/* Publish the header's real height so CSS can reserve that space
+		   for anchor jumps. The header WRAPS to two rows on a phone (165px)
+		   and is 61px on a desktop, so a static token cannot be right. */
+		function publishHeight() {
+			var h = Math.round(header.getBoundingClientRect().height);
+			if (h > 0) document.documentElement.style.setProperty('--header-h', h + 'px');
+		}
+		publishHeight();
+		if (typeof ResizeObserver === 'function') {
+			new ResizeObserver(publishHeight).observe(header);
+		} else {
+			window.addEventListener('resize', publishHeight, { passive: true });
+		}
 		window.addEventListener(
 			'scroll',
 			function () {

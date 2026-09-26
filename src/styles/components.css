@@ -165,6 +165,16 @@
 .cm-status--warn .cm-status__value::before { content: '▲ '; color: var(--ink-dim); }
 .cm-status--err .cm-status__value::before { content: '✕ '; color: var(--ink); }
 
+/* ---------- sticky-header anchor offset ----------
+   The header is position:sticky above the content, so a nav link would
+   otherwise land its section heading UNDERNEATH it: #buttons resolved
+   to top:63px while the header bottom was 61px. scroll-padding-top on
+   the scroll container reserves that space for EVERY anchor jump,
+   including scrollIntoView, and does nothing during normal scrolling. */
+html {
+	scroll-padding-top: calc(var(--header-h, 4rem) + 1.5rem);
+}
+
 /* ---------- list index / list-head ---------- */
 .cm-list-head {
 	font-size: 0.7rem;
@@ -567,6 +577,16 @@
 	color: var(--ink-dim);
 }
 .cm-field__req { color: var(--ink-faint); }
+/* A checkbox/radio row: the LABEL is the tap target, because the drawn
+   box is only ~17px. Without a min-height here the whole row is a small
+   target, which is the classic touch failure. */
+.cm-field label {
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+	min-height: var(--tap);
+	cursor: pointer;
+}
 .cm-field__help {
 	font-size: max(var(--min-font), 0.78rem);
 	color: var(--ink-faint);
