@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The project is now `oem-ui`.** Renamed from `cli-mono` (GitHub
+  `omiinaya/cli-mono` → `omiinaya/oem-ui`, local `/root/projects/cli-mono` →
+  `/root/projects/oem-ui`, `package.json` name, all docs, and the showcase
+  copy). The design system itself is unchanged: the `.cm-*` class prefix, the
+  `cm-theme` storage key and the installed paths `src/styles/cli-mono/` +
+  `src/js/cli-mono.js` are deliberately NOT renamed yet, because oem-links is
+  live on them. Renaming the prefix is a separate, later pass.
+  `/root/projects/cli-mono` remains as a symlink to the new path so existing
+  references keep resolving.
+
 ### Added
 
 - **Form controls.** `input`, `textarea`, `select`, `label`, `fieldset` and
@@ -27,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   device. A contract test fails if either location loses the bind.
 - `scripts/install.sh`. The repo is private and unpublished, so every
   install path the README documented was a 404: `raw.githubusercontent` is
-  not readable anonymously, `npm i cli-mono` was never published, and the
+  not readable anonymously, `npm i oem-ui` was never published, and the
   URLs pointed at branch `main` while the default branch is `master`.
   The installer copies the four files into one fixed layout (`--flat` for
   projects serving from a static dir), idempotently, and two tests keep the

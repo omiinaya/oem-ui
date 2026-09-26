@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * cli-mono contract tests.
+ * oem-ui contract tests.
  *
  * These are real assertions, not a smoke test: each one FAILS if the
  * library is broken. Run with `npm test`.
  *
  * The CSS checks are structural (tokens declared, components defined,
  * contrast computed from the real hex values in tokens.css). The runtime
- * checks execute the actual cli-mono.js against a minimal fake DOM so a
+ * checks execute the actual cli-mono.js runtime against a minimal fake DOM so a
  * regression in the theme logic fails the build.
  */
 import { readFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
@@ -344,9 +344,9 @@ check('the install docs only promise paths that actually work', () => {
 	const prescribesCurl = fences.some(b => /curl[^|]*raw\.githubusercontent/.test(b));
 	assert(!prescribesCurl,
 		'Install prescribes a curl from raw.githubusercontent (404 while private)');
-	const npmLine = /npm i cli-mono/.test(shell);
+	const npmLine = /npm i oem-ui/.test(shell);
 	assert(npmLine === false || /not available|404|unpublished/i.test(shell),
-		'Install recommends `npm i cli-mono` without saying it is unpublished');
+		'Install recommends `npm i oem-ui` without saying it is unpublished');
 	// The installer is the real path, and it must exist and be executable.
 	assert(/scripts\/install\.sh/.test(shell), 'Install does not mention scripts/install.sh');
 	assert(exists('scripts/install.sh'), 'scripts/install.sh is missing');

@@ -1,5 +1,5 @@
 /**
- * cli-mono site config — the ONE place to set your identity.
+ * oem-ui site config — the ONE place to set your identity.
  * Copy to src/config.ts in your project and edit.
  */
 

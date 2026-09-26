@@ -1,4 +1,4 @@
-# cli-mono
+# oem-ui
 
 A mono/terminal design system extracted from [oem/log](https://log.oem.ngo).
 
@@ -28,7 +28,7 @@ installer is the default.
 ### Option A — the installer (recommended)
 
 ```bash
-/root/projects/cli-mono/scripts/install.sh <your-project-dir>
+/root/projects/oem-ui/scripts/install.sh <your-project-dir>
 ```
 
 Copies the four files into `<your-project-dir>` in one fixed layout, so every
@@ -37,14 +37,14 @@ time to pull the current library.
 
 ```bash
 # for a project that serves static files from a flat dir
-/root/projects/cli-mono/scripts/install.sh <your-project-dir> --flat
+/root/projects/oem-ui/scripts/install.sh <your-project-dir> --flat
 ```
 
 ### Option B — copy the files by hand
 
 ```bash
-cp -r /root/projects/cli-mono/src/styles <your-project>/src/
-cp /root/projects/cli-mono/src/js/cli-mono.js <your-project>/src/js/
+cp -r /root/projects/oem-ui/src/styles <your-project>/src/
+cp /root/projects/oem-ui/src/js/cli-mono.js <your-project>/src/js/
 ```
 
 ### Not available yet
@@ -52,7 +52,7 @@ cp /root/projects/cli-mono/src/js/cli-mono.js <your-project>/src/js/
 - `curl https://raw.githubusercontent.com/...` returns **404** — a private
   repo is not readable anonymously. The README used to document this; it was
   wrong and the install silently produced nothing.
-- `npm i cli-mono` returns **404** — never published. Publishing would also
+- `npm i oem-ui` returns **404** — never published. Publishing would also
   make the repo public, which is a deliberate choice, not an oversight.
 
 Both become live the day this repo goes public, with no code change.

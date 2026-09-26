@@ -1,4 +1,4 @@
-# Contributing to cli-mono
+# Contributing to oem-ui
 
 ## The one rule
 

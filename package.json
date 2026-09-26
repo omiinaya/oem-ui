@@ -1,5 +1,5 @@
 {
-  "name": "cli-mono",
+  "name": "oem-ui",
   "version": "0.1.0",
   "description": "Mono/terminal design system extracted from oem/log. Zero-dependency CSS + JS, optional Astro components.",
   "type": "module",

@@ -5,7 +5,7 @@ import { defineConfig } from 'astro/config';
 // Everything it renders comes out of ./src (the library itself), so a
 // successful `npm run build` is a real compile of every component.
 export default defineConfig({
-	site: 'https://cli-mono.example.com',
+	site: 'https://oem-ui.example.com',
 	base: '/',
 	outDir: './dist',
 	build: { format: 'directory' },

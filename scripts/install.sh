@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# cli-mono installer — copies the design system into a target project.
+# oem-ui installer — copies the design system into a target project.
 #
 # The repo is PRIVATE, so the raw.githubusercontent.com and npm paths in the
 # README do not work for an anonymous consumer. Everything on this fleet is
 # local, so the default source is a path on disk.
 #
-#   scripts/install.sh <target-project-dir> [--from <path-to-cli-mono>]
+#   scripts/install.sh <target-project-dir> [--from <path-to-oem-ui>]
 #
 # Layout it creates (identical in every project, so paths never vary):
 #
@@ -40,14 +40,14 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-[ -n "$TARGET" ] || die "usage: install.sh <target-project-dir> [--from <cli-mono-path>] [--flat]"
+[ -n "$TARGET" ] || die "usage: install.sh <target-project-dir> [--from <oem-ui-path>] [--flat]"
 
 # Default source: the checkout this script lives in, resolved through any
 # symlinks so a /root/projects -> thunder tree still finds the real files.
 if [ -z "$FROM" ]; then
   FROM="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 fi
-[ -d "$FROM/src/styles" ] || die "not a cli-mono checkout: $FROM"
+[ -d "$FROM/src/styles" ] || die "not an oem-ui checkout: $FROM"
 
 TARGET="$(mkdir -p "$TARGET" && cd "$TARGET" && pwd)"
 
