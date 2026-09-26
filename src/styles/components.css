@@ -511,8 +511,14 @@
    The micro-labels above are set in this layer, so the floor has to be
    applied HERE, not in base.css: components.css loads after base.css and
    would outrank a floor declared there. --min-font is 12px because a
-   ~10.5px monospace label is unreadable on a phone. */
-@media (max-width: 680px) {
+   ~10.5px monospace label is unreadable on a phone.
+
+   The condition is `pointer: coarse`, matching the tap-target block in
+   base.css. It was width-based (max-width: 680px) at first, which missed
+   a touch tablet in landscape — 768px wide but still a finger. A small
+   phone and a large phone are both coarse pointers; a 680px slice of a
+   desktop window is not. Found by adopting the library in oem/links. */
+@media (pointer: coarse), (max-width: 680px) {
 	.cm-status__label,
 	.cm-list-head,
 	.cm-term__bar,

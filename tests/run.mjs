@@ -274,6 +274,7 @@ check('the showcase is LAN-reachable, not localhost-only', () => {
 });
 
 check('form controls are element defaults, so a bare input is on-brand', () => {
+	const comp = read('src/styles/components.css');
 	// 59 files across the fleet use an <input>; none of them had a class on
 	// it. If these are scoped to .cm-* they would still re-declare the field.
 	const b = read('src/styles/base.css');
@@ -309,8 +310,18 @@ check('form controls are element defaults, so a bare input is on-brand', () => {
 	// and the state is visible without relying on hue (the palette is grey)
 	assert(/border-width:\s*2px/.test(invRule), 'invalid state has no non-hue cue');
 
+	// The floor and the tap block must key off the SAME condition. The
+	// floor was width-based (max-width: 680px) and the tap block is
+	// pointer-based, so a touch tablet in landscape got 44px targets and
+	// 11px text. Found by adopting the library in oem/links.
+	const floorQuery = (comp.match(/@media ([^{]+)\{\s*\n\s*\.cm-status__label/) || [])[1];
+	assert(floorQuery, 'cannot find the mobile type floor media query');
+	assert(/pointer:\s*coarse/.test(floorQuery),
+		`the type floor keys off "${floorQuery.trim()}" but the tap block uses pointer:coarse — a landscape tablet would get big targets and tiny text`);
+	assert(/max-width/.test(floorQuery),
+		'the type floor should also apply on a narrow desktop window');
+
 	// the components layer owns the layout, the base layer owns the control
-	const comp = read('src/styles/components.css');
 	for (const sel of ['.cm-field', '.cm-field__label', '.cm-form__actions']) {
 		assert(comp.includes(sel), `${sel} is missing from the components layer`);
 	}
