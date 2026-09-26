@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Layout regression tests.** The page had two left rails (content at 40px,
+  header at 20px) because `main` reserves the gutter in `max-width` and then
+  adds horizontal padding on top. Six new tests assert one left rail, one
+  corner radius per surface, no doubled card padding, hanging indents, no
+  mid-identifier wrapping, and nav separators between items only.
+
 - **Checkbox/radio tap targets.** The drawn box is ~17px by design (it is a
   mark, not a target), but the row around it was only 17px tall too. The
   `.cm-field label` now has `min-height: var(--tap)`, so the whole row is a

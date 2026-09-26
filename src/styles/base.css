@@ -42,8 +42,11 @@ main,
 	margin: 0 auto;
 	/* no top padding: --head-top (on the head block) is the single
 	   source for vertical start position. Padding here too would double it
-	   and put the post page out of line with the rest. */
-	padding: 0 var(--gutter) 6rem;
+	   and put the post page out of line with the rest.
+	   NO horizontal padding: the max-width already reserves the gutter,
+	   so padding it too put content at 40px while the header sat at 20px.
+	   Two left rails is a bug, not a design choice. */
+	padding: 0 0 6rem;
 }
 
 a {
@@ -65,7 +68,12 @@ h1 { font-size: 2.1rem; }
 h2 { font-size: 1.45rem; margin-top: 2em; }
 h3 { font-size: 1.2rem; margin-top: 1.6em; }
 
-p { margin: 0 0 1.1em; }
+p {
+	margin: 0 0 1.1em;
+	/* A 2-line lede at 390px orphaned its last word ("anywhere." alone on
+	   line 2). balance evens the lines; harmless when they already fit. */
+	text-wrap: balance;
+}
 
 /* inline code */
 code {
@@ -172,11 +180,16 @@ button:focus-visible,
 
 /* ============ responsive baseline ============ */
 @media (max-width: 680px) {
+	/* padding stays 0 horizontally: max-width already reserves the
+	   gutter, and re-adding it here is what put content at 40px while
+	   the header sat at 20px. Only the bottom padding shrinks. */
 	main,
-	.cm-shell { padding: 0 var(--gutter) 4rem; }
-	:root { --head-top: 2rem; --head-h1: 1.7rem; }
+	.cm-shell { padding: 0 0 4rem; }
+	/* The page title must stay clearly above a section h2 (23.2px).
+	   1.7rem rendered at 27.2px, too close to shout at the same volume. */
+	:root { --head-top: 2rem; --head-h1: 1.95rem; }
 	body { font-size: 15px; }
-	h1 { font-size: 1.7rem; }
+	h1 { font-size: var(--head-h1); }
 	pre { padding: 1.1em 1.1em; font-size: 0.78rem; }
 	.cm-prose { padding: 0; }
 }

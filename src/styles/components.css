@@ -41,6 +41,11 @@
 	border-radius: var(--radius-sm);
 }
 .cm-section--pad { padding: 1.1rem 1.2rem; }
+/* A section that opens with a heading must not also pad AND carry the
+   heading's own top margin: measured gap from the card border to its h2
+   was 65px against 17.6px of padding, so the padding was invisible. The
+   first child heading gives up its top margin to the padding. */
+.cm-section--pad > :first-child { margin-top: 0; }
 
 /* ---------- page head block ----------
    The single source for the top-of-page vertical start. Use on
@@ -148,7 +153,7 @@
 	padding: 0.8rem 1.1rem;
 	background: var(--panel);
 	border: 1px solid var(--line);
-	border-radius: 0;
+	border-radius: var(--radius-sm);
 	margin: 0 0 1.8rem;
 	font-family: var(--font-mono);
 	font-size: 0.72rem;
@@ -161,9 +166,14 @@
 	font-size: 0.66rem;
 }
 .cm-status__value { color: var(--ink); }
-.cm-status--ok .cm-status__value::before { content: '● '; color: var(--ink-dim); }
-.cm-status--warn .cm-status__value::before { content: '▲ '; color: var(--ink-dim); }
-.cm-status--err .cm-status__value::before { content: '✕ '; color: var(--ink); }
+/* A ::before glyph is part of the text run, so a wrapped line snaps back to
+   the container's left edge and runs UNDER the bullet (measured 15px left of
+   the first line). Indent the run instead, so continuation lines align under
+   the text and not under the marker. */
+.cm-status__value { padding-left: 1.15em; text-indent: -1.15em; }
+.cm-status--ok .cm-status__value::before { content: '\25cf\00a0'; color: var(--ink-dim); }
+.cm-status--warn .cm-status__value::before { content: '\25b2\00a0'; color: var(--ink-dim); }
+.cm-status--err .cm-status__value::before { content: '\2715\00a0'; color: var(--ink); }
 
 /* ---------- sticky-header anchor offset ----------
    The header is position:sticky above the content, so a nav link would
@@ -354,7 +364,10 @@ html {
 	font-size: 0.82rem;
 }
 .cm-kv dt { color: var(--ink-faint); }
-.cm-kv dd { margin: 0; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+/* break-word, NOT anywhere: `anywhere` let the browser split an identifier
+   mid-token (".cm-*") and also changed min-content sizing, starving the value
+   column. break-word only breaks a word that genuinely cannot fit. */
+.cm-kv dd { margin: 0; color: var(--ink); min-width: 0; overflow-wrap: break-word; }
 
 /* Below this width the two columns starve the value cell (a file path gets
    ~118px and wraps through the middle of an identifier). Stack instead. */
@@ -362,6 +375,19 @@ html {
 	.cm-kv { grid-template-columns: 1fr; gap: 0.15rem; }
 	.cm-kv dd { margin-bottom: 0.55rem; }
 	.cm-kv dt { font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
+	/* The chip is the label and the annotation is the detail. On one line
+	   they wrap into each other and the continuation looks like a new value,
+	   so give the chip its own line. */
+	.cm-kv dd code {
+		display: block;
+		width: fit-content;
+		max-width: 100%;
+		margin-bottom: 0.2rem;
+	}
+	/* The chip is the primary path and the parenthetical is its caption.
+	   Same size and weight made them compete; the caption steps down. */
+	.cm-kv dd { font-size: 0.78rem; color: var(--ink-dim); }
+	.cm-kv dd code { font-size: 0.82rem; color: var(--ink); }
 }
 
 /* ---------- tag / chip ---------- */
@@ -453,9 +479,26 @@ html {
 	font-size: 0.8rem;
 	color: var(--ink-dim);
 	padding: 0 0.7rem;
-	border-left: 1px solid var(--line);
 	text-decoration: none;
 	transition: color var(--cm-t) var(--cm-ease);
+}
+/* The separator used to be border-left on every link, so the FIRST link of
+   each WRAPPED row opened with a dangling pipe at the page margin, and the
+   0.7rem padding pushed the text 11px off the content rail. A pseudo-element
+   on every link EXCEPT the first puts the pipe between items only, and zero
+   left padding puts the first item back on the rail. */
+.cm-header__link + .cm-header__link {
+	position: relative;
+}
+.cm-header__link + .cm-header__link::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	height: 1.1em;
+	width: 1px;
+	background: var(--line);
 }
 .cm-header__link:hover { color: var(--ink); }
 .cm-header__link.is-active,
@@ -507,10 +550,25 @@ html {
 	.cm-header__links {
 		order: 3;
 		width: 100%;
+		/* Inset to the content rail, matching the other header rule.
+		   It used to be full-bleed while the rule above it was inset, so
+		   one header block carried two divider geometries. */
+		margin-left: calc(-1 * var(--gutter));
+		margin-right: calc(-1 * var(--gutter));
+		padding-left: var(--gutter);
+		padding-right: var(--gutter);
 		border-top: 1px solid var(--line);
 		padding-top: 0.45rem;
 		justify-content: flex-start;
 	}
+	/* Once the nav WRAPS, the pipe separators are a lie: they only exist
+	   between items in the DOM, so a wrapped row starts with no pipe and
+	   ends with a dangling one. On a narrow screen the links read as a set
+	   from their spacing, so drop the pipes and let the row gap do it. The
+	   first item also returns to the content rail with zero side padding. */
+	.cm-header__link { padding: 0 0.55rem; }
+	.cm-header__link:first-child { padding-left: 0; }
+	.cm-header__link + .cm-header__link::before { content: none; }
 }
 @media (max-width: 360px) {
 	.cm-header__link { padding: 0 0.5rem; font-size: 0.78rem; }

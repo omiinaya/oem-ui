@@ -423,6 +423,79 @@ check('a fieldset with a choice must have a legend', () => {
 	}
 });
 
+check('the page has ONE left rail, shared by chrome and content', () => {
+	// main carries max-width:calc(100% - 2*gutter), which already reserves
+	// the gutter. Adding horizontal padding on top put content at 40px while
+	// the header sat at 20px — two rails, and every section inherits it.
+	const base = read('src/styles/base.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	for (const m of base.matchAll(/(?:main|\.cm-shell)[^{]*\{([^}]*)\}/g)) {
+		assert(!/padding:[^;]*var\(--gutter\)/.test(m[1]),
+			'main/.cm-shell re-adds horizontal gutter padding on top of max-width');
+	}
+});
+
+check('every bordered block uses the same corner radius', () => {
+	// .cm-status hardcoded border-radius:0 while .cm-section used the
+	// token, so two same-width boxes of the same role had different corners.
+	const comp = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	for (const m of comp.matchAll(/\.cm-(status|section|panel|card)[^{]*\{([^}]*)\}/g)) {
+		const decl = m[2];
+		if (!/\bborder\s*:/.test(decl)) continue;
+		assert(!/border-radius:\s*0(?![\d.])/.test(decl),
+			`.${m[1]} has a hardcoded square corner; use var(--radius-sm)`);
+	}
+});
+
+check('a padded section does not also carry the heading top margin', () => {
+	// Padding plus an h2's own margin-top put the heading 65px below the
+	// card border against 17.6px of padding, so the padding was invisible.
+	const comp = read('src/styles/components.css');
+	assert(/\.cm-section--pad\s*>\s*:first-child\s*\{\s*margin-top:\s*0/.test(comp),
+		'padded sections do not collapse the first heading margin');
+});
+
+check('wrapped text hangs under the text, not under the marker', () => {
+	// A ::before bullet is part of the text run, so a wrapped line snapped
+	// back to the container edge and ran UNDER the bullet: measured the
+	// second line 15px left of the first.
+	const comp = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	// There are TWO .cm-status__value rules (color, then the indent). A
+	// single non-global regex matched the first and never saw the second.
+	const rules = [...comp.matchAll(/\.cm-status__value\s*\{([^}]*)\}/g)].map(m => m[1]);
+	assert(rules.length > 0, '.cm-status__value rule missing');
+	const hanging = rules.some(r => /padding-left:[^;]*em/.test(r) && /text-indent:\s*-[^;]*em/.test(r));
+	assert(hanging,
+		'status value has no hanging indent — a wrapped line runs back under the bullet');
+});
+
+check('wrapping never breaks an identifier in half', () => {
+	// overflow-wrap:anywhere split ".cm-*" mid-token and also changed
+	// min-content sizing, which starved the value column.
+	const comp = read('src/styles/components.css');
+	assert(!/overflow-wrap:\s*anywhere/.test(comp),
+		'overflow-wrap:anywhere breaks identifiers mid-token (and starves the column)');
+	// The chip is the label and the annotation the detail; inline, the
+	// annotation wrapped into the chip and read as a new value.
+	assert(/\.cm-kv dd code\s*\{[^}]*display:\s*block/.test(comp),
+		'kv chip does not become a block on narrow screens, so annotations wrap into it');
+});
+
+check('nav separators sit BETWEEN items, never before the first', () => {
+	// border-left on every link put a dangling pipe at the page margin on
+	// each WRAPPED row, and the left padding pushed the first item 11px off
+	// the content rail. Only links after the first may carry a separator.
+	const comp = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	const base = /\.cm-header__link\s*\{([^}]*)\}/.exec(comp);
+	assert(base, '.cm-header__link rule missing');
+	assert(!/border-left/.test(base[1]),
+		'.cm-header__link still uses border-left, so the first link of a wrapped row has a dangling pipe');
+	assert(!/padding:[^;]*var\(--gutter\)|padding:\s*0\s+[1-9]/.test(base[1]) || /padding:\s*0\s/.test(base[1]),
+		'.cm-header__link has left padding, pushing the first item off the content rail');
+	// The separator must be drawn by an adjacent-sibling rule.
+	assert(/\.cm-header__link\s*\+\s*\.cm-header__link::before/.test(comp),
+		'no adjacent-sibling separator rule — pipes are not scoped to between-items');
+});
+
 check('a sticky header reserves its height for anchor jumps', () => {
 	// position:sticky header above the content means a nav link lands the
 	// section heading underneath it: #buttons resolved to top:63px while
