@@ -21,7 +21,17 @@
 	color: var(--ink-faint);
 	margin: 0;
 }
-.cm-kicker::before { content: '~/'; opacity: 0.7; }
+/* The parent's letter-spacing is inherited by generated content, so
+   '~/' renders as '~ /' with a tracking gap between the two glyphs.
+   Zero the tracking inside the pseudo-element, then add back exactly
+   the tracking as a margin so the space before the label still matches
+   the rest of the line. */
+.cm-kicker::before {
+	content: '~/';
+	opacity: 0.7;
+	letter-spacing: 0;
+	margin-right: 0.18em;
+}
 .cm-kicker--plain::before { content: none; }
 
 /* ---------- section shell: flat panel, mono border ---------- */
@@ -376,3 +386,160 @@
 }
 .cm-footer__dot { color: var(--ink-dim); margin-right: 0.35em; }
 .cm-footer__bar { color: var(--ink-faint); margin-right: 1.2em; }
+
+/* ============ header ============
+   Owned by the shared layer, NOT by an Astro <style> block: if these rules
+   lived only inside Header.astro, every non-Astro project would get an
+   unstyled header. The runtime toggles .is-scrolled on the header. */
+.cm-header {
+	position: sticky;
+	top: 0;
+	z-index: 100;
+	margin: 0;
+	padding: 0 var(--gutter);
+	background: var(--header-bg);
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+	border-bottom: 1px solid var(--line);
+}
+.cm-header.is-scrolled {
+	border-bottom-color: var(--accent-dim);
+	box-shadow: 0 8px 24px -18px rgba(0, 0, 0, 0.9);
+}
+.cm-header__nav {
+	max-width: var(--maxw);
+	margin: 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	/* allow the flex children to shrink so a long nav wraps instead of
+	   forcing horizontal page scroll */
+	flex-wrap: wrap;
+	min-width: 0;
+	height: 60px;
+}
+.cm-header__brand {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-width: 0;
+	text-decoration: none;
+	color: var(--ink);
+	font-family: var(--font-mono);
+	font-size: 0.95rem;
+}
+.cm-header__prompt { color: var(--ink-faint); }
+.cm-header__name { font-weight: 700; color: var(--ink); }
+.cm-header__brand:hover .cm-header__name { color: var(--accent-bright); }
+.cm-header__links {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	min-width: 0;
+}
+.cm-header__link {
+	font-family: var(--font-mono);
+	font-size: 0.8rem;
+	color: var(--ink-dim);
+	padding: 0 0.7rem;
+	border-left: 1px solid var(--line);
+	text-decoration: none;
+	transition: color var(--cm-t) var(--cm-ease);
+}
+.cm-header__link:hover { color: var(--ink); }
+.cm-header__link.is-active,
+.cm-header__link[aria-current='page'] {
+	color: var(--ink);
+	font-weight: 700;
+	text-decoration: underline;
+	text-underline-offset: 5px;
+	text-decoration-color: var(--ink-faint);
+}
+.cm-header__controls { display: flex; align-items: center; gap: 0.85rem; }
+.cm-icon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	background: transparent;
+	color: var(--ink-dim);
+	cursor: pointer;
+	font-size: 0.95rem;
+	transition: color var(--cm-t) var(--cm-ease),
+		border-color var(--cm-t) var(--cm-ease), background var(--cm-t) var(--cm-ease);
+}
+.cm-icon-btn:hover {
+	color: var(--ink);
+	border-color: var(--ink-dim);
+	background: var(--bg-2);
+}
+.cm-header__icon-link {
+	display: flex;
+	align-items: center;
+	color: var(--ink-faint);
+	transition: color var(--cm-t) var(--cm-ease);
+}
+.cm-header__icon-link:hover { color: var(--ink); }
+
+/* Narrow: links drop to their own row under a rule; brand keeps the top
+   row with the controls. */
+@media (max-width: 640px) {
+	.cm-header__nav {
+		height: auto;
+		row-gap: 0.4rem;
+		padding: 0.55rem 0;
+	}
+	.cm-header__brand { margin-right: auto; }
+	.cm-header__links {
+		order: 3;
+		width: 100%;
+		border-top: 1px solid var(--line);
+		padding-top: 0.45rem;
+		justify-content: flex-start;
+	}
+}
+@media (max-width: 360px) {
+	.cm-header__link { padding: 0 0.5rem; font-size: 0.78rem; }
+	.cm-header__controls { gap: 0.6rem; }
+}
+
+/* ============ mobile type floor ============
+   The micro-labels above are set in this layer, so the floor has to be
+   applied HERE, not in base.css: components.css loads after base.css and
+   would outrank a floor declared there. --min-font is 12px because a
+   ~10.5px monospace label is unreadable on a phone. */
+@media (max-width: 680px) {
+	.cm-status__label,
+	.cm-list-head,
+	.cm-term__bar,
+	.cm-term__title,
+	.cm-kv dt,
+	.cm-row__idx,
+	.cm-row__meta,
+	.cm-footer__status,
+	.cm-kicker,
+	.cm-head__sub,
+	.cm-rule__label,
+	.cm-tag,
+	.cm-rows--stacked .cm-row__meta {
+		font-size: max(var(--min-font), 0.66rem);
+	}
+	pre { font-size: max(var(--min-font), 0.78rem); }
+
+	/* The parent containers declare their own font-size, so flooring only
+	   the children leaves the container under 12px and the children
+	   inherit nothing. Floor the containers as well. */
+	.cm-status,
+	.cm-term__body,
+	.cm-term__line,
+	.cm-footer__inner,
+	.cm-kv,
+	.cm-head,
+	.cm-row {
+		font-size: max(var(--min-font), 0.82rem);
+	}
+}

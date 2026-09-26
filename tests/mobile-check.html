@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- Dev-only: renders the built showcase at real device widths in one page
+     so mobile layout can be measured and screenshotted in a single pass. -->
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<title>cli-mono — mobile check</title>
+		<style>
+			html { background: #050505; color: #e8e8e8; font-family: ui-monospace, monospace; margin: 0; }
+			body { margin: 0; padding: 20px; }
+			.dev-label { font-size: 12px; color: #8b8b8b; letter-spacing: .1em; text-transform: uppercase; margin: 0 0 8px; }
+			.frame { margin-bottom: 34px; }
+			iframe { display: block; border: 1px solid #2a2a2a; background: #0a0a0a; }
+		</style>
+	</head>
+	<body>
+		<!-- iPhone SE 375, iPhone 14 390, Pixel 7 412, large phone 430 -->
+		<p class="dev-label">375 (iphone se)</p>
+		<div class="frame"><iframe src="./index.html" width="375" height="720" loading="eager"></iframe></div>
+
+		<p class="dev-label">390 (iphone 14)</p>
+		<div class="frame"><iframe src="./index.html" width="390" height="720" loading="eager"></iframe></div>
+
+		<p class="dev-label">412 (pixel 7)</p>
+		<div class="frame"><iframe src="./index.html" width="412" height="720" loading="lazy"></iframe></div>
+
+		<p class="dev-label">430 (iphone pro max)</p>
+		<div class="frame"><iframe src="./index.html" width="430" height="720" loading="lazy"></iframe></div>
+	</body>
+</html>

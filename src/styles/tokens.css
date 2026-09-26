@@ -37,6 +37,15 @@
 	--cm-t-slow: 0.2s;
 	--cm-ease: ease;
 
+	/* ---- mobile -----------------------------------------------
+	   Touch ergonomics live in tokens, not in scattered media queries,
+	   so every component inherits them. The 44px minimum is the
+	   WCAG 2.5.5 / iOS guideline for a tap target; --min-font is the
+	   smallest text we will ever render, because a 10px monospace
+	   label is unreadable on a phone at arm's length. */
+	--tap: 44px;
+	--min-font: 12px;
+
 	/* ---- scrollbar (dark default) ------------------------------
 	   width:thin + always-visible gutter so short pages reserve the same
 	   12px a scrolling page uses. Without this the content box differs by

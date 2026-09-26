@@ -137,9 +137,9 @@ check('pre can never widen the page (narrow-viewport overflow guard)', () => {
 	assert(/min-width:\s*0/.test(pre), 'pre must have min-width:0');
 });
 check('header nav can shrink (flex-wrap + min-width:0)', () => {
-	const h = read('src/astro/Header.astro');
-	const nav = h.match(/\.cm-header__nav\s*\{[^}]*\}/)[0];
-	const links = h.match(/\.cm-header__links\s*\{[^}]*\}/)[0];
+	// Owned by the shared layer, not the Astro file, so every framework gets it.
+	const nav = comp.match(/\.cm-header__nav\s*\{[^}]*\}/)[0];
+	const links = comp.match(/\.cm-header__links\s*\{[^}]*\}/)[0];
 	assert(/flex-wrap:\s*wrap/.test(nav), 'nav must wrap');
 	assert(/min-width:\s*0/.test(nav), 'nav needs min-width:0 to shrink');
 	assert(/flex-wrap:\s*wrap/.test(links), 'link row must wrap');
@@ -258,6 +258,134 @@ check('the showcase is LAN-reachable, not localhost-only', () => {
 	assert(
 		/-host\s+0\.0\.0\.0|--host\b/.test(pkg.scripts.preview),
 		'preview script must pass --host',
+	);
+});
+
+check('mobile ergonomics live in the base layer, not per-component', () => {
+	// A new component must inherit touch targets and the type floor by
+	// existing, not by remembering to opt in. So the rules belong in the
+	// base layer and the tokens, not scattered in component blocks.
+	assert(/--tap:\s*44px/.test(tokens), 'tokens must define --tap: 44px (WCAG 2.5.5)');
+	assert(/--min-font:\s*12px/.test(tokens), 'tokens must define --min-font: 12px');
+	assert(
+		/@media\s*\(pointer:\s*coarse\)/.test(base),
+		'base.css must gate touch targets on (pointer: coarse)',
+	);
+	assert(
+		/min-height:\s*var\(--tap\)/.test(base),
+		'touch targets must be sized from --tap, not a hardcoded px',
+	);
+});
+
+check('every text-bearing component is floored on mobile', () => {
+	// A floor in base.css loses the cascade to components.css, which
+	// loads later. The micro-labels are defined in the component layer, so
+	// the floor must exist there too or they render at ~10.5px on a phone.
+	const floored = comp.slice(comp.indexOf('/* ============ mobile type floor'));
+	const must = [
+		'.cm-status__label',
+		'.cm-list-head',
+		'.cm-term__bar',
+		'.cm-kv dt',
+		'.cm-row__idx',
+		'.cm-row__meta',
+		'.cm-footer__status',
+	];
+	for (const sel of must) {
+		assert(floored.includes(sel), `${sel} is not in the mobile type-floor block`);
+	}
+	// Containers must be floored too: a child that declares its own
+	// font-size inherits nothing from a floored parent.
+	for (const sel of ['.cm-status', '.cm-kv', '.cm-row', '.cm-term__body']) {
+		assert(floored.includes(sel), `${sel} container is not floored`);
+	}
+
+	// EXHAUSTIVE: any selector in this layer that declares text below 12px
+	// must be covered by the floor. A hand-kept list silently misses the
+	// next component someone adds, so derive the requirement from the file.
+	//
+	// "Covered" means the selector appears in ANY rule inside the floor's
+	// media query — including inside a comma-grouped selector list, which
+	// a naive /\{\s*font-size/ scan misses. Compare on the base class of
+	// each selector, so `.cm-kv dt` covers a `.cm-kv dt` declaration.
+	const floorBlock = (() => {
+		const i = comp.indexOf('/* ============ mobile type floor');
+		if (i === -1) return '';
+		const body = comp.slice(i);
+		const open = body.indexOf('@media');
+		if (open === -1) return '';
+		// take only the FIRST media block: the rest of the file is not the floor
+		let depth = 0;
+		for (let j = body.indexOf('{', open); j < body.length; j++) {
+			if (body[j] === '{') depth++;
+			else if (body[j] === '}' && --depth === 0) return body.slice(open, j + 1);
+		}
+		return '';
+	})();
+	assert(floorBlock !== '', 'mobile type floor block not found');
+	const covered = new Set(
+		[...floorBlock.matchAll(/(\.[a-z0-9_-]+)/g)].map((m) => m[1]),
+	);
+
+	const under = [];
+	for (const m of comp.matchAll(/(^|\n)((?:\.[a-z0-9_.-]+)[^{}\n]*?)\s*\{([^}]*)\}/g)) {
+		const sel = m[2].trim();
+		const fm = m[3].match(/font-size:\s*([0-9.]+)(rem|em|px)\b/);
+		if (!fm) continue;
+		const v = parseFloat(fm[1]);
+		const px = fm[2] === 'rem' ? v * 16 : fm[2] === 'px' ? v : v * 12.4;
+		// Skip rules that are themselves inside the floor (they use max()).
+		if (/max\(var\(--min-font\)/.test(m[3])) continue;
+		const base = sel.split(/[\s,:]/)[0];
+		if (px < 12.4 && !covered.has(base)) under.push(`${sel} (~${px.toFixed(1)}px)`);
+	}
+	assert(
+		under.length === 0,
+		`these render under 12px on a phone and are not in the floor: ${under.join(', ')}`,
+	);
+});
+
+check('inline code and pre code cannot render under the floor', () => {
+	// `all: unset` on pre > code drops the inherited size, and inline code
+	// scales at 0.9em of its container, which compounds below 12px. Both
+	// must be floored at their own definition.
+	assert(
+		/@media[^{]*\{\s*pre > code\s*\{\s*font-size:\s*max\(var\(--min-font\)/.test(base),
+		'pre > code must be floored at its definition',
+	);
+	assert(
+		/@media[^{]*\{[^@}]*\bcode\s*\{\s*font-size:\s*max\(var\(--min-font\)/.test(base),
+		'inline code must be floored at its definition',
+	);
+});
+
+check('the header is styled in the shared layer, not scoped in the Astro file', () => {
+	// If header CSS lives only inside Header.astro's <style>, every other
+	// framework gets an unstyled header. It must be in components.css, and
+	// it must exist there EXACTLY ONCE.
+	const h = read('src/astro/Header.astro');
+	for (const sel of ['.cm-header', '.cm-header__link', '.cm-icon-btn', '.cm-header__nav']) {
+		assert(comp.includes(sel), `${sel} is missing from components.css`);
+	}
+	// A scoped style can use :global(); a plain stylesheet cannot.
+	assert(!/:global\(/.test(comp), 'components.css must not contain :global()');
+
+	// One owner per selector. A rule in both layers is a silent cascade
+	// race: whichever loads last wins, and the loser is still there to
+	// confuse the next reader.
+	const style = (h.match(/<style>([\s\S]*?)<\/style>/) || [, ''])[1];
+	const base_layer = [h, comp].map((src, i) => {
+		const out = [];
+		for (const m of src.matchAll(/(^|\n)(\.[a-z0-9_-]+)\s*\{/g)) {
+			if (i === 0 && !style.includes(m[0].trim())) continue; // astro-only text
+			out.push(m[2]);
+		}
+		return out;
+	});
+	const shared = base_layer[0].filter(s => comp.includes(s));
+	assert(
+		shared.length === 0,
+		`header rules owned by both layers: ${[...new Set(shared)].join(', ')} — pick one`,
 	);
 });
 

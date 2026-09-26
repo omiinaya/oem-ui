@@ -106,6 +106,16 @@ pre > code {
 	max-width: 100%;
 }
 
+/* `all: unset` on pre > code drops the inherited font-size, so a
+   floor applied to the parent never reaches it. Inline `code` scales
+   with 0.9em of whatever contains it, which lands under 12px inside a
+   small label. Both are floored here, at the definition, so no media
+   query elsewhere can be outranked. */
+@media (max-width: 680px) {
+	pre > code { font-size: max(var(--min-font), 0.82rem); }
+	code { font-size: max(var(--min-font), 0.9em); }
+}
+
 /* blockquote */
 blockquote {
 	margin: 0 0 1.4em;
@@ -169,4 +179,45 @@ button:focus-visible,
 	h1 { font-size: 1.7rem; }
 	pre { padding: 1.1em 1.1em; font-size: 0.78rem; }
 	.cm-prose { padding: 0; }
+}
+
+/* ============ touch ergonomics ============
+   Phones get a coarse pointer, so every interactive element must clear
+   44px on its short axis (WCAG 2.5.5) and no text may render below
+   --min-font. This lives here, in the base layer, so a new component
+   inherits it automatically instead of remembering to opt in. */
+@media (pointer: coarse) {
+	a,
+	button,
+	summary,
+	label,
+	[role='button'],
+	[role='tab'] {
+		min-height: var(--tap);
+	}
+
+	/* Text-ish controls keep the target but not a 44px box, or the
+	   header grows absurdly. Inline links inside prose are excluded
+	   because stretching every sentence would break the reading rhythm. */
+	.cm-header__link,
+	.cm-btn {
+		display: inline-flex;
+		align-items: center;
+		min-height: var(--tap);
+		padding-block: 0.35rem;
+	}
+	.cm-row,
+	.cm-list-more a,
+	.cm-footer a {
+		min-height: var(--tap);
+		display: flex;
+		align-items: center;
+	}
+}
+
+/* Coarse pointers do not hover, so reveal hover-only affordances on tap. */
+@media (hover: none) {
+	.cm-row:active,
+	.cm-term__body:active { background: var(--panel); }
+	.cm-btn--ghost { border-color: var(--line); }
 }
