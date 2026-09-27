@@ -1,4 +1,4 @@
-#!/root/.venvs/mau/bin/python
+#!/usr/bin/env python3
 """
 Final WebKit verification of the sideways-scroll fix.
 
@@ -11,11 +11,15 @@ the page sideways? `documentElement.scrollWidth` can read wider than the
 viewport without that being reachable, so each width scrolls to the far
 right and reads scrollX back.
 """
+import os
+import tempfile
+
+SCRATCH = os.environ.get('OEM_UI_SCRATCH', tempfile.gettempdir())
 import json
 import sys
 from playwright.sync_api import sync_playwright
 
-URL = "http://192.168.1.68:4321/"
+URL = os.environ.get('OEM_UI_URL', 'http://localhost:4321/')
 WIDTHS = (390, 375, 320, 1440)
 
 PROBE = """
@@ -83,7 +87,7 @@ def run(engine, width, mobile):
     d["jsErrors"] = errs
     if width == 390:
         # DSF 3 on an ~11000px page exceeds WebKit's 32767px limit
-        pg.screenshot(path="/root/.hermes/cache/scratch/final-390.png", full_page=True, scale="css")
+        pg.screenshot(path=f"{SCRATCH}/final-390.png", full_page=True, scale="css")
     ctx.close()
     b.close()
     return d

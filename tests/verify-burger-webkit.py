@@ -9,10 +9,12 @@ Checks, in order of how badly they break the thing if wrong:
   6. rotating to desktop clears the open state
   7. header actually got shorter
 """
+import os
 import asyncio, sys
 from playwright.async_api import async_playwright
 
-URL = sys.argv[1] if len(sys.argv) > 1 else 'http://192.168.1.68:4321/'
+URL = sys.argv[1] if len(sys.argv) > 1 else os.environ.get(
+    'OEM_UI_URL', 'http://localhost:4321/')
 results = []
 
 def check(name, ok, detail=''):

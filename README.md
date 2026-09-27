@@ -76,9 +76,9 @@ and just quietly keeps whatever bugs the library has already fixed. Check
 and fix with:
 
 ```bash
-/root/projects/oem-ui/scripts/check-design-sync.sh          # scan every project
-/root/projects/oem-ui/scripts/check-design-sync.sh /path/to/site
-/root/projects/oem-ui/scripts/install.sh /path/to/site      # re-install
+./scripts/check-design-sync.sh                                # scan every project
+./scripts/check-design-sync.sh /path/to/site
+./scripts/install.sh /path/to/site                            # re-install
 ```
 
 `check-design-sync.sh` exits 1 on drift and names the fix command. Run it
@@ -104,7 +104,7 @@ installer is the default.
 ### Option A — the installer (recommended)
 
 ```bash
-/root/projects/oem-ui/scripts/install.sh <your-project-dir>
+./scripts/install.sh <your-project-dir>
 ```
 
 Copies the four files into `<your-project-dir>` in one fixed layout, so every
@@ -113,14 +113,14 @@ time to pull the current library.
 
 ```bash
 # for a project that serves static files from a flat dir
-/root/projects/oem-ui/scripts/install.sh <your-project-dir> --flat
+./scripts/install.sh <your-project-dir> --flat
 ```
 
 ### Option B — copy the files by hand
 
 ```bash
-cp -r /root/projects/oem-ui/src/styles <your-project>/src/
-cp /root/projects/oem-ui/src/js/cli-mono.js <your-project>/src/js/
+cp -r src/styles <your-project>/src/
+cp src/js/cli-mono.js <your-project>/src/js/
 ```
 
 ### Not available yet

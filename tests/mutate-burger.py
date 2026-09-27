@@ -7,7 +7,8 @@ unrelated reason) - both are failures of this runner, not passes.
 """
 import subprocess, shutil, sys, re, os
 
-REPO = '/root/projects/oem-ui'
+# Resolve the repo from this file, so a clone anywhere works.
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CSS = os.path.join(REPO, 'src/styles/components.css')
 JS = os.path.join(REPO, 'src/js/cli-mono.js')
 HDR = os.path.join(REPO, 'src/astro/Header.astro')

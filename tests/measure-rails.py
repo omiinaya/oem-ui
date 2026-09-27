@@ -12,12 +12,14 @@ to be full-bleed and correct.
 No PIL (the system one is broken here; `_imaging` will not import), so this
 carries its own PNG decoder.
 """
+import os
+import tempfile
 import struct
 import zlib
 from playwright.sync_api import sync_playwright
 
-URL = "http://192.168.1.68:4321/"
-SHOT = "/root/.hermes/cache/scratch/rail-scan.png"
+URL = os.environ.get('OEM_UI_URL', 'http://localhost:4321/')
+SHOT = os.environ.get('OEM_UI_SCRATCH', tempfile.gettempdir()) + '/rail-scan.png'
 
 
 def png_rows(path):

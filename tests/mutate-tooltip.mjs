@@ -8,8 +8,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = process.argv[2] || '/root/projects/oem-ui';
+const root = process.argv[2] || fileURLToPath(new URL('..', import.meta.url));
 const BASE = join(root, 'src/styles/base.css');
 const COMP = join(root, 'src/styles/components.css');
 const TEST = join(root, 'tests/run.mjs');

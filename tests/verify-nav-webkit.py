@@ -11,12 +11,14 @@ Checks:
   4. the spy is correct in a POSITIONED ancestor (the offsetTop bug)
   5. tap targets, overflow, one left rail, no horizontal scroll
 """
+import os
+import tempfile
 import json
 import sys
 from playwright.sync_api import sync_playwright
 
-URL = "http://192.168.1.68:4321/"
-OUT = "/root/.hermes/cache/scratch/nav-webkit"
+URL = os.environ.get('OEM_UI_URL', 'http://localhost:4321/')
+OUT = os.environ.get('OEM_UI_SCRATCH', tempfile.gettempdir()) + '/nav-webkit'
 
 
 def rect(page, sel):

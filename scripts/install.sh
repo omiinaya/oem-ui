@@ -43,7 +43,8 @@ done
 [ -n "$TARGET" ] || die "usage: install.sh <target-project-dir> [--from <oem-ui-path>] [--flat]"
 
 # Default source: the checkout this script lives in, resolved through any
-# symlinks so a /root/projects -> thunder tree still finds the real files.
+# symlinks so a parent directory that links a project tree still finds the
+# real files.
 if [ -z "$FROM" ]; then
   FROM="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 fi

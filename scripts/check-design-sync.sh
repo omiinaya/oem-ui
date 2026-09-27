@@ -6,7 +6,7 @@
 #
 #   usage: scripts/check-design-sync.sh [consumer-dir ...]
 #
-# With no arguments it checks every project under /root/projects that has a
+# With no arguments it checks every project under $CONSUMER_ROOT that has a
 # src/styles/cli-mono/ directory. Exit 1 if anything is stale.
 #
 # A file that is byte-identical but NEVER IMPORTED is worse than stale: it
@@ -19,7 +19,12 @@
 
 set -uo pipefail
 
-SRC="${OEM_UI_SRC:-/root/projects/oem-ui}"
+# Default to this checkout, not a machine-specific path, so a clone
+# anywhere works. Override with OEM_UI_SRC, or with CONSUMER_ROOT to
+# re-point the no-argument sweep at a different projects tree.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SRC="${OEM_UI_SRC:-$HERE}"
+CONSUMER_ROOT="${CONSUMER_ROOT:-/root/projects}"
 MAP=(
 	"src/styles/tokens.css:src/styles/cli-mono/tokens.css"
 	"src/styles/base.css:src/styles/cli-mono/base.css"
@@ -29,7 +34,7 @@ MAP=(
 
 targets=("$@")
 if [ ${#targets[@]} -eq 0 ]; then
-	for d in /root/projects/*/; do
+	for d in "$CONSUMER_ROOT"/*/; do
 		[ -d "$d/src/styles/cli-mono" ] && targets+=("${d%/}")
 	done
 fi

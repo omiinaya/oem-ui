@@ -3,3 +3,6 @@ dist/
 .astro/
 .DS_Store
 *.log
+
+# The SAME-PATH symlink this repo's own tooling uses to reach itself.
+/oem-ui

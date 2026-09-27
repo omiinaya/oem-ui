@@ -9,8 +9,9 @@
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = process.argv[2] || '/root/projects/oem-ui';
+const root = process.argv[2] || fileURLToPath(new URL('..', import.meta.url));
 const SHOWCASE = join(root, 'src/pages/index.astro');
 const ASTRO = join(root, 'src/astro');
 const run = () => spawnSync('node', [join(root, 'tests/run.mjs')], { cwd: root, encoding: 'utf8' });

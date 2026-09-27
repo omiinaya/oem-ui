@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+# Zero live minutes: the only job is node + a file-level test runner, and it
+# needs no browser. The WebKit harnesses in tests/*.py are run by hand against
+# a local preview, because they need a served page and a display.
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Contract tests
+        run: npm test

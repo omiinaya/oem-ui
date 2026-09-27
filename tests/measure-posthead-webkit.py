@@ -12,14 +12,17 @@ Specifically checks the new .cm-post-head block:
   - nothing inside it overflows, and no text sits under the 12px floor
   - the sticky header does not overlap the top of the block on a phone
 
-Run: /root/.venvs/mau/bin/python tests/measure-posthead-webkit.py <url>
+Run: OEM_UI_URL=http://localhost:4321/ python tests/measure-posthead-webkit.py
 """
+import os
+import tempfile
 import sys
 import json
 
 from playwright.sync_api import sync_playwright
 
-URL = sys.argv[1] if len(sys.argv) > 1 else "http://192.168.1.68:4321/"
+URL = sys.argv[1] if len(sys.argv) > 1 else os.environ.get(
+    'OEM_UI_URL', 'http://localhost:4321/')
 
 
 def main() -> int:
@@ -128,11 +131,11 @@ def main() -> int:
         # a device-scale full-page capture exceeds WebKit's 32767px limit
         # per dimension and the call throws. The ELEMENT shot below keeps
         # full density, which is what the shape measurements need.
-        result["shotPage"] = "/root/.hermes/cache/scratch/posthead-page.png"
+        result["shotPage"] = "os.environ.get('OEM_UI_SCRATCH', tempfile.gettempdir()) + '/posthead-page.png'"
         page.screenshot(path=result["shotPage"], full_page=True, scale="css")
         el = page.query_selector(".cm-post-head")
         if el:
-            result["shotBlock"] = "/root/.hermes/cache/scratch/posthead-block.png"
+            result["shotBlock"] = "os.environ.get('OEM_UI_SCRATCH', tempfile.gettempdir()) + '/posthead-block.png'"
             el.scroll_into_view_if_needed()
             page.wait_for_timeout(150)
             el.screenshot(path=result["shotBlock"])
