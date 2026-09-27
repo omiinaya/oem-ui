@@ -302,7 +302,14 @@ for (const m of MUTATIONS) {
 	writeFileSync(p(m.file), original);
 
 	const out = `${r.stdout}${r.stderr}`;
-	const failed = out.includes('FAIL');
+	/* Decide "did it go red" from the EXIT CODE, not from a literal "FAIL"
+	   in the output. A string match couples this harness to the runner's
+	   print format: rename that prefix and every mutation reports MISSED,
+	   which reads as "the tests are weak" when the truth is "the harness
+	   cannot see failure". The code cannot lie that way. `expectFail` is
+	   still matched on text, because that one is genuinely about WHICH
+	   assertion fired. */
+	const failed = r.status !== 0;
 	// `expectFail` is a substring or a list of them; any one matching means
 	// the suite went red for a reason this mutation intended.
 	const wants = Array.isArray(m.expectFail) ? m.expectFail : [m.expectFail];
