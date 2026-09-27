@@ -10,7 +10,7 @@
  * checks execute the actual cli-mono.js runtime against a minimal fake DOM so a
  * regression in the theme logic fails the build.
  */
-import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, statSync, rmSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, statSync, rmSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -264,7 +264,7 @@ check('emits a FOUC guard snippet that only applies saved light', () => {
 
 /* ================= astro components ================= */
 console.log('\nastro components');
-const astroFiles = ['Head.astro', 'Header.astro', 'HeaderLink.astro', 'Footer.astro', 'PageHead.astro', 'PostHead.astro', 'PostRow.astro', 'StatusStrip.astro', 'config.ts'];
+const astroFiles = ['Head.astro', 'Header.astro', 'HeaderLink.astro', 'Footer.astro', 'PageHead.astro', 'PostHead.astro', 'PostRow.astro', 'StatusStrip.astro', 'Card.astro', 'Meter.astro', 'Stat.astro', 'TimelineItem.astro', 'config.ts'];
 for (const f of astroFiles) {
 	check(`ships src/astro/${f}`, () => {
 		// Assert the file is ON DISK, not merely named in this list. A list
@@ -296,6 +296,68 @@ check('Head ships the FOUC guard before the stylesheet', () => {
 	assert(guard !== -1, 'Head.astro missing theme guard');
 	assert(guard < sheet, `FOUC guard must precede the stylesheet link (guard@${guard}, sheet@${sheet})`);
 	assert(/stylesHref\s*&&\s*<link/.test(markup), 'stylesheet must be prop-driven, not hardcoded');
+});
+
+/* A component that emits a class the stylesheet never defines is the
+   renamed-without-selector bug from the migration notes, one level up:
+   the markup and the stylesheet are two hand-maintained lists and
+   nothing compared them. <PostHead> shipped `cm-post-head` for months
+   with no rule behind it, and the showcase never rendered <PostHead>,
+   so the build never compiled it either. Both the audit's dead-class
+   list and this test see it; this one runs in CI.
+
+   Both directions, because the one that actually bites is a class in
+   the MARKUP with no selector. A selector with no element is merely
+   unused, which the showcase may legitimately exercise later.
+
+   "Defined" means the class is the SUBJECT of a rule that declares
+   something, not merely a name appearing somewhere in a selector. The
+   first cut of this test used a bare `/\.cm-[\w-]+/g` and the mutation
+   caught it: `.cm-post-head .cm-kicker { ... }` mentions the class, so
+   deleting `.cm-post-head { ... }` entirely left the name in the sheet
+   and the suite stayed green. A class named in only a DESCENDANT rule
+   styles nothing when it is the element. The subject must be followed by
+   its own declaration block. */
+check('every class a shipped component emits is defined in the CSS', () => {
+	const sheets = comp + '\n' + read('src/styles/base.css');
+	const defined = new Set();
+	for (const m of sheets.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+		const body = m[2].trim();
+		// An empty block styles nothing either.
+		if (!body) continue;
+		for (const sel of m[1].split(',')) {
+			// The subject is the compound selector's own class list, i.e.
+			// the classes after the last descendant combinator.
+			const subject = sel.trim().split(/\s+|>|\+|~/).pop() || '';
+			for (const c of subject.matchAll(/\.((?:cm|data-cm)-[a-z0-9_-]+)/g)) {
+				defined.add(c[1]);
+			}
+		}
+	}
+	const seen = new Map();
+	for (const f of astroFiles) {
+		if (!f.endsWith('.astro')) continue;
+		let src = read(join('src/astro', f));
+		// Only the MARKUP can be audited. A scoped <style> block is that
+		// component's own CSS and may legitimately define its own classes;
+		// the frontmatter builds class names from props and cannot be
+		// audited by reading text at all.
+		const cut = src.indexOf('<style');
+		if (cut !== -1) src = src.slice(0, cut);
+		for (const m of src.matchAll(/class(:list)?[=\s]*[\[{'"]([^\]}'"]+)[\]}'"]/g)) {
+			for (const cls of m[2].split(/[\s'"]+/).filter(Boolean)) {
+				if (/^cm-[a-z0-9_-]+$/.test(cls)) seen.set(cls, f);
+			}
+		}
+	}
+	assert(seen.size > 20, `the scan found only ${seen.size} classes — the regex is broken, not the library`);
+	assert(defined.size > 20, `the scan found only ${defined.size} defined classes — the parser is broken, not the library`);
+	for (const [cls, file] of seen) {
+		assert(
+			defined.has(cls),
+			`${file} emits "${cls}" but no stylesheet declares a rule whose subject is that class (dead class: builds, ships, renders, styles nothing)`,
+		);
+	}
 });
 
 check('the showcase is LAN-reachable, not localhost-only', () => {
@@ -2709,6 +2771,48 @@ check('the card and meter components are reachable from the showcase', () => {
 	// markup that drifts from the shipped component.
 	assert(/import Card from/.test(showcase), 'the showcase does not import <Card>');
 	assert(/import Meter from/.test(showcase), 'the showcase does not import <Meter>');
+});
+
+/* A component nothing renders is a component `astro build` never
+   compiles, so a class it emits can sit undefined in the stylesheet
+   forever. <PostHead> was in exactly that state: shipped, listed in
+   the docs, never once instantiated, carrying a dead `cm-post-head`.
+   The class-vs-selector test catches the dead class, but only a real
+   render proves the rules compose the way they read.
+
+   The allowlist is explicit and reasoned. A silent skip is a check that
+   quietly stops checking, and the whole point of this test is to notice
+   a component that quietly stopped being rendered. */
+const NOT_RENDERABLE_BY_A_SHOWCASE_PAGE = {
+	// The showcase is ONE page, and its <head> is written inline: it
+	// carries its own FOUC guard and its own <title>. It therefore
+	// cannot also render <Head>, which would emit a second charset, a
+	// second title and a second guard. <Head> is a template a CONSUMER
+	// copies into its own layout, and its behaviour is asserted on the
+	// file's source by the guard-ordering test above.
+	'Head.astro': 'the showcase is a single page with an inline <head>; a second one would double the charset, title and theme guard',
+};
+check('every shipped Astro component is rendered by the showcase', () => {
+	const onDisk = readdirSync(join(root, 'src/astro')).filter((f) => f.endsWith('.astro'));
+	assert(onDisk.length >= 12, `only found ${onDisk.length} components in src/astro — the read is broken`);
+	for (const f of onDisk) {
+		if (NOT_RENDERABLE_BY_A_SHOWCASE_PAGE[f]) continue;
+		const name = f.replace(/\.astro$/, '');
+		assert(
+			new RegExp(`import ${name} from`).test(showcase),
+			`src/astro/${f} is shipped but the showcase never imports it, so nothing compiles or renders it`,
+		);
+		assert(
+			new RegExp(`<${name}[\\s/>]`).test(showcase),
+			`<${name}> is imported into the showcase but never rendered`,
+		);
+	}
+	// The allowlist must not rot into "everything is exempt".
+	const used = new Set([...showcase.matchAll(/import (\w+) from '\.\.\/astro\//g)].map((m) => `${m[1]}.astro`));
+	for (const f of Object.keys(NOT_RENDERABLE_BY_A_SHOWCASE_PAGE)) {
+		assert(existsSync(join(root, 'src/astro', f)), `the allowlist exempts ${f}, which no longer exists`);
+		assert(!used.has(f), `${f} is exempt from this check but the showcase now renders it — drop the exemption`);
+	}
 });
 
 /* ================= async checks (installer) ================= */

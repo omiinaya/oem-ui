@@ -6,6 +6,7 @@ import '../styles/tokens.css';
 import '../styles/base.css';
 import '../styles/components.css';
 import PageHead from '../astro/PageHead.astro';
+import PostHead from '../astro/PostHead.astro';
 import Header from '../astro/Header.astro';
 import Footer from '../astro/Footer.astro';
 import StatusStrip from '../astro/StatusStrip.astro';
@@ -699,14 +700,38 @@ import { SITE } from '../astro/config';
 				</p>
 			</section>
 
-			<section id="prose" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
+			<!-- ==================================================== prose
+			     An article head, then the prose it introduces. The
+			     <PostHead> import here is load-bearing: nothing else
+			     in the showcase rendered it, so `astro build` never
+			     compiled the component and a class it emits could
+			     sit undefined in the stylesheet indefinitely. A
+			     contract test now checks markup against selectors,
+			     but demonstrating the component is what proves the
+			     rule renders the way it reads. -->
+			<section id="prose" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
 				<h2>prose</h2>
-				<div class="cm-prose">
-					<h2>A heading</h2>
-					<p>oem-ui is the design language: sharp, flat, mono, high-contrast, dark by default. Transitions are <code>0.12s</code>, corners stay square, and borders do the lifting.</p>
-					<blockquote>Only touch a line if you can explain why it moved. The layout must be stable between scrolling and non-scrolling pages.</blockquote>
-					<pre><code>{`:root { --maxw: 860px; --gutter: 1.25rem; }`}</code></pre>
-				</div>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
+					<code>.cm-prose</code> for the body of an article and
+					<code>.cm-post-head</code> for the block above it. The
+					post head is the one page head that carries a rule
+					under itself, because the thing below it is prose and
+					not another section.
+				</p>
+
+				<article>
+					<PostHead
+						title="Extract components from a design"
+						date={new Date('2025-09-26')}
+						updatedDate={new Date('2025-09-27')}
+					/>
+					<div class="cm-prose">
+						<h2>A heading</h2>
+						<p>oem-ui is the design language: sharp, flat, mono, high-contrast, dark by default. Transitions are <code>0.12s</code>, corners stay square, and borders do the lifting.</p>
+						<blockquote>Only touch a line if you can explain why it moved. The layout must be stable between scrolling and non-scrolling pages.</blockquote>
+						<pre><code>{`:root { --maxw: 860px; --gutter: 1.25rem; }`}</code></pre>
+					</div>
+				</article>
 			</section>
 
 			<section id="readme" class="cm-section cm-section--pad">

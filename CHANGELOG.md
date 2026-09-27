@@ -9,6 +9,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`.cm-post-head`, the article variant of `.cm-head`.** `<PostHead>`
+  shipped `cm-post-head` on its `<header>` while the stylesheet had no
+  rule for it, so the article head rendered with none of the separation
+  it was written for. It is now a real class: the same top padding as a
+  page head, a `1px` rule under itself, and a `margin-bottom` that
+  opens the gap to the prose below — the rule sits on the header and
+  the prose is its sibling, so there is no child to collapse against.
+  The showcase now renders `<PostHead>` in the prose section, so the
+  build compiles the component and the rules are proven in a browser
+  rather than only asserted.
+
+### Fixed
+
+- **A shipped Astro component could emit a class no stylesheet defined.**
+  The markup and the stylesheet were two hand-maintained lists and
+  nothing compared them. `<PostHead>` carried a dead `cm-post-head` for
+  months; nothing noticed because the showcase never rendered the
+  component, so `astro build` never compiled it either. A dead class
+  still builds, ships and renders — it only styles nothing.
+  Two checks now close this:
+  - every `cm-*` class a component emits must be the **subject** of a
+    rule that declares something, in `components.css` or `base.css`.
+    "Subject" matters: the first cut accepted a class named anywhere in
+    a selector, and a mutation proved it — `.cm-post-head .cm-kicker`
+    mentions the class, so deleting `.cm-post-head` outright left the
+    suite green. A class named in only a descendant rule styles nothing
+    when it is the element.
+  - every component in `src/astro/` must be imported **and rendered** by
+    the showcase, so nothing ships unrendered. `Head.astro` is exempt
+    with a stated reason (the showcase is a single page with an inline
+    `<head>`; a second would double the charset, title and theme guard),
+    and the exemption fails if the showcase ever does start rendering it.
+  - `astroFiles`, the list the "ships" check iterates, was missing
+    `Card`, `Meter`, `Stat` and `TimelineItem` — they were added later
+    and the list was never updated, so four shipped components were
+    never asserted to exist.
+  Verified by `tests/mutate-posthead.mjs`: 6 mutations caught, 1
+  equivalent (a loose parser is harmless while a class still has
+  descendant rules; the compound mutation proves the case), 0 missed,
+  0 no-ops, suite green after restore.
+
+### Added
+
 - **Two more components: `.cm-cards` / `.cm-card`, and `.cm-meter`.**
   A card is a unit of content with a title, so it needs more room than
   a `.cm-kv` row and less than a page; the library had no honest way to

@@ -66,6 +66,37 @@
 	margin: 0;
 }
 
+/* ---------- post / article head ----------
+   The article variant of .cm-head. It is a DIFFERENT block from the page
+   head in exactly one way: it is the last thing before the body text, so
+   it carries a rule under itself that separates the metadata from the
+   prose. .cm-head has no rule because the next block on a page is
+   another section, not the article.
+
+   This rule did not exist while <PostHead> shipped `cm-post-head` on its
+   <header> - a component emitting a class the stylesheet never defined.
+   It was invisible because the showcase never rendered <PostHead>, so
+   `npm run build` never compiled the component and nothing compared the
+   markup's classes against the stylesheet's selectors. A dead class
+   still builds, ships and renders; only the class audit caught it.
+
+   The margin is what carries the separation BELOW the rule. The rule is
+   on the header and the following prose is the header's sibling, so
+   there is no child to collapse against. */
+.cm-post-head {
+	padding: var(--head-top) 0 var(--space-6);
+	border-bottom: 1px solid var(--line);
+	margin-bottom: var(--space-7);
+}
+/* The kicker and byline sit in a head whose h1 already has a bottom
+   margin, so the head's own bottom padding is what opens the gap to
+   the rule. */
+.cm-post-head .cm-kicker { margin-bottom: var(--space-3); }
+.cm-post-head h1 { margin-bottom: var(--space-4); }
+@media (max-width: 680px) {
+	.cm-post-head h1 { line-height: 1.25; }
+}
+
 /* ---- specimens (showcase only, but library-owned so a consumer can
    document its own design language the same way) ---- */
 .cm-swatch {
