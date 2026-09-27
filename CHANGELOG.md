@@ -8,6 +8,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Mobile nav disclosure.** `.cm-nav-toggle` collapses the header nav into a
+  burger panel under 640px, with `aria-expanded` / `aria-controls`, Escape to
+  close (focus returns to the button), close-on-link-tap, close-on-outside-click
+  and a rotate-to-desktop reset. The collapse is scoped to `.cm-js`, which the
+  runtime sets on `<html>` only after it has bound the toggle, so a reader
+  without JavaScript keeps every link inline.
+- The burger morphs to an X on `aria-expanded="true"`, and the transition sits
+  in the existing `prefers-reduced-motion` guard alongside every other
+  animation in the system.
+- `tests/burger-webkit.py`-style verification: 22 WebKit checks at a 390px
+  iPhone viewport, including a JavaScript-disabled context.
+
+### Fixed
+- **`SITE.title` was the placeholder `my site`**, so the showcase header read
+  `$ my site`. It now reads `$ oem/ui`, matching the `$ oem/links` and
+  `$ oem/log` prompt convention. A consumer that copies `config.ts` must
+  change it, which the file's own comment now says.
+- **An icon button cleared the tap floor in height but not width** — 44x32.
+  `min-height: var(--tap)` in the coarse-pointer block could not beat the
+  `width: 32px` that `.cm-icon-btn` declares, and base.css loads before
+  components.css, so the override had to live beside the class. The burger is
+  now exactly 44x44 on a touch pointer.
+- **`verify-nav-webkit.py` aborted after its checks** when the showcase outgrew
+  WebKit's 32767px full-page screenshot limit, reporting a green suite as a
+  crash. The shot is now best-effort and the run reports its real result.
+
+### Added
 
 - **`<strong>` / `<b>` is an element default.**
 

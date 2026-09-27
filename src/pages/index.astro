@@ -262,6 +262,39 @@ import { SITE } from '../astro/config';
 					</div>
 				</div>
 
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">mobile disclosure</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+					Twelve links do not fit a phone, so under 640px the nav collapses
+					behind a burger &mdash; the one in the header above. Narrow this
+					window to see it. The collapse is scoped to the runtime having booted,
+					so a reader without JavaScript still gets every link inline.
+				</p>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>closed</code></span>
+						<span class="cm-spec__sample" style="display:flex;align-items:center;gap:var(--space-3)">
+							<button
+								class="cm-icon-btn cm-nav-toggle cm-nav-toggle--demo"
+								type="button"
+								aria-hidden="true"
+								tabindex="-1"
+							>
+								<span class="cm-nav-toggle__bars" aria-hidden="true">
+									<span class="cm-nav-toggle__bar"></span>
+								</span>
+							</button>
+							<span class="cm-head__sub">the real control is in the header above</span>
+						</span>
+						<span class="cm-spec__val"><code>aria-expanded</code></span>
+					</div>
+				</div>
+				<p class="cm-head__sub" style="margin-top:var(--space-3)">
+					Tapping a link closes the panel, so the menu never sits on top of the
+					section you just asked for. <code>Escape</code> closes it and returns
+					focus to the button, and rotating to a desktop width clears the state
+					rather than leaking it into the next phone view.
+				</p>
+
 				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">HeaderLink</h3>
 				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
 					Path matching is the part of a nav every consumer gets wrong, so the library

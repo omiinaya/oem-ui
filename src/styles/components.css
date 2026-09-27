@@ -193,6 +193,12 @@
 	   blinking caret must still read as a caret. */
 	.cm-skeleton__line, .cm-skeleton__block { opacity: 0.55; }
 	.cm-cursor { opacity: 1; }
+	/* The burger's bars morph into an X. A `transition` is motion too -
+	   `animation: none` above does not touch it, and the X still has to
+	   appear, just without sliding. */
+	.cm-nav-toggle__bars::before,
+	.cm-nav-toggle__bars::after,
+	.cm-nav-toggle__bar { transition: none; }
 }
 /* On a phone the three columns will not fit: stack the label above the
    sample and let the value sit on the same line as the label. */
@@ -931,42 +937,155 @@ html {
 }
 .cm-header__icon-link:hover { color: var(--ink); }
 
-/* Narrow: links drop to their own row under a rule; brand keeps the top
-   row with the controls. */
+/* An icon button pins BOTH dimensions for its glyph box, so the
+   min-height from the coarse-pointer floor stretched it to 44x32 - tall
+   enough to hit, still 12px too narrow to hit comfortably. A square tap
+   target is the whole point of an icon button.
+
+   This has to live HERE, not in the `pointer: coarse` block in
+   base.css: that file loads first, and the 32px box below is declared
+   later at equal specificity, so a rule in base.css loses the cascade
+   wherever it sits. */
+@media (pointer: coarse) {
+	.cm-icon-btn { width: var(--tap); height: var(--tap); }
+}
+
+/* ============ mobile nav: a disclosure, not a wall ============
+   The showcase has 19 nav links. On a phone they wrapped to 8 rows and
+   pushed the header to 211px - a quarter of the viewport spent on a menu
+   before any content. Measured in WebKit at 390px.
+
+   The fix is a burger. It is HIDDEN by default in CSS and revealed by the
+   runtime adding `.cm-js` to <html>, so a no-JS reader still gets every
+   link on screen rather than a button that cannot open anything. Same
+   reasoning as the theme FOUC guard: the enhanced path must never be the
+   only path. */
+.cm-nav-toggle { display: none; }
+/* Only ever a phone control: a burger on a 1280px screen next to a
+   perfectly good inline nav is noise. */
 @media (max-width: 640px) {
+	.cm-js .cm-nav-toggle { display: inline-flex; }
+}
+
+/* The three bars are one element with three children, drawn with
+   background gradients rather than glyphs, so they inherit the button's
+   colour and can animate to an X. */
+.cm-nav-toggle__bars {
+	display: block;
+	position: relative;
+	width: 15px;
+	height: 11px;
+}
+.cm-nav-toggle__bars::before,
+.cm-nav-toggle__bars::after {
+	content: '';
+	position: absolute;
+	left: 0;
+	width: 100%;
+	height: 1.5px;
+	background: currentColor;
+	transition: transform var(--cm-t) var(--cm-ease),
+		opacity var(--cm-t) var(--cm-ease);
+}
+.cm-nav-toggle__bars::before { top: 0; }
+.cm-nav-toggle__bars::after { bottom: 0; }
+/* The middle bar is the only REAL child of .cm-nav-toggle__bars - `::before`
+   and `::after` are pseudo-elements and do not count toward :nth-child(). An
+   earlier `:nth-child(2)` therefore selected nothing, the middle bar fell
+   back to `top: 0` and landed exactly on top of the ::before bar: the burger
+   drew TWO bars with an 8.5px gap below, which reads as an arrow, not a menu.
+   So the bar centres itself with no positional selector at all. */
+.cm-nav-toggle__bar {
+	position: absolute;
+	left: 0;
+	width: 100%;
+	height: 1.5px;
+	top: 50%;
+	transform: translateY(-50%);
+	background: currentColor;
+	transition: transform var(--cm-t) var(--cm-ease),
+		opacity var(--cm-t) var(--cm-ease);
+}
+.cm-nav-toggle[aria-expanded='true'] .cm-nav-toggle__bar {
+	opacity: 0;
+}
+.cm-nav-toggle[aria-expanded='true'] .cm-nav-toggle__bars::before {
+	transform: translateY(4.75px) rotate(45deg);
+}
+.cm-nav-toggle[aria-expanded='true'] .cm-nav-toggle__bars::after {
+	transform: translateY(-4.75px) rotate(-45deg);
+}
+
+@media (max-width: 640px) {
+	/* One row: brand on the left, burger and theme toggle on the right.
+	   `height: auto` is what lets the collapsed header be 60px instead of
+	   the fixed 60px it was pretending to be. */
 	.cm-header__nav {
 		height: auto;
+		min-height: 60px;
 		row-gap: var(--space-2);
 		padding: 0.55rem 0;
 	}
 	.cm-header__brand { margin-right: auto; }
+
+	/* The panel is a real region: full-bleed like the rule above it, a
+	   divider, and a column of 44px rows. Hidden by default in CSS and
+	   toggled with [data-open] by the runtime. */
 	.cm-header__links {
 		order: 3;
 		width: 100%;
-		/* Inset to the content rail, matching the other header rule.
-		   It used to be full-bleed while the rule above it was inset, so
-		   one header block carried two divider geometries. */
+		/* NOTE: the collapse is scoped to `.cm-js` on purpose. An
+		   unconditional `display: none` here hides the nav from every
+		   reader whose runtime did not load - and a component library that
+		   removes its own navigation when JavaScript fails has shipped a
+		   broken page, not a degraded one. Without JS the links stay on
+		   screen, stacked, which is tall but complete. */
+		flex-direction: column;
+		align-items: stretch;
+		/* Inset to the content rail, matching the other header rule. It
+		   used to be full-bleed while the rule above it was inset, so one
+		   header block carried two divider geometries. */
 		margin-left: calc(-1 * var(--gutter));
 		margin-right: calc(-1 * var(--gutter));
-		padding-left: var(--gutter);
-		padding-right: var(--gutter);
+		padding: var(--space-2) 0;
 		border-top: 1px solid var(--line);
-		padding-top: var(--space-2);
-		justify-content: flex-start;
 	}
-	/* Once the nav WRAPS, the pipe separators are a lie: they only exist
-	   between items in the DOM, so a wrapped row starts with no pipe and
-	   ends with a dangling one. On a narrow screen the links read as a set
-	   from their spacing, so drop the pipes and let the row gap do it. The
-	   first item also returns to the content rail with zero side padding. */
-	.cm-header__link { padding: 0 0.55rem; }
-	.cm-header__link:first-child { padding-left: 0; }
+	.cm-js .cm-header__links { display: none; }
+	.cm-js .cm-header__links[data-open] { display: flex; }
+	.cm-header__link,
+	.cm-header__link:first-child {
+		padding: var(--space-3) var(--gutter);
+		/* The pipe separators are a lie once the nav WRAPS: they only
+		   exist between items in the DOM, so a wrapped row starts with no
+		   pipe and ends with a dangling one. In a single column there are
+		   no wrapped rows, so the pipes are honest again - but they read
+		   as noise in a menu, so they go. */
+		border-top: 1px solid var(--line);
+	}
+	.cm-header__link:first-child { border-top: 0; }
 	.cm-header__link + .cm-header__link::before { content: none; }
+	/* `is-active` is the scroll-spy's state and must not vanish when the
+	   panel is open, or the reader cannot see where they are. */
+	.cm-header__link.is-active,
+	.cm-header__link[aria-current='page'] {
+		color: var(--accent-bright);
+		text-decoration: none;
+		padding-left: calc(var(--gutter) + var(--space-3));
+	}
 }
+/* The showcase's specimen of the burger. It is a PICTURE of the control
+   (aria-hidden, not focusable) because the runtime binds only the first
+   [data-cm-nav-toggle] in the document, and a second one in the body would
+   be a dead button a reader could tap and nothing would happen. It shows at
+   every width on purpose: on a desktop you would never see the real one, and
+   the specimen is the only way to document a control that only exists on a
+   phone. */
+.cm-nav-toggle--demo { display: inline-flex; }
+
 @media (max-width: 360px) {
-	.cm-header__link { padding: 0 0.5rem; font-size: 0.78rem; }
 	.cm-header__controls { gap: var(--space-2); }
 }
+
 
 /* ============ mobile type floor ============
    The micro-labels above are set in this layer, so the floor has to be

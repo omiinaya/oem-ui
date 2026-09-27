@@ -175,6 +175,75 @@
 		update();
 	}
 
+	/* ---------- mobile nav disclosure ----------
+	   The burger is CSS-hidden unless <html> has `.cm-js`, so setting that
+	   class is the "JS is here" signal for the whole enhanced path. It is
+	   set the moment the runtime boots, so the button and the panel can
+	   never appear without the behaviour that opens them. */
+	function initNavToggle(root) {
+		/* `document` here, not the caller's root: the burger lives in the
+		   document header on every page, and a subtree root (a dialog that
+		   re-inits) must still be able to close a panel it did not
+		   create. Feature-detect rather than assume - a host with a
+		   partial document shim should skip the nav, not throw. */
+		var doc = document;
+		if (!doc || typeof doc.getElementById !== 'function') return;
+		var btn = doc.querySelector('[data-cm-nav-toggle]');
+		var panel = doc.getElementById('cm-header-links');
+		if (!btn || !panel) return;
+		doc.documentElement.classList.add('cm-js');
+		if (btn.dataset.cmNavBound) return;
+		btn.dataset.cmNavBound = '1';
+
+		var mq = window.matchMedia('(max-width: 640px)');
+		function setOpen(open) {
+			btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+			if (open) panel.setAttribute('data-open', '');
+			else panel.removeAttribute('data-open');
+		}
+		function isOpen() {
+			return btn.getAttribute('aria-expanded') === 'true';
+		}
+		setOpen(false);
+
+		btn.addEventListener('click', function () {
+			setOpen(!isOpen());
+		});
+
+		/* Tapping a link inside a one-page menu has to close it, or the
+		   reader taps "states", the page scrolls, and the menu is still
+		   covering the thing they just asked for. */
+		panel.addEventListener('click', function (e) {
+			if (e.target && e.target.closest && e.target.closest('a')) setOpen(false);
+		});
+
+		/* Escape closes it and returns focus to the button, so keyboard
+		   and screen-reader users are not stranded inside a menu that is
+		   now invisible. */
+		doc.addEventListener('keydown', function (e) {
+			if (e.key === 'Escape' && isOpen()) {
+				setOpen(false);
+				btn.focus();
+			}
+		});
+
+		/* A click outside the header closes it. The header, not the
+		   button: the panel is inside the header, so a click on the panel
+		   must not be treated as outside. */
+		doc.addEventListener('click', function (e) {
+			if (!isOpen()) return;
+			if (e.target && e.target.closest && e.target.closest('[data-cm-header]')) return;
+			setOpen(false);
+		});
+
+		/* Rotating back to a desktop width with the panel open would
+		   otherwise leave `data-open` set on a panel CSS is no longer
+		   showing, and the next phone-width view would inherit it. */
+		var onChange = function () { setOpen(false); };
+		if (typeof mq.addEventListener === 'function') mq.addEventListener('change', onChange);
+		else if (typeof mq.addListener === 'function') mq.addListener(onChange);
+	}
+
 	/* ---------- scroll-spy for nav links ---------- */
 	// Marks the nav link whose section is currently in view.
 	// Purely additive: the server-rendered active state stays intact.
@@ -499,6 +568,7 @@
 			});
 		syncToggles();
 		initHeader(document.querySelector('[data-cm-header]'));
+		initNavToggle(root);
 		initScrollSpy(document.querySelector('[data-cm-nav]'));
 		initCopy(root);
 		initTabs(root);

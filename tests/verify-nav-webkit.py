@@ -175,7 +175,15 @@ def main():
                         len(set(overflow["rail"])) == 1, sorted(set(overflow["rail"]))))
         results.append(("no page errors", not errors, errors[:3]))
 
-        page.screenshot(path=f"{OUT}-iphone.png", full_page=True)
+        # A full-page shot is a nicety, not a check. The page outgrew
+        # WebKit's 32767px screenshot limit once the showcase grew, and an
+        # exception here aborted the run AFTER every check had already been
+        # recorded - so a passing suite reported as a crash. Clip instead.
+        try:
+            page.screenshot(path=f"{OUT}-iphone.png", full_page=True)
+        except Exception as e:  # noqa: BLE001
+            print(f"  note: full-page shot skipped ({type(e).__name__})")
+            page.screenshot(path=f"{OUT}-iphone.png")
         page.evaluate("() => window.scrollTo(0,0)")
         page.wait_for_timeout(300)
         page.screenshot(path=f"{OUT}-top.png")

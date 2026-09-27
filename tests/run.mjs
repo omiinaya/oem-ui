@@ -3239,6 +3239,362 @@ for (const sel of INTERACTIVE) {
 	});
 }
 
+/* ================= the mobile nav disclosure ================= */
+
+/* Read the components.css with its comments STRIPPED, the way the other
+   blocks do: a rule named in a comment is not a rule, and a test that can
+   match a comment is a test that passes for the wrong reason.
+
+   Anchor on the PANEL rule inside the phone query, not on the burger's first
+   rule. Both quirks cost real time here:
+
+   - `.cm-nav-toggle {` is followed almost immediately by the media query
+     that REVEALS the burger, so "the first 640px query after the burger" is
+     that reveal query, and the slice was 35 characters long. Every
+     assertion in it was about the wrong block.
+   - `.cm-header__links {` also exists in the DESKTOP rules above the burger,
+     so anchoring on that matched the wrong occurrence.
+   `.cm-js .cm-header__links {` appears exactly once, inside the phone query,
+   and back-searching the media query from it is unambiguous. */
+const MC_PANEL_AT = compSrc.indexOf('.cm-js .cm-header__links {');
+const MC_640_AT = compSrc.lastIndexOf(
+	'@media (max-width: 640px)', MC_PANEL_AT
+);
+const MC_BURGER_AT = compSrc.indexOf('.cm-nav-toggle {');
+/* This used to `throw` at module scope. That turns a moved anchor into a
+   crashed runner: every test after it dies as a SyntaxError-style abort
+   rather than as a named FAILURE, so a mutation report shows "killed by
+   nothing" and you cannot tell a real regression from a broken test.
+   Fall back to empty regions and let the individual checks name the defect -
+   a suite that reports `FAIL: no .cm-nav-toggle in components.css` is worth
+   far more than one that exits 1 with a stack trace. */
+const MC_ANCHORS_OK =
+	MC_PANEL_AT !== -1 && MC_640_AT !== -1 && MC_BURGER_AT !== -1 && MC_640_AT > MC_BURGER_AT;
+/* One region: everything from the burger's first rule to the panel's media
+   query. It holds the default, the reveal, the three bars and the X morph. */
+const MC_BARS = MC_ANCHORS_OK ? compSrc.slice(MC_BURGER_AT, MC_640_AT) : '';
+const MC_REVEAL = MC_BARS;
+
+/* A real rule parser, not a fragment regex. Regexing `.cm-nav-toggle__bar`
+   and expanding outward can only ever see text from that class name onward,
+   so for the rule
+       .cm-nav-toggle[aria-expanded='true'] .cm-nav-toggle__bar { opacity: 0 }
+   the match starts at `__bar` and the `[aria-expanded='true']` qualifier -
+   which is the entire reason that rule is different - is BEHIND the match
+   start and invisible. Every check then counted the open-state rule as a
+   second copy of the base rule. Split the region into (selectors, body)
+   pairs and look at the whole selector list. */
+function mcRules(css) {
+	const out = [];
+	const re = /([^{}]+)\{([^{}]*)\}/g;
+	let m;
+	while ((m = re.exec(css))) {
+		out.push({ sel: m[1].trim(), body: m[2] });
+	}
+	return out;
+}
+const MC_RULES = mcRules(MC_BARS);
+const MC_BAR_RULES = MC_RULES.filter((r) =>
+	/\.cm-nav-toggle__bar(?![\w-])/.test(r.sel)
+);
+const MC_BAR_BASE = MC_BAR_RULES.filter((r) => !/\[aria-expanded/.test(r.sel));
+const MC_BAR_BODIES = MC_BAR_RULES.map((r) => r.body).join(' ');
+/* The panel's phone query, up to the next query in the file. */
+const MC_COMP_640 = MC_ANCHORS_OK
+	? compSrc.slice(MC_640_AT, compSrc.indexOf('@media (max-width: 360px)'))
+	: '';
+
+const MC_JS = read('src/js/cli-mono.js');
+const MC_HDR = read('src/astro/Header.astro');
+
+check('the header ships a burger toggle', () => {
+	if (!MC_ANCHORS_OK)
+		throw new Error(
+			`burger block not where expected (panel=${MC_PANEL_AT} media=${MC_640_AT} burger=${MC_BURGER_AT})`
+		);
+	if (!MC_BARS.includes('.cm-nav-toggle')) throw new Error('no .cm-nav-toggle in components.css');
+});
+
+// THE BUG THIS BLOCK EXISTS FOR. The burger is drawn with two pseudo-elements
+// (the top and bottom bars) and one real child (the middle). The natural way
+// to centre the middle bar is `:nth-child(2)`, but pseudo-elements do not
+// count toward :nth-child(), so that selector matches nothing: the middle
+// bar falls back to `top: 0`, lands exactly on the ::before bar, and the icon
+// renders as TWO bars with a gap - which reads as a diagonal arrow, not a
+// menu. No positional selector may be used to place the middle bar.
+check('the burger bar has exactly one rule block', () => {
+	// Only the BASE rule. `.cm-nav-toggle__bar` under [aria-expanded] is a
+	// different rule about a different state, and counting it here would
+	// make the check fail every time someone added the open state.
+	if (MC_BAR_BASE.length !== 1)
+		throw new Error(
+			`found ${MC_BAR_BASE.length} base rule blocks ` +
+			`(${MC_BAR_RULES.length} incl. state rules)`
+		);
+});
+
+check('the burger bar is not placed with a positional selector', () => {
+	// The SELECTOR, not the body. `:nth-child(2)` never appears inside a
+	// declaration block, so searching the bodies for it makes this test
+	// unfailable: it passed while the exact bug it exists to prevent was
+	// re-introduced by mutation. Pseudo-elements (::before / ::after) are
+	// not children in the DOM, so a positional selector over a mixed
+	// pseudo+real set silently selects nothing.
+	const bad = MC_BAR_RULES
+		.map((r) => r.sel.match(/:nth-(?:child|type|of|last|of-type)\([^)]*\)/g))
+		.filter(Boolean)
+		.flat();
+	if (bad.length) {
+		throw new Error(
+			`placed with ${bad.join(', ')}; pseudo-elements do not count ` +
+			`toward :nth-child(), so this selects nothing`
+		);
+	}
+	// Belt and braces: a positional selector ANYWHERE in the icon region.
+	const anywhere = MC_BARS.match(/:nth-(?:child|type|of|last|of-type)\([^)]*\)/g);
+	if (anywhere) throw new Error(`positional selector in the burger: ${anywhere.join(', ')}`);
+});
+
+check('the burger bar centres itself with top:50%', () => {
+	if (!/top:\s*50%/.test(MC_BAR_BODIES)) throw new Error('no top:50% - the bar has no vertical position');
+});
+
+check('the burger bar does not sit on an edge', () => {
+	// ::before owns `top: 0` and ::after owns `bottom: 0` - legitimately, and
+	// on a DIFFERENT selector. Checked across the whole region this read
+	// ::before's own top:0 as a fault in the middle bar. Only the bar's own
+	// declarations are evidence here.
+	if (/\btop:\s*0(?![\d.])/.test(MC_BAR_BODIES)) throw new Error('middle bar is pinned to the top edge, on top of ::before');
+	if (/\bbottom:\s*0\b/.test(MC_BAR_BODIES)) throw new Error('middle bar is pinned to the bottom edge, on top of ::after');
+});
+
+// The X morph: both edges rotate, the middle fades out.
+check('open state rotates both edges into an X', () => {
+	if (!/\.cm-nav-toggle\[aria-expanded='true'\]\s+\.cm-nav-toggle__bars::before[^}]*rotate\(45deg\)/.test(MC_BARS))
+		throw new Error('::before is not rotated 45deg when open');
+	if (!/\.cm-nav-toggle\[aria-expanded='true'\]\s+\.cm-nav-toggle__bars::after[^}]*rotate\(-45deg\)/.test(MC_BARS))
+		throw new Error('::after is not rotated -45deg when open');
+});
+
+check('open state hides the middle bar', () => {
+	// Match a PARSED rule, not a raw regex over the region. A regex can be
+	// satisfied by a rule for a different element that happens to sit in the
+	// same block, which is how "the middle bar stays visible" survived a
+	// mutation that set its opacity to 0.4.
+	const state = MC_BAR_RULES.find((r) => /\[aria-expanded='true'\]/.test(r.sel));
+	if (!state) throw new Error('no [aria-expanded] rule for the middle bar at all');
+	if (!/\bopacity:\s*0\s*(;|$)/.test(state.body))
+		throw new Error(`the middle bar is not hidden when open (${state.body.trim()})`);
+});
+
+// A burger is a PHONE control. Revealing it at every width puts a hamburger
+// next to a perfectly good inline nav on a desktop.
+check('the burger is hidden by default and revealed only under 640px', () => {
+	if (!/^\.cm-nav-toggle \{[^}]*display:\s*none/m.test(MC_REVEAL))
+		throw new Error('the burger is not hidden by default');
+	if (!/\.cm-js \.cm-nav-toggle\s*\{[^}]*display:\s*inline-flex/.test(MC_REVEAL))
+		throw new Error('no .cm-js .cm-nav-toggle reveal rule');
+	// It must be inside a max-width query, not unconditional.
+	const at = MC_REVEAL.search(/\.cm-js \.cm-nav-toggle/);
+	const guard = MC_REVEAL.lastIndexOf('@media (max-width: 640px)', at);
+	if (guard === -1) throw new Error('the burger is revealed with no width guard at all');
+	if (!MC_REVEAL.slice(guard, MC_REVEAL.indexOf('}', guard) + 1).includes('.cm-js .cm-nav-toggle'))
+		throw new Error('the reveal is outside the max-width:640px block');
+});
+
+// The enhanced path must never be the ONLY path. A no-JS reader still needs
+// the navigation, so the collapse is scoped to .cm-js - an unconditional
+// display:none would remove the nav from every reader whose runtime failed.
+check('the panel collapse is scoped to .cm-js, not unconditional', () => {
+	// Parse the phone query and look at EVERY rule that touches the panel.
+	// The old check only asked whether `.cm-js .cm-header__links {` appeared
+	// SOMEWHERE, so a mutation that stripped the prefix off the CLOSED rule
+	// - the one that actually does the hiding - left it green, while a
+	// no-JS reader would have lost the navigation entirely.
+	const panelRules = mcRules(MC_COMP_640).filter((r) =>
+		/\.cm-header__links(?![\w-])/.test(r.sel)
+	);
+	if (!panelRules.length) throw new Error('no panel rules in the phone query');
+	for (const r of panelRules) {
+		if (!/display:\s*none/.test(r.body)) continue;
+		if (!/^\.cm-js\b/.test(r.sel))
+			throw new Error(
+				`unconditional hide: "${r.sel}" would remove the nav from a ` +
+				`reader whose runtime never ran`
+			);
+	}
+	if (!panelRules.some((r) => /^\.cm-js\b/.test(r.sel) && /display:\s*none/.test(r.body)))
+		throw new Error('the panel is never hidden on a phone, even with JS');
+});
+
+check('an open panel is shown via [data-open] under .cm-js', () => {
+	if (!MC_COMP_640.includes('.cm-js .cm-header__links[data-open] {'))
+		throw new Error('the open state is not gated on .cm-js');
+});
+
+// Accessibility of the disclosure itself.
+check('the toggle carries aria-expanded and aria-controls', () => {
+	if (!MC_HDR.includes('aria-expanded="false"')) throw new Error('no aria-expanded');
+	if (!MC_HDR.includes('aria-controls="cm-header-links"')) throw new Error('no aria-controls');
+});
+check('the toggle has an accessible name', () => {
+	if (!/aria-label="Menu"/.test(MC_HDR)) throw new Error('the bars are all aria-hidden, so the button needs a name');
+});
+check('the toggle is a real button', () => {
+	if (!/<button[\s\S]*?data-cm-nav-toggle/.test(MC_HDR)) throw new Error('not a <button>');
+});
+check('the panel has the id the button points at', () => {
+	if (!MC_HDR.includes('id="cm-header-links"')) throw new Error('aria-controls points at an id that does not exist');
+});
+check('the toggle only renders when there are links to disclose', () => {
+	// The toggle is its own {cond && (...)} expression, so the guard that
+	// matters is the one immediately wrapping `data-cm-nav-toggle`. A
+	// file-wide search for `links.length > 0 && (` is satisfied by the LINKS
+	// block elsewhere in the header, so removing the toggle's own guard left
+	// the test green.
+	const at = MC_HDR.indexOf('data-cm-nav-toggle');
+	if (at === -1) throw new Error('no burger toggle in the header');
+	const before = MC_HDR.slice(Math.max(0, at - 300), at);
+	if (!/links\.length > 0/.test(before))
+		throw new Error('a burger with nothing behind it is a dead control');
+});
+
+/* Runtime checks are scoped to initNavToggle. Searching the whole runtime
+   for `setOpen(false)` is satisfied by the Escape path, so mutating the
+   link-tap path or the outside-click path changed nothing any test could
+   see: two of the behavioural tests were unfailable for that reason. */
+const MC_NAV_JS = MC_JS.slice(
+	MC_JS.indexOf('function initNavToggle'),
+	MC_JS.indexOf('/* ---------- scroll-spy for nav links ---------- */')
+);
+if (!MC_NAV_JS.includes('initNavToggle'))
+	throw new Error('initNavToggle not found in the runtime');
+
+// Runtime behaviour: the pieces a reader on a phone needs.
+check('the runtime adds .cm-js only when the toggle is present', () => {
+	if (!/if \(!btn \|\| !panel\) return;[\s\S]{0,200}?classList\.add\('cm-js'\)/.test(MC_JS))
+		throw new Error('.cm-js must be set after the guard, or a page with no toggle gets the collapse');
+});
+check('the runtime toggles aria-expanded and the panel attribute together', () => {
+	const fn = MC_JS.slice(MC_JS.indexOf('function setOpen'));
+	const body = fn.slice(0, fn.indexOf('function isOpen'));
+	if (!body.includes("setAttribute('aria-expanded'")) throw new Error('aria-expanded not written');
+	if (!/panel\.setAttribute\('data-open'/.test(body)) throw new Error('data-open not set');
+	if (!/panel\.removeAttribute\('data-open'/.test(body)) throw new Error('data-open not removed');
+});
+check('tapping a link inside the panel closes it', () => {
+	if (!/closest\('a'\)\)\s*\)?\s*setOpen\(false\)/.test(MC_NAV_JS))
+		throw new Error('the menu stays covering the section the reader just asked for');
+});
+check('Escape closes the panel and restores focus to the button', () => {
+	if (!/e\.key === 'Escape'[\s\S]*?setOpen\(false\);[\s\S]*?btn\.focus\(\)/.test(MC_NAV_JS))
+		throw new Error('keyboard users would be stranded in a menu that is now invisible');
+});
+check('a click outside the header closes the panel', () => {
+	if (!/closest\('\[data-cm-header\]'\)\)\s*return;[\s\S]{0,160}?setOpen\(false\)/.test(MC_NAV_JS))
+		throw new Error('the menu cannot be dismissed by tapping the page');
+});
+check('rotating to a desktop width clears the open state', () => {
+	// Assert the HANDLER, not merely that a 'change' listener exists. The
+	// old check passed while the handler was an empty function, because
+	// "mq.addEventListener('change'" is still there - which is exactly the
+	// state the check was written to prevent.
+	if (!/matchMedia\('\(max-width: 640px\)'\)/.test(MC_NAV_JS))
+		throw new Error('the nav toggle is not watching the phone breakpoint');
+	const handler = MC_NAV_JS.match(/onChange\s*=\s*function[^}]*\}/);
+	if (!handler) throw new Error('no onChange handler for the breakpoint');
+	if (!/setOpen\(false\)/.test(handler[0]))
+		throw new Error(`the breakpoint handler does not close the panel: ${handler[0].trim()}`);
+	// And it must be the handler that is actually subscribed.
+	if (!/addEventListener\('change',\s*onChange\)/.test(MC_NAV_JS))
+		throw new Error('onChange is defined but not the listener that is bound');
+});
+check('the panel starts closed even if markup is reused', () => {
+	if (!/setOpen\(false\);/.test(MC_NAV_JS))
+		throw new Error('no initial close');
+});
+check('the runtime is bound once per button', () => {
+	if (!/if \(btn\.dataset\.cmNavBound\) return;/.test(MC_NAV_JS))
+		throw new Error('init() runs again on astro:page-load and would double-bind');
+});
+
+// Every animation in the system sits inside the reduced-motion guard, and a
+// transition is motion too - `animation: none` does not touch it.
+check('the burger bars are guarded against motion', () => {
+	const g = compSrc.indexOf('@media (prefers-reduced-motion: reduce)');
+	if (g === -1) throw new Error('no reduced-motion guard in components.css');
+	const guardBlock = compSrc.slice(g, compSrc.indexOf('\n}', g));
+	if (!/\.cm-nav-toggle__(?:bar|bars)(?:::?(?:before|after))?[^{]*\{[^}]*transition:\s*none/.test(guardBlock))
+		throw new Error('the bars morph to an X and that transition needs a guard');
+	// All THREE drawn bars must be named, not just the selector list's first
+	// entry. A regex satisfied by `.cm-nav-toggle__bars::before` alone let a
+	// mutation that deleted `.cm-nav-toggle__bar` - the MIDDLE bar, the only
+	// real element - pass, leaving the one bar that fades on open unguided.
+	for (const sel of ['.cm-nav-toggle__bars::before', '.cm-nav-toggle__bars::after', '.cm-nav-toggle__bar']) {
+		if (!guardBlock.includes(sel))
+			throw new Error(`${sel} is not in the reduced-motion guard; it still transitions`);
+	}
+});
+
+// The burger IS the control a phone reader has to hit to see the menu at
+// all, so the floor applies to the button, not only to the rows it opens.
+// A mutation that dropped `.cm-icon-btn { width: var(--tap); ... }` left the
+// suite green: the floor test listed `.cm-icon-btn` but only asserted it
+// takes its height FROM THE TOKEN, never that the token is applied here.
+check('the burger clears the tap floor on a coarse pointer', () => {
+	// The burger IS the control a phone reader must hit to see the menu at
+	// all, so the floor applies to the button, not only to the rows it
+	// opens. A mutation that dropped `.cm-icon-btn { width: var(--tap) }`
+	// left the suite green: the floor test listed .cm-icon-btn but only
+	// asserted it takes its height FROM THE TOKEN, never that the token is
+	// applied here.
+	//
+	// Search the WHOLE stylesheet, not the burger region: `.cm-icon-btn` is
+	// declared in the header section, well before `.cm-nav-toggle`, so a
+	// region-scoped search found nothing. Re-measuring the region taught me
+	// to ask where the rule really is instead of where I expected it.
+	if (!/\.cm-icon-btn\s*\{[^}]*width:\s*var\(--tap\)/.test(compSrc))
+		throw new Error('the burger never takes its width from --tap');
+});
+
+// The row tap floor: a menu whose links each need two precise taps is not a
+// menu.
+check('menu rows keep the tap floor on a coarse pointer', () => {
+	if (!MC_COMP_640.includes('padding: var(--space-3) var(--gutter)'))
+		throw new Error('menu rows are under the tap floor');
+});
+
+// The showcase is the library's documentation. A component the showcase
+// does not demonstrate is a component nobody can find.
+const MC_PAGE = read('src/pages/index.astro');
+check('the showcase demonstrates the mobile disclosure', () => {
+	if (!MC_PAGE.includes('cm-nav-toggle__bars'))
+		throw new Error('the burger is not demonstrated anywhere on the page');
+	if (!MC_PAGE.includes('mobile disclosure'))
+		throw new Error('the specimen has no section a reader can navigate to');
+});
+// A second live toggle would be a dead control: the runtime binds the first
+// [data-cm-nav-toggle] in the document and ignores the rest, so a body
+// specimen carrying that attribute is a button that does nothing.
+check('exactly one live nav toggle exists in the document', () => {
+	const live = (MC_PAGE.match(/data-cm-nav-toggle/g) || []).length
+		+ (MC_HDR.match(/data-cm-nav-toggle/g) || []).length;
+	if (live !== 1)
+		throw new Error(`${live} elements claim data-cm-nav-toggle; only the first is ever bound`);
+	// And the specimen, if present, must be inert.
+	if (/cm-nav-toggle--demo[\s\S]{0,400}?data-cm-nav-toggle/.test(MC_PAGE))
+		throw new Error('the specimen must not carry data-cm-nav-toggle');
+});
+
+// The current-section state must survive the panel being open, or a reader
+// cannot see where they are.
+check('the active link stays visible when the panel is open', () => {
+	if (!MC_COMP_640.includes('.cm-header__link.is-active'))
+		throw new Error('the scroll-spy state is dropped in the mobile panel');
+	if (!MC_COMP_640.includes(".cm-header__link[aria-current='page']"))
+		throw new Error('the current-page state is dropped in the mobile panel');
+});
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {

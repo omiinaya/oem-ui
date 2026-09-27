@@ -72,7 +72,7 @@ const anySpy = navLinks.some((l) => l.spyId);
 
 		{
 			links.length > 0 && (
-				<div class="cm-header__links" data-cm-nav={anySpy ? true : undefined}>
+				<div class="cm-header__links" id="cm-header-links" data-cm-nav={anySpy ? true : undefined}>
 					{navLinks.map((l) => (
 						<a
 							href={l.href}
@@ -88,6 +88,27 @@ const anySpy = navLinks.some((l) => l.spyId);
 		}
 
 		<div class="cm-header__controls">
+			{/* The burger is a DISCLOSURE for a nav that is present in the
+			   markup, so it only makes sense when there is something to
+			   disclose. It is hidden by CSS unless the runtime has set
+			   `.cm-js` on <html>, so a no-JS reader keeps the full nav. */}
+			{
+				links.length > 0 && (
+					<button
+						class="cm-icon-btn cm-nav-toggle"
+						type="button"
+						data-cm-nav-toggle
+						aria-expanded="false"
+						aria-controls="cm-header-links"
+						aria-label="Menu"
+						title="Menu"
+					>
+						<span class="cm-nav-toggle__bars" aria-hidden="true">
+							<span class="cm-nav-toggle__bar" />
+						</span>
+					</button>
+				)
+			}
 			{
 				showThemeToggle && (
 					<button

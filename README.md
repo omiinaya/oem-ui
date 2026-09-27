@@ -602,6 +602,37 @@ library fix can reach.
 <footer class="cm-footer">…</footer>
 ```
 
+## Mobile nav
+
+Under 640px the header nav collapses behind a burger. Nothing to wire up:
+`<Header>` renders the toggle whenever it has links to disclose, and the
+runtime binds it on load.
+
+    <Header links={links} />
+
+**It is progressive, not JS-dependent.** The panel only collapses once the
+runtime has set `.cm-js` on `<html>`, which happens only after it has found
+both the toggle and its panel. A reader with JavaScript disabled, or on a
+runtime that failed to load, gets every link inline in a wrapping row. A
+JavaScript toggle that hides content and then fails is a dead site.
+
+**What the runtime handles:** `aria-expanded` and `aria-controls` stay in sync,
+tapping a link closes the panel (or it covers the section you just asked for),
+Escape closes it and returns focus to the button, a click outside the header
+closes it, and rotating back to a desktop width clears the state so a stale
+`data-open` cannot leak into the next phone-width view.
+
+**If you write your own toggle**, copy the class contract rather than the
+markup: `.cm-nav-toggle` (hidden by default, revealed under 640px only under
+`.cm-js`), `.cm-nav-toggle__bars` with two `aria-hidden` edge bars, one real
+`.cm-nav-toggle__bar` child, and `.cm-header__links[data-open]` on the panel.
+
+One trap worth naming: **the middle bar is the only real child of
+`.cm-nav-toggle__bars`**, because `::before` and `::after` are pseudo-elements
+and do not count toward `:nth-child()`. A `:nth-child(2)` selector for it
+matches nothing, the bar falls back to `top: 0` and lands on top of the
+`::before` bar, and the burger draws two lines - which reads as an arrow.
+
 ## Theming
 
 Change the tokens, keep the components.
