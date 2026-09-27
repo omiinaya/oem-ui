@@ -5,12 +5,15 @@ on:
     branches: [master, main]
   pull_request:
 
-# Zero live minutes: the only job is node + a file-level test runner, and it
-# needs no browser. The WebKit harnesses in tests/*.py are run by hand against
-# a local preview, because they need a served page and a display.
+# The Actions budget on this account is exhausted, so GitHub-hosted runners
+# will not start a job at all. Every workflow in the fleet uses the
+# pve-scripts self-hosted runner for that reason; this one is no exception.
+#
+# The WebKit harnesses in tests/*.py are deliberately NOT run here: they need
+# a served page and a display. They run by hand against a local preview.
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, pve-scripts]
     steps:
       - uses: actions/checkout@v4
 
