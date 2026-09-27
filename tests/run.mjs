@@ -1419,6 +1419,751 @@ check('the showcase demonstrates both nav states', () => {
 		'the showcase must import <HeaderLink>, or the component is never compiled');
 });
 
+/* ================= interactive components ================= */
+console.log('\ninteractive components');
+
+// A minimal element, enough to exercise the runtime's attribute and
+// event work without a DOM library. Comments are stripped before the
+// runtime is read, or a word in an explanatory comment satisfies an
+// assertion about behaviour.
+const rt = runtimeSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+// Builds a fake element. `attrs` is the attribute map, `kids` the child
+// nodes. Nodes answer the same queries a real one does — a runtime that
+// calls el.querySelectorAll('.x') must not need a document to do it, and
+// a fake that returns nothing for a class selector would make every
+// behavioural test below pass for the wrong reason.
+let ACTIVE = null;
+const classesOf = (n) => (n.attrs.class || '').split(/\s+/).filter(Boolean);
+const attrOf = (sel) => {
+	const m = /^\[([a-z-]+)(?:=["']?([^\]"']*)["']?)?\]$/.exec(sel);
+	if (!m) return null;
+	return { a: m[1], v: m[2] };
+};
+const matches = (n, sel) => {
+	if (sel.startsWith('.')) return classesOf(n).includes(sel.slice(1));
+	const at = attrOf(sel);
+	if (at) return at.a in n.attrs && (at.v === undefined || n.attrs[at.a] === at.v);
+	return false;
+};
+const walkAll = (n, out, fn) => {
+	if (fn(n)) out.push(n);
+	n.kids.forEach((k) => walkAll(k, out, fn));
+};
+const el = (tag, attrs = {}, kids = []) => {
+	const node = {
+		tag,
+		attrs: { ...attrs },
+		dataset: {},
+		kids,
+		events: {},
+		open: false,
+		focused: false,
+		nodeType: 1,
+		parentNode: null,
+		get className() { return node.attrs.class || ''; },
+		set className(v) { node.attrs.class = v; },
+		get id() { return node.attrs.id || ''; },
+		getAttribute: (k) => (k in node.attrs ? String(node.attrs[k]) : null),
+		setAttribute: (k, v) => {
+			node.attrs[k] = String(v);
+			if (k === 'class') node.attrs.class = String(v);
+		},
+		removeAttribute: (k) => { delete node.attrs[k]; },
+		hasAttribute: (k) => k in node.attrs,
+		// A real appendChild MOVES an already-parented node; it does not
+		// clone it into a second slot. A fake that pushes unconditionally
+		// invents a duplicate the browser would never produce, and any
+		// test that counts children then fails for a reason that has
+		// nothing to do with the code under test.
+		appendChild: (c) => {
+			if (c.parentNode) c.parentNode.removeChild(c);
+			node.kids.push(c);
+			c.parentNode = node;
+			return c;
+		},
+		removeChild: (c) => {
+			const i = node.kids.indexOf(c);
+			if (i !== -1) node.kids.splice(i, 1);
+			c.parentNode = null;
+		},
+		remove() { if (node.parentNode) node.parentNode.removeChild(node); },
+		addEventListener: (t, fn) => { (node.events[t] = node.events[t] || []).push(fn); },
+		// Events BUBBLE. A click lands on the close button and the
+		// listener is on the toast that contains it; a fake that only
+		// calls the target's own handlers makes every delegated
+		// listener in the runtime look broken — and, worse, makes a
+		// handler that genuinely never fires look correct.
+		fire(t, ev = {}) {
+			const event = { target: node, preventDefault() {}, ...ev };
+			let n = node;
+			while (n) {
+				(n.events[t] || []).forEach((fn) => fn(event));
+				n = n.parentNode;
+			}
+		},
+		querySelector(sel) {
+			const out = [];
+			walkAll(node, out, (n) => n !== node && matches(n, sel));
+			return out[0] || null;
+		},
+		querySelectorAll(sel) {
+			const out = [];
+			walkAll(node, out, (n) => n !== node && matches(n, sel));
+			return out;
+		},
+		focus() { node.focused = true; ACTIVE = node; },
+		// The runtime's own dispatch walks up from the event target. A
+		// real closest() must find the trigger, or a click on a child
+		// glyph silently misses the control that owns it.
+		closest(sel) {
+			let n = node;
+			while (n) {
+				if (matches(n, sel)) return n;
+				n = n.parentNode;
+			}
+			return null;
+		},
+	};
+	// dataset mirrors data-* attributes, which is how the runtime reads
+	// the idempotence guards and the region/dialog hook attributes.
+	for (const [k, v] of Object.entries(node.attrs)) {
+		if (!k.startsWith('data-')) continue;
+		const camel = k.slice(5).replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+		node.dataset[camel] = String(v);
+	}
+	return node;
+};
+
+// A document over a set of roots. The runtime's initialisation runs on
+// the document, so this has to answer the same queries.
+const domOf = (roots) => {
+	const d = {
+		readyState: 'complete',
+		// The runtime reads document.activeElement to know which tab an
+		// arrow key came from. A frozen stub makes every arrow test a
+		// test of the stub, so it has to track what focus() did.
+		get activeElement() { return ACTIVE; },
+		documentElement: { getAttribute: () => null, setAttribute: () => {}, dataset: {} },
+		body: el('body'),
+		createElement: (t) => el(t),
+		addEventListener: () => {},
+		find(sel) {
+			const out = [];
+			for (const r of roots) walkAll(r, out, (n) => matches(n, sel));
+			return out;
+		},
+		querySelector(sel) { return this.find(sel)[0] || null; },
+		querySelectorAll(sel) { return this.find(sel); },
+		getElementById(id) {
+			for (const r of roots) {
+				const out = [];
+				walkAll(r, out, (n) => n.attrs.id === id);
+				if (out.length) return out[0];
+			}
+			return null;
+		},
+	};
+	return d;
+};
+
+// Runs the real runtime against a fake document and hands back the API.
+const runOn = (roots) => {
+	ACTIVE = null; // focus does not survive a fresh document
+	const doc = domOf(roots);
+	const ctx = {
+		document: doc,
+		module: { exports: {} },
+		localStorage: { getItem: () => null, setItem: () => {} },
+		window: { addEventListener: () => {} },
+		setTimeout,
+		clearTimeout,
+		Date,
+	};
+	ctx.globalThis = ctx;
+	vm.createContext(ctx);
+	vm.runInContext(rt, ctx);
+	// The module self-inits on load, and ACTIVE is the node the runtime
+	// would see as focused.
+	return { api: ctx.module.exports, doc, focusNode: () => ACTIVE };
+};
+
+const tabGroup = () => {
+	const mk = (id, panel, selected) => el('button', {
+		class: 'cm-tabs__tab', role: 'tab', id, 'aria-controls': panel,
+		'aria-selected': selected ? 'true' : 'false', tabindex: '0',
+	});
+	const panelOf = (id, tabId) => el('div', {
+		class: 'cm-tabs__panel', role: 'tabpanel', id, 'aria-labelledby': tabId,
+	});
+	const tabs = [mk('t1', 'p1', true), mk('t2', 'p2', false), mk('t3', 'p3', false)];
+	const panels = [panelOf('p1', 't1'), panelOf('p2', 't2'), panelOf('p3', 't3')];
+	panels[1].setAttribute('hidden', '');
+	panels[2].setAttribute('hidden', '');
+	const list = el('div', { class: 'cm-tabs__list', role: 'tablist' }, tabs);
+	return el('div', { class: 'cm-tabs' }, [list, ...panels]);
+};
+
+check('cm-tabs: components.css defines the block and all of its parts', () => {
+	for (const sel of [
+		'.cm-tabs', '.cm-tabs__list', '.cm-tabs__tab', '.cm-tabs__panel',
+	]) {
+		assert(new RegExp(`${sel.replace('.', '\\.')}\\s*[,{]`).test(compSrc),
+			`components.css never defines ${sel}`);
+	}
+});
+
+check('cm-tabs: the demo page wires a real tablist', () => {
+	for (const t of ['role="tablist"', 'role="tab"', 'role="tabpanel"', 'aria-selected', 'aria-controls', 'aria-labelledby']) {
+		assert(showcase.includes(t), `the showcase has no ${t}`);
+	}
+});
+
+check('cm-tabs: every tab points at a panel that exists, and back at it', () => {
+	// A tab whose aria-controls names nothing is a control with no
+	// effect, and it is invisible in a visual pass: the tab looks
+	// selected and the content never changes.
+	const open = showcase.slice(showcase.indexOf('id="overlays"'), showcase.indexOf('id="prose"'));
+	const controls = [...open.matchAll(/aria-controls="([^"]+)"/g)].map((m) => m[1]);
+	const labelled = [...open.matchAll(/aria-labelledby="([^"]+)"/g)].map((m) => m[1]);
+	assert(controls.length >= 3, `expected a tablist of at least 3, found ${controls.length}`);
+	for (const c of controls) {
+		assert(open.includes(`id="${c}"`), `aria-controls="${c}" names no element`);
+	}
+	for (const l of labelled) {
+		assert(open.includes(`id="${l}"`), `aria-labelledby="${l}" names no element`);
+	}
+});
+
+check('cm-tabs: only one tab is ever selected', () => {
+	// Two selected tabs is a tablist that answers two different
+	// questions at once; AT reports the set, not the winner.
+	const open = showcase.slice(showcase.indexOf('id="overlays"'), showcase.indexOf('id="prose"'));
+	const list = /<div class="cm-tabs__list"[\s\S]*?<\/div>/.exec(open);
+	assert(list, 'no tablist found in the showcase');
+	const tabs = list[0].match(/role="tab"/g) || [];
+	const selected = list[0].match(/aria-selected="true"/g) || [];
+	assert(tabs.length >= 2, `expected a multi-tab tablist, found ${tabs.length}`);
+	assert(selected.length === 1, `${selected.length} tabs are selected; exactly one must be`);
+});
+
+check('cm-tabs: the runtime roves the tabindex instead of tabbing the whole row', () => {
+	// The WAI-ARIA pattern: one tab in the tab order, arrows move
+	// between them. Without this, Tab walks every tab, which is the
+	// exact behaviour the pattern exists to prevent.
+	const group = tabGroup();
+	const { api, doc } = runOn([group]);
+	api.init(doc);
+	const tabs = group.kids[0].kids;
+	assert(tabs.filter((t) => t.getAttribute('tabindex') === '0').length === 1,
+		`${tabs.filter((t) => t.getAttribute('tabindex') === '0').length} tabs are in the tab order, want 1`);
+	assert(tabs[0].getAttribute('tabindex') === '0', 'the selected tab must be the tabbable one');
+	assert(tabs[1].getAttribute('tabindex') === '-1', 'the other tabs must be -1');
+});
+
+check('cm-tabs: arrow keys move selection, focus and panel together', () => {
+	const group = tabGroup();
+	const { api, doc } = runOn([group]);
+	const tabs = group.kids[0].kids;
+	const panels = group.kids.slice(1);
+
+	tabs[0].focus();
+	group.fire('keydown', { key: 'ArrowRight' });
+	assert(tabs[1].getAttribute('aria-selected') === 'true', 'ArrowRight did not select the next tab');
+	assert(tabs[0].getAttribute('aria-selected') === 'false', 'the previous tab is still selected');
+	assert(doc.activeElement === tabs[1], 'ArrowRight did not move focus to the new tab');
+	assert(tabs[1].getAttribute('tabindex') === '0', 'the newly selected tab is not the tabbable one');
+	assert(!panels[1].hasAttribute('hidden'), 'the panel for the selected tab is still hidden');
+	assert(panels[0].hasAttribute('hidden'), 'the previous panel is still visible');
+});
+
+check('cm-tabs: the arrow keys wrap, and Home/End jump to the ends', () => {
+	const group = tabGroup();
+	const { api, doc } = runOn([group]);
+	api.init(doc);
+	const tabs = group.kids[0].kids;
+	tabs[0].focus();
+	group.fire('keydown', { key: 'ArrowLeft' });
+	assert(tabs[2].getAttribute('aria-selected') === 'true', 'ArrowLeft from the first tab must wrap to the last');
+	group.fire('keydown', { key: 'End' });
+	assert(tabs[2].getAttribute('aria-selected') === 'true', 'End did not stay on the last tab');
+	group.fire('keydown', { key: 'Home' });
+	assert(tabs[0].getAttribute('aria-selected') === 'true', 'Home did not select the first tab');
+});
+
+check('cm-tabs: a key that is not part of the pattern is left alone', () => {
+	// Arrow keys are the pattern; PageUp is not, and swallowing it
+	// would break a consumer's own shortcut.
+	const group = tabGroup();
+	const { api, doc } = runOn([group]);
+	api.init(doc);
+	const tabs = group.kids[0].kids;
+	tabs[0].focus();
+	group.fire('keydown', { key: 'PageDown' });
+	assert(tabs[0].getAttribute('aria-selected') === 'true', 'an unrelated key changed the selection');
+});
+
+check('cm-tabs: a markup mismatch is normalised on bind, not trusted', () => {
+	// Two tabs claiming aria-selected="true" is a silent ARIA lie. The
+	// runtime owns the normalisation so the component cannot ship one.
+	const group = tabGroup();
+	group.kids[0].kids[1].setAttribute('aria-selected', 'true');
+	const { api, doc } = runOn([group]);
+	api.init(doc);
+	const tabs = group.kids[0].kids;
+	assert(tabs.filter((t) => t.getAttribute('aria-selected') === 'true').length === 1,
+		'the runtime left more than one tab selected');
+	// A tab whose panel is missing must not throw on init.
+	const orphan = el('button', {
+		class: 'cm-tabs__tab', role: 'tab', id: 't9', 'aria-controls': 'nope',
+		'aria-selected': 'true',
+	});
+	const g2 = el('div', { class: 'cm-tabs' }, [el('div', { class: 'cm-tabs__list' }, [orphan])]);
+	const r2 = runOn([g2]);
+	r2.api.init(r2.doc);
+	assert(true, 'init threw on a tab with a missing panel');
+});
+
+check('cm-tabs: init is idempotent, as every astro:page-load requires', () => {
+	// A second init re-normalises but must not stack a second listener
+	// per group, or one arrow press advances two tabs.
+	const group = tabGroup();
+	const { api, doc } = runOn([group]);
+	api.init(doc);
+	api.init(doc);
+	const tabs = group.kids[0].kids;
+	tabs[0].focus();
+	group.fire('keydown', { key: 'ArrowRight' });
+	assert(tabs[1].getAttribute('aria-selected') === 'true', 'the first tab should be selected');
+	assert(tabs[2].getAttribute('aria-selected') === 'false', 'a double-bound handler skipped a tab');
+});
+
+/* ---------- dialog ---------- */
+
+check('cm-dialog: the markup is a real <dialog>, not a div with role=dialog', () => {
+	// A div cannot be in the top layer, cannot be made inert-behind, and
+	// gets no focus trap from the engine. Each of those is the entire
+	// reason to use the element.
+	assert(/<dialog class="cm-dialog"/.test(showcase), 'the showcase has no <dialog class="cm-dialog">');
+	assert(!/role="dialog"/.test(showcase), 'a role="dialog" is a hand-rolled modal; use <dialog>');
+	assert(/\.cm-dialog::backdrop/.test(compSrc), 'the dialog has no ::backdrop rule');
+});
+
+check('cm-dialog: the dialog has an accessible name', () => {
+	// A dialog with no name is announced as "dialog" and nothing else,
+	// which is useless when three of them can be open.
+	const open = showcase.slice(showcase.indexOf('id="overlays"'), showcase.indexOf('id="prose"'));
+	for (const m of open.matchAll(/<dialog[^>]*>/g)) {
+		assert(/aria-labelledby="/.test(m[0]) || /aria-label="/.test(m[0]),
+			`the dialog has no accessible name: ${m[0]}`);
+	}
+});
+
+check('cm-dialog: the trigger calls showModal, not show', () => {
+	// show() gives a non-modal dialog: no top layer, no focus trap, and
+	// the page behind it stays live and clickable.
+	assert(/dlg\.showModal\(\)/.test(rt), 'the runtime never calls showModal()');
+	const open = showcase.slice(showcase.indexOf('id="overlays"'), showcase.indexOf('id="prose"'));
+	assert(/data-cm-open="dlg-demo"/.test(open), 'no trigger is wired to the demo dialog');
+});
+
+check('cm-dialog: the scrim is a token, and the two themes give it different values', () => {
+	// The same alpha over near-black and over near-white hides the page
+	// by very different amounts, so a single literal is wrong in one of
+	// the themes by construction. And a literal in components.css is a
+	// rebrand bug like any other.
+	const scrim = /\.cm-dialog::backdrop\s*\{([^}]*)\}/.exec(compSrc);
+	assert(scrim, 'no .cm-dialog::backdrop rule');
+	assert(/var\(--scrim\)/.test(scrim[1]), `::backdrop must paint var(--scrim), got: ${scrim[1].trim()}`);
+	assert(!/#[0-9a-f]{3,8}\b/i.test(scrim[1]), 'the scrim hardcodes a colour instead of using the token');
+	// Every theme block that paints a surface must define the scrim.
+	const blocks = [...tokenSrc.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+		.map((m) => ({ sel: m[1].trim(), body: m[2] }))
+		.filter((b) => /--(bg|shadow-card):/.test(b.body));
+	assert(blocks.length >= 4, `expected the theme blocks to be found, saw ${blocks.length}`);
+	for (const b of blocks) {
+		assert(/--scrim:/.test(b.body), `theme block ${b.sel} paints surfaces but defines no --scrim`);
+	}
+	const values = [...tokenSrc.matchAll(/--scrim:\s*([^;]+)/g)].map((m) => m[1].trim());
+	assert(new Set(values).size === 2,
+		`the scrim is the same in both themes (${[...new Set(values)].join(' / ')}); the same alpha cannot dim both surfaces equally`);
+});
+
+check('cm-dialog: the frame survives a consumer reset', () => {
+	// The UA sheet centres a modal dialog with `margin: auto`. A
+	// consumer's `* { margin: 0 }` reset outranks nothing and silently
+	// pins the dialog to the top-left corner, so say it explicitly.
+	const rule = /\.cm-dialog\s*\{([^}]*)\}/.exec(compSrc);
+	assert(rule, '.cm-dialog is not defined');
+	assert(/margin:\s*auto/.test(rule[1]),
+		'.cm-dialog does not declare margin:auto, so a `* { margin: 0 }` reset pins it to the corner');
+});
+
+/* ---------- toast ---------- */
+
+check('cm-toast: the variants are the same three as .cm-alert, and the glyphs match', () => {
+	// A toast is a transient alert. If it invents its own vocabulary it
+	// becomes a second alert component, and the two drift.
+	for (const v of ['ok', 'warn', 'err']) {
+		assert(new RegExp(`\\.cm-toast--${v}\\b`).test(compSrc), `.cm-toast--${v} is missing`);
+	}
+	const glyphOf = (prefix) => {
+		const out = {};
+		for (const v of ['ok', 'warn', 'err']) {
+			const m = new RegExp(
+				`\\.${prefix}--${v} \\.${prefix}__mark::before\\s*\\{[^}]*content:\\s*'([^']*)'`,
+			).exec(compSrc);
+			assert(m, `.${prefix}--${v} carries no ::before glyph`);
+			out[v] = m[1];
+		}
+		return out;
+	};
+	const alert = glyphOf('cm-alert');
+	const toast = glyphOf('cm-toast');
+	assert(JSON.stringify(alert) === JSON.stringify(toast),
+		`the toast glyphs differ from the alert glyphs; they are the same three states.\n`
+		+ `alert: ${JSON.stringify(alert)}\ntoast: ${JSON.stringify(toast)}`);
+	assert(new Set(Object.values(toast)).size === 3, 'the three toast glyphs must differ from each other');
+});
+
+check('cm-toast: the mark is empty in the markup, exactly as the alert mark is', () => {
+	// CSS injects the glyph. A literal glyph in the span renders twice
+	// and is announced twice. The alert mark already shipped this bug.
+	const open = showcase.slice(showcase.indexOf('id="overlays"'), showcase.indexOf('id="prose"'));
+	const built = /<span class="cm-toast__mark" aria-hidden="true"><\/span>/g;
+	assert(built.test(showcase),
+		'the showcase does not render the toast mark as an empty aria-hidden span');
+	assert(!/class="cm-toast__mark"[^>]*>\s*[^\s<]/.test(showcase),
+		'a literal glyph was left inside a toast mark');
+});
+
+check('cm-toast: the region is a live region, and it is not a wall', () => {
+	assert(/data-cm-toasts[^>]*role="status"/.test(showcase)
+		|| /aria-live="polite"/.test(showcase),
+	'the toast region is not a live region, so a toast is never announced');
+	// A fixed full-region overlay that took pointer events would eat
+	// clicks on the page behind it. pointer-events:none on the region
+	// and auto on the toast is the only arrangement that works.
+	const region = /^\.cm-toast-region\s*\{([^}]*)\}/m.exec(compSrc);
+	assert(region, '.cm-toast-region is not defined');
+	assert(/pointer-events:\s*none/.test(region[1]),
+		'.cm-toast-region must be pointer-events:none, or the stack blocks the page behind it');
+	const toastRule = /^\.cm-toast\s*\{([^}]*)\}/m.exec(compSrc);
+	assert(/pointer-events:\s*auto/.test(toastRule[1]),
+		'.cm-toast must be pointer-events:auto, or its own close control is unclickable');
+});
+
+check('cm-toast: the runtime retires a toast, and dismissal is idempotent', () => {
+	// "Transient" is the whole contract, so somebody has to honour it.
+	// A double-dismiss must not throw, because a timer and a click can
+	// land on the same toast.
+	const region = el('div', { class: 'cm-toast-region', 'data-cm-toasts': '' });
+	const { api, doc } = runOn([region]);
+	const t = el('div', { class: 'cm-toast cm-toast--ok' });
+	region.appendChild(t);
+	api.toast(t);
+	api.dismissToast(t);
+	assert(region.kids.length === 0, 'dismiss did not remove the toast from the region');
+	api.dismissToast(t);
+	assert(true, 'a second dismiss threw');
+});
+
+check('cm-toast: a toast with nobody watching still goes away on its own', () => {
+	// The timer IS the component. Without this, "transient" is a CSS
+	// fade and a toast accumulates on the page until a reload — which
+	// a screenshot of the showcase will never show, because the demo
+	// removes them by hand.
+	// The runtime is given a controlled setTimeout so the 6s elapses
+	// on demand rather than by waiting for it.
+	let scheduled = null;
+	const region = el('div', { class: 'cm-toast-region', 'data-cm-toasts': '' });
+	const doc = domOf([region]);
+	const ctx = {
+		document: doc,
+		module: { exports: {} },
+		localStorage: { getItem: () => null, setItem: () => {} },
+		window: { addEventListener: () => {} },
+		setTimeout: (fn, ms) => { scheduled = { fn, ms }; return 1; },
+		clearTimeout: () => {},
+		Date,
+	};
+	ctx.globalThis = ctx;
+	vm.createContext(ctx);
+	vm.runInContext(rt, ctx);
+	const t = el('div', { class: 'cm-toast cm-toast--ok' });
+	ctx.module.exports.toast(t);
+	assert(scheduled, 'toast() scheduled no retirement — a toast would never go away');
+	assert(scheduled.ms > 0 && scheduled.ms <= 30000,
+		`the retirement is scheduled at ${scheduled.ms}ms, which is not a toast lifetime`);
+	assert(region.kids.includes(t), 'the toast was not mounted');
+	scheduled.fn();                       // the 6s elapses
+	assert(region.kids.length === 0, 'the toast outlived its timer');
+});
+
+check('cm-toast: the close control retires it without the timer', () => {
+	// A user who dismisses a toast waits for nothing, and the click
+	// arrives on the close BUTTON, not the toast — so the handler has
+	// to walk up from the event target. A handler bound to the toast
+	// with a `target === toast` test silently never fires.
+	const region = el('div', { class: 'cm-toast-region', 'data-cm-toasts': '' });
+	const toast = el('div', { class: 'cm-toast cm-toast--ok', 'data-cm-toast': '' });
+	const btn = el('button', { class: 'cm-toast__close', 'data-cm-toast-close': '' });
+	const mark = el('span', { class: 'cm-toast__mark' });
+	toast.appendChild(mark);
+	toast.appendChild(btn);
+	region.appendChild(toast);
+	const { api, doc } = runOn([region]);
+	api.init(doc);
+	// the click really does land on the button
+	btn.fire('click');
+	assert(region.kids.length === 0, 'the close control did not retire the toast');
+	// and a click elsewhere in the toast must NOT retire it
+	const t2 = el('div', { class: 'cm-toast', 'data-cm-toast': '' });
+	region.appendChild(t2);
+	api.init(doc);
+	t2.fire('click');
+	assert(region.kids.includes(t2), 'any click on the toast dismissed it');
+});
+
+check('cm-toast: a toast is mounted in the live region, not orphaned', () => {
+	const region = el('div', { class: 'cm-toast-region', 'data-cm-toasts': '' });
+	const { api, doc } = runOn([region]);
+	const t = el('div', { class: 'cm-toast cm-toast--ok' });
+	api.toast(t);
+	assert(region.kids.includes(t), 'toast() did not mount the node in the region');
+	assert(region.getAttribute('data-cm-toasts') !== undefined, 'the region lost its hook');
+});
+
+check('cm-toast: every toast the showcase can produce is announced exactly once', () => {
+	// A role="alert" toast inside a role="status" region is announced
+	// twice, because the region announces the insertion AND the alert
+	// announces itself. The region owns the announcement; the toast
+	// must not double up.
+	//
+	// The whole page is scanned, not just the section: the showcase
+	// BUILDS these toasts in a script, so a section-scoped check reads
+	// markup that never exists and passes forever.
+	const open = showcase.slice(showcase.indexOf('id="overlays"'), showcase.indexOf('id="prose"'));
+	assert(/<div class="cm-toast-region"[^>]*role="status"[^>]*aria-live="polite"/.test(open),
+		'the toast region is not role="status" aria-live="polite"');
+	// Static markup, anywhere in the page.
+	assert(!/class="cm-toast[^"]*"[^>]*role="alert"/.test(showcase),
+		'a toast in the markup carries role="alert" inside a live region, so it is announced twice');
+	// And the script that builds them, which is where a toast actually
+	// comes from at runtime. Match the whole call so the VALUE is
+	// checked: a scan of attribute names alone would never see
+	// setAttribute('role', 'alert') as a role at all.
+	for (const m of showcase.matchAll(/setAttribute\(\s*['"](role|aria-live)['"]\s*,\s*['"]([\w-]+)['"]/g)) {
+		const [, attr, value] = m;
+		// role="alert", role="log" and a live region on a node the
+		// script BUILDS all double-announce: the region already
+		// announces the insertion, and each of these announces itself.
+		// aria-live="off" is harmless, so only the assertive/polite and
+		// alert/log/status cases are rejected.
+		const announces = attr === 'aria-live'
+			? value === 'assertive' || value === 'polite'
+			: value === 'alert' || value === 'log' || value === 'status';
+		assert(!announces,
+			`the showcase script sets ${attr}="${value}" on a node it builds; `
+			+ 'the live region already announces the insertion, so this double-announces');
+	}
+	// The built markup must be statically checkable. A template literal
+	// or an innerHTML string can hide a role from every check above.
+	const toastScript = showcase.slice(showcase.indexOf('data-cm-toast-demo'));
+	assert(!/innerHTML\s*=\s*`/.test(toastScript),
+		'the toast markup is built by a template literal, which is not statically checkable');
+});
+
+/* ---------- dropdown ---------- */
+
+check('cm-dropdown: the menu is a real popover with a real invoker', () => {
+	// [popover] gives light-dismiss, Escape, focus return and the top
+	// layer. A hand-rolled menu gets each of those subtly wrong, and
+	// the failure mode (a menu that will not close) is invisible in a
+	// static screenshot.
+	const open = showcase.slice(showcase.indexOf('id="overlays"'), showcase.indexOf('id="prose"'));
+	assert(/popover(>|\s)/.test(open), 'the dropdown menu is not a [popover]');
+	assert(/popovertarget="/.test(open), 'the trigger does not carry popovertarget');
+	assert(!/data-cm-dropdown|cmDropdown/.test(rt),
+		'the runtime re-implements the dropdown; the platform already does it');
+});
+
+check('cm-dropdown: a closed menu cannot paint, even against a consumer display rule', () => {
+	// The UA sheet hides a closed popover, but any author `display`
+	// outranks it. A menu that stays on screen, invisible to the
+	// author who closed it, is the classic popover leak.
+	const rule = /\.cm-dropdown__menu:not\(:popover-open\)\s*\{([^}]*)\}/.exec(compSrc);
+	assert(rule, 'no :not(:popover-open) rule, so a closed menu can still be shown by a consumer reset');
+	assert(/display:\s*none/.test(rule[1]), 'the closed-menu rule does not set display:none');
+});
+
+check('cm-dropdown: every menu item is reachable and carries a role', () => {
+	// A menu of divs is not a menu. A disabled item must be
+	// aria-disabled, not just visually dimmed, or it is still a target.
+	const open = showcase.slice(showcase.indexOf('id="overlays"'), showcase.indexOf('id="prose"'));
+	const menu = /<div class="cm-dropdown__menu"[\s\S]*?<\/div>/.exec(open);
+	assert(menu, 'no dropdown menu found in the showcase');
+	const items = menu[0].match(/class="cm-dropdown__item"/g) || [];
+	assert(items.length >= 2, `expected a menu of at least 2 items, found ${items.length}`);
+	assert((menu[0].match(/role="menuitem"/g) || []).length === items.length,
+		'every menu item needs role="menuitem"');
+	assert(/role="menu"/.test(menu[0]), 'the menu panel needs role="menu"');
+	assert(/aria-disabled="true"/.test(menu[0]), 'the disabled item is dimmed but not aria-disabled');
+	// and the menu needs a name
+	assert(/aria-label="/.test(menu[0]), 'the menu has no accessible name');
+});
+
+/* ---------- tooltip ---------- */
+
+check('cm-tooltip: the tip is a real element, not a ::after', () => {
+	// aria-describedby must resolve to something in the accessibility
+	// tree. Generated content is not there, so a ::after tooltip is
+	// invisible to a screen reader no matter how good the text is.
+	assert(/<span class="cm-tooltip__tip"[^>]*role="tooltip"/.test(showcase),
+		'the tooltip tip is not a real element with role="tooltip"');
+	assert(!/\.cm-tooltip[^{}]*::after/.test(compSrc),
+		'a ::after tooltip cannot be referenced by aria-describedby');
+});
+
+check('cm-tooltip: every tip is described by a real, focusable trigger', () => {
+	// An orphan aria-describedby is silently dropped by AT, so the tip
+	// never reaches anyone. And a div trigger cannot be focused, so
+	// :focus-within never fires and the tip is mouse-only.
+	const open = showcase.slice(showcase.indexOf('id="overlays"'), showcase.indexOf('id="prose"'));
+	const tips = [...open.matchAll(/id="(tip-[^"]+)"\s+role="tooltip"/g)].map((m) => m[1]);
+	assert(tips.length >= 1, 'the showcase demos no tooltip');
+	for (const t of tips) {
+		assert(open.includes(`aria-describedby="${t}"`), `no trigger describes ${t}`);
+	}
+	assert(/aria-describedby="(tip-[^"]+)"/.test(open), 'no aria-describedby on any trigger');
+	// The trigger must be focusable: :focus-within is the keyboard path.
+	const trigger = /<button[^>]*aria-describedby="tip-[^"]*"[^>]*>/.exec(open);
+	assert(trigger, 'the tooltip trigger is not a <button>, so it cannot take focus');
+});
+
+check('cm-tooltip: a hidden tip is invisible to a pointer AND to AT', () => {
+	// opacity:0 alone leaves the tip on top of the trigger swallowing
+	// clicks, and still in the layout where AT can reach it.
+	const rule = /^\.cm-tooltip__tip\s*\{([^}]*)\}/m.exec(compSrc);
+	assert(rule, '.cm-tooltip__tip is not defined');
+	assert(/visibility:\s*hidden/.test(rule[1]),
+		'a hidden tip must be visibility:hidden, not just transparent');
+	assert(/pointer-events:\s*none/.test(rule[1]),
+		'a hidden tip must be pointer-events:none, or it swallows a click on the trigger');
+	const show = /\.cm-tooltip:hover \.cm-tooltip__tip,\s*\.cm-tooltip:focus-within \.cm-tooltip__tip\s*\{([^}]*)\}/.exec(compSrc);
+	assert(show, 'no :hover / :focus-within rule, so the tip never appears');
+	assert(/visibility:\s*visible/.test(show[1]), 'the reveal does not restore visibility');
+});
+
+/* ---------- shared rules across all five ---------- */
+
+check('the five new components carry no colour of their own', () => {
+	// Same rule the state components live under: this palette is
+	// greyscale, and a new surface is exactly where that gets broken.
+	const blocks = ['cm-tabs', 'cm-dialog', 'cm-toast', 'cm-dropdown', 'cm-tooltip']
+		.flatMap((b) => [...compSrc.matchAll(
+			new RegExp(`(^|[};])\\s*([^;{}@]*\\b${b}\\b[^{}]*?)\\s*\\{([^{}]*)\\}`, 'gm'),
+		)].map((m) => m[2] + ' {' + m[3] + '}'));
+	assert(blocks.length > 0, 'no rules found for the new components — is the parse stale?');
+	const block = blocks.join('\n');
+	const hex = block.match(/#[0-9a-f]{3,8}\b/gi) || [];
+	assert(hex.length === 0, `the new components must use tokens, found literal colours: ${hex}`);
+	// every colour-ish declaration must go through a var()
+	const raw = [...block.matchAll(
+		/(?:^|[;{])\s*((?:-webkit-)?[a-z-]*color|(?:-webkit-)?background(?:-color)?|border(?:-[a-z]+)?-color|outline(?:-[a-z]+)?-color|box-shadow|fill|stroke)\s*:\s*([^;}]+)/g,
+	)]
+		.filter((m) => !/^var\(|^currentColor$|^inherit$|^none$|^transparent$/.test(m[2].trim()))
+		.map((m) => `${m[1]}: ${m[2].trim()}`);
+	assert(raw.length === 0, `colour must come from a token, found: ${raw.join(', ')}`);
+});
+
+check('the new components are floored on mobile like every other one', () => {
+	// The exhaustive scan in the base layer rejects ANY selector in this
+	// file that renders under 12px and is not in the floor block. The
+	// new components must therefore either use max(var(--min-font), …)
+	// at their own definition, or be added to the floor. Prove the first.
+	for (const sel of [
+		'.cm-tabs__tab', '.cm-toast', '.cm-toast__close', '.cm-toast__title',
+		'.cm-toast__text', '.cm-dropdown__menu', '.cm-dropdown__item',
+		'.cm-tooltip__tip',
+	]) {
+		const rules = [...compSrc.matchAll(
+			new RegExp(`${sel.replace('.', '\\.')}\\s*\\{([^}]*)\\}`, 'g'),
+		)].map((m) => m[1]);
+		assert(rules.length > 0, `${sel} is not defined`);
+		const declares = rules.filter((r) => /font-size:/.test(r));
+		if (!declares.length) continue; // inherits from a floored parent
+		for (const d of declares) {
+			assert(/max\(var\(--min-font\)/.test(d),
+				`${sel} declares a font-size with no --min-font floor: ${d.trim()}`);
+		}
+	}
+});
+
+check('the toast animation is in the reduced-motion block, with the rest', () => {
+	// The guard is ONE block and nothing after it: slicing to the end of
+	// the file would let a later mention satisfy the check, which is how
+	// a real gap stays green.
+	const guardAt = compSrc.indexOf('@media (prefers-reduced-motion: reduce)');
+	assert(guardAt !== -1, 'no reduced-motion block');
+	const close = compSrc.indexOf('\n}', guardAt);
+	const guard = compSrc.slice(guardAt, close);
+	const stopRules = [...guard.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+		.filter((m) => /animation:\s*none\b/.test(m[2]))
+		.map((m) => m[1])
+		.join(',');
+	assert(/\.cm-toast\s*(,|$)/m.test(stopRules),
+		'the toast animates in but is not in the reduced-motion block');
+});
+
+check('the five new components are documented, and the docs are real', () => {
+	// A component nobody can find is a component nobody adopts. This
+	// asserts each class is DEMONSTRATED, not merely mentioned: a prose
+	// sentence naming .cm-tooltip satisfies nothing, and a stub section
+	// listing five class names would satisfy a substring scan.
+	const readme = read('README.md');
+	const from = readme.indexOf('### Tabs, dialogs, toasts, dropdowns, tooltips');
+	const section = readme.slice(from, readme.indexOf('### Everything else', from));
+	assert(section.length > 400, 'the README has no section documenting the new components');
+	// each component needs a real fenced html example, not just its name
+	for (const sel of ['cm-tabs', 'cm-dialog', 'cm-toast', 'cm-dropdown', 'cm-tooltip']) {
+		assert(section.includes(`**\`.${sel}\`**`), `the README never introduces .${sel}`);
+		const block = /```html\n([\s\S]*?)```/g;
+		let shown = false;
+		for (const m of section.matchAll(block)) {
+			if (m[1].includes(sel)) { shown = true; break; }
+		}
+		assert(shown, `the README names .${sel} but shows no markup for it`);
+	}
+	for (const sel of [
+		'cm-tabs__tab', 'cm-tabs__panel',
+		'cm-dialog__body', 'cm-dialog__foot',
+		'cm-toast--ok', 'cm-toast-region',
+		'cm-dropdown__menu', 'cm-dropdown__item',
+		'cm-tooltip__tip',
+	]) {
+		assert(section.includes(sel), `the README does not document .${sel}`);
+	}
+});
+
+check('the new components are reachable from the showcase nav', () => {
+	// A section that exists but is not linked is a section nobody
+	// scrolls to, and a component that is not demoed is dead CSS.
+	assert(/href:\s*['"]#overlays['"]/.test(showcase), 'the overlays section is not in the nav');
+	assert(/id="overlays"/.test(showcase), 'the nav points at a section that does not exist');
+});
+
+check('install.sh still lands the layers, scrim included', () => {
+	// The scrim is a new token in the contract. A consumer that installs
+	// the layers without it gets a dialog with an unstyled backdrop that
+	// still LOOKS like it shipped.
+	const sh = read('scripts/install.sh');
+	assert(/tokens\.css/.test(sh), 'the installer does not copy tokens.css');
+	const css = read('src/styles/components.css');
+	assert(/\.cm-dialog::backdrop/.test(css), 'the installed layer has no dialog backdrop rule');
+	assert(/--scrim:/.test(read('src/styles/tokens.css')), 'the token file defines no --scrim');
+});
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {

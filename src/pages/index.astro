@@ -43,6 +43,7 @@ import { SITE } from '../astro/config';
 				{ href: '#nav', label: 'nav' },
 				{ href: '#lists', label: 'lists' },
 				{ href: '#states', label: 'states' },
+				{ href: '#overlays', label: 'overlays' },
 				{ href: '#prose', label: 'prose' },
 				{ href: '#forms', label: 'forms' },
 				{ href: '#readme', label: 'readme' },
@@ -436,6 +437,167 @@ import { SITE } from '../astro/config';
 				</div>
 			</section>
 
+			<!-- ==================================================== overlays
+			     Five components that sit ON TOP of the page, and three of
+			     them are the platform's element: <dialog>, [popover] and
+			     hover/focus. Nothing here has a runtime that reimplements
+			     what a browser already does correctly. -->
+			<section id="overlays" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+				<h2>overlays</h2>
+				<p class="cm-head__sub">
+					Five surfaces that sit on top of the page. Four of the five are
+					native elements doing native things &mdash; a <code>&lt;dialog&gt;</code>,
+					a <code>[popover]</code>, a hover, a <code>hidden</code> attribute. Only
+					the tablist needs script, because the platform ships no tab widget
+					and the roving tabindex is the one part of the ARIA contract CSS
+					cannot express.
+				</p>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">tabs</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+					Tab with the keyboard to leave the row, then use the arrows: one tab
+					is in the tab order at a time, which is the WAI-ARIA pattern. The
+					active tab is an <em>inset</em> rule rather than a thicker border,
+					because 2px of border would widen every box and walk the row sideways.
+				</p>
+				<div class="cm-tabs">
+					<div class="cm-tabs__list" role="tablist" aria-label="layer ownership">
+						<button
+							type="button"
+							class="cm-tabs__tab"
+							role="tab"
+							id="tab-tokens"
+							aria-selected="true"
+							aria-controls="panel-tokens"
+						>tokens</button>
+						<button
+							type="button"
+							class="cm-tabs__tab"
+							role="tab"
+							id="tab-base"
+							aria-selected="false"
+							aria-controls="panel-base"
+						>base</button>
+						<button
+							type="button"
+							class="cm-tabs__tab"
+							role="tab"
+							id="tab-components"
+							aria-selected="false"
+							aria-controls="panel-components"
+						>components</button>
+					</div>
+					<div class="cm-tabs__panel" role="tabpanel" id="panel-tokens" aria-labelledby="tab-tokens" tabindex="0">
+						Every value, both themes. A hardcoded hex in the layer below is a
+						rebrand bug, so this file is the contract.
+					</div>
+					<div class="cm-tabs__panel" role="tabpanel" id="panel-base" aria-labelledby="tab-base" tabindex="0" hidden>
+						Element defaults, prose rhythm, scrollbar, a11y helpers. A bare
+						<code>&lt;input&gt;</code> is on-brand because it lives here, not
+						behind a class.
+					</div>
+					<div class="cm-tabs__panel" role="tabpanel" id="panel-components" aria-labelledby="tab-components" tabindex="0" hidden>
+						The <code>.cm-*</code> classes: the arrangement <em>around</em> an
+						element, which is the part that is actually a design decision.
+					</div>
+				</div>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">dialog</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+					A native <code>&lt;dialog&gt;</code> opened with
+					<code>showModal()</code>, so focus trapping, Escape, the top layer and
+					the inertness of the page behind it are the browser's job, not ours.
+					<code>::backdrop</code> paints <code>--scrim</code>, which is a token and
+					differs per theme &mdash; the same alpha over near-black and near-white
+					does not hide the page by the same amount.
+				</p>
+				<div class="cm-btn-group">
+					<button type="button" class="cm-btn" data-cm-open="dlg-demo">open dialog</button>
+				</div>
+				<dialog class="cm-dialog" id="dlg-demo" aria-labelledby="dlg-demo-title">
+					<form method="dialog" class="cm-dialog__head">
+						<h3 class="cm-dialog__title" id="dlg-demo-title">Close the build?</h3>
+						<button type="submit" class="cm-toast__close" aria-label="Close" value="close">&times;</button>
+					</form>
+					<div class="cm-dialog__body">
+						<p>
+							This is the native element. Tab is trapped here, Escape closes, and
+							the page behind it is inert without a single line of script.
+						</p>
+						<p>
+							The scrim is <code>--scrim</code>, and the two themes set it to
+							different values for exactly that reason.
+						</p>
+					</div>
+					<div class="cm-dialog__foot">
+						<button type="submit" class="cm-btn" value="cancel">cancel</button>
+						<button type="submit" class="cm-btn cm-btn--primary" value="confirm">close it</button>
+					</div>
+				</dialog>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">toast</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+					A transient <code>.cm-alert</code>: the same border weights, the same
+					glyphs, the same words. A second, prettier alert component is how one
+					system quietly becomes two. Each retires itself after six seconds, or
+					immediately via its close control.
+				</p>
+				<div class="cm-btn-group">
+					<button type="button" class="cm-btn" data-cm-toast-demo="ok">toast ok</button>
+					<button type="button" class="cm-btn" data-cm-toast-demo="warn">toast warn</button>
+					<button type="button" class="cm-btn" data-cm-toast-demo="err">toast err</button>
+				</div>
+				<div class="cm-toast-region" data-cm-toasts role="status" aria-live="polite"></div>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">dropdown</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+					The native Popover API. The trigger carries
+					<code>popovertarget</code> and the panel carries <code>popover</code>,
+					so light-dismiss, Escape and focus return are the browser's &mdash;
+					and there is no runtime code for this component at all.
+				</p>
+				<div class="cm-dropdown">
+					<button type="button" class="cm-btn" popovertarget="menu-demo" aria-haspopup="menu">
+						actions <span aria-hidden="true">&#9662;</span>
+					</button>
+					<div class="cm-dropdown__menu" id="menu-demo" popover role="menu" aria-label="row actions">
+						<button type="button" class="cm-dropdown__item" role="menuitem">rename</button>
+						<button type="button" class="cm-dropdown__item" role="menuitem">duplicate</button>
+						<hr class="cm-dropdown__sep" />
+						<button type="button" class="cm-dropdown__item" role="menuitem" aria-disabled="true">delete</button>
+					</div>
+				</div>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">tooltip</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+					A real element rather than generated content, because
+					<code>aria-describedby</code> has to resolve to something in the
+					accessibility tree and a <code>::after</code> is not there. The trigger
+					is focusable, so <code>:focus-within</code> reveals the tip from the
+					keyboard with no JS. Hidden tips are
+					<code>visibility: hidden</code>, not merely transparent: a
+					transparent tip is still announced and still swallows a click.
+				</p>
+				<p class="cm-btn-group">
+					<span class="cm-tooltip">
+						<button type="button" class="cm-btn" aria-describedby="tip-demo">
+							hover or focus me
+						</button>
+						<span class="cm-tooltip__tip" id="tip-demo" role="tooltip">
+							Rendered from the token, announced by aria-describedby.
+						</span>
+					</span>
+					<span class="cm-tooltip cm-tooltip--end">
+						<button type="button" class="cm-btn" aria-describedby="tip-demo-end">
+							--end
+						</button>
+						<span class="cm-tooltip__tip" id="tip-demo-end" role="tooltip">
+							An edge case you name, not one the reader discovers.
+						</span>
+					</span>
+				</p>
+			</section>
+
 			<section id="prose" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
 				<h2>prose</h2>
 				<div class="cm-prose">
@@ -476,6 +638,36 @@ Astro: import Header/Footer/Head/PageHead/PostHead from 'oem-ui/astro'.</pre>
      and rewrites the src to a hashed asset. -->
 <script>
 	import '../js/cli-mono.js';
+
+	// Showcase glue only: the library exposes cliMono.toast(nodeOrString),
+	// and these three buttons exist to prove it. A consumer builds the
+	// node and hands it over, exactly as the README shows.
+	const TOASTS = {
+		ok: ['saved', 'The layers are byte-identical to the source.'],
+		warn: ['vendored copy is stale', 'Run the sync check before trusting its CSS.'],
+		err: ['build failed', 'Two spacing bars measured the wrong length.'],
+	};
+
+	document.querySelectorAll('[data-cm-toast-demo]').forEach((btn) => {
+		btn.addEventListener('click', () => {
+			const [title, text] = TOASTS[btn.dataset.cmToastDemo] || [];
+			const el = document.createElement('div');
+			el.className = `cm-toast cm-toast--${btn.dataset.cmToastDemo}`;
+			el.setAttribute('data-cm-toast', '');
+			// No role="alert" here. The region is already role="status"
+			// aria-live="polite" and announces the insertion; an alert
+			// nested in a live region announces it a second time.
+			el.innerHTML =
+				'<span class="cm-toast__mark" aria-hidden="true"></span>' +
+				'<div class="cm-toast__body">' +
+				`<p class="cm-toast__title">${title}</p>` +
+				`<p class="cm-toast__text">${text}</p>` +
+				'</div>' +
+				'<button type="button" class="cm-toast__close" data-cm-toast-close aria-label="Dismiss">×</button>';
+			document.querySelector('[data-cm-toasts]').appendChild(el);
+			window.cliMono.toast(el);
+		});
+	});
 </script>
 	</body>
 	</html>

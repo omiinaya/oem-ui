@@ -388,6 +388,31 @@
 			});
 	}
 
+	/* ---------- dialog ----------
+	   <dialog>.showModal() is the whole implementation, and it is the
+	   browser's: top layer, focus trap, Escape, and making the rest of
+	   the document inert. A hand-rolled modal gets every one of those
+	   subtly wrong. The only thing left to bind is the trigger, so a
+	   consumer writes a button and an id instead of a script tag. */
+	function initDialogs(root) {
+		(root || document)
+			.querySelectorAll('[data-cm-open]')
+			.forEach(function (btn) {
+				if (btn.dataset.cmDialogBound) return;
+				btn.dataset.cmDialogBound = '1';
+				btn.addEventListener('click', function () {
+					var dlg = document.getElementById(btn.getAttribute('data-cm-open'));
+					if (!dlg) return;
+					/* show, not showModal, when something else already owns
+					   the top layer: a nested modal call on an open dialog is a
+					   no-op in every engine, so an open/close toggle on the same
+					   element silently stops working. */
+					if (typeof dlg.showModal === 'function' && !dlg.open) dlg.showModal();
+					else if (typeof dlg.show === 'function') dlg.show();
+				});
+			});
+	}
+
 	/* ---------- toasts ----------
 	   Transient is the whole contract, so the retirement has to be
 	   somebody's job and it is ours. The node is inert in the document
@@ -463,6 +488,7 @@
 		initScrollSpy(document.querySelector('[data-cm-nav]'));
 		initCopy(root);
 		initTabs(root);
+		initDialogs(root);
 		initToasts(root);
 		initYears();
 		if (!root || root === document) initExternalLinks();

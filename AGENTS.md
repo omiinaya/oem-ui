@@ -14,7 +14,8 @@ step required to *use* it. `npm run build` only builds the showcase.
 src/styles/tokens.css       the contract — all values, both themes
 src/styles/base.css         element defaults, a11y, prose rhythm
 src/styles/components.css   all .cm-* components
-src/js/cli-mono.js          runtime: theme, scroll-spy, copy, year
+src/js/cli-mono.js          runtime: theme, scroll-spy, copy, year,
+                            tabs, dialogs, toasts
 src/astro/                  optional Astro components + config.ts
 src/pages/index.astro       the showcase — renders everything
 tests/run.mjs               contract tests
@@ -37,6 +38,13 @@ tests/run.mjs               contract tests
    "fix" this the other way.
 7. **No component hardcodes site identity.** It comes from
    `src/astro/config.ts` or props. A test enforces this.
+8. **Prefer the platform element over a runtime.** `<dialog>` for a modal,
+   `[popover]` for a menu, `:hover` / `:focus-within` for a tooltip. A
+   hand-rolled version gets focus trapping, light dismiss and live-region
+   behaviour subtly wrong, and the bug is invisible in a static
+   screenshot. The only new script here is the roving tabindex, because
+   the platform ships no tab widget. If you add JS, it must be
+   progressive-enhancement-only and guarded with `data-cm-*-bound`.
 
 ## Verifying your change
 

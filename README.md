@@ -267,6 +267,140 @@ on-brand; you only add classes for the layout around it.
 > `input[aria-invalid='true']` is (0,1,1) and **loses silently**. Match the
 > base selector when you add a state; a test asserts the counts.
 
+### Tabs, dialogs, toasts, dropdowns, tooltips
+
+Five surfaces that sit **on top of** the page. Four of them are native
+elements doing native things. There is no dependency and no framework
+requirement; the only script is a roving-tabindex handler, and the
+runtime is already loaded.
+
+**`.cm-tabs`** — an ARIA-correct tablist. The whole relationship is
+markup (`role` + `aria-controls` / `aria-labelledby`); the runtime owns
+the one part CSS cannot express, which is the keyboard contract.
+
+```html
+<div class="cm-tabs">
+  <div class="cm-tabs__list" role="tablist" aria-label="layer ownership">
+    <button class="cm-tabs__tab" role="tab" id="t1"
+            aria-selected="true"  aria-controls="p1">tokens</button>
+    <button class="cm-tabs__tab" role="tab" id="t2"
+            aria-selected="false" aria-controls="p2">base</button>
+  </div>
+  <div class="cm-tabs__panel" role="tabpanel" id="p1"
+       aria-labelledby="t1" tabindex="0">…</div>
+  <div class="cm-tabs__panel" role="tabpanel" id="p2"
+       aria-labelledby="t2" tabindex="0" hidden>…</div>
+</div>
+```
+
+- Arrow keys move, wrap, and select; `Home` / `End` jump to the ends.
+- **One** tab is in the tab order at a time (roving `tabindex`), which is
+  the WAI-ARIA pattern. Without it `Tab` walks the entire row.
+- The runtime normalises the markup on bind: if two tabs claim
+  `aria-selected="true"`, the first wins. A mismatch is a silent ARIA
+  lie, and this way the component cannot ship one.
+- A panel gets `tabindex="0"` so a keyboard user can scroll it.
+
+**`.cm-dialog`** — a real `<dialog>`, opened with `showModal()`. The
+focus trap, `Escape`, the top layer and the inertness of the page behind
+are the browser's job; a hand-rolled modal gets every one of them
+subtly wrong. Any `<form method="dialog">` inside closes it.
+
+```html
+<button class="cm-btn" data-cm-open="confirm">open</button>
+
+<dialog class="cm-dialog" id="confirm" aria-labelledby="confirm-title">
+  <form method="dialog" class="cm-dialog__head">
+    <h3 class="cm-dialog__title" id="confirm-title">Close the build?</h3>
+    <button class="cm-toast__close" aria-label="Close" value="close">&times;</button>
+  </form>
+  <div class="cm-dialog__body"><p>…</p></div>
+  <div class="cm-dialog__foot">
+    <button class="cm-btn" value="cancel">cancel</button>
+    <button class="cm-btn cm-btn--primary" value="confirm">confirm</button>
+  </div>
+</dialog>
+```
+
+- `::backdrop` paints `--scrim`, which is a **token with a different
+  value per theme**. The same alpha over near-black and over near-white
+  does not dim the page by the same amount, so one literal is wrong in
+  one theme by construction.
+- Do not use `role="dialog"` on a `<div>`. A test rejects it.
+- Give it `aria-labelledby`; an unnamed dialog is announced as "dialog"
+  and nothing else.
+- `.cm-dialog` declares `margin: auto` on purpose: a consumer's
+  `* { margin: 0 }` reset would otherwise pin the dialog to the corner.
+
+**`.cm-toast`** — a transient alert. Same border weights, same glyphs,
+same `--ok` / `--warn` / `--err` words as `.cm-alert`, because a second
+prettier alert component is how one system quietly becomes two. Mount
+one into a live region:
+
+```html
+<div class="cm-toast-region" data-cm-toasts role="status" aria-live="polite"></div>
+```
+
+```js
+const el = document.createElement('div');
+el.className = 'cm-toast cm-toast--ok';
+el.setAttribute('data-cm-toast', '');
+el.textContent = 'saved';
+cliMono.toast(el);          // mounts + schedules retirement
+cliMono.dismissToast(el);   // immediate, idempotent
+```
+
+- **Retires itself after 6s.** "Transient" is the contract, so somebody
+  has to honour it; the close control is `data-cm-toast-close`.
+- The region is `pointer-events: none` and each toast is `auto`: a stack
+  must never eat a click on the page behind it.
+- **Do not put `role="alert"` on the toast.** The region already
+  announces the insertion; an alert inside a live region is announced
+  twice. The region owns the announcement.
+
+**`.cm-dropdown`** — the native Popover API, so the runtime has nothing
+to do with it. `popovertarget` on the trigger, `popover` on the panel,
+which buys light-dismiss, `Escape` and focus return for free.
+
+```html
+<div class="cm-dropdown">
+  <button class="cm-btn" popovertarget="menu1" aria-haspopup="menu">actions</button>
+  <div class="cm-dropdown__menu" id="menu1" popover role="menu" aria-label="row actions">
+    <button class="cm-dropdown__item" role="menuitem">rename</button>
+    <hr class="cm-dropdown__sep" />
+    <button class="cm-dropdown__item" role="menuitem" aria-disabled="true">delete</button>
+  </div>
+</div>
+```
+
+- Every item is a real `<button>` with `role="menuitem"`; a disabled
+  item is `aria-disabled`, not just dimmed.
+- `.cm-dropdown__menu:not(:popover-open) { display: none }` is not
+  redundant. The UA sheet hides a closed popover, but any author
+  `display` outranks it — without this rule a consumer's reset leaves a
+  menu on screen that the author closed.
+
+**`.cm-tooltip`** — a real element, revealed by `:hover` and
+`:focus-within`. No JavaScript at all.
+
+```html
+<span class="cm-tooltip">
+  <button class="cm-btn" aria-describedby="tip1">hover or focus me</button>
+  <span class="cm-tooltip__tip" id="tip1" role="tooltip">…</span>
+</span>
+```
+
+- **A real element, not a `::after`.** `aria-describedby` must resolve
+  to something in the accessibility tree, and generated content is not
+  there — a `::after` tooltip is invisible to a screen reader no matter
+  how good the text is.
+- The trigger must be focusable, or `:focus-within` never fires and the
+  tip is mouse-only.
+- A hidden tip is `visibility: hidden` **and** `pointer-events: none`.
+  Transparent-only leaves it swallowing clicks and still reachable by AT.
+- Use `--end` when the trigger sits against the right edge; that is an
+  edge case you name, not one the reader discovers.
+
 ### Everything else
 
 ```html

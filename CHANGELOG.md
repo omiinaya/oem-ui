@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Five native-first interactive components: `.cm-tabs`, `.cm-dialog`,
+  `.cm-toast`, `.cm-dropdown`, `.cm-tooltip`.** Four of the five are the
+  platform's own element doing the platform's own thing — a `<dialog>`
+  opened with `showModal()`, a menu built on the Popover API, a tooltip
+  revealed by `:hover` / `:focus-within` — so focus trapping, light
+  dismiss, focus return and the ARIA live-region wiring are the
+  browser's job and the library ships no code for them. Only the tablist
+  needs script, because the platform has no tab widget and the roving
+  `tabindex` is the one part of the ARIA contract that CSS cannot
+  express. No dependency was added and no build step.
+- **`--scrim`.** The one token the modal backdrop needs, and it is
+  defined separately in every theme block including both
+  `[data-cm-theme]` subtree scopes. The same alpha over near-black and
+  over near-white does not dim the page by the same amount, so a single
+  literal is wrong in one of the themes by construction.
+- **`cliMono.toast(nodeOrString)` / `cliMono.dismissToast(node)`.** The
+  toasts were the one piece of these that genuinely could not be CSS:
+  "transient" is a contract, and a contract needs someone to honour it,
+  so the runtime mounts a toast into a live region and retires it.
+- **`[data-cm-open="<id>"]` opens a dialog.** A consumer writes a button
+  and an id rather than a script tag.
+- **A new `overlays` section in the showcase**, in the nav between
+  states and prose, and a README section documenting all five.
+
 - **`HeaderLink.astro`** — a nav link that knows whether it is the page you
   are on and marks itself `aria-current="page"` when it is. It owns path
   matching, which is the part every consumer gets wrong: trailing slashes,
@@ -22,6 +46,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The showcase announced every toast twice.** The demo built its toasts
+  with `role="alert"` inside a `role="status" aria-live="polite"` region,
+  so the region announced the insertion *and* the alert announced itself.
+  The region owns the announcement; the toast must not double up. This is
+  the same class of bug the alert glyph shipped with earlier, and the test
+  that catches it now scans the script as well as the markup, because a
+  section-scoped check reads markup that never exists and passes forever.
 - **The scroll-spy measured with `offsetTop`.** That is relative to the
   nearest *positioned* ancestor, so a consumer with any positioned wrapper
   around its sections got the wrong link lit. It now measures with
