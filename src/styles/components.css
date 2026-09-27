@@ -239,6 +239,11 @@
 	align-items: center;
 	justify-content: center;
 	gap: var(--space-2);
+	/* The tap floor. A button is the most-tapped element in the system, and
+	   padding alone lands it at 36px, which is under the 44px every touch
+	   target is supposed to meet. Set from the token so a consumer never
+	   has to measure and hardcode. */
+	min-height: var(--tap);
 	padding: 0.6em 1.3em;
 	border-radius: 0;
 	font-family: var(--font-mono);
@@ -290,7 +295,10 @@
 	text-decoration-color: var(--ink-faint);
 }
 
-.cm-btn--sm { padding: 0.4em 0.9em; font-size: 0.78rem; }
+/* The small variant is for a dense row (a toolbar, a table cell), not for
+   the primary action on a phone. It steps back below the tap floor on
+   purpose; on a touch viewport use the base button. */
+.cm-btn--sm { padding: 0.4em 0.9em; font-size: 0.78rem; min-height: 0; }
 .cm-btn--block { width: 100%; }
 
 .cm-btn-group { display: flex; gap: var(--space-3); flex-wrap: wrap; }

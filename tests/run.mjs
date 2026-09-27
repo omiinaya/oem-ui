@@ -3062,6 +3062,54 @@ check('every shipped Astro component is rendered by the showcase', () => {
 	}
 });
 
+/* ================= tap targets (WCAG 2.5.5 / 2.5.8) ================= */
+console.log('\ntap targets');
+// Every interactive component must reach the 44px floor from the token, not
+// from its own padding. Padding alone put .cm-btn at 36px, and because the
+// suite only ever read the CSS as text, nothing noticed until a real WebKit
+// run at an iPhone viewport measured it.
+const TAP = 44;
+const tapToken = (tokenSrc.match(/--tap:\s*(\d+)px/) || [])[1];
+check('the --tap token is the 44px floor', () => {
+	assert(tapToken === String(TAP), `--tap is ${tapToken}px, expected ${TAP}px`);
+});
+// A component is checked by the rule that actually sets its box, so a
+// `min-height` on a later, less specific rule cannot mask a missing one.
+const INTERACTIVE = ['cm-btn', 'cm-tab', 'cm-chip', 'cm-nav__link'];
+for (const sel of INTERACTIVE) {
+	const m = compSrc.match(new RegExp('\\.' + sel + '\\s*(?:,[^{]*)?\\{([^}]*)\\}'));
+	if (!m) continue; // not every name is a standalone rule; skip quietly
+	check(`.${sel} meets the tap floor`, () => {
+		const body = m[1];
+		const min = body.match(/min-height:\s*(\d+)px/);
+		if (min) {
+			assert(+min[1] >= TAP, `min-height is ${min[1]}px, under ${TAP}px`);
+			return;
+		}
+		const v = body.match(/min-height:\s*var\(--tap\)/);
+		assert(v, `no min-height from --tap, so its box is set by padding alone`);
+	});
+}
+check('the small button is the one documented exception, and says so', () => {
+	const sm = compSrc.match(/\.cm-btn--sm\s*\{([^}]*)\}/);
+	assert(sm, '.cm-btn--sm is missing');
+	// It steps below the floor on purpose, but only if it resets the
+	// min-height it would otherwise inherit from .cm-btn.
+	assert(/min-height:\s*0/.test(sm[1]),
+		'.cm-btn--sm inherits the 44px floor, so the small variant is not small');
+});
+// A component that reaches the floor by hardcoding 44 instead of the token
+// passes the rule above and is still wrong: a consumer that retunes --tap
+// would get a button stuck at the old size.
+for (const sel of INTERACTIVE) {
+	const m = compSrc.match(new RegExp('\\.' + sel + '\\s*(?:,[^{]*)?\\{([^}]*)\\}'));
+	if (!m || !/min-height:\s*\d+px/.test(m[1])) continue;
+	check(`.${sel} takes its tap height from the token`, () => {
+		assert(!/min-height:\s*\d+px/.test(m[1]),
+			'a hardcoded px min-height ignores --tap');
+	});
+}
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {
