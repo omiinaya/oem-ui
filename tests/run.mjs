@@ -1435,10 +1435,18 @@ check('emphasis is an element default, so a bare <strong> is on-brand', () => {
 		assert(!/class=/.test(attrs[1]),
 			`the emphasis specimen must be a BARE <strong>, found attributes:${attrs[1]}`);
 	}
-	// ...and it has to sit inside prose, which is the case the default is
-	// for. A <strong> directly in a section would never be dim.
-	assert(/<p>[\s\S]*?<strong>/.test(prose),
-		'the emphasis specimen must sit inside a paragraph, not loose on the section');
+	// ...and it has to sit inside DIM prose, which is the only case the
+	// default is for. `.cm-prose` is itself --ink, so a <strong> there
+	// computes to the same colour as its paragraph and the specimen
+	// proves nothing - it is green, rendered, and invisible. Caught by
+	// measuring, not by reading the markup. The lede is --ink-dim, which
+	// is where every consumer was re-declaring the rule.
+	assert(/class="cm-lede"[\s\S]*?<strong>/.test(prose),
+		'the emphasis specimen must sit in dim prose (.cm-lede), not in .cm-prose, which is already --ink');
+	const inProse = prose.slice(prose.indexOf('class="cm-prose"'),
+		prose.indexOf('</div>', prose.indexOf('class="cm-prose"')));
+	assert(!/<strong/.test(inProse),
+		'a <strong> inside .cm-prose is invisible: that block is --ink, so the specimen demonstrates nothing');
 });
 
 check('the emphasis colour is legible on the surfaces it renders on', () => {

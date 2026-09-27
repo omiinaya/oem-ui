@@ -49,15 +49,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   has to work, so a class would be a class nobody remembers to add.
 
   Demonstrated in the showcase's prose section, rendered **inside a real
-  `--ink-dim` paragraph**, and asserted bare — a specimen with a class on
-  it would prove nothing.
+  `--ink-dim` paragraph** — deliberately a `.cm-lede`, not a `.cm-prose`
+  paragraph. `.cm-prose` is itself `--ink`, so a `<strong>` there computes
+  to the same colour as its paragraph: the suite was green, the page
+  built, and the specimen was invisible. Found by measuring in WebKit,
+  not by reading the markup; there is now a test and a mutation for it.
+
+  Measured in WebKit at 390px, both themes, on the built page:
+
+  | theme | `<strong>` | its paragraph | weight |
+  |---|---|---|---|
+  | dark | `#e8e8e8` | `#9c9c9c` | 700 |
+  | light | `#111111` | `#4a4a4a` | 700 |
 
   Covered by two contract tests (structure + one-owner, and legibility
-  computed from the real tokens in both themes) and 10 mutations in
-  `tests/mutate-emphasis.mjs`, including the one that matters most:
-  **deleting the entire rule** while the word `strong` still sits in the
-  comment above it and in the showcase copy. A substring check scores
-  that as a pass; the selector parser does not.
+  computed from the real tokens in both themes) and 11 mutations in
+  `tests/mutate-emphasis.mjs`, all killed, none a no-op. The one that
+  matters most: **deleting the entire rule** while the word `strong`
+  still sits in the comment above it and in the showcase copy. A
+  substring check scores that as a pass; the selector parser does not.
 
 - **`.cm-lede`, `.cm-split` and `.cm-back`, plus a measure scale.**
 
