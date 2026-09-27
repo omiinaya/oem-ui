@@ -319,6 +319,7 @@ Copy from `src/astro/` and set your identity in `config.ts`:
 |---|---|
 | `Head.astro` | meta, canonical, OG, FOUC guard |
 | `Header.astro` | sticky nav, brand, theme toggle |
+| `HeaderLink.astro` | one nav link, `aria-current` when it is this page |
 | `Footer.astro` | meta row + status line |
 | `PageHead.astro` | kicker / title / sub block |
 | `PostHead.astro` | article head with byline |
@@ -328,6 +329,7 @@ Copy from `src/astro/` and set your identity in `config.ts`:
 ```astro
 ---
 import Header from '../components/Header.astro';
+import HeaderLink from '../components/HeaderLink.astro';
 import Footer from '../components/Footer.astro';
 ---
 <Header
@@ -337,6 +339,35 @@ import Footer from '../components/Footer.astro';
 <slot />
 <Footer items={['astro', 'static']} contactHref="mailto:you@example.com" />
 ```
+
+### The two nav states
+
+A nav link can be in two states at once, and they answer different questions.
+Keep them as two attributes or the first scroll event will erase the other.
+
+- **`active`** — *where you are.* Set it on the `Link` (or let `<HeaderLink>`
+  decide), and it renders `aria-current="page"`.
+- **`is-active`** — *what you are reading.* The runtime's scroll-spy sets it
+  on the link whose section you are in. It needs a `[data-cm-nav]` container
+  and a target per link, and `<Header>` emits both: the spy id is inferred
+  from a `#section` href, so a one-page site gets it for free.
+
+```astro
+<!-- multi-page: the current page -->
+<HeaderLink href="/blog/">notes</HeaderLink>
+
+<!-- section pages: keep it lit while you read one -->
+<HeaderLink href="/docs" matchSegment>docs</HeaderLink>
+
+<!-- one-pager: hand the links to the scroll-spy -->
+<Header links={[{ href: '#intro', label: 'intro' }, { href: '#api', label: 'api' }]} />
+```
+
+`<HeaderLink>` normalises trailing slashes, query strings, hashes and the
+site `base` before comparing, and never marks an external href as current.
+It emits only the attribute — the look stays with
+`.cm-header__link[aria-current='page']`, so a hand-rolled nav and this
+component cannot drift apart.
 
 No component hardcodes site identity — everything comes from `config.ts` or
 props, so one library serves many projects.

@@ -7,7 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`HeaderLink.astro`** — a nav link that knows whether it is the page you
+  are on and marks itself `aria-current="page"` when it is. It owns path
+  matching, which is the part every consumer gets wrong: trailing slashes,
+  query strings, hashes and a `base` prefix are all normalised, and an
+  external href is never treated as the current page. The component decides
+  only the attribute; the appearance stays with the library's
+  `.cm-header__link[aria-current='page']` rule.
+- **`<Header>` can express the current page.** `Link` takes `active: true`
+  and it renders `aria-current="page"`. The rule for that state has shipped
+  in `components.css` since the beginning and nothing could reach it.
+
 ### Fixed
+
+- **The scroll-spy measured with `offsetTop`.** That is relative to the
+  nearest *positioned* ancestor, so a consumer with any positioned wrapper
+  around its sections got the wrong link lit. It now measures with
+  `getBoundingClientRect()` against the document. The spy was unreachable
+  (no component emitted `[data-cm-nav]`), which is why it went unnoticed.
+- **The shipped-component test could not see a deleted file.** It asserted a
+  filename appeared in a list, which is a statement about the list. It now
+  asserts the file exists on disk.
+
+### Changed
+
+- **`Header` wires its links to the runtime scroll-spy.** It emits
+  `data-cm-nav` and `data-cm-spy`; the spy id is inferred from a `#section`
+  href, so a single-page site gets the spy without repeating `spy` on every
+  link. The two nav states stay separate attributes on purpose: `active` says
+  where you are, `is-active` says what you are reading, and on a one-page
+  site both are true of the same link.
 
 - **`.cm-cursor` was never guarded by `prefers-reduced-motion`.** Every
   other animation in the system was; the blinking prompt was not, and
