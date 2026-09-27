@@ -1258,11 +1258,25 @@ html {
 .cm-tooltip { position: relative; display: inline-block; }
 .cm-tooltip__tip {
 	position: absolute;
+	/* A tip is wider than the space it is centred over, often by a lot:
+	   18rem against a 310px content column leaves the tip hanging past
+	   the viewport. Measured at 390px the centred tip ran to right:418px
+	   (the document then scrolled sideways by 27px), and --end ran to
+	   left:-169px at 320px. An absolutely-positioned element widens the
+	   document rather than clipping, so the whole page scrolled.
+
+	   The cap below is derived from the viewport so it is correct at
+	   every width; the centring transform and the alignment variants
+	   are in the second .cm-tooltip__tip block, further down. */
 	left: 50%;
 	bottom: calc(100% + var(--space-2));
 	z-index: 150;
 	width: max-content;
-	max-width: 18rem;
+	/* The viewport cap lives in the second .cm-tooltip__tip block, with
+	   the centring transform and the alignment variants. It is declared
+	   once, not here too: two identical declarations in two blocks is
+	   duplication that reads as two decisions and survives a deletion of
+	   either one. */
 	margin: 0;
 	padding: var(--space-1) var(--space-2);
 	border: 1px solid var(--line);
@@ -1286,7 +1300,36 @@ html {
 	visibility: visible;
 }
 /* CSS cannot flip a tip that would leave the viewport, so the edge
-   cases are named rather than discovered. */
+   cases are named rather than discovered.
+
+   The width cap is the part that was missing, and it has to be the
+   VIEWPORT and not the trigger. A tip is routinely far wider than the
+   button it describes - measured 288px of tip on a 79px button - so
+   `width: auto` between two zero offsets makes the box fill the trigger
+   and the text wrap to five lines (measured 141px tall). Pinning the
+   tip to its trigger is not a fix, it is a different bug.
+
+   `overflow-x: clip` on the root is the backstop for anything that still
+   overhangs, but it is NOT sufficient on its own: with `overflow-y:
+   scroll` alongside it, WebKit computes the x axis to `hidden`, which
+   is still scrollable. So the tip has to be genuinely inside the
+   viewport, which is what the cap does. */
+.cm-tooltip__tip {
+	width: max-content;
+	/* A centred tip hangs half its width either side of its trigger, so
+	   half a tip has to fit between the trigger and the screen edge. The
+	   honest statement of that is the gutter, not a fraction of the
+	   trigger: capping at the trigger's own width (tried, measured) made
+	   the tip 93px wide and wrapped it to 5-6 lines, which is worse than
+	   the overflow it fixed. The viewport cap keeps a tip one or two
+	   lines tall at every width measured, and the alignment variants
+	   below are what actually keep it on screen near an edge. */
+	max-width: min(18rem, calc(100vw - 2 * var(--gutter)));
+	/* Without this transform `left:50%` put the trigger's MIDDLE at the
+	   tip's left edge, so the tip always hung to the right of the
+	   trigger. Centring is the transform's whole job. */
+	transform: translateX(-50%);
+}
 .cm-tooltip--start .cm-tooltip__tip { left: 0; transform: none; }
 .cm-tooltip--end .cm-tooltip__tip { left: auto; right: 0; transform: none; }
 .cm-tooltip--below .cm-tooltip__tip { bottom: auto; top: calc(100% + var(--space-2)); }

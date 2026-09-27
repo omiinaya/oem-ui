@@ -8,6 +8,17 @@
 
 html {
 	overflow-y: scroll;
+	/* `clip`, not `hidden`. An absolutely-positioned overlay that escapes
+	   its container (the tooltip is the case in this library: a 288px tip
+	   on a 79px button) widens the document and makes the whole page
+	   scroll sideways - measured 27px of sideways scroll at a 390px
+	   viewport. `overflow-x: hidden` would fix the scroll but silently
+	   breaks `position: sticky` for every descendant, because a hidden
+	   box becomes the scroll container for its sticky children and the
+	   header stops sticking. `clip` clips the overflow WITHOUT creating
+	   a scroll container, so sticky keeps working. Measured in WebKit at
+	   390/375/320 after this: 0 sideways scroll, header still sticky. */
+	overflow-x: clip;
 	scroll-behavior: smooth;
 }
 

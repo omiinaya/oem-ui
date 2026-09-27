@@ -122,9 +122,14 @@ def main() -> int:
         )
         result["jsErrors"] = errors
 
-        # Full-page screenshot, and a shot of just the new block.
+        # Full-page screenshot. This must be scale="css": the showcase is
+        # ~11000 CSS px tall and the context runs at device_scale_factor=3
+        # (which is the point - it is the phone's real pixel density), so
+        # a device-scale full-page capture exceeds WebKit's 32767px limit
+        # per dimension and the call throws. The ELEMENT shot below keeps
+        # full density, which is what the shape measurements need.
         result["shotPage"] = "/root/.hermes/cache/scratch/posthead-page.png"
-        page.screenshot(path=result["shotPage"], full_page=True)
+        page.screenshot(path=result["shotPage"], full_page=True, scale="css")
         el = page.query_selector(".cm-post-head")
         if el:
             result["shotBlock"] = "/root/.hermes/cache/scratch/posthead-block.png"

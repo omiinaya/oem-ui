@@ -586,12 +586,20 @@ import { SITE } from '../astro/config';
 					transparent tip is still announced and still swallows a click.
 				</p>
 				<p class="cm-btn-group">
-					<span class="cm-tooltip">
+					<span class="cm-tooltip cm-tooltip--start">
 						<button type="button" class="cm-btn" aria-describedby="tip-demo">
-							hover or focus me
+							--start
 						</button>
 						<span class="cm-tooltip__tip" id="tip-demo" role="tooltip">
-							Rendered from the token, announced by aria-describedby.
+							Pinned to the trigger's leading edge.
+						</span>
+					</span>
+					<span class="cm-tooltip">
+						<button type="button" class="cm-btn" aria-describedby="tip-demo-centre">
+							centred
+						</button>
+						<span class="cm-tooltip__tip" id="tip-demo-centre" role="tooltip">
+							Centred: the tip may be wider than the button.
 						</span>
 					</span>
 					<span class="cm-tooltip cm-tooltip--end">
@@ -599,9 +607,25 @@ import { SITE } from '../astro/config';
 							--end
 						</button>
 						<span class="cm-tooltip__tip" id="tip-demo-end" role="tooltip">
-							An edge case you name, not one the reader discovers.
+							Pinned to the trailing edge.
 						</span>
 					</span>
+					<span class="cm-tooltip cm-tooltip--below cm-tooltip--start">
+						<button type="button" class="cm-btn" aria-describedby="tip-demo-below">
+							--below
+						</button>
+						<span class="cm-tooltip__tip" id="tip-demo-below" role="tooltip">
+							Below, when there is no room above.
+						</span>
+					</span>
+				</p>
+				<p class="cm-head__sub">
+					A tip is capped at the viewport, and the page root clips
+					horizontal overflow, so an overlay that is wider than its
+					trigger can never make the page scroll sideways. Prefer
+					<code>--start</code> or <code>--end</code> near an edge: a
+					centred tip is only fully visible when the trigger sits
+					clear of both margins.
 				</p>
 			</section>
 

@@ -2684,10 +2684,66 @@ check('cm-meter prints its value as text, for a reader who cannot see the bar', 
 		'the track is not aria-hidden, so the percentage is announced twice');
 });
 
+/* The showcase page scrolled 27px sideways at a 390px viewport, which is
+   the width Omar actually reads at. A tooltip is routinely wider than the
+   button it describes (measured 288px of tip on a 79px button) and it is
+   `position: absolute`, so it widens the document rather than clipping.
+
+   `overflow-x: clip` is the backstop AND it is not sufficient alone:
+   with `overflow-y: scroll` beside it, WebKit computes the x axis to
+   `hidden`, which is still scrollable. So both halves are asserted —
+   the clip on the root, and a width cap on the tip that is derived from
+   the viewport rather than pasted as a number.
+
+   The measured 320px case is a CSS limitation, not a bug in this fix:
+   a centred tip over a trigger near the right edge has no collision
+   detection, so it can still overhang there. The showcase documents
+   `--start` / `--end` as the answer. This test pins what IS claimed. */
+check('the page cannot scroll sideways on a phone, and the tip is capped', () => {
+	const base = read('src/styles/base.css');
+	const html = /html\s*\{[^}]*\}/.exec(base)[0];
+	assert(
+		/overflow-x:\s*clip/.test(html),
+		'html must clip horizontal overflow: an absolutely-positioned overlay that escapes its trigger widens the document and the whole page scrolls sideways',
+	);
+	// `hidden` would also stop the scroll, but it turns the root into a
+	// scroll container and silently breaks `position: sticky` on the
+	// header. `clip` does not create a scroll container.
+	//
+	// Comments are stripped first: the rule's own comment explains WHY
+	// `hidden` is wrong and names it, so a scan that reads the block as
+	// text matches its own documentation. That is the same trap as a
+	// ResizeObserver assertion passing on a comment.
+	const decls = html.replace(/\/\*[\s\S]*?\*\//g, '');
+	assert(
+		!/overflow(-x)?:\s*hidden/.test(decls),
+		'html must use overflow-x: clip, not hidden - hidden breaks position: sticky for every descendant',
+	);
+	// The tip is declared in more than one block (the box, the centring
+	// transform, the alignment variants), so the assertions run over the
+	// class as a whole. Matching only the first block is how a test
+	// passes on one half of a rule and misses the other.
+	//
+	// COMMENTS ARE STRIPPED FIRST, and that is not a nicety. A prose
+	// comment that names a sibling class reads as a selector to a naive
+	// `\.foo[^{]*\{` scan, so the rule bodies captured here included my
+	// own sentence "…the second .cm-tooltip__tip block, further down" and
+	// the max-width assertion passed on a comment while the declaration
+	// it guards was deleted. That is the same trap as the ResizeObserver
+	// assertion in this file, and a mutation proved it here too.
+	const bare = comp.replace(/\/\*[\s\S]*?\*\//g, '');
+	const tipRules = [...bare.matchAll(/(?:^|[}\s,])\.cm-tooltip__tip\s*\{([^}]*)\}/g)].map((m) => m[1]);
+	assert(tipRules.length >= 2, `found ${tipRules.length} .cm-tooltip__tip blocks; the class is split across two`);
+	const tip = tipRules.join('\n');
+	assert(/max-width:/.test(tip), 'the tip has no width cap');
+	assert(
+		/100vw/.test(tip),
+		'the tip cap must be derived from the viewport, not a bare px value, or it is wrong at every width but the one it was written for',
+	);
+	assert(/transform:\s*translateX\(-50%\)/.test(tip), 'a centred tip needs its centring transform');
+});
+
 check('cm-meter rejects a pct that is not 0-100 at build time', () => {
-	// A clamped or overflowing bar is a chart that quietly misstates
-	// the data. Throwing fails the build, which is the only outcome
-	// that cannot ship a lie.
 	const m = read('src/astro/Meter.astro');
 	assert(/throw new Error/.test(m), 'Meter.astro does not throw on a bad pct');
 	const g = /if \(!Number\.isFinite\(pct\)\s*\|\|\s*pct < 0\s*\|\|\s*pct > 100\)/.exec(m);
