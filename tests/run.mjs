@@ -1686,8 +1686,12 @@ check('Header hands its links to the runtime scroll-spy', () => {
 	// one-pager whose links are all #section, so the spy id is INFERRED from the
 	// href: a consumer should not have to repeat `spy` on every link.
 	const h = read('src/astro/Header.astro');
-	assert(/data-cm-nav/.test(h), 'Header never emits data-cm-nav, so the spy never runs');
-	assert(/data-cm-spy/.test(h), 'Header never emits data-cm-spy');
+	// Anchored to the ASSIGNMENT, not the bare name. The mobile burger
+	// emits `data-cm-nav-toggle`, and a bare /data-cm-nav/ matches that
+	// prefix, so deleting the real attribute left the test green. The
+	// attribute under test is the one with a value.
+	assert(/data-cm-nav=/.test(h), 'Header never emits data-cm-nav, so the spy never runs');
+	assert(/data-cm-spy=/.test(h), 'Header never emits data-cm-spy');
 	assert(/href\.startsWith\('#'\)/.test(h),
 		'the spy id must be inferred from an in-page href, not required on every link');
 });
