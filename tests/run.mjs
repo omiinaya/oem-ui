@@ -2412,6 +2412,33 @@ check('the record Astro components ship, and hardcode no identity', () => {
 		'TimelineItem hardcodes --now into every item');
 });
 
+check('cm-timeline: TimelineItem takes a body as a string or as an array', () => {
+	// A data file holding records wants an array; a page template wants a
+	// newline-delimited string. Normalising here means the template only
+	// ever sees a list. Without the array branch the component called
+	// `.split` on an array and the build died with "body.split is not a
+	// function" — an error naming no prop, so the consumer went looking in
+	// the wrong file.
+	const t = read('src/astro/TimelineItem.astro');
+	assert(/body\?:\s*string\s*\|\s*string\[\]/.test(t),
+		'the body prop is not typed to accept both shapes');
+	assert(/Array\.isArray\(body\)/.test(t),
+		'no array branch, so an array body reaches .split and throws');
+	// The normalisation has to be assigned to something the template
+	// actually uses, not computed and then ignored.
+	assert(/const paras\s*=/.test(t), 'the normalisation is not assigned');
+	assert(/paras\.length > 0/.test(t),
+		'the template still branches on the raw prop, so an empty array renders a blank paragraph');
+	// The only legitimate .split is the string branch in the frontmatter.
+	// What must not exist is the TEMPLATE splitting the raw prop, so the
+	// scan is anchored to the markup, not to the whole file.
+	const markup = t.slice(t.indexOf('---', t.indexOf('---') + 3) + 3);
+	assert(!markup.includes('body.split'),
+		'the template still calls .split on the raw prop');
+	assert(markup.includes('paras.map'),
+		'the template does not render the normalised paragraphs');
+});
+
 check('the record components are documented, and the docs are real', () => {
 	// A component nobody can find is a component nobody adopts: each class
 	// must be DEMONSTRATED with markup, not merely named in a sentence.

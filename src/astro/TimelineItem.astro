@@ -13,13 +13,28 @@ interface Props {
 	org: string;
 	/** Optional second org line: location, employment type. */
 	meta?: string;
-	/** Optional prose or a list of lines under the heading. */
-	body?: string;
+	/**
+	 * Optional prose under the heading. A newline-delimited string is
+	 * split into paragraphs; an ARRAY is rendered as one paragraph per
+	 * item. The array form exists because that is how a data file wants
+	 * to hold it — a caller storing records in a .ts file should not have
+	 * to join and re-split the same list to get paragraphs.
+	 */
+	body?: string | string[];
 	/** Marks the record the person is in now. Fills the dot. */
 	now?: boolean;
 }
 
 const { period, role, org, meta, body, now = false } = Astro.props;
+
+// One source, two accepted shapes. Normalised here so the template only
+// ever sees a list, and so an empty string and an empty array both render
+// no body rather than one blank paragraph.
+const paras = Array.isArray(body)
+	? body.filter((p) => p.trim())
+	: typeof body === 'string'
+		? body.split('\n').filter((l) => l.trim())
+		: [];
 ---
 
 <li class="cm-timeline__item" class:list={{ 'cm-timeline__item--now': now }}>
@@ -28,9 +43,9 @@ const { period, role, org, meta, body, now = false } = Astro.props;
 	<span class="cm-timeline__org">{org}</span>
 	{meta && <span class="cm-timeline__meta">{meta}</span>}
 	{
-		body && (
+		paras.length > 0 && (
 			<div class="cm-timeline__body">
-				{body.split('\n').filter((line) => line.trim()).map((line) => (
+				{paras.map((line) => (
 					<p>{line}</p>
 				))}
 			</div>
