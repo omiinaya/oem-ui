@@ -46,6 +46,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A toast's close button was dead on any toast created after `init()`.**
+  The listener was bound once, inside the init pass, so it only ever
+  reached toasts that existed in the initial markup. Every toast the
+  showcase creates comes from a click handler, which means the control
+  the component documents as "or immediately via its close control" did
+  nothing — with no console error and with the contract suite green. The
+  binding now happens where the node is created, and the init pass still
+  covers hand-written markup. Found by driving the real page in a
+  browser; the fake-DOM test that existed built its tree *before* init,
+  which is precisely the case that works. There is now a test for the
+  other order.
 - **The showcase announced every toast twice.** The demo built its toasts
   with `role="alert"` inside a `role="status" aria-live="polite"` region,
   so the region announced the insertion *and* the alert announced itself.

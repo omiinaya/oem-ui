@@ -427,6 +427,28 @@
 		else if (toast.parentNode) toast.parentNode.removeChild(toast);
 	}
 
+	/* The close control has to work on a toast that did not exist when
+	   init() ran. Binding it once inside init() is the bug: every toast
+	   the showcase creates comes from a click handler, so the listener
+	   is bound before the toast exists and the close button is dead
+	   until the next page load — with no error, and with a green suite.
+	   So toast() binds each node it creates, and init() binds the ones
+	   the author wrote by hand. Both paths guard on the same flag, so a
+	   node reached twice is bound once. */
+	function bindToastClose(el) {
+		if (!el || el.dataset.cmToastBound) return;
+		el.dataset.cmToastBound = '1';
+		/* Delegated to the close control, not to the toast: the click
+		   lands on the button, and a plain click anywhere else in the
+		   toast must not retire it. */
+		el.addEventListener('click', function (e) {
+			if (e.target && e.target.closest
+				&& e.target.closest('[data-cm-toast-close]')) {
+				dismiss(el);
+			}
+		});
+	}
+
 	function toast(msg) {
 		var region =
 			document.querySelector('[data-cm-toasts]') ||
@@ -439,39 +461,31 @@
 				document.body.appendChild(el);
 				return el;
 			})();
+		var node = null;
 		if (typeof msg === 'string') {
 			var span = document.createElement('span');
 			span.className = 'cm-toast';
 			span.textContent = msg;
-			region.appendChild(span);
-			span = span;
+			node = span;
 		} else if (msg && msg.nodeType === 1) {
-			region.appendChild(msg);
-			span = msg;
+			node = msg;
 		} else {
 			return;
 		}
+		region.appendChild(node);
+		bindToastClose(node);
 		if (typeof setTimeout === 'function') {
 			setTimeout(function () {
-				dismiss(span);
+				dismiss(node);
 			}, TOAST_MS);
 		}
-		return span;
+		return node;
 	}
 
 	function initToasts(root) {
 		(root || document)
 			.querySelectorAll('[data-cm-toast]')
-			.forEach(function (el) {
-				if (el.dataset.cmToastBound) return;
-				el.dataset.cmToastBound = '1';
-				el.addEventListener('click', function (e) {
-					if (e.target && e.target.closest
-						&& e.target.closest('[data-cm-toast-close]')) {
-						dismiss(el);
-					}
-				});
-			});
+			.forEach(bindToastClose);
 	}
 
 	/* ---------- init ---------- */

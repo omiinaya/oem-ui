@@ -1925,6 +1925,44 @@ check('cm-toast: the close control retires it without the timer', () => {
 	assert(region.kids.includes(t2), 'any click on the toast dismissed it');
 });
 
+check('cm-toast: a toast created AFTER init can still be closed', () => {
+	// The bug this catches: binding the close control once inside
+	// init(). Every toast in the showcase is created by a click
+	// handler, so the listener is bound before the toast exists and the
+	// close button is dead — with no error, and with the suite green.
+	const region = el('div', { class: 'cm-toast-region', 'data-cm-toasts': '' });
+	const { api, doc } = runOn([region]);
+	api.init(doc);
+	// now the toast is born, long after init walked the document
+	const t = api.toast('saved');
+	assert(region.kids.includes(t), 'the toast did not mount');
+	const btn = el('button', { class: 'cm-toast__close', 'data-cm-toast-close': '' });
+	t.appendChild(btn);
+	btn.fire('click');
+	assert(region.kids.length === 0, 'a toast created after init cannot be closed');
+});
+
+check('cm-toast: a close control on a hand-written toast works too', () => {
+	// The other direction: markup the author wrote, present at init.
+	const region = el('div', { class: 'cm-toast-region', 'data-cm-toasts': '' });
+	const t = el('div', { class: 'cm-toast', 'data-cm-toast': '' });
+	const btn = el('button', { class: 'cm-toast__close', 'data-cm-toast-close': '' });
+	t.appendChild(btn);
+	region.appendChild(t);
+	const { api, doc } = runOn([region]);
+	api.init(doc);
+	btn.fire('click');
+	assert(region.kids.length === 0, 'a hand-written toast cannot be closed');
+	// and init twice must not double-bind
+	api.init(doc);
+	api.init(doc);
+	const t2 = api.toast('again');
+	const b2 = el('button', { 'data-cm-toast-close': '' });
+	t2.appendChild(b2);
+	b2.fire('click');
+	assert(region.kids.length === 0, 'a toast left the region');
+});
+
 check('cm-toast: a toast is mounted in the live region, not orphaned', () => {
 	const region = el('div', { class: 'cm-toast-region', 'data-cm-toasts': '' });
 	const { api, doc } = runOn([region]);
