@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **CI.** `npm ci`, `npm run build`, `npm test` on the pve-scripts
+  self-hosted runner, because the Actions minute budget on this account is
+  exhausted and a GitHub-hosted runner will not start a job at all. A runner
+  was registered for this repo; personal-account runners are per-repo.
+
+### Fixed
+- **The repo only worked on the machine it was written on.** A clone
+  anywhere else had a symlink pointing into a local NFS mount, hardcoded
+  LAN URLs as its test defaults, and absolute paths into a home directory.
+  The WebKit harnesses now read `OEM_UI_URL` / `OEM_UI_SCRATCH`, the
+  mutation harnesses resolve the repo from their own location, and the sync
+  checker defaults to the checkout it lives in.
+- **A committed symlink published the storage layout.** The SAME-PATH
+  `oem-ui` link is a local convenience; it is now gitignored.
+- The scroll-spy attribute assertions matched the burger's
+  `data-cm-nav-toggle` prefix, so deleting the real `data-cm-nav` left the
+  suite green. Both are now asserted where they are assigned.
+
 ### Fixed
 - **The mobile drawer rendered 0px tall and was invisible.** `.cm-header`
   carried `backdrop-filter`, which makes an element the containing block
