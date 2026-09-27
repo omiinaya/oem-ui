@@ -9,6 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Two more components: `.cm-cards` / `.cm-card`, and `.cm-meter`.**
+  A card is a unit of content with a title, so it needs more room than
+  a `.cm-kv` row and less than a page; the library had no honest way to
+  express one, and every consumer was hand-rolling a private version
+  that did not line up. Pure CSS, no runtime.
+  - The card grid is `auto-fit` with a `min(20rem, 100%)` floor, and
+    `.cm-card` is `height:100%` with a `flex:1 1 auto` body. That pair
+    is what makes a two-line card and a six-line card in the same row
+    share a bottom edge instead of ending ragged.
+  - `.cm-card` is `position:relative` + `overflow:hidden` because
+    `.cm-card--accent` is a 2px left border: without the clip, a
+    bordered card leaves square nubs outside its own `radius`.
+  - `.cm-card__link::after` stretches to the whole card so the tap
+    target is the card, not 20px of footer text. It is on the **anchor**
+    rather than the card, because an overlay pseudo-element on the card
+    itself would sit above the text and break selection.
+  - `.cm-meter` draws its fill from `var(--cm-meter-fill, 0%)`, which
+    the caller sets from the same number it prints beside the bar. A
+    fill width set independently of the printed value is a chart that
+    disagrees with its own caption, so the two are now structurally
+    one value. The `0%` default means a missing property renders an
+    empty track rather than a full one.
+  - The meter track is `aria-hidden` and the value is real text: a bar
+    is a picture of a number, and a screen-reader user gets the
+    number, not the picture.
+  - `Meter.astro` **throws at build time** on a `pct` outside `0-100`
+    (inclusive, so a 100% bar is legal) or a non-finite value. A
+    silently clamped bar is a chart that quietly misstates the data.
+  - `Card.astro` is slots-only — head, default and foot. A hardcoded
+    "status badge" or "credential ID" would bake one consumer's data
+    model into the library.
+  - New micro-labels are floored at `--min-font` in the existing
+    coarse-pointer block, like every other small type in the system.
+
 - **Two record components: `.cm-stats` / `.cm-stat`, and `.cm-timeline`.**
   A metric is not a `.cm-kv` row and a work history is not a `.cm-rows`
   list, so both were being re-declared privately by every consumer that

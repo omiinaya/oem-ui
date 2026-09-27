@@ -460,6 +460,79 @@ The dot is a square, for the same reason the checkbox is: a drawn mark
 reads as drawn, and it is centred on the rail by a negative half-width so
 the two can never drift apart.
 
+### Cards and meters
+
+A card is a unit of content with a title, so it needs more room than a
+`.cm-kv` row and less ceremony than a whole page. `.cm-meter` is a number
+that happens to be drawn.
+
+**`.cm-cards`** is the grid, **`.cm-card`** one card. Pure CSS, no runtime.
+
+```html
+<ul class="cm-cards">
+  <li class="cm-card cm-card--accent">
+    <div class="cm-card__head">
+      <h3 class="cm-card__title">A+ 220-1101</h3>
+      <p class="cm-card__sub">taken 2022 · lapsed 2025</p>
+    </div>
+    <div class="cm-card__body">
+      <p class="cm-card__text">What the exam asked, in prose.</p>
+      <div class="cm-meters">
+        <div class="cm-meter">
+          <div class="cm-meter__top">
+            <span class="cm-meter__label">Networking</span>
+            <span class="cm-meter__val">23%</span>
+          </div>
+          <div class="cm-meter__track" aria-hidden="true">
+            <span class="cm-meter__fill" style="--cm-meter-fill: 23%"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cm-card__foot">
+      <a class="cm-card__link" href="…">exam objectives →</a>
+    </div>
+  </li>
+</ul>
+```
+
+| Class | Role |
+|---|---|
+| `.cm-cards` | the grid. `auto-fit` + a `min()` floor, so any card count works and a long title cannot force overflow |
+| `.cm-card` | one card. Owns `position:relative`, `height:100%` so a row matches, and `overflow:hidden` so `--accent` cannot escape the radius |
+| `.cm-card--accent` | a 2px rule down the left edge. Marks the one card to read first — a **border**, not a hue, because the palette is greyscale |
+| `.cm-card__head` | title block, separated by a `--line-soft` rule |
+| `.cm-card__title` | the subject. An `<h3>` so a page of cards has a real outline |
+| `.cm-card__sub` | optional second line: issuer, period, status |
+| `.cm-card__body` | the content. `flex:1 1 auto` so a footer sits at the card bottom |
+| `.cm-card__text` | optional prose paragraph |
+| `.cm-card__foot` | optional action row on `--bg-2`. Pairs with the whole-card link |
+| `.cm-card__link` | a link whose `::after` stretches to the whole card. On the **anchor**, not the card, so text stays selectable |
+
+A whole card that is one link needs the `::after` stretch, or the target
+is ~20px of footer text. The stretch lives on the anchor because an
+overlay pseudo-element on the card itself would sit on top of the text.
+
+**`.cm-meter`** is a labelled proportion bar. The Astro component takes
+`pct` and throws at build time on anything outside `0-100`, so a bad
+weighting fails the build instead of shipping a bar that quietly lies.
+
+| Class | Role |
+|---|---|
+| `.cm-meters` | the stack of meters |
+| `.cm-meter` | one meter |
+| `.cm-meter__top` | label and value on one baseline, `space-between` |
+| `.cm-meter__label` | what the proportion measures |
+| `.cm-meter__val` | the number, as **text**, `tabular-nums` |
+| `.cm-meter__track` | the empty bar. `aria-hidden`, because the value is already text beside it |
+| `.cm-meter__fill` | the filled part. Width is `var(--cm-meter-fill, 0%)` — the caller sets it from the same number it printed |
+| `.cm-meter--accent` | the dominant value, in `--accent` |
+| `.cm-meter--faint` | the least interesting value, in `--line` |
+
+The bar is a picture of a number, so the number has to exist as text and
+the picture has to come from it. A `--cm-meter-fill` set independently of
+the printed value is a chart that disagrees with its own caption.
+
 ### Everything else
 
 ```html
@@ -520,6 +593,8 @@ Copy from `src/astro/` and set your identity in `config.ts`:
 | `StatusStrip.astro` | label / value status line |
 | `Stat.astro` | one metric tile inside a `.cm-stats` list |
 | `TimelineItem.astro` | one dated record, with the `now` variant |
+| `Card.astro` | one card inside a `.cm-cards` grid. Slots for head, body and foot |
+| `Meter.astro` | one labelled proportion bar. Throws on a `pct` outside 0-100 |
 
 ```astro
 ---

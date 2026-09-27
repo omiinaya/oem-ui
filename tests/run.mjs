@@ -2484,6 +2484,233 @@ check('install.sh still lands the layers the record components live in', () => {
 	assert(/components\.css/.test(sh), 'the installer does not copy components.css');
 });
 
+/* ================= cards and meters ================= */
+
+check('cm-card is a grid that survives any card count', () => {
+	// Same argument as .cm-stats: the count is data. A fixed column
+	// count strands a half-row at every count but the designed one.
+	const g = /\.cm-cards\s*\{([^}]*)\}/.exec(compSrc);
+	assert(g, '.cm-cards has no rule of its own');
+	assert(/display:\s*grid/.test(g[1]), '.cm-cards is not a grid');
+	assert(/repeat\(auto-fit,\s*minmax\(min\(/.test(g[1]),
+		'.cm-cards does not use auto-fit with a min() floor, so a long title forces overflow on a narrow screen');
+	// align-items: start, so one tall card does not stretch its whole
+	// row into a column of empty boxes.
+	assert(/align-items:\s*start/.test(g[1]),
+		'.cm-cards does not set align-items: start, so a short card stretches to the tallest one');
+});
+
+check('cm-card fills its grid cell, so a ragged row still lines up', () => {
+	// height: 100% on the card plus height: 100% on the <li> is what
+	// makes two cards in a row share a baseline even when the body
+	// copy is a different length. Without it a two-line card ends
+	// early and the footers do not line up, which is the single most
+	// visible way a card grid looks broken.
+	assert(/\.cm-cards > li\s*\{[^}]*min-width:\s*0/.test(compSrc),
+		'.cm-cards > li does not guard min-width, so a long word can force the track wider');
+	assert(/\.cm-card\s*\{[^}]*height:\s*100%/.test(compSrc),
+		'.cm-card has no height: 100%, so cards in a row do not match');
+	// The body takes the slack so a card without a footer still pushes
+	// its content apart the same way a card with one does.
+	assert(/\.cm-card__body\s*\{[^}]*flex:\s*1 1 auto/.test(compSrc),
+		'.cm-card__body does not grow, so footers do not sit at the card bottom');
+});
+
+check('cm-card: the footer stacks, so a long status cannot land on the link', () => {
+	// Measured in a consumer: "no expiry · not verified" is wider than
+	// "exam details →", so a wrapping footer puts the link on line two.
+	// With `flex-wrap: wrap` + `margin-left: auto` the auto margin then
+	// resolves against the NEW line and the two boxes overlap — a real
+	// collision, invisible in a source diff and obvious in a screenshot.
+	const f = /\.cm-card__foot\s*\{([^}]*)\}/.exec(read('src/styles/components.css'));
+	assert(f, '.cm-card__foot has no rule of its own');
+	assert(/flex-direction:\s*column/.test(f[1]),
+		'the footer wraps instead of stacking, so a long status overlaps the link beside it');
+	assert(!/flex-wrap:\s*wrap/.test(f[1]),
+		'flex-wrap: wrap brings back the auto-margin overlap this replaced');
+	assert(/align-items:\s*flex-start/.test(f[1]),
+		'the link needs to align to the start of its own line, not float');
+	assert(/gap:\s*var\(--space-2\)/.test(f[1]),
+		'the stacked items have no gap, so they read as one line of text');
+});
+
+check('cm-card clips its own corners, or the accent rule escapes them', () => {
+	// A 2px left border plus border-radius leaves a square nub at the
+	// top-left and bottom-left. overflow: hidden is the fix, and it is
+	// the reason the accent is safe to ship at all.
+	// Read the RAW file, not compSrc: compSrc has comments stripped, so a
+	// comment-based marker can never be found in it.
+	const raw = /\.cm-card\s*\{([^}]*)\}/.exec(read('src/styles/components.css'));
+	assert(/overflow:\s*hidden/.test(raw[1]),
+		'.cm-card does not clip, so .cm-card--accent renders a square nub outside the radius');
+	// position: relative is what the stretched link below depends on.
+	assert(/position:\s*relative/.test(raw[1]),
+		'.cm-card is not position: relative, so the whole-card link has nothing to stretch against');
+});
+
+check('the whole card is the tap target, not just the link text', () => {
+	// A footer link on its own is a ~20px target, far under the --tap
+	// floor. The ::after stretch is the fix. It is on the ANCHOR, not
+	// the card: an overlay pseudo on the card would sit above the
+	// text and kill text selection.
+	const a = /\.cm-card__link::after\s*\{([^}]*)\}/.exec(compSrc);
+	assert(a, '.cm-card__link has no ::after, so a card link is only as big as its text');
+	assert(/position:\s*absolute/.test(a[1]) && /inset:\s*0/.test(a[1]),
+		'the stretch does not cover the whole card');
+});
+
+check('cm-card keeps its micro-labels above the mobile type floor', () => {
+	// .cm-card__sub and .cm-card__text are body copy, and a
+	// 0.72rem label is unreadable on a phone. Same rule as every other
+	// micro-label in the library.
+	for (const sel of ['cm-card__sub', 'cm-card__text', 'cm-meter__label', 'cm-meter__val']) {
+		const inFloor = new RegExp(
+			'@media \\(pointer: coarse\\)[\\s\\S]*?\\.' + sel + '\\s*\\{[^}]*font-size:\\s*max\\('
+		).test(compSrc);
+		assert(inFloor, '.' + sel + ' is not floored in the coarse-pointer block');
+	}
+});
+
+check('cm-card never hardcodes a colour the palette does not have', () => {
+	// A rebrand bug, and the one rule the whole library runs on: no
+	// hex and no literal anywhere in the card/meter block.
+	// The marker is a comment, so this has to read the RAW file. compSrc
+	// is the same file with comments stripped, which is exactly why an
+	// earlier version of this check silently scanned an empty string and
+	// passed on nothing.
+	const raw = read('src/styles/components.css');
+	const from = raw.indexOf('/* ---------- cards ----------');
+	assert(from !== -1, 'the card block is not marked, so this check scans nothing');
+	const block = raw.slice(from);
+	assert(/^\.cm-meter--faint/.test(block.trim()) || block.includes('.cm-meter--faint'),
+		'the card block does not actually contain the meter family, so the scan is too narrow');
+	assert(!/#[0-9a-f]{3,8}\b/i.test(block), 'the card/meter block contains a hex literal');
+	assert(!/rgba?\(|hsla?\(/i.test(block), 'the card/meter block contains a colour function');
+	// Every colour must come from a token, so check the actual set.
+	const used = [...block.matchAll(/var\((--[a-z0-9-]+)\)/g)].map((m) => m[1]);
+	const known = new Set(
+		[...read('src/styles/tokens.css').matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map((m) => m[1])
+	);
+	assert(used.length > 10, 'the token scan found suspiciously few var() uses, so it is scanning too little');
+	for (const v of new Set(used)) {
+		assert(known.has(v), 'the card/meter block uses undefined token ' + v);
+	}
+});
+
+check('cm-meter draws its bar from the value it prints', () => {
+	// The whole point of the component: a bar whose width is set
+	// somewhere other than the number beside it is a chart that lies.
+	// So the width must come from a custom property the consumer sets
+	// from the same pct it printed.
+	const f = /\.cm-meter__fill\s*\{([^}]*)\}/.exec(compSrc);
+	assert(f, '.cm-meter__fill has no rule of its own');
+	assert(/width:\s*var\(--cm-meter-fill,\s*0%\)/.test(f[1]),
+		'the fill width is not driven by --cm-meter-fill, so it cannot track the printed value');
+	// The 0% default is a hard failure, not a design choice: a meter
+	// with no fill renders an empty track and reads as "0".
+	assert(/0%/.test(f[1]), 'the fill has no 0% default');
+});
+
+check('cm-meter prints its value as text, for a reader who cannot see the bar', () => {
+	// A bar is a picture of a number. The number has to be in the DOM
+	// as text, not implied by the fill width, or the component is
+	// unusable with a screen reader and invisible to a text browser.
+	const m = read('src/astro/Meter.astro');
+	assert(/class="cm-meter__val"/.test(m), 'Meter.astro does not render the value as text');
+	// ...and the bar itself is decorative, so it must be hidden.
+	assert(/class="cm-meter__track"[^>]*aria-hidden="true"|aria-hidden="true"[^>]*class="cm-meter__track"/.test(m),
+		'the track is not aria-hidden, so the percentage is announced twice');
+});
+
+check('cm-meter rejects a pct that is not 0-100 at build time', () => {
+	// A clamped or overflowing bar is a chart that quietly misstates
+	// the data. Throwing fails the build, which is the only outcome
+	// that cannot ship a lie.
+	const m = read('src/astro/Meter.astro');
+	assert(/throw new Error/.test(m), 'Meter.astro does not throw on a bad pct');
+	const g = /if \(!Number\.isFinite\(pct\)\s*\|\|\s*pct < 0\s*\|\|\s*pct > 100\)/.exec(m);
+	assert(g, 'the guard does not reject non-finite, negative and over-100 values');
+	// ...and the bound must be inclusive, or pct === 100 is rejected.
+	assert(/pct > 100/.test(g[0]), 'a full bar would be rejected');
+	assert(!/pct >= 100/.test(m), 'pct === 100 is excluded, so a 100% bar throws');
+});
+
+check('the card and meter Astro components ship, and hardcode no identity', () => {
+	for (const f of ['Card.astro', 'Meter.astro']) {
+		assert(exists(`src/astro/${f}`), `does not ship src/astro/${f}`);
+		const s = read(`src/astro/${f}`);
+		assert(!/Omar|omiinaya|oem\.|mrx/i.test(s), `${f} hardcodes a site identity`);
+	}
+	// Card.astro must emit its own structural classes, or a consumer
+	// that forgets one gets an unboxed card. `cm-card` itself is
+	// assembled through class:list, so it cannot be matched as a plain
+	// class="…" literal — that is the whole point of the binding.
+	const c = read('src/astro/Card.astro');
+	for (const sel of ['cm-card', 'cm-card__head', 'cm-card__title', 'cm-card__sub', 'cm-card__body']) {
+		const structural = c.includes(`class="${sel}"`) || c.includes(`'${sel}'`);
+		assert(structural, `Card.astro does not emit .${sel}`);
+	}
+	// The accent is conditional, so it must be bound to the prop.
+	assert(/class:list/.test(c), 'Card.astro does not use class:list for --accent');
+	// Bound to the PROP, not merely present. Hand-writing
+	// `const cls = ['cm-card', 'cm-card--accent']` satisfies any
+	// substring check while marking every card in the system as the one
+	// to read first, which is the whole thing the variant means.
+	assert(/'cm-card--accent':\s*accent/.test(c) || /accent\s*&&\s*'cm-card--accent'/.test(c),
+		'the --accent class is not bound to the accent prop');
+	// And the card must not opt every instance in.
+	assert(!/class="[^"]*cm-card--accent/.test(c),
+		'Card.astro hardcodes --accent on every card');
+	// A named slot cannot supply its own wrapper, so the foot wrapper has
+	// to be a real element — otherwise `.cm-card__foot` never reaches the
+	// DOM and every rule in that block is dead CSS. This exact mistake
+	// shipped in the first draft of this component.
+	assert(/<div class="cm-card__foot">[\s\S]*?<slot name="foot"/.test(c),
+		'Card.astro renders the foot slot without a .cm-card__foot wrapper, so that CSS is dead');
+	assert(/Astro\.slots\.has\('foot'\)/.test(c),
+		'the foot wrapper is unconditional, so a card with no footer paints an empty bar');
+	// Every part is a slot, so one consumer's data model is not baked in.
+	assert(/<slot/.test(c), 'Card.astro has no slot, so its body is fixed markup');
+	assert(/slot name="foot"/.test(c), 'Card.astro has no foot slot');
+	// The DEFAULT slot is what makes the card a layout primitive rather
+	// than a fixed layout. A bare `<slot` check is satisfied by the head
+	// and foot slots alone, so deleting the body slot entirely would stay
+	// green — the component would then have no way to render content.
+	assert(/<div class="cm-card__body">\s*\n\s*<slot \/>/.test(c),
+		'Card.astro has no default slot inside .cm-card__body, so a card cannot take content');
+});
+
+check('the card and meter components are documented with real markup', () => {
+	const readme = read('README.md');
+	const from = readme.indexOf('### Cards and meters');
+	assert(from !== -1, 'the README has no section documenting cards and meters');
+	const section = readme.slice(from, readme.indexOf('### ', from + 4));
+	assert(section.length > 400, 'the README section is a stub');
+	for (const sel of ['cm-cards', 'cm-card', 'cm-card--accent', 'cm-card__head', 'cm-card__title',
+		'cm-card__sub', 'cm-card__body', 'cm-card__text', 'cm-card__foot', 'cm-card__link',
+		'cm-meters', 'cm-meter', 'cm-meter__label', 'cm-meter__val', 'cm-meter__track',
+		'cm-meter__fill', 'cm-meter--accent', 'cm-meter--faint']) {
+		assert(section.includes('`.' + sel + '`'),
+			'the README does not document `.' + sel + '` in its class table');
+	}
+	for (const sel of ['cm-cards', 'cm-meter']) {
+		let shown = false;
+		for (const m of section.matchAll(/```html\n([\s\S]*?)```/g)) {
+			if (m[1].includes(sel)) { shown = true; break; }
+		}
+		assert(shown, `the README names .${sel} but shows no markup for it`);
+	}
+});
+
+check('the card and meter components are reachable from the showcase', () => {
+	assert(/href:\s*['"]#cards['"]/.test(showcase), 'the cards section is not in the showcase nav');
+	assert(/id="cards"/.test(showcase), 'the nav points at a cards section that does not exist');
+	// Both wrappers must be imported, or the showcase shows hand-rolled
+	// markup that drifts from the shipped component.
+	assert(/import Card from/.test(showcase), 'the showcase does not import <Card>');
+	assert(/import Meter from/.test(showcase), 'the showcase does not import <Meter>');
+});
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {

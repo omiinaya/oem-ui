@@ -896,7 +896,11 @@ html {
 	.cm-stat__label,
 	.cm-stat__note,
 	.cm-timeline__period,
-	.cm-timeline__meta {
+	.cm-timeline__meta,
+	.cm-card__sub,
+	.cm-card__text,
+	.cm-meter__label,
+	.cm-meter__val {
 		font-size: max(var(--min-font), 0.66rem);
 	}
 	pre { font-size: max(var(--min-font), 0.78rem); }
@@ -1423,3 +1427,169 @@ html {
    .cm-status__value. */
 .cm-timeline__body li::before { content: none; }
 .cm-timeline__body li::marker { color: var(--ink-faint); }
+
+/* ---------- cards ----------
+   A bordered surface with a header, for one subject that needs more
+   room than a .cm-kv row. Deliberately NOT .cm-panel: a panel is a
+   generic surface, a card is a unit of content with a title. The
+   difference matters because a card is what a reader scans as an
+   item, and a grid of them has to line up.
+
+   The accent rule on the left is the one piece of decoration. It is
+   drawn with a border on the header rather than a ::before, so the
+   header is still one box for layout purposes and a card with no
+   accent (the default) loses nothing but a line. */
+.cm-cards {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+	gap: var(--space-4);
+	align-items: start;
+}
+.cm-cards > li { margin: 0; min-width: 0; }
+.cm-card {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	/* The stretched link below needs a containing block. */
+	position: relative;
+	min-width: 0;
+	background: var(--panel);
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	overflow: hidden;
+}
+/* The accent is a border, not a gradient or a glow: the palette has
+   no hue to spend on decoration, and a left rule reads as "this is
+   the marked item" in both themes. */
+.cm-card--accent { border-left: 2px solid var(--accent); }
+.cm-card__head {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	padding: var(--space-4);
+	border-bottom: 1px solid var(--line-soft);
+	min-width: 0;
+}
+.cm-card__title {
+	margin: 0;
+	font-size: 1.05rem;
+	font-weight: 700;
+	line-height: 1.25;
+	letter-spacing: -0.01em;
+	color: var(--ink);
+	min-width: 0;
+	overflow-wrap: break-word;
+}
+.cm-card__sub {
+	margin: 0;
+	font-size: max(var(--min-font), 0.72rem);
+	line-height: 1.5;
+	color: var(--ink-faint);
+	min-width: 0;
+}
+.cm-card__body {
+	padding: var(--space-4);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	min-width: 0;
+	flex: 1 1 auto;
+}
+.cm-card__body > :first-child { margin-top: 0; }
+.cm-card__body > :last-child { margin-bottom: 0; }
+.cm-card__text {
+	margin: 0;
+	font-size: max(var(--min-font), 0.85rem);
+	line-height: 1.7;
+	color: var(--ink-dim);
+	min-width: 0;
+}
+.cm-card__foot {
+	display: flex;
+	/* A status like "no expiry · not verified" is longer than the link
+	   beside it, and at 390px the pair wraps. `margin-left:auto` only
+	   right-aligns on ONE line: once the link wraps, the auto margin
+	   resolves against the line it lands on and the two boxes sit on
+	   top of each other. So the footer stacks instead, and the link
+	   aligns to the start of its own line. */
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--space-2);
+	padding: var(--space-3) var(--space-4);
+	border-top: 1px solid var(--line-soft);
+	background: var(--bg-2);
+	min-width: 0;
+}
+/* A card is a link as often as it is a panel, and the WHOLE card has
+   to be the target. The stretch is done on the child anchor rather
+   than with a ::after overlay so the text stays selectable and the
+   focus ring lands on the real element. */
+.cm-card__link { color: var(--accent); }
+.cm-card__link::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+}
+.cm-card__link:hover { text-decoration: underline; }
+
+/* ---------- meter ----------
+   A labelled proportion bar. The system had no honest way to show
+   "24% of this exam is one domain", which is a number, so it is a
+   number: a scale, not a decoration.
+
+   The bar is drawn by the consumer as a --cm-meter-fill custom
+   property in percent, so the component never has to parse a value
+   and can never disagree with the number printed beside it. */
+.cm-meters {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	min-width: 0;
+}
+.cm-meter {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	min-width: 0;
+}
+.cm-meter__top {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--space-3);
+	min-width: 0;
+}
+.cm-meter__label {
+	font-size: max(var(--min-font), 0.78rem);
+	color: var(--ink-dim);
+	min-width: 0;
+	overflow-wrap: break-word;
+}
+.cm-meter__val {
+	font-size: max(var(--min-font), 0.78rem);
+	font-weight: 700;
+	color: var(--ink);
+	font-variant-numeric: tabular-nums;
+	flex: 0 0 auto;
+}
+.cm-meter__track {
+	height: 0.5rem;
+	background: var(--bg-3);
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	overflow: hidden;
+	min-width: 0;
+}
+.cm-meter__fill {
+	display: block;
+	height: 100%;
+	width: var(--cm-meter-fill, 0%);
+	background: var(--ink-dim);
+}
+.cm-meter--accent .cm-meter__fill { background: var(--accent); }
+/* Muted fill for the domain a reader is least likely to care about,
+   so the shape of the bar carries meaning too, not just its length. */
+.cm-meter--faint .cm-meter__fill { background: var(--line); }

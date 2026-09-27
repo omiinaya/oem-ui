@@ -12,6 +12,8 @@ import StatusStrip from '../astro/StatusStrip.astro';
 import PostRow from '../astro/PostRow.astro';
 import Stat from '../astro/Stat.astro';
 import TimelineItem from '../astro/TimelineItem.astro';
+import Card from '../astro/Card.astro';
+import Meter from '../astro/Meter.astro';
 import HeaderLink from '../astro/HeaderLink.astro';
 import { SITE } from '../astro/config';
 ---
@@ -47,6 +49,7 @@ import { SITE } from '../astro/config';
 				{ href: '#states', label: 'states' },
 				{ href: '#overlays', label: 'overlays' },
 				{ href: '#records', label: 'records' },
+				{ href: '#cards', label: 'cards' },
 				{ href: '#prose', label: 'prose' },
 				{ href: '#forms', label: 'forms' },
 				{ href: '#readme', label: 'readme' },
@@ -644,6 +647,56 @@ import { SITE } from '../astro/config';
 						now
 					/>
 				</ul>
+			</section>
+
+			<!-- ==================================================== cards
+			     One subject that needs more room than a row, and a
+			     number that is a proportion rather than a count. -->
+			<section id="cards" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+				<h2>Cards and meters</h2>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
+					A card is a unit of content with a title, so
+					<code>.cm-cards</code> is a grid and <code>.cm-card</code>
+					fills its cell — a two-line card and a six-line card in
+					the same row still share a bottom edge. A meter is a
+					number that happens to be drawn: the bar is
+					<code>aria-hidden</code> and the value is real text, so
+					the chart and the sentence can never disagree.
+				</p>
+
+				<ul class="cm-cards">
+					<Card title="A+ 220-1101" sub="taken 2022 · lapsed 2025" accent>
+						<p class="cm-card__text">
+							Hardware and networking for a working technician. The
+							domains below are the published exam weighting, not a
+							score: this is what the exam actually asked.
+						</p>
+						<div class="cm-meters">
+							<Meter label="Mobile devices" value="13%" pct={13} />
+							<Meter label="Networking" value="23%" pct={23} variant="accent" />
+							<Meter label="Hardware" value="25%" pct={25} />
+							<Meter label="Virtualization and cloud" value="11%" pct={11} variant="faint" />
+							<Meter label="Troubleshooting" value="28%" pct={28} />
+						</div>
+						<Fragment slot="foot">
+							<a class="cm-card__link" href="https://example.com/a-plus">exam objectives →</a>
+						</Fragment>
+					</Card>
+
+					<Card title="A short one" sub="cards are not all the same height">
+						<p class="cm-card__text">
+							The short card is the test. If it stretched to match
+							the tall one, <code>align-items: start</code> and
+							<code>height: 100%</code> are wrong.
+						</p>
+					</Card>
+				</ul>
+				<p class="cm-head__sub" style="margin-top:var(--space-3)">
+					<code>--accent</code> marks the one card a reader should look
+					at first. It is a 2px rule, not a hue: the palette has none
+					to spend, and a border cannot drift from the tokens in
+					light or dark.
+				</p>
 			</section>
 
 			<section id="prose" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">

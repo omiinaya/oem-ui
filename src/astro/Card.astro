@@ -1,0 +1,52 @@
+---
+/**
+ * oem-ui <Card> — one subject in a .cm-cards grid.
+ *
+ * Every part is a slot so the card stays a layout primitive rather
+ * than a certification widget: the header takes any title and
+ * sub-line, the body takes anything, and the footer is optional.
+ * Hardcoding a "status badge" or a "credential ID" here would bake
+ * one consumer's data model into the library.
+ *
+ * No hardcoded identity: every string arrives as a prop or a slot.
+ */
+interface Props {
+	/** Required. The card's subject. */
+	title: string;
+	/** Optional second line under the title, e.g. issuer or period. */
+	sub?: string;
+	/**
+	 * Draws the accent rule down the left edge. Use it to mark the
+	 * item a reader should look at first, not for decoration.
+	 */
+	accent?: boolean;
+}
+
+const { title, sub, accent = false } = Astro.props;
+const cls = ['cm-card', accent && 'cm-card--accent'];
+---
+
+<li class:list={cls.filter(Boolean)}>
+	<div class="cm-card__head">
+		<h3 class="cm-card__title">{title}</h3>
+		{sub && <p class="cm-card__sub">{sub}</p>}
+		<slot name="head" />
+	</div>
+
+	<div class="cm-card__body">
+		<slot />
+	</div>
+
+	<!--
+		A NAMED slot cannot supply its own wrapper: it renders the
+		caller's content directly, so `.cm-card__foot` — and with it the
+		footer's top rule and --bg-2 — would never exist in the DOM and
+		the CSS would be dead. The wrapper has to be an element here.
+		`Astro.slots.has()` is what keeps it from painting an empty bar
+		on a card with no footer. -->
+	{Astro.slots.has('foot') && (
+		<div class="cm-card__foot">
+			<slot name="foot" />
+		</div>
+	)}
+</li>

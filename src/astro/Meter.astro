@@ -1,0 +1,45 @@
+---
+/**
+ * oem-ui <Meter> — one labelled proportion bar.
+ *
+ * The fill is a percentage and the component renders it as a custom
+ * property, so the bar and the printed number come from the same
+ * value and cannot disagree. A consumer that wants a different look
+ * passes `variant` rather than reaching into the CSS.
+ *
+ * The track is a presentational bar, so it is hidden from assistive
+ * tech: the value is already in the text next to it, and announcing
+ * the same percentage twice is noise.
+ */
+interface Props {
+	/** What the proportion measures, e.g. a domain name. */
+	label: string;
+	/** The number, printed verbatim. "24%" not 24. */
+	value: string;
+	/** 0-100. Rendered as the bar's width. */
+	pct: number;
+	/** 'accent' marks the dominant value, 'faint' recedes it. */
+	variant?: 'accent' | 'faint' | 'plain';
+}
+
+const { label, value, pct, variant = 'plain' } = Astro.props;
+
+// A width outside 0-100 is a data bug, and a bar that silently clamps
+// it would hide exactly the error worth seeing. Throwing here fails
+// the build instead of shipping a chart that lies.
+if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+	throw new Error(`<Meter> pct must be 0-100, got ${pct} for "${label}"`);
+}
+
+const cls = ['cm-meter', variant !== 'plain' && `cm-meter--${variant}`];
+---
+
+<div class:list={cls.filter(Boolean)}>
+	<div class="cm-meter__top">
+		<span class="cm-meter__label">{label}</span>
+		<span class="cm-meter__val">{value}</span>
+	</div>
+	<div class="cm-meter__track" aria-hidden="true">
+		<span class="cm-meter__fill" style={`--cm-meter-fill: ${pct}%`}></span>
+	</div>
+</div>
