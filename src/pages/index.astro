@@ -16,10 +16,9 @@ import { SITE } from '../astro/config';
 <!doctype html>
 <html lang="en">
 	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width,initial-scale=1" />
-		<title>oem-ui — component library</title>
-		<meta name="description" content="Zero-dependency mono design system: CSS, JS and Astro components." />
+		<!-- The FOUC guard is the FIRST node in <head>, before the charset
+		     declaration and before any stylesheet: a light-theme visitor must
+		     never see a dark flash. -->
 		<script is:inline>
 			(function () {
 				try {
@@ -28,6 +27,10 @@ import { SITE } from '../astro/config';
 				} catch (e) {}
 			})();
 		</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<title>oem-ui — component library</title>
+		<meta name="description" content="Zero-dependency mono design system: CSS, JS and Astro components." />
 	</head>
 	<body>
 		<Header
@@ -167,6 +170,12 @@ Astro: import Header/Footer/Head/PageHead/PostHead from 'oem-ui/astro'.</pre>
 
 	<!-- Runtime. Use a real script tag: a frontmatter import of a
 	     side-effect-only file gets tree-shaken out of the bundle. -->
-	<script src="../js/cli-mono.js"></script>
+	<!-- Imported, not a raw <script src>: a relative src on a .astro page is
+     NOT treated as a build asset, so Astro emitted the tag verbatim and no
+     JS ever shipped. Importing it hands the file to Vite, which bundles it
+     and rewrites the src to a hashed asset. -->
+<script>
+	import '../js/cli-mono.js';
+</script>
 	</body>
 	</html>

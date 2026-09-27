@@ -18,7 +18,59 @@
 (function () {
 	'use strict';
 
+	/* Per-project storage key. A site that already persisted its theme
+	   under its own key (oem-links uses 'oem-links-theme', the blog
+	   'oem-log-theme') must keep that value, so it can declare its key
+	   on <html data-cm-theme-key="..."> and get migration for free. */
 	var STORE_KEY = 'cm-theme';
+	var LEGACY_KEYS = [];
+
+	function storeKey() {
+		var el = document.documentElement;
+		var key = el.getAttribute('data-cm-theme-key');
+		return key || STORE_KEY;
+	}
+
+	/* A project declares its own key once, on <html>, and lists any key it
+	   used BEFORE the library owned the theme:
+	     <html data-cm-theme-key="oem-links-theme"
+	           data-cm-theme-legacy="cm-theme,oem-log-theme">
+	   The legacy list is read lazily so a script in <head> can set it before
+	   the first paint, and so a host page can change it at runtime. */
+	function readLegacyKeys() {
+		var el = document.documentElement;
+		var raw = el.getAttribute('data-cm-theme-legacy');
+		if (!raw) return LEGACY_KEYS;
+		return raw.split(',').map(function (k) {
+			return k.trim();
+		}).filter(Boolean);
+	}
+
+	/* Read a theme from any known key, newest first. This is what keeps a
+	   returning visitor's saved theme through a key rename. */
+	function readStored() {
+		var keys = [storeKey()].concat(readLegacyKeys());
+		for (var i = 0; i < keys.length; i++) {
+			try {
+				var v = localStorage.getItem(keys[i]);
+				if (v === 'light' || v === 'dark') return v;
+			} catch (e) {}
+		}
+		return null;
+	}
+
+	/* Fold any legacy value into the current key, then drop it. Called
+	   once on init so a rename is a one-time migration, not a per-read
+	   lookup forever. */
+	function migrateStored() {
+		var current = storeKey();
+		var found = readStored();
+		if (!found || !readLegacyKeys().length) return found;
+		try {
+			if (!localStorage.getItem(current)) localStorage.setItem(current, found);
+		} catch (e) {}
+		return found;
+	}
 
 	/* ---------- theme ---------- */
 	// Dark is the default with NO stored preference. Light is always
@@ -26,17 +78,13 @@
 	// bug: the inline <head> snippet (see themeInitScript) must apply
 	// the saved value before first paint.
 	function getTheme() {
-		try {
-			var saved = localStorage.getItem(STORE_KEY);
-			if (saved === 'light' || saved === 'dark') return saved;
-		} catch (e) {}
-		return 'dark';
+		return migrateStored() || 'dark';
 	}
 
 	function applyTheme(theme) {
 		document.documentElement.setAttribute('data-theme', theme);
 		try {
-			localStorage.setItem(STORE_KEY, theme);
+			localStorage.setItem(storeKey(), theme);
 		} catch (e) {}
 		var meta = document.querySelector('meta[name="theme-color"]');
 		if (meta) {
@@ -45,10 +93,18 @@
 		syncToggles();
 	}
 
+	/* The toggle selector covers both the library's own markup and the
+	   class the oem projects already ship, so migrating a project does
+	   not require rewriting its header. */
+	var TOGGLE_SEL = '[data-cm-theme-toggle], .theme-toggle';
+
 	function syncToggles() {
 		var light = getTheme() === 'light';
-		document.querySelectorAll('[data-cm-theme-toggle]').forEach(function (btn) {
-			var icon = btn.querySelector('[data-cm-theme-icon]') || btn;
+		document.querySelectorAll(TOGGLE_SEL).forEach(function (btn) {
+			var icon =
+				btn.querySelector('[data-cm-theme-icon]') ||
+				btn.querySelector('.icon') ||
+				btn;
 			icon.textContent = light ? '☾' : '☀';
 			btn.setAttribute('aria-pressed', light ? 'true' : 'false');
 			btn.setAttribute(
@@ -66,11 +122,14 @@
 	// as an inline is:inline script. It runs before first paint so a
 	// light-theme user never sees a black flash.
 	function themeInitScript(storageKey) {
-		var key = storageKey || 'cm-theme';
+		var keys = [storageKey || 'cm-theme'].concat(LEGACY_KEYS);
 		return (
-			'(function(){try{var s=localStorage.getItem("' +
-			key +
-			'");if(s==="light"){document.documentElement.setAttribute("data-theme","light");}}catch(e){}})();'
+			'(function(){try{var k=' +
+			JSON.stringify(keys) +
+			';for(var i=0;i<k.length;i++){var s=localStorage.getItem(k[i]);' +
+			'if(s==="light"||s==="dark"){if(s==="light")' +
+			'{document.documentElement.setAttribute("data-theme","light");}' +
+			'return;}}}catch(e){}})();'
 		);
 	}
 
@@ -226,7 +285,7 @@
 	/* ---------- init ---------- */
 	function init(root) {
 		(root || document)
-			.querySelectorAll('[data-cm-theme-toggle]')
+			.querySelectorAll(TOGGLE_SEL)
 			.forEach(function (btn) {
 				if (btn.dataset.cmBound) return;
 				btn.dataset.cmBound = '1';
@@ -246,6 +305,10 @@
 		getTheme: getTheme,
 		toggleTheme: toggleTheme,
 		themeInitScript: themeInitScript,
+		storeKey: storeKey,
+		setLegacyKeys: function (keys) {
+			LEGACY_KEYS = keys || [];
+		},
 		copyText: copyText
 	};
 

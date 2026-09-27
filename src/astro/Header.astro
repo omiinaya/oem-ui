@@ -26,11 +26,14 @@ const {
 	extraLinks = [],
 } = Astro.props;
 
-const FOUC = `(function(){try{var s=localStorage.getItem("cm-theme");if(s==="light"){document.documentElement.setAttribute("data-theme","light");}}catch(e){}})();`;
+// NOT emitted here. A guard in <header> lives in <body> and runs AFTER the
+// stylesheets have painted, which is the flash it exists to prevent. The
+// snippet belongs in <head>, before the first stylesheet - see the
+// `Head.astro` component, which owns that position. Emitting it from both
+// places would also double-write the attribute.
 ---
 
 <header class="cm-header" data-cm-header>
-	<script is:inline set:html={FOUC} />
 	<nav class="cm-header__nav">
 		<a href={homeHref} class="cm-header__brand" aria-label="Home">
 			<span class="cm-header__prompt" aria-hidden="true">$</span>

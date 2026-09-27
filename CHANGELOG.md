@@ -21,6 +21,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Per-project theme storage key.** `<html data-cm-theme-key="...">`
+  selects the localStorage key, and `data-cm-theme-legacy="a,b"` lists
+  any key the site used before. A value found under an old key is
+  honoured and folded into the current one, so renaming a key never
+  silently drops a visitor's saved theme. Unconfigured projects keep
+  `cm-theme`.
+- The theme toggle binds `[data-cm-theme-toggle]` **and** the
+  `.theme-toggle` / `.icon` markup the oem projects already ship.
+
+### Fixed
+
+- **The runtime never shipped.** A relative `<script src="../js/cli-mono.js">`
+  is not an Astro build asset, so the tag was emitted verbatim and `dist/`
+  contained zero JavaScript. In the showcase that meant the theme toggle
+  and every runtime feature were dead in the one place that demos them.
+  Import the file instead so Vite bundles it.
+- **The FOUC guard was rendered inside `<header>`**, which lives in
+  `<body>` and runs after the stylesheets have painted. It now belongs in
+  `<head>` and is the first node there, before even the charset
+  declaration.
+
+### Added
+
 - **`.cm-row__icon`** — a fixed-width slot that centres a glyph or SVG
   beside a row, so the icon column stays aligned down the list
   regardless of what sits in it.

@@ -17,6 +17,20 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://example.
 const fullTitle = title === SITE.title ? title : `${title} — ${SITE.title}`;
 ---
 
+<!--
+	FOUC guard. MUST be the FIRST node in <head>, before even the charset
+	declaration and before any stylesheet, or a light-theme visitor sees a
+	dark flash. Keep it inline.
+-->
+<script is:inline>
+	(function () {
+		try {
+			var s = localStorage.getItem('cm-theme');
+			if (s === 'light') document.documentElement.setAttribute('data-theme', 'light');
+		} catch (e) {}
+	})();
+</script>
+
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <meta name="generator" content={Astro.generator} />
@@ -35,18 +49,5 @@ const fullTitle = title === SITE.title ? title : `${title} — ${SITE.title}`;
 <meta property="og:title" content={fullTitle} />
 <meta property="og:description" content={description} />
 <meta name="twitter:card" content="summary" />
-
-<!--
-	FOUC guard. MUST come before any stylesheet link so a light-theme
-	user never sees a black flash. Keep it inline and first.
--->
-<script is:inline>
-	(function () {
-		try {
-			var s = localStorage.getItem('cm-theme');
-			if (s === 'light') document.documentElement.setAttribute('data-theme', 'light');
-		} catch (e) {}
-	})();
-</script>
 
 {stylesHref && <link rel="stylesheet" href={stylesHref} />}

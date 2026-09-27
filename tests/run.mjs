@@ -223,9 +223,37 @@ check('themeInitScript emits a self-contained light-only guard', () => {
 	assert(!/\bsrc=/.test(snippet), 'snippet must be inline, not a src reference');
 });
 check('emits a FOUC guard snippet that only applies saved light', () => {
-	const snippet = /return\s*\(\s*'\(function\(\)\{try\{var s=localStorage\.getItem\("'/.test(runtimeSrc);
-	assert(snippet, 'themeInitScript missing or malformed');
-	assert(/s==="light"/.test(runtimeSrc), 'FOUC guard must only apply a saved light theme');
+	// Assert the SNIPPET'S BEHAVIOUR, not its source shape: the guard is
+	// executed in a throwaway context and must apply light from whichever
+	// key holds a saved value, and must never write to storage or touch
+	// anything beyond documentElement.
+	// themeInitScript is exposed on the public handle, not the module scope.
+	const api = { module: { exports: {} }, window: undefined };
+	vm.runInNewContext(runtimeSrc, api);
+	const snippet = api.module.exports.themeInitScript();
+	assert(typeof snippet === 'string', 'themeInitScript must return a string');
+	assert(!/\bsrc=/.test(snippet), 'snippet must be inline, not a src reference');
+
+	const attrs = [];
+	const store = { light: 'light', both: 'dark', legacy: 'light' };
+	const ctx = {
+		localStorage: {
+			getItem: (k) => (k in store ? store[k] : null),
+			setItem: () => { throw new Error('FOUC guard must not write'); },
+		},
+		document: { documentElement: { setAttribute: (n, v) => attrs.push([n, v]) } },
+	};
+	for (const [key, expected] of [['current', null], ['light', 'light'], ['both', null], ['legacy', 'light']]) {
+		attrs.length = 0;
+		const src = api.module.exports.themeInitScript(key);
+		vm.runInNewContext(src, ctx);
+		const applied = attrs.length ? attrs[0][1] : null;
+		assert(
+			applied === expected,
+			`with key ${key} holding ${JSON.stringify(store[key] ?? null)}, expected ${JSON.stringify(expected)}, applied ${JSON.stringify(applied)}`,
+		);
+	}
+	assert(attrs.every(([n]) => n === 'data-theme'), 'the guard may only touch data-theme');
 });
 
 /* ================= astro components ================= */
@@ -771,6 +799,162 @@ check('the scale is theme-independent, declared once in :root', () => {
 		assert(!/--space-\d/.test(b.body),
 			`theme block ${b.sel} redefines --space-*; spacing must be theme-independent`);
 	}
+});
+
+/* ================= theme key ================= */
+console.log('\ntheme storage key');
+const themeHarness = () => {
+	// A fresh store + document, with data-cm-theme-key settable.
+	const store = {};
+	const attrs = {};
+	const doc = {
+		documentElement: {
+			attrs,
+			getAttribute: (n) => (n in attrs ? attrs[n] : null),
+			setAttribute: (n, v) => { attrs[n] = v; },
+			style: { setProperty: () => {} },
+		},
+		querySelector: () => null,
+		querySelectorAll: () => [],
+		readyState: 'complete',
+		addEventListener: () => {},
+	};
+	const ctx = {
+		module: { exports: {} },
+		document: doc,
+		localStorage: {
+			getItem: (k) => (k in store ? store[k] : null),
+			setItem: (k, v) => { store[k] = String(v); },
+			removeItem: (k) => { delete store[k]; },
+		},
+	};
+	vm.runInNewContext(runtimeSrc, ctx);
+	return { api: ctx.module.exports, store, attrs, doc };
+};
+
+check('the storage key is per-project via data-cm-theme-key', () => {
+	const h = themeHarness();
+	h.doc.documentElement.setAttribute('data-cm-theme-key', 'oem-links-theme');
+	assert(h.api.storeKey() === 'oem-links-theme', 'must read the key off <html>');
+	h.api.applyTheme('light');
+	assert(h.store['oem-links-theme'] === 'light', 'must write to the project key');
+	assert(!('cm-theme' in h.store), 'must NOT write to the library default key');
+});
+
+check('the default key is still cm-theme when a project declares none', () => {
+	const h = themeHarness();
+	assert(h.api.storeKey() === 'cm-theme', 'unconfigured projects keep cm-theme');
+	h.api.applyTheme('light');
+	assert(h.store['cm-theme'] === 'light', 'must write to cm-theme by default');
+});
+
+check('a legacy key is honoured and folded into the new one', () => {
+	// This is the rename path: a returning visitor saved light under the old
+	// key must not lose their preference.
+	const h = themeHarness();
+	h.store['oem-links-theme'] = 'light';
+	h.api.setLegacyKeys(['cm-theme', 'oem-log-theme']);
+	h.doc.documentElement.setAttribute('data-cm-theme-key', 'oem-links-theme');
+
+	assert(h.api.getTheme() === 'light', 'must read the value from the legacy key');
+	assert(
+		h.store['oem-links-theme'] === 'light',
+		'must migrate the legacy value into the current key',
+	);
+});
+
+check('a legacy key is preferred over an absent current key, and dark is respected', () => {
+	const h = themeHarness();
+	h.store['cm-theme'] = 'dark';
+	h.api.setLegacyKeys(['cm-theme']);
+	h.doc.documentElement.setAttribute('data-cm-theme-key', 'brand-new-key');
+	assert(h.api.getTheme() === 'dark', 'a stored dark must not read as light');
+
+	const h2 = themeHarness();
+	h2.store['cm-theme'] = 'light';
+	h2.api.setLegacyKeys(['cm-theme']);
+	h2.doc.documentElement.setAttribute('data-cm-theme-key', 'brand-new-key');
+	assert(h2.api.getTheme() === 'light', 'a stored light must be read from the legacy key');
+	assert(h2.store['brand-new-key'] === 'light', 'and migrated forward');
+});
+
+check('no stored preference anywhere still defaults to dark', () => {
+	const h = themeHarness();
+	h.api.setLegacyKeys(['cm-theme', 'oem-log-theme']);
+	h.doc.documentElement.setAttribute('data-cm-theme-key', 'oem-links-theme');
+	assert(h.api.getTheme() === 'dark', 'dark is the default with no stored choice');
+	assert(h.attrs['data-theme'] === undefined, 'reading the theme must not apply one');
+});
+
+check('the FOUC guard searches the legacy keys too', () => {
+	const h = themeHarness();
+	h.api.setLegacyKeys(['oem-log-theme']);
+	const src = h.api.themeInitScript('oem-links-theme');
+	assert(src.includes('oem-links-theme'), 'guard must check the project key');
+	assert(src.includes('oem-log-theme'), 'guard must also check the legacy key');
+});
+
+check('the toggle binds legacy .theme-toggle markup as well as the library one', () => {
+	assert(
+		/\[data-cm-theme-toggle\], \.theme-toggle/.test(runtimeSrc),
+		'the toggle selector must cover the class the oem projects already ship',
+	);
+	assert(
+		/btn\.querySelector\('\.icon'\)/.test(runtimeSrc),
+		'the icon lookup must find .icon for legacy markup, or the glyph never paints',
+	);
+});
+
+/* ================= runtime actually ships ================= */
+console.log('\nruntime ships');
+check('the showcase loads the runtime as a bundled module', () => {
+	const s = read('src/pages/index.astro');
+	// A relative <script src="../js/cli-mono.js"> is NOT a build asset: Astro
+	// emitted the tag verbatim and dist/ shipped ZERO JS, so the theme toggle
+	// and every runtime feature were dead in the one place that demos them.
+	assert(
+		/import\s+['"]\.\.\/js\/cli-mono\.js['"]/.test(s),
+		'the runtime must be imported so Vite bundles it, not referenced by a raw src',
+	);
+	assert(
+		!/<script[^>]*\ssrc=["'][^"']*cli-mono\.js["']/.test(s),
+		'a raw <script src=...> for the runtime is not bundled and never ships',
+	);
+});
+
+check('the FOUC guard is the first node in <head>, not inside <header>', () => {
+	// A guard rendered from <header> lives in <body> and runs after the
+	// stylesheets have painted, which is the flash it exists to prevent.
+	const header = read('src/astro/Header.astro');
+	assert(
+		!header.includes('data-theme'),
+		'Header.astro must not emit a theme guard; <head> owns that position',
+	);
+
+	for (const [name, path] of [
+		['showcase', 'src/pages/index.astro'],
+		['Head.astro', 'src/astro/Head.astro'],
+	]) {
+		const s = read(path);
+		const guardAt = s.search(/<script is:inline>\s*\(function/);
+		const charsetAt = s.indexOf('<meta charset');
+		assert(guardAt !== -1, `${name}: no inline FOUC guard found`);
+		assert(
+			charsetAt === -1 || guardAt < charsetAt,
+			`${name}: the FOUC guard must precede <meta charset>, or a light-theme visitor sees a dark flash`,
+		);
+	}
+});
+
+check('the runtime reads its key from <html> and can migrate an old one', () => {
+	assert(
+		/readLegacyKeys\(\)\.length/.test(runtimeSrc),
+		'migrateStored must consult the DECLARED legacy keys; a project that lists them in an attribute is otherwise never migrated',
+	);
+	assert(
+		/data-cm-theme-legacy/.test(runtimeSrc),
+		'the runtime must read data-cm-theme-legacy so a project declares its old keys once',
+	);
 });
 
 /* ================= shared row surface ================= */
