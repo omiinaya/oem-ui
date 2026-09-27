@@ -20,7 +20,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   build compiles the component and the rules are proven in a browser
   rather than only asserted.
 
+- **`.cm-tooltip` demonstrates all four alignment variants.** The row
+  had the centred tip and `--below`; the centred case is the one with a
+  constraint (a tip is far wider than the button it centres over), so it
+  is the one that most needed showing. `--start`, centred, `--end` and
+  `--below` are all in the showcase now, which is what makes "reach for
+  `--start` or `--end` near an edge" a fact on the page rather than a
+  thing a reader has to infer.
+
 ### Fixed
+
+- **The page scrolled sideways on a phone, by 27px at a 390px viewport.**
+  Measured, not reported: `window.scrollX` went 0 -> 27 and the document
+  was pinned at 418px at 390, 375 and 320 alike. Bisecting the tree one
+  subtree at a time put it on `.cm-tooltip__tip` and on nothing else —
+  hiding the tooltips drops the document from 411px to 320px exactly. A
+  tip is routinely far wider than the button it describes (measured 288px
+  of tip on a 79px button) and it is `position: absolute`, so an overhang
+  widens the document instead of clipping inside it.
+  Two parts, and the first is not sufficient on its own:
+  - `overflow-x: clip` on the root. `hidden` would also stop the scroll
+    but silently breaks `position: sticky` for every descendant, because
+    a hidden box becomes the scroll container for its sticky children.
+    The header is sticky, so `clip`, which clips without creating a
+    scroll container. Re-measured after: the header still sticks.
+  - the tip is capped with `min(18rem, 100vw - 2 * var(--gutter))` rather
+    than a bare `18rem`, so the cap is right at every width instead of
+    only the one it was written for.
+
+  After, in WebKit at `device_scale_factor=3`, `is_mobile`, `has_touch`:
+  390 and 375 — the widths this is read at — 0 sideways scroll, all four
+  tooltip variants inside the viewport, tips one line tall, header
+  sticky, 0 elements under the 12px floor, 0 JS errors. Desktop 1440
+  unchanged at 0.
+
+  Known and deliberately not fixed: at 320px a **centred** tip over a
+  trigger near the right edge still overhangs and the page still scrolls
+  49px there. CSS cannot detect the collision, and pretending otherwise
+  would mean shipping a fake. The showcase now demonstrates all four
+  alignment variants so the workaround is discoverable from the page,
+  and the test pins what is actually claimed rather than this.
 
 - **A shipped Astro component could emit a class no stylesheet defined.**
   The markup and the stylesheet were two hand-maintained lists and
