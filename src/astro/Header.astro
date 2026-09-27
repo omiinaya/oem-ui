@@ -8,6 +8,20 @@ import { SITE } from './config';
 interface Link {
 	href: string;
 	label: string;
+	/**
+	 * Marks this link as the page you are on. Renders `aria-current="page"`,
+	 * which `.cm-header__link[aria-current='page']` already styles. Every
+	 * multi-page site needs this, and without the prop the one rule the
+	 * library ships for it is unreachable.
+	 */
+	active?: boolean;
+	/**
+	 * The id of the section this link points at. Hands the link to the
+	 * runtime's scroll-spy, which marks it `is-active` as the reader moves
+	 * down the page. For an in-page link (`#section`) this is inferred from
+	 * the href, so single-page sites get the spy with no extra wiring.
+	 */
+	spy?: string;
 }
 
 interface Props {
@@ -26,6 +40,21 @@ const {
 	extraLinks = [],
 } = Astro.props;
 
+/* A link can be current in two ways, and conflating them is a real bug.
+   `active` is a statement about WHERE YOU ARE (one link, the current page);
+   the scroll-spy's `is-active` is about WHAT YOU ARE READING as you scroll.
+   On a single-page site both are true of the same link at the same time, so
+   they must be separate attributes, or the spy would overwrite the current
+   page's state on the first scroll event.
+
+   The spy id is inferred from an in-page href so the showcase - whose links
+   are all `#section` - gets the spy without every link spelling it out. */
+const navLinks = links.map((l) => ({
+	...l,
+	spyId: l.spy ?? (l.href.startsWith('#') ? l.href.slice(1) : undefined),
+}));
+const anySpy = navLinks.some((l) => l.spyId);
+
 // NOT emitted here. A guard in <header> lives in <body> and runs AFTER the
 // stylesheets have painted, which is the flash it exists to prevent. The
 // snippet belongs in <head>, before the first stylesheet - see the
@@ -43,9 +72,14 @@ const {
 
 		{
 			links.length > 0 && (
-				<div class="cm-header__links">
-					{links.map((l) => (
-						<a href={l.href} class="cm-header__link">
+				<div class="cm-header__links" data-cm-nav={anySpy ? true : undefined}>
+					{navLinks.map((l) => (
+						<a
+							href={l.href}
+							class="cm-header__link"
+							aria-current={l.active ? 'page' : undefined}
+							data-cm-spy={l.spyId}
+						>
 							{l.label}
 						</a>
 					))}

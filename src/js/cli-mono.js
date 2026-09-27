@@ -188,10 +188,20 @@
 		if (!sections.length) return;
 
 		function update() {
+			/* Measured against the viewport, not `offsetTop`. `offsetTop` is
+			   relative to the nearest POSITIONED ancestor, so a consumer that
+			   puts a section inside any positioned wrapper (a card, a sticky
+			   column, a transformed container) silently gets the wrong answer
+			   and the spy highlights a section the reader is nowhere near.
+			   getBoundingClientRect + scrollY is measured from the document
+			   and is correct regardless of what is positioned. */
 			var probe = window.scrollY + window.innerHeight * 0.3;
 			var current = sections[0];
 			sections.forEach(function (s) {
-				if (s.el.offsetTop <= probe) current = s;
+				var top = s.el.getBoundingClientRect
+					? s.el.getBoundingClientRect().top + window.scrollY
+					: s.el.offsetTop;
+				if (top <= probe) current = s;
 			});
 			sections.forEach(function (s) {
 				s.link.classList.toggle('is-active', s === current);

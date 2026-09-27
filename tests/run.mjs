@@ -264,11 +264,16 @@ check('emits a FOUC guard snippet that only applies saved light', () => {
 
 /* ================= astro components ================= */
 console.log('\nastro components');
-const astroFiles = ['Head.astro', 'Header.astro', 'Footer.astro', 'PageHead.astro', 'PostHead.astro', 'PostRow.astro', 'StatusStrip.astro', 'config.ts'];
+const astroFiles = ['Head.astro', 'Header.astro', 'HeaderLink.astro', 'Footer.astro', 'PageHead.astro', 'PostHead.astro', 'PostRow.astro', 'StatusStrip.astro', 'config.ts'];
 for (const f of astroFiles) {
 	check(`ships src/astro/${f}`, () => {
-		const s = read(`src/astro/${f}`);
-		assert(s.trim().length > 0, 'file is empty');
+		// Assert the file is ON DISK, not merely named in this list. A list
+		// entry with a deleted file behind it is the definition of a component
+		// nobody can install, and the list itself can never report that.
+		const p = join(root, 'src/astro', f);
+		assert(existsSync(p), `src/astro/${f} is listed as shipped but does not exist`);
+		const s = readFileSync(p, 'utf8');
+		assert(s.trim().length > 0, `src/astro/${f} is empty`);
 	});
 }
 check('config.ts is the single site-identity source', () => {
@@ -1273,6 +1278,145 @@ check('the drift checker fails on a stale consumer', async () => {
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
+});
+
+/* ================= nav: current page + scroll-spy ================= */
+console.log('\nnav state');
+
+check('Header can express the current page', () => {
+	// The library has shipped `.cm-header__link[aria-current='page']` from the
+	// start, and NOTHING could reach it: no component emitted the attribute.
+	// Dead CSS that builds, ships and renders is invisible by construction.
+	const h = read('src/astro/Header.astro');
+	assert(/active\?:\s*boolean/.test(h), 'Link needs an `active` prop');
+	assert(/aria-current=\{l\.active\s*\?\s*'page'\s*:\s*undefined\}/.test(h),
+		'Header must render aria-current="page" for an active link');
+});
+
+check('Header hands its links to the runtime scroll-spy', () => {
+	// initScrollSpy queries [data-cm-nav] and [data-cm-spy]. The showcase is a
+	// one-pager whose links are all #section, so the spy id is INFERRED from the
+	// href: a consumer should not have to repeat `spy` on every link.
+	const h = read('src/astro/Header.astro');
+	assert(/data-cm-nav/.test(h), 'Header never emits data-cm-nav, so the spy never runs');
+	assert(/data-cm-spy/.test(h), 'Header never emits data-cm-spy');
+	assert(/href\.startsWith\('#'\)/.test(h),
+		'the spy id must be inferred from an in-page href, not required on every link');
+});
+
+check('the spy and the current page are DIFFERENT attributes', () => {
+	// They are different questions: `active` says where you are, `is-active`
+	// says what you are reading. On a one-page site both are true of the same
+	// link, so a single attribute would let the first scroll event erase the
+	// current page's state.
+	// Comments are stripped first: these two names are also the words used to
+	// EXPLAIN the distinction, and a test that matches its own comment is a
+	// test that passes for the wrong reason.
+	const h = read('src/astro/Header.astro')
+		.replace(/<!--[\s\S]*?-->/g, '')
+		.replace(/\/\*[\s\S]*?\*\//g, '')
+		.replace(/^\s*\/\/.*$/gm, '');
+	assert(!/is-active/.test(h),
+		"Header must not hardcode the spy's is-active class — the runtime owns it");
+	assert(/aria-current/.test(h), 'the page state must be aria-current, not a class');
+});
+
+check('the scroll-spy measures from the document, not the nearest positioned parent', () => {
+	// `offsetTop` is relative to the nearest POSITIONED ancestor. The spy was
+	// never reachable, so this was never noticed: a consumer with any
+	// positioned wrapper around its sections gets the wrong section lit.
+	assert(!/offsetTop\s*<=\s*probe/.test(runtimeSrc),
+		'the spy still compares offsetTop, which is relative to a positioned ancestor');
+	assert(/getBoundingClientRect/.test(runtimeSrc),
+		'the spy must measure the section rect so the result is document-relative');
+});
+
+check('HeaderLink normalises before it compares', () => {
+	// Each of these leaves the link dark on the page the reader is actually
+	// on, and none of them throws - the nav just quietly stops working.
+	//
+	// These assert the BEHAVIOUR of the normaliser, not that a pattern appears
+	// somewhere in the file. An earlier version regex-matched
+	// `replace(/\/+$/, '')` and passed even with the path normaliser deleted,
+	// because the BASE_URL line right above it matches the same pattern. A
+	// test that can be satisfied by a different line of code is decoration.
+	const body = read('src/astro/HeaderLink.astro')
+		.replace(/<!--[\s\S]*?-->/g, '')
+		.replace(/\/\*[\s\S]*?\*\//g, '');
+
+	// The `strip` function is the whole contract, so exercise its BEHAVIOUR.
+	// It is extracted from the file and run, rather than pattern-matched: an
+	// earlier version asserted that a regex appeared somewhere in the source
+	// and passed even with the normaliser deleted, because the BASE_URL line
+	// above it matches the same pattern. A test that can be satisfied by a
+	// different line of code is decoration.
+	//
+	// The TS annotations are stripped because `new Function` compiles plain
+	// JS. If the extraction ever fails to find the function, that is a FAIL,
+	// never a silent skip.
+	const src = read('src/astro/HeaderLink.astro');
+	const stripSrc = /const strip = \(p(?::\s*string)?\) => \{[\s\S]*?^\};/m.exec(src);
+	assert(stripSrc, 'could not find the strip() normaliser in HeaderLink.astro');
+	const js = stripSrc[0]
+		.replace(/\(p(?::\s*string)?\)/, '(p)')
+		.replace(/^const strip = /, 'return ');
+	// One normaliser, two builds: the site root, and a site served under a
+	// `base` prefix. The prefix case is the one that silently disables the
+	// whole component, so it gets its own instance.
+	const atRoot = new Function('base', `${js}\nreturn strip;`)('/');
+	const prefixed = new Function('base', `${js}\nreturn strip;`)('/dev-blog');
+	const strip = atRoot;
+	assert(strip('/blog/') === '/blog', `trailing slash: /blog/ -> ${strip('/blog/')}`);
+	assert(strip('/blog/?q=1') === '/blog', `query string: /blog/?q=1 -> ${strip('/blog/?q=1')}`);
+	assert(strip('/blog/#x') === '/blog', `hash: /blog/#x -> ${strip('/blog/#x')}`);
+	assert(strip('/') === '/', `root: / -> ${strip('/')}`);
+	// Under a base prefix, BOTH sides carry it, so both must lose it.
+	assert(prefixed('/dev-blog/about/') === '/about',
+		`base prefix: -> ${prefixed('/dev-blog/about/')}`);
+	assert(prefixed('/about/') === '/about',
+		`base prefix, already-stripped href: -> ${prefixed('/about/')}`);
+	// an external link is not this page, whatever its path looks like
+	assert(strip('https://example.com/blog/') === null, 'an external href was treated as a local path');
+	assert(strip('//example.com/blog/') === null, 'a protocol-relative href was treated as a local path');
+});
+
+check('HeaderLink decides only the attribute; the library owns the look', () => {
+	// A second rule for the same state in a second layer is a cascade race.
+	// The component must emit aria-current and nothing else. Comments are
+	// stripped first, or the `<style>` named in the doc comment below would
+	// fail its own test.
+	const l = read('src/astro/HeaderLink.astro')
+		.replace(/<!--[\s\S]*?-->/g, '')
+		.replace(/\/\*[\s\S]*?\*\//g, '');
+	assert(!/<style>/.test(l),
+		'HeaderLink ships a <style> block, which duplicates .cm-header__link[aria-current=page] in a second layer');
+	assert(/aria-current=\{isActive\s*\?\s*'page'\s*:\s*undefined\}/.test(l),
+		'HeaderLink must render aria-current from its own match');
+});
+
+check('HeaderLink ships the default nav class so it cannot be unstyled', () => {
+	// The class is the styling hook. A consumer writing <HeaderLink href=..>
+	// with no class must still get .cm-header__link, or the link renders as
+	// body text in the middle of a nav.
+	const l = read('src/astro/HeaderLink.astro');
+	assert(/class:\s*className\s*=\s*'cm-header__link'/.test(l),
+		'HeaderLink must default class to cm-header__link');
+});
+
+check('the showcase demonstrates both nav states', () => {
+	// A state that is never rendered anywhere is dead the moment it ships.
+	// The states exist, so the showcase has to show them, in the nav section
+	// so a future rename of the section cannot silently drop the demo.
+	const start = showcase.indexOf('id="nav"');
+	assert(start !== -1, 'showcase has no nav section');
+	const nav = showcase.slice(start, showcase.indexOf('id="lists"'));
+	assert(/aria-current="page"/.test(nav), 'the nav section must demo the current-page state');
+	assert(/class="cm-header__link is-active"/.test(nav),
+		'the nav section must demo the scroll-spy state');
+	assert(/<HeaderLink/.test(nav), 'the nav section must demo <HeaderLink>');
+	// and the showcase must actually USE the component, not just name it
+	assert(/import HeaderLink from/.test(showcase),
+		'the showcase must import <HeaderLink>, or the component is never compiled');
 });
 
 /* ================= async checks (installer) ================= */

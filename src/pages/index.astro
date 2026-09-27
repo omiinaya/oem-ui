@@ -10,6 +10,7 @@ import Header from '../astro/Header.astro';
 import Footer from '../astro/Footer.astro';
 import StatusStrip from '../astro/StatusStrip.astro';
 import PostRow from '../astro/PostRow.astro';
+import HeaderLink from '../astro/HeaderLink.astro';
 import { SITE } from '../astro/config';
 ---
 
@@ -39,6 +40,7 @@ import { SITE } from '../astro/config';
 			links={[
 				{ href: '#foundation', label: 'foundation' },
 				{ href: '#buttons', label: 'buttons' },
+				{ href: '#nav', label: 'nav' },
 				{ href: '#lists', label: 'lists' },
 				{ href: '#states', label: 'states' },
 				{ href: '#prose', label: 'prose' },
@@ -214,6 +216,73 @@ import { SITE } from '../astro/config';
 					<a class="cm-btn cm-btn--block">Block</a>
 				</div>
 			</section>
+
+			<!-- ==================================================== nav
+			     The two nav states are different questions and the showcase
+			     has to show both, because conflating them is the bug: `active`
+			     says WHERE YOU ARE (this page), the scroll-spy's `is-active`
+			     says WHAT YOU ARE READING as you scroll. The first nav is
+			     live - it is the one in the header, so its states are real,
+			     not a hand-built mock. -->
+			<section id="nav" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+				<h2>nav</h2>
+				<p class="cm-head__sub">
+					Two states, two different questions. <code>active</code> marks the page you
+					are on and renders <code>aria-current="page"</code>; the scroll-spy marks
+					what you are reading as you scroll. They coexist on a one-page site, so
+					they cannot be the same attribute. Scroll to watch the first nav above
+					change.
+				</p>
+
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>active</code></span>
+						<span class="cm-spec__sample" style="display:flex;gap:var(--space-1)">
+							<a href="#nav" class="cm-header__link" aria-current="page">notes</a>
+							<a href="#nav" class="cm-header__link">about</a>
+						</span>
+						<span class="cm-spec__val"><code>aria-current="page"</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>spy</code></span>
+						<span class="cm-spec__sample" style="display:flex;gap:var(--space-1)">
+							<a href="#nav" class="cm-header__link is-active">notes</a>
+							<a href="#nav" class="cm-header__link">about</a>
+						</span>
+						<span class="cm-spec__val"><code>is-active · runtime</code></span>
+					</div>
+				</div>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">HeaderLink</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+					Path matching is the part of a nav every consumer gets wrong, so the library
+					owns it. The first link points at this page, so it marks itself current; the
+					others do not. Note the trailing slashes and the query string, which it
+					ignores.
+				</p>
+				<!-- `cm-spec` wrappers, NOT .cm-header__link. The demo links use the real
+				     class so the current state is visible, which means the live scroll-spy
+				     can also see them: a bare .cm-header__link with href="#nav" was lit
+				     is-active by the header's own spy, so a demo of one state lit the
+				     other. Scoping them here keeps the specimen honest. -->
+				<div class="cm-spec" role="list">
+					<div class="cm-spec__row" role="listitem">
+						<span class="cm-spec__label"><code>here</code></span>
+						<span class="cm-spec__sample"><HeaderLink href="#nav">#nav</HeaderLink></span>
+						<span class="cm-spec__val"><code>aria-current="page"</code></span>
+					</div>
+					<div class="cm-spec__row" role="listitem">
+						<span class="cm-spec__label"><code>other</code></span>
+						<span class="cm-spec__sample"><HeaderLink href="/somewhere-else/">/other/</HeaderLink></span>
+						<span class="cm-spec__val"><code>no attribute</code></span>
+					</div>
+					<div class="cm-spec__row" role="listitem">
+						<span class="cm-spec__label"><code>external</code></span>
+						<span class="cm-spec__sample"><HeaderLink href="https://example.com/">https://…</HeaderLink></span>
+						<span class="cm-spec__val"><code>never current</code></span>
+					</div>
+				</div>
+				</section>
 
 			<section id="lists" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
 				<h2>lists / rows</h2>

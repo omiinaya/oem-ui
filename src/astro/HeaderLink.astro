@@ -1,0 +1,84 @@
+---
+/**
+ * oem-ui <HeaderLink> — one nav link that knows whether it is the page you
+ * are on, and marks itself `aria-current="page"` when it is.
+ *
+ * Why this is a component and not three lines of `Astro.url` in every page:
+ * path matching is the part of a nav that every consumer gets subtly wrong.
+ * The mistakes are specific, and each one is invisible until a reader is on
+ * the second page of the site:
+ *
+ *   - `/blog/` and `/blog` are the same page. Comparing raw strings leaves
+ *     the link dark on the blog index, which is the page the reader is on.
+ *   - a site served under a `base` prefix (`/dev-blog/`) has URLs the naive
+ *     comparison never matches, so NO link is ever current.
+ *   - query strings and hashes are not part of a page's identity.
+ *   - a link to `/` must match only the root, not every path by prefix.
+ *
+ * Pass `href` and a slot. The component decides ONLY the `aria-current`
+ * attribute; the appearance belongs to the library's
+ * `.cm-header__link[aria-current='page']` rule, which is why there is no
+ * <style> block here. A second rule for the same state in a second layer is
+ * a cascade race, and it is how a nav ends up looking different from the
+ * one the library documents.
+ */
+import type { HTMLAttributes } from 'astro/types';
+
+type Props = HTMLAttributes<'a'> & {
+	/** Match the first path segment too, so `/blog` stays current on `/blog/a-post`. */
+	matchSegment?: boolean;
+	/** Escape hatch: decide it yourself. Overrides all matching. */
+	active?: boolean;
+};
+
+const {
+	href = '',
+	class: className = 'cm-header__link',
+	matchSegment = false,
+	active,
+	...rest
+} = Astro.props;
+
+/* Astro.url is the page being rendered; the href is where the link goes.
+   Both are reduced to a comparable shape before anything is compared, so
+   trailing slashes, the query, the hash and the site base cannot make two
+   references to the same page compare unequal. */
+const base = (import.meta.env?.BASE_URL ?? '/').replace(/\/$/, '');
+
+const strip = (p: string) => {
+	let out = p.split('#')[0].split('?')[0];
+	// An external link (or a protocol-relative one) is never "this page".
+	if (/^[a-z][a-z0-9+.-]*:/i.test(out) || out.startsWith('//')) return null;
+	if (base && out.startsWith(base)) out = out.slice(base.length);
+	out = out.replace(/\/+$/, '');
+	// Both sides are compared as absolute paths, so a relative remainder must
+	// get its leading slash back. Without this, stripping `/blog/` left `blog`,
+	// which then never equalled `/blog` and NO link was ever current.
+	if (out === '') return '/';
+	return out.startsWith('/') ? out : `/${out}`;
+};
+
+const here = strip(Astro.url.pathname);
+const there = strip(String(href));
+
+/* `matchSegment` is opt-in because the two behaviours are genuinely
+   different: a "docs" link should usually stay lit while you read
+   /docs/install, but a "/v2/" version link must light only on v2. The
+   default is the stricter exact match, so opting in is a deliberate act. */
+const isActive =
+	active !== undefined
+		? active
+		: there !== null &&
+			here !== null &&
+			(there === here ||
+				(matchSegment && there !== '/' && here.startsWith(there + '/')));
+---
+
+<a
+	href={href}
+	class={className}
+	aria-current={isActive ? 'page' : undefined}
+	{...rest}
+>
+	<slot />
+</a>
