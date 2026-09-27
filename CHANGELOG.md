@@ -21,6 +21,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`.cm-row__icon`** — a fixed-width slot that centres a glyph or SVG
+  beside a row, so the icon column stays aligned down the list
+  regardless of what sits in it.
+- **`.cm-rows--column`** — the flex-column row body (title over
+  description) for dense indexes. The existing `.cm-rows--stacked` stays
+  a block for prose-style rows; the two no longer compete for
+  `flex-direction`.
+
+### Fixed
+
+- The showcase demonstrated `.cm-kv__hint`, which has never existed in
+  the library, with a hardcoded inline margin. A new test asserts every
+  `cm-*` class the showcase demos is actually defined, which is how this
+  surfaced.
+
+### Added
+
 - **A spacing scale: `--space-05` … `--space-10`** (0.125 → 6rem), the only
   legal vertical and inline rhythm. The two layers previously carried **69
   distinct spacing values**, which is why two heroes built a week apart

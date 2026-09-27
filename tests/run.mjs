@@ -773,6 +773,50 @@ check('the scale is theme-independent, declared once in :root', () => {
 	}
 });
 
+/* ================= shared row surface ================= */
+console.log('\nrow surface (migrated from oem-links)');
+check('the row icon slot exists and is a fixed-width centred box', () => {
+	const css = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	const rule = css.match(/\.cm-row__icon\s*\{([^}]*)\}/);
+	assert(rule, '.cm-row__icon is not defined');
+	const body = rule[1];
+	assert(/flex:\s*0 0 auto/.test(body), 'the icon must not flex, or columns drift');
+	assert(/display:\s*flex/.test(body), 'the icon slot must centre its glyph');
+	assert(/width:\s*1\.1rem/.test(body), 'the icon slot needs a fixed width');
+});
+
+check('a column row stacks title over desc with a tight gap', () => {
+	const css = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	assert(/\.cm-rows--column \.cm-row__body\s*\{[^}]*flex-direction:\s*column/.test(css),
+		'.cm-rows--column must stack the row body in a column');
+	assert(/\.cm-rows--column \.cm-row__body\s*\{[^}]*gap:\s*var\(--space-05\)/.test(css),
+		'the stacked body must use a scale step for its gap, not a raw value');
+});
+
+check('--stacked and --column do not collide', () => {
+	// Both restyle .cm-row__body. If a consumer uses both, the last one
+	// wins silently. Keep them mutually exclusive in the component docs.
+	const css = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	const stacked = [...css.matchAll(/\.cm-rows--stacked \.cm-row__body\s*\{([^}]*)\}/g)];
+	const column = [...css.matchAll(/\.cm-rows--column \.cm-row__body\s*\{([^}]*)\}/g)];
+	assert(stacked.length && column.length, 'both variants must be defined');
+	assert(!/flex-direction/.test(stacked[0][1]),
+		'--stacked must stay a block; --column owns the flex-column form');
+});
+
+check('every class the showcase demonstrates is defined in the library', () => {
+	// A demo of a class the library does not own is a lie in the showcase.
+	const page = read('src/pages/index.astro');
+	const demoed = new Set([...page.matchAll(/class="(cm-[a-z0-9_ -]+)"/g)]
+		.flatMap(m => m[1].split(/\s+/)));
+	const all = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	for (const c of demoed) {
+		if (c === 'cm-sr-only') continue; // utility, lives in base.css
+		assert(new RegExp(`\\.${c}(?![a-z0-9_-])`).test(all),
+			`the showcase demos .${c} but components.css never defines it`);
+	}
+});
+
 /* ================= drift guard ================= */
 console.log('\ndrift guard');
 check('ships an executable drift checker', () => {
