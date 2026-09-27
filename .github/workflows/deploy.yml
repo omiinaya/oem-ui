@@ -30,20 +30,24 @@ jobs:
       - name: Install
         run: npm ci
 
-      # Failing the deploy on a broken contract keeps a bad build from ever
-      # reaching the published showcase.
-      - name: Contract tests
-        run: npm test
-
+      # Served from the GitHub Pages fallback URL
+      # (omiinaya.github.io/oem-ui/), so a path prefix applies. If a custom
+      # domain ever goes live it is served from its own root and both values
+      # become SITE_URL=<domain> and SITE_BASE=/ — change them as a pair.
       - name: Build
-        # Served from the GitHub Pages fallback URL
-        # (omiinaya.github.io/oem-ui/), so a path prefix applies. If a custom
-        # domain ever goes live it is served from its own root and both values
-        # become SITE_URL=<domain> and SITE_BASE=/ — change them as a pair.
         env:
           SITE_URL: https://omiinaya.github.io
           SITE_BASE: /oem-ui/
         run: npm run build
+
+      # AFTER the build, not before: the copy-button contract tests read the
+      # BUILT dist/index.html, because the thing they assert (a rendered code
+      # block, its id, and the button wired to it) only exists after a
+      # compile. Running them first fails on a clean checkout with
+      # "dist/index.html is missing", which is a test-harness error that reads
+      # like a broken library.
+      - name: Contract tests
+        run: npm test
 
       - uses: actions/upload-pages-artifact@v3
         with:
