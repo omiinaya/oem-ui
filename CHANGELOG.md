@@ -9,6 +9,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`<strong>` / `<b>` is an element default.**
+
+  The library styled every element it owns except the one a prose block
+  leans on hardest. A bare `<strong>` got the browser default, which
+  carries **no colour step at all** — only weight. Inside a paragraph
+  set in `--ink-dim` there was therefore nothing to read but the stroke
+  weight, and on this system's greyscale ramp that is the weakest cue
+  available.
+
+  oem-log had re-declared it in **two separate pages, in two separate
+  Astro scoped blocks** (`.hero-desc strong`, `.about-body strong`),
+  which is the duplication this library exists to prevent: a second
+  implementation of surface the design system already owns, so a future
+  library fix would never reach it.
+
+  ```css
+  strong, b { color: var(--ink); font-weight: 700; }
+  ```
+
+  Both cues, deliberately. Weight survives greyscale; colour is the
+  second, and it is the same `--ink` / `--ink-dim` pair the row title
+  already uses against its description. Measured:
+
+  | | dark | light |
+  |---|---|---|
+  | `--ink` on `--bg` (legibility) | 16.16:1 | 18.09:1 |
+  | `--ink` on `--panel` | 15.41:1 | 17.32:1 |
+  | the emphasis step, `--ink-dim` → `--ink` | 2.24:1 | 2.13:1 |
+
+  The step is a *relative* cue and is deliberately below 4.5:1 — WCAG
+  measures text against its surface, which the top two rows clear
+  comfortably. It is more than double the library's own subtle
+  `--ink-faint` → `--ink-dim` step of 1.24:1, which is the bar it has to
+  clear to read as emphasis at all.
+
+  An element default rather than a `.cm-*` class, for the same reason
+  the form controls are: a bare tag with no class on it is the case that
+  has to work, so a class would be a class nobody remembers to add.
+
+  Demonstrated in the showcase's prose section, rendered **inside a real
+  `--ink-dim` paragraph**, and asserted bare — a specimen with a class on
+  it would prove nothing.
+
+  Covered by two contract tests (structure + one-owner, and legibility
+  computed from the real tokens in both themes) and 10 mutations in
+  `tests/mutate-emphasis.mjs`, including the one that matters most:
+  **deleting the entire rule** while the word `strong` still sits in the
+  comment above it and in the showcase copy. A substring check scores
+  that as a pass; the selector parser does not.
+
 - **`.cm-lede`, `.cm-split` and `.cm-back`, plus a measure scale.**
 
   Three page shapes the library did not own and every consumer had

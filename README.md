@@ -173,6 +173,21 @@ Both become live the day this repo goes public, with no code change.
 
 Load in that order. Each layer assumes the one above it.
 
+### Element defaults, not classes
+
+Some things are **elements**, not components, so they are declared in
+`base.css` and a bare tag with no class on it is already correct:
+
+| element | what it gets | why not a class |
+|---|---|---|
+| `<input>`, `<textarea>`, `<select>` | mono field on a panel, 44px, 16px type | 59 files across the fleet use a text field and none of them had a class to put on it |
+| `<strong>`, `<b>` | `--ink` at weight 700 | the browser default carries no colour step at all, so against `--ink-dim` prose there is nothing but weight to read — and every consumer re-declared it |
+| `<label>` | the tap target for a drawn checkbox | the mark is ~17px; the row is the 44px target |
+
+If a bare tag is already right, adding a class to get it right is the bug.
+Classes are for the **arrangement around** an element, which is the actual
+design decision.
+
 ## Components
 
 ### Buttons
