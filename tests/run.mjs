@@ -1342,6 +1342,96 @@ check('the drift checker fails on a stale consumer', async () => {
 	}
 });
 
+check('the drift checker fails on a vendored-but-never-imported layer', () => {
+	// Byte-identical and unreferenced is the drift this check missed for a
+	// week. dev-blog vendored all four files, reported "in sync" on every
+	// run, and imported NONE of them: the site rendered its own 264-line
+	// design system with --ink-faint at 2.66:1 against --bg. `cmp` proved
+	// the copy matched the origin, which says nothing about whether a
+	// single page ever loaded it. A check that only asks "are the bytes the
+	// same?" cannot tell an adopted consumer from a decorative one.
+	//
+	// Both halves matter, so both are proven here:
+	//   1. vendored + imported    -> pass  (no false positive; oem-portfolio
+	//      loads the layers with a CSS @import, not a JS import, and the
+	//      first version of this check wrongly flagged it. A check that
+	//      cries wolf is the same failure as one that never fires.)
+	//   2. vendored + NOT imported -> exit 1, naming every layer
+	const dir = mkdtempSync(join(tmpdir(), 'cm-reach-'));
+	try {
+		const run = () => spawnSync('bash', [join(root, 'scripts/check-design-sync.sh'), dir], {
+			encoding: 'utf8', env: { ...process.env, OEM_UI_SRC: root },
+		});
+		const inst = spawnSync('bash', [join(root, 'scripts/install.sh'), dir], { encoding: 'utf8' });
+		assert(inst.status === 0, `installer exited ${inst.status}: ${inst.stderr}`);
+
+		// Half 1: the layers are on disk and nothing references them. This
+		// is the dev-blog state exactly - a clean install, zero imports.
+		// A source file must exist for the check to apply: a bare install
+		// with no pages is not drifted, it is not built yet.
+		mkdirSync(join(dir, 'src/pages'), { recursive: true });
+		writeFileSync(join(dir, 'src/pages/index.astro'), '<html></html>\n');
+		const orphan = run();
+		assert(orphan.status === 1,
+			`a consumer that vendors the library and imports none of it must fail, got ${orphan.status}: ${orphan.stdout.trim()}`);
+		assert(/UNREACHABLE/.test(orphan.stdout),
+			`expected UNREACHABLE, got: ${orphan.stdout.trim()}`);
+		// Every layer must be named, not just the first one found: a check
+		// that reports one and stops hides the rest.
+		for (const f of ['tokens\\.css', 'base\\.css', 'components\\.css']) {
+			assert(new RegExp(`UNREACHABLE\\s+${f}\\b`).test(orphan.stdout),
+				`${f} should be named as unreachable; output was:\n${orphan.stdout}`);
+		}
+		// A project with no source files at all is not a drifted consumer,
+		// it is an empty one. Flagging it is the false positive that makes
+		// people stop reading the output.
+		const bare = mkdtempSync(join(tmpdir(), 'cm-bare-'));
+		try {
+			spawnSync('bash', [join(root, 'scripts/install.sh'), bare], { encoding: 'utf8' });
+			const r = spawnSync('bash', [join(root, 'scripts/check-design-sync.sh'), bare], {
+				encoding: 'utf8', env: { ...process.env, OEM_UI_SRC: root },
+			});
+			assert(r.status === 0,
+				`an installed-but-empty project must not fail, got ${r.status}: ${r.stdout.trim()}`);
+		} finally {
+			rmSync(bare, { recursive: true, force: true });
+		}
+
+		// Half 2: import them the way a real consumer does and the same
+		// files must now be accepted. Without this the check would just be
+		// "vendoring is an error", which would forbid the layout itself.
+		mkdirSync(join(dir, 'src/components'), { recursive: true });
+		writeFileSync(join(dir, 'src/components/BaseHead.astro'), [
+			"import '../styles/cli-mono/tokens.css';",
+			"import '../styles/cli-mono/base.css';",
+			"import '../styles/cli-mono/components.css';",
+			'<script is:inline src="/src/js/cli-mono.js"></script>',
+		].join('\n'));
+		const loaded = run();
+		assert(loaded.status === 0,
+			`an imported consumer must pass, got ${loaded.status}: ${loaded.stdout.trim()}`);
+		assert(/in sync/.test(loaded.stdout), `expected in sync, got: ${loaded.stdout.trim()}`);
+
+		// Half 3: the CSS-@import route must pass too. oem-portfolio is a
+		// real consumer that does it this way, not a theoretical one.
+		rmSync(join(dir, 'src/components/BaseHead.astro'), { force: true });
+		writeFileSync(join(dir, 'src/styles/site.css'),
+			"@import './cli-mono/tokens.css';\n@import './cli-mono/base.css';\n@import './cli-mono/components.css';\n");
+		const viaCss = run();
+		assert(viaCss.status === 0,
+			`a consumer loading the layers by CSS @import must pass, got ${viaCss.status}: ${viaCss.stdout.trim()}`);
+
+		// Half 4: the runtime is advisory. A static site can adopt the
+		// design system and want no theme toggle, so a missing script tag
+		// is a note, never a non-zero exit. Pin that, because "make it
+		// strict" is the obvious next edit and it would be wrong.
+		assert(/note:.*vendors cli-mono\.js/.test(viaCss.stdout),
+			`a missing runtime reference should be noted, got: ${viaCss.stdout.trim()}`);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
 /* ================= nav: current page + scroll-spy ================= */
 console.log('\nnav state');
 
