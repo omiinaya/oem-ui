@@ -157,7 +157,13 @@ check('pre can never widen the page (narrow-viewport overflow guard)', () => {
 check('header nav can shrink (flex-wrap + min-width:0)', () => {
 	// Owned by the shared layer, not the Astro file, so every framework gets it.
 	const nav = comp.match(/\.cm-header__nav\s*\{[^}]*\}/)[0];
-	const links = comp.match(/\.cm-header__links\s*\{[^}]*\}/)[0];
+	// `.cm-header__links { animation: none; }` also exists, in the
+	// reduced-motion guard well above the base rule, and a bare
+	// match() takes whichever comes first.
+	const links = [...comp.matchAll(/\.cm-header__links\s*\{[^}]*\}/g)]
+		.map((m) => m[0])
+		.find((r) => /flex-wrap|min-width/.test(r));
+	if (!links) throw new Error('no base .cm-header__links rule found');
 	assert(/flex-wrap:\s*wrap/.test(nav), 'nav must wrap');
 	assert(/min-width:\s*0/.test(nav), 'nav needs min-width:0 to shrink');
 	assert(/flex-wrap:\s*wrap/.test(links), 'link row must wrap');
@@ -3256,11 +3262,20 @@ for (const sel of INTERACTIVE) {
      so anchoring on that matched the wrong occurrence.
    `.cm-js .cm-header__links {` appears exactly once, inside the phone query,
    and back-searching the media query from it is unambiguous. */
-const MC_PANEL_AT = compSrc.indexOf('.cm-js .cm-header__links {');
-const MC_640_AT = compSrc.lastIndexOf(
-	'@media (max-width: 640px)', MC_PANEL_AT
-);
 const MC_BURGER_AT = compSrc.indexOf('.cm-nav-toggle {');
+/* Both anchors are derived from the burger and walk FORWARD, because the
+   panel moved into the phone query that follows it. `indexOf` from position
+   0 finds the no-JS `.cm-js .cm-header__links` in the BASE layer at 3255,
+   and `lastIndexOf` from there found no query at all (-1) - so the whole
+   block went empty and every check below it passed vacuously or failed on
+   its own anchor. */
+const MC_640_AT = compSrc.indexOf('@media (max-width: 640px)', MC_BURGER_AT);
+const MC_PANEL_640_AT = compSrc.indexOf(
+	'@media (max-width: 640px)', MC_640_AT + 1
+);
+const MC_PANEL_AT = compSrc.indexOf(
+	'.cm-js .cm-header__links {', MC_PANEL_640_AT
+);
 /* This used to `throw` at module scope. That turns a moved anchor into a
    crashed runner: every test after it dies as a SyntaxError-style abort
    rather than as a named FAILURE, so a mutation report shows "killed by
@@ -3269,10 +3284,15 @@ const MC_BURGER_AT = compSrc.indexOf('.cm-nav-toggle {');
    a suite that reports `FAIL: no .cm-nav-toggle in components.css` is worth
    far more than one that exits 1 with a stack trace. */
 const MC_ANCHORS_OK =
-	MC_PANEL_AT !== -1 && MC_640_AT !== -1 && MC_BURGER_AT !== -1 && MC_640_AT > MC_BURGER_AT;
-/* One region: everything from the burger's first rule to the panel's media
-   query. It holds the default, the reveal, the three bars and the X morph. */
-const MC_BARS = MC_ANCHORS_OK ? compSrc.slice(MC_BURGER_AT, MC_640_AT) : '';
+	MC_PANEL_AT !== -1 &&
+	MC_640_AT !== -1 &&
+	MC_PANEL_640_AT !== -1 &&
+	MC_BURGER_AT !== -1 &&
+	MC_PANEL_640_AT > MC_640_AT &&
+	MC_PANEL_AT > MC_PANEL_640_AT;
+/* One region: the burger's own rules - default, reveal, the three bars and
+   the X morph - from the burger up to the query that opens the panel. */
+const MC_BARS = MC_ANCHORS_OK ? compSrc.slice(MC_BURGER_AT, MC_PANEL_640_AT) : '';
 const MC_REVEAL = MC_BARS;
 
 /* A real rule parser, not a fragment regex. Regexing `.cm-nav-toggle__bar`
@@ -3300,9 +3320,16 @@ const MC_BAR_RULES = MC_RULES.filter((r) =>
 const MC_BAR_BASE = MC_BAR_RULES.filter((r) => !/\[aria-expanded/.test(r.sel));
 const MC_BAR_BODIES = MC_BAR_RULES.map((r) => r.body).join(' ');
 /* The panel's phone query, up to the next query in the file. */
-const MC_COMP_640 = MC_ANCHORS_OK
-	? compSrc.slice(MC_640_AT, compSrc.indexOf('@media (max-width: 360px)'))
-	: '';
+/* The panel's own phone query: from the query that opens it to the next
+   query in the file. Slicing from MC_640_AT (the REVEAL query) produced a
+   region that ended before the panel and contained none of its rules. */
+const MC_360_AT = MC_ANCHORS_OK
+	? compSrc.indexOf('@media (max-width: 360px)', MC_PANEL_AT)
+	: -1;
+const MC_COMP_640 =
+	MC_ANCHORS_OK && MC_360_AT > MC_PANEL_640_AT
+		? compSrc.slice(MC_PANEL_640_AT, MC_360_AT)
+		: '';
 
 const MC_JS = read('src/js/cli-mono.js');
 const MC_HDR = read('src/astro/Header.astro');
@@ -3560,8 +3587,12 @@ check('the burger clears the tap floor on a coarse pointer', () => {
 // The row tap floor: a menu whose links each need two precise taps is not a
 // menu.
 check('menu rows keep the tap floor on a coarse pointer', () => {
-	if (!MC_COMP_640.includes('padding: var(--space-3) var(--gutter)'))
-		throw new Error('menu rows are under the tap floor');
+	// Assert the FLOOR, not the padding that used to imply it. Under a
+	// drawer the rows are `display: flex` and their height comes from
+	// min-height; checking a padding string passed while the real height
+	// was 38px.
+	if (!/\.cm-header__link[^{]*\{[^}]*min-height:\s*var\(--tap\)/.test(MC_COMP_640))
+		throw new Error('menu rows have no min-height: var(--tap)');
 });
 
 // The showcase is the library's documentation. A component the showcase
@@ -3593,6 +3624,80 @@ check('the active link stays visible when the panel is open', () => {
 		throw new Error('the scroll-spy state is dropped in the mobile panel');
 	if (!MC_COMP_640.includes(".cm-header__link[aria-current='page']"))
 		throw new Error('the current-page state is dropped in the mobile panel');
+});
+
+/* ════════���════════ the drawer cannot be trapped ═════════ */
+
+/* A `position: fixed` descendant of an element with `backdrop-filter`,
+   `filter`, `transform`, `perspective`, `contain` or `will-change` is
+   positioned against THAT element, not the viewport. The drawer is fixed
+   and lives inside the header, so any of those on `.cm-header` or on
+   `.cm-header__nav` - the drawer's own parent - silently resolved
+   `top`/`bottom` against the header box and collapsed the panel to 0px
+   tall. The scrim came up, the button turned into an X, and the menu was
+   simply not there. Every check above it still passed.
+
+   Measured: with the blur on the bar, the drawer computed
+   `position: fixed, top: 63px, bottom: 0, height: 0px`. */
+const TRAPS = ['backdrop-filter', 'filter', 'transform', 'perspective', 'contain', 'will-change'];
+
+/* The two elements between the drawer and the viewport, asserted by NAME
+   because the chain is short and stable. The GEOMETRY is proven in
+   tests/verify-burger-webkit.py, which measures the live panel's height
+   and offsetTop - a rule-level check cannot see the collapse, because the
+   CSS is identical whether or not an ancestor traps it. */
+for (const [sel, what] of [
+	['.cm-header {', 'the sticky header'],
+	['.cm-header__nav {', "the drawer's own parent"],
+]) {
+	check(`${what} carries no containing-block trap`, () => {
+		const at = compSrc.indexOf(sel);
+		if (at === -1) throw new Error(`${sel} is not in components.css`);
+		const open = compSrc.indexOf('{', at);
+		const close = compSrc.indexOf('}', open);
+		const rule = compSrc.slice(open + 1, close);
+		for (const prop of TRAPS) {
+			const re = new RegExp(`^\\s*${prop}\\s*:\\s*(?!none)`, 'm');
+			if (re.test(rule))
+				throw new Error(
+					`${what} sets \`${prop}\`, which makes it the containing block ` +
+					`for the fixed mobile drawer - the panel collapses to 0px`
+				);
+		}
+	});
+}
+
+/* The blur was removed, so the header background must be opaque. If it
+   went back to a translucent rgba, content scrolls through it visibly. */
+check('the header background is opaque now that there is no blur', () => {
+	const declares = [...tokenSrc.matchAll(/--header-bg:\s*([^;]+);/g)].map((m) => m[1].trim());
+	if (!declares.length) throw new Error('--header-bg is not declared');
+	for (const v of declares) {
+		if (/rgba\(|hsla\(|\balpha\b/.test(v))
+			throw new Error(`--header-bg: ${v} is translucent with no backdrop-filter to frost it`);
+	}
+});
+
+/* The scrim is created by the runtime and keyed off <html>, so the
+   drawer's own region never has to carry a sibling selector. */
+check('the scrim is gated on the html element, not a CSS sibling', () => {
+	if (!/data-cm-nav-open/.test(MC_JS))
+		throw new Error('the runtime never marks the open state on <html>');
+	if (!/documentElement\.classList\.add\('cm-nav-open'\)/.test(MC_NAV_JS) &&
+		!/documentElement\.setAttribute\('data-cm-nav-open'/.test(MC_NAV_JS))
+		throw new Error('the open state is not on <html>, so the scrim cannot be gated on it');
+});
+
+/* A drawer over the left edge that does not lock the page behind it lets a
+   tap land on the content the drawer is covering. */
+check('the drawer locks page scroll while it is open', () => {
+	// The LOCK and the UNLOCK, both, or the page is stuck scrolled-free
+	// forever after one accidental open. `/body[^]*overflow/` matched the
+	// unlock line alone and passed while the lock was gone.
+	if (!/body\.style\.overflow\s*=\s*'hidden'/.test(MC_NAV_JS))
+		throw new Error('opening the drawer does not lock page scroll');
+	if (!/body\.style\.overflow\s*=\s*''/.test(MC_NAV_JS))
+		throw new Error('closing the drawer never restores page scroll');
 });
 
 /* ================= async checks (installer) ================= */

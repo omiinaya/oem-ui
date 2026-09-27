@@ -131,7 +131,7 @@
 	--green: #b3b3b3;
 
 	/* header / footer surfaces */
-	--header-bg: rgba(10, 10, 10, 0.92);
+	--header-bg: #0a0a0a;
 	--footer-bg: #080808;
 
 	/* shadow */
@@ -174,7 +174,7 @@
 	--cyan: #333333;
 	--green: #333333;
 
-	--header-bg: rgba(250, 250, 250, 0.92);
+	--header-bg: #fafafa;
 	--footer-bg: #f0f0f0;
 
 	--shadow-1: 0 1px 0 rgba(0, 0, 0, 0.04) inset;
@@ -218,7 +218,7 @@
 	--accent-bright: #ffffff;
 	--accent-dim: #5c5c5c;
 	--accent-glow: rgba(255, 255, 255, 0.06);
-	--header-bg: rgba(10, 10, 10, 0.92);
+	--header-bg: #0a0a0a;
 	--footer-bg: #080808;
 	--shadow-1: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
 	--shadow-card: 0 20px 50px -24px rgba(0, 0, 0, 0.8);
@@ -245,7 +245,7 @@
 	--accent-bright: #000000;
 	--accent-dim: #666666;
 	--accent-glow: rgba(0, 0, 0, 0.06);
-	--header-bg: rgba(250, 250, 250, 0.92);
+	--header-bg: #fafafa;
 	--footer-bg: #f0f0f0;
 	--shadow-1: 0 1px 0 rgba(0, 0, 0, 0.04) inset;
 	--shadow-card: 0 20px 50px -26px rgba(0, 0, 0, 0.18);

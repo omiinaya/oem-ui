@@ -64,6 +64,31 @@ const anySpy = navLinks.some((l) => l.spyId);
 
 <header class="cm-header" data-cm-header>
 	<nav class="cm-header__nav">
+		{/* First in the row and first in the tab order: a menu button that
+		    leads the header is what a thumb expects. It lives OUTSIDE
+		    .cm-header__controls on purpose - that wrapper is its own flex
+		    row, so `order` inside it could never move the burger past the
+		    brand. Only rendered when there is a nav to disclose, and hidden
+		    by CSS unless the runtime has set `.cm-js` on <html>, so a no-JS
+		    reader keeps the full nav. */}
+		{
+			links.length > 0 && (
+				<button
+					class="cm-icon-btn cm-nav-toggle"
+					type="button"
+					data-cm-nav-toggle
+					aria-expanded="false"
+					aria-controls="cm-header-links"
+					aria-label="Menu"
+					title="Menu"
+				>
+					<span class="cm-nav-toggle__bars" aria-hidden="true">
+						<span class="cm-nav-toggle__bar" />
+					</span>
+				</button>
+			)
+		}
+
 		<a href={homeHref} class="cm-header__brand" aria-label="Home">
 			<span class="cm-header__prompt" aria-hidden="true">$</span>
 			<span class="cm-header__name">{brand}</span>
@@ -88,27 +113,6 @@ const anySpy = navLinks.some((l) => l.spyId);
 		}
 
 		<div class="cm-header__controls">
-			{/* The burger is a DISCLOSURE for a nav that is present in the
-			   markup, so it only makes sense when there is something to
-			   disclose. It is hidden by CSS unless the runtime has set
-			   `.cm-js` on <html>, so a no-JS reader keeps the full nav. */}
-			{
-				links.length > 0 && (
-					<button
-						class="cm-icon-btn cm-nav-toggle"
-						type="button"
-						data-cm-nav-toggle
-						aria-expanded="false"
-						aria-controls="cm-header-links"
-						aria-label="Menu"
-						title="Menu"
-					>
-						<span class="cm-nav-toggle__bars" aria-hidden="true">
-							<span class="cm-nav-toggle__bar" />
-						</span>
-					</button>
-				)
-			}
 			{
 				showThemeToggle && (
 					<button

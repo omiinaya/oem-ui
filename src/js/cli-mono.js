@@ -195,11 +195,33 @@
 		if (btn.dataset.cmNavBound) return;
 		btn.dataset.cmNavBound = '1';
 
+		/* The drawer covers the left edge, so it needs a scrim or the page
+		   behind it still reads as live. Created by the runtime so a no-JS
+		   reader never carries a permanently hidden node. */
 		var mq = window.matchMedia('(max-width: 640px)');
 		function setOpen(open) {
 			btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-			if (open) panel.setAttribute('data-open', '');
-			else panel.removeAttribute('data-open');
+			if (open) {
+				panel.setAttribute('data-open', '');
+				doc.documentElement.setAttribute('data-cm-nav-open', '');
+			} else {
+				panel.removeAttribute('data-open');
+				doc.documentElement.removeAttribute('data-cm-nav-open');
+			}
+			/* The drawer is fixed, so the page behind it would still
+			   scroll under the reader's thumb. Lock the body and hand
+			   back the scrollbar width, or the page shifts sideways the
+			   moment the drawer opens. */
+			var body = doc.body;
+			if (!body) return;
+			if (open) {
+				var gap = window.innerWidth - doc.documentElement.clientWidth;
+				body.style.overflow = 'hidden';
+				if (gap > 0) body.style.paddingRight = gap + 'px';
+			} else {
+				body.style.overflow = '';
+				body.style.paddingRight = '';
+			}
 		}
 		function isOpen() {
 			return btn.getAttribute('aria-expanded') === 'true';
@@ -236,6 +258,17 @@
 			setOpen(false);
 		});
 
+		var scrim = doc.querySelector('[data-cm-nav-scrim]');
+		if (!scrim) {
+			scrim = doc.createElement('div');
+			scrim.className = 'cm-nav-scrim';
+			scrim.setAttribute('data-cm-nav-scrim', '');
+			scrim.setAttribute('aria-hidden', 'true');
+			doc.body.appendChild(scrim);
+		}
+		scrim.addEventListener('click', function () { setOpen(false); });
+
+		
 		/* Rotating back to a desktop width with the panel open would
 		   otherwise leave `data-open` set on a panel CSS is no longer
 		   showing, and the next phone-width view would inherit it. */

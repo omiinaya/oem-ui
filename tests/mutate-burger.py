@@ -11,6 +11,7 @@ REPO = '/root/projects/oem-ui'
 CSS = os.path.join(REPO, 'src/styles/components.css')
 JS = os.path.join(REPO, 'src/js/cli-mono.js')
 HDR = os.path.join(REPO, 'src/astro/Header.astro')
+TOK = os.path.join(REPO, 'src/styles/tokens.css')
 BASE = os.path.join(REPO, 'src/styles/base.css')
 
 MUTATIONS = [
@@ -21,17 +22,22 @@ MUTATIONS = [
      '\ttop: 50%;\n\ttransform: translateY(-50%);\n\tbackground: currentColor;',
      '\ttop: 0;\n\tbackground: currentColor;'),
     ('remove the X morph on ::before', CSS,
-     "transform: translateY(4.75px) rotate(45deg);", 'transform: none;'),
+     "transform: translateY(5px) rotate(45deg);", 'transform: none;'),
     ('remove the X morph on ::after', CSS,
-     "transform: translateY(-4.75px) rotate(-45deg);", 'transform: none;'),
+     "transform: translateY(-5px) rotate(-45deg);", 'transform: none;'),
     ('stop hiding the middle bar when open', CSS,
      ".cm-nav-toggle[aria-expanded='true'] .cm-nav-toggle__bar {\n\topacity: 0;\n}",
      ".cm-nav-toggle[aria-expanded='true'] .cm-nav-toggle__bar {\n\topacity: 0.4;\n}"),
     ('reveal the burger at EVERY width', CSS,
      '@media (max-width: 640px) {\n\t.cm-js .cm-nav-toggle { display: inline-flex; }\n}',
      '.cm-js .cm-nav-toggle { display: inline-flex; }'),
+    # Scope the panel mutations to the ONE that hides it, by including the
+    # following `[data-open]` rule: the base layer has a
+    # `.cm-js .cm-header__links` too, and a bare replace hit that one
+    # first, which no panel test can see.
     ('collapse the panel unconditionally, stranding no-JS readers', CSS,
-     '.cm-js .cm-header__links {', '.cm-header__links {'),
+     '.cm-js .cm-header__links { display: none; }',
+     '.cm-header__links { display: none; }'),
     ('open the panel without the .cm-js gate', CSS,
      '.cm-js .cm-header__links[data-open] {', '.cm-header__links[data-open] {'),
     ('drop the icon-btn tap floor override', CSS,
@@ -58,11 +64,21 @@ MUTATIONS = [
     ('remove the panel id aria-controls points at', HDR,
      'id="cm-header-links"', 'data-panel="cm-header-links"'),
     ('render the burger with nothing behind it', HDR,
-     'links.length > 0 && (\n\t\t\t\t\t<button\n\t\t\t\t\t\tclass="cm-icon-btn cm-nav-toggle"',
-     'true && (\n\t\t\t\t\t<button\n\t\t\t\t\t\tclass="cm-icon-btn cm-nav-toggle"'),
+     'links.length > 0 && (\n\t\t\t\t<button\n\t\t\t\t\tclass="cm-icon-btn cm-nav-toggle"',
+     'true && (\n\t\t\t\t<button\n\t\t\t\t\tclass="cm-icon-btn cm-nav-toggle"'),
     ('unguard the bar transition against reduced motion', CSS,
      '.cm-nav-toggle__bars::before,\n\t.cm-nav-toggle__bars::after,\n\t.cm-nav-toggle__bar { transition: none; }',
      '.cm-nav-toggle__bars::before { transition: none; }'),
+    # The three defects the drawer work introduced.
+    ('re-add the header blur that traps the fixed drawer', CSS,
+     '/* NO backdrop-filter on .cm-header, and none on .cm-header__nav either.',
+     '.cm-header__nav {\n\tbackdrop-filter: blur(8px);\n\t-webkit-backdrop-filter: blur(8px);\n}\n/* NO backdrop-filter on .cm-header, and none on .cm-header__nav either.'),
+    ('make the header background translucent again', TOK,
+     '--header-bg: #0a0a0a;', '--header-bg: rgba(10, 10, 10, 0.92);'),
+    ('stop locking page scroll behind the drawer', JS,
+     "body.style.overflow = 'hidden';", '/* no lock */'),
+    ('never restore page scroll after closing the drawer', JS,
+     "body.style.overflow = '';", '/* no unlock */'),
     ('drop the scroll-spy active state from the mobile panel', CSS,
      '\t.cm-header__link.is-active,\n\t.cm-header__link[aria-current=\'page\'] {',
      '\t.cm-header__link[aria-current=\'page\'] {'),

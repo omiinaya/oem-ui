@@ -199,6 +199,8 @@
 	.cm-nav-toggle__bars::before,
 	.cm-nav-toggle__bars::after,
 	.cm-nav-toggle__bar { transition: none; }
+	.cm-js .cm-nav-scrim { transition: none; }
+	.cm-js .cm-header__links { animation: none; }
 }
 /* On a phone the three columns will not fit: stack the label above the
    sample and let the value sit on the same line as the label. */
@@ -833,10 +835,25 @@ html {
 	margin: 0;
 	padding: 0 var(--gutter);
 	background: var(--header-bg);
-	backdrop-filter: blur(8px);
-	-webkit-backdrop-filter: blur(8px);
 	border-bottom: 1px solid var(--line);
 }
+
+/* NO backdrop-filter on .cm-header, and none on .cm-header__nav either.
+
+   `backdrop-filter` (like `filter`, `transform`, `perspective`, `contain`
+   and `will-change`) makes an element a containing block for its
+   `position: fixed` descendants. The mobile drawer is exactly that, and it
+   lives INSIDE the header: with the blur on the bar, WebKit resolved the
+   drawer's `top`/`bottom` against the header box and collapsed it to 0px,
+   and moving the filter one level down to the nav row - the drawer's own
+   parent - trapped it just as reliably. There is no wrapper inside the
+   header that both covers the full bar and contains no fixed descendant.
+
+   So the blur goes, and `--header-bg` becomes fully opaque to take its
+   place. A frosted effect on a near-black bar is indistinguishable from a
+   solid near-black bar anyway; the header still reads as a bar because of
+   its rule and its scroll shadow. */
+
 .cm-header.is-scrolled {
 	border-bottom-color: var(--accent-dim);
 	box-shadow: 0 8px 24px -18px rgba(0, 0, 0, 0.9);
@@ -973,8 +990,8 @@ html {
 .cm-nav-toggle__bars {
 	display: block;
 	position: relative;
-	width: 15px;
-	height: 11px;
+	width: 18px;
+	height: 12px;
 }
 .cm-nav-toggle__bars::before,
 .cm-nav-toggle__bars::after {
@@ -982,7 +999,7 @@ html {
 	position: absolute;
 	left: 0;
 	width: 100%;
-	height: 1.5px;
+	height: 2px;
 	background: currentColor;
 	transition: transform var(--cm-t) var(--cm-ease),
 		opacity var(--cm-t) var(--cm-ease);
@@ -999,7 +1016,7 @@ html {
 	position: absolute;
 	left: 0;
 	width: 100%;
-	height: 1.5px;
+	height: 2px;
 	top: 50%;
 	transform: translateY(-50%);
 	background: currentColor;
@@ -1009,11 +1026,46 @@ html {
 .cm-nav-toggle[aria-expanded='true'] .cm-nav-toggle__bar {
 	opacity: 0;
 }
+/* The X morph. Both edge bars rotate about the BOX centre, so the
+   translate is half the box height minus half the bar, not half the box
+   height: (11 - 1.5) / 2 = 4.75px. Using 5.5px (half the box) put the
+   pivot 0.75px low and the two strokes never met at the true centre.
+   `scaleX(0)` is set alongside the fade so the middle bar cannot ghost
+   under the X: opacity 0 alone left it painted during the transition. */
 .cm-nav-toggle[aria-expanded='true'] .cm-nav-toggle__bars::before {
-	transform: translateY(4.75px) rotate(45deg);
+	transform: translateY(5px) rotate(45deg);
 }
 .cm-nav-toggle[aria-expanded='true'] .cm-nav-toggle__bars::after {
-	transform: translateY(-4.75px) rotate(-45deg);
+	transform: translateY(-5px) rotate(-45deg);
+}
+.cm-nav-toggle[aria-expanded='true'] .cm-nav-toggle__bar {
+	opacity: 0;
+	transform: translateY(-50%) scaleX(0);
+}
+/* The scrim the runtime appends. Below the drawer (z 99) and below the
+   header (z 100) so the burger stays tappable, and above the page. It
+   exists ONLY under .cm-js, so a no-JS reader never sees a permanent
+   dark veil over their content. */
+.cm-js .cm-nav-scrim {
+	position: fixed;
+	inset: 0;
+	background: rgb(0 0 0 / 0.55);
+	z-index: 98;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var(--cm-t) var(--cm-ease);
+}
+/* Keyed off <html> rather than a sibling selector: the scrim is a
+   sibling of <header>, not of the button, and `:has()` on a long chain
+   is a fragile way to say "the menu is open" when the runtime already
+   knows. */
+.cm-js[data-cm-nav-open] .cm-nav-scrim {
+	opacity: 1;
+	pointer-events: auto;
+}
+@keyframes cm-drawer-in {
+	from { opacity: 0; transform: translateX(-8px); }
+	to { opacity: 1; transform: none; }
 }
 
 @media (max-width: 640px) {
@@ -1026,14 +1078,39 @@ html {
 		row-gap: var(--space-2);
 		padding: 0.55rem 0;
 	}
+	/* The burger is the FIRST child of .cm-header__nav in the DOM, so it
+	   leads the row with no `order` at all - visual order and tab order
+	   stay the same. The brand takes the slack and the theme toggle keeps
+	   the right edge. */
 	.cm-header__brand { margin-right: auto; }
 
-	/* The panel is a real region: full-bleed like the rule above it, a
-	   divider, and a column of 44px rows. Hidden by default in CSS and
-	   toggled with [data-open] by the runtime. */
+	/* The panel opens from the LEFT edge as a drawer, anchored to the
+	   header, rather than dropping into the flow under it. */
+	/* A `position: fixed` descendant of a `backdrop-filter` element is laid
+	   out against THAT element, not the viewport: WebKit gives the filter a
+	   containing block, so `bottom: 0` resolved to the header's own bottom
+	   edge and the drawer measured 0px tall. The panel therefore has to
+	   escape the header's box. `.cm-header` gets `overflow: visible` here so
+	   the drawer is not clipped, and the header's own paint is preserved by
+	   moving the filter to the inner nav row instead of the bar. */
 	.cm-header__links {
 		order: 3;
-		width: 100%;
+		position: fixed;
+		left: 0;
+		right: auto;
+		top: var(--header-h, 60px);
+		bottom: 0;
+		width: min(86vw, 320px);
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		background: var(--bg);
+		border-top: 0;
+		border-right: 1px solid var(--line);
+		z-index: 99;
+		/* A drawer that SNAPS into place is motion the reader did not
+		   ask for; a short fade keeps the direction legible. */
+		animation: cm-drawer-in var(--cm-t) var(--cm-ease);
+		-webkit-overflow-scrolling: touch;
 		/* NOTE: the collapse is scoped to `.cm-js` on purpose. An
 		   unconditional `display: none` here hides the nav from every
 		   reader whose runtime did not load - and a component library that
@@ -1042,19 +1119,15 @@ html {
 		   screen, stacked, which is tall but complete. */
 		flex-direction: column;
 		align-items: stretch;
-		/* Inset to the content rail, matching the other header rule. It
-		   used to be full-bleed while the rule above it was inset, so one
-		   header block carried two divider geometries. */
-		margin-left: calc(-1 * var(--gutter));
-		margin-right: calc(-1 * var(--gutter));
-		padding: var(--space-2) 0;
-		border-top: 1px solid var(--line);
 	}
 	.cm-js .cm-header__links { display: none; }
 	.cm-js .cm-header__links[data-open] { display: flex; }
 	.cm-header__link,
 	.cm-header__link:first-child {
-		padding: var(--space-3) var(--gutter);
+		display: flex;
+		align-items: center;
+		min-height: var(--tap);
+		padding: var(--space-3) var(--space-4);
 		/* The pipe separators are a lie once the nav WRAPS: they only
 		   exist between items in the DOM, so a wrapped row starts with no
 		   pipe and ends with a dangling one. In a single column there are
@@ -1070,7 +1143,7 @@ html {
 	.cm-header__link[aria-current='page'] {
 		color: var(--accent-bright);
 		text-decoration: none;
-		padding-left: calc(var(--gutter) + var(--space-3));
+		padding-left: calc(var(--space-4) + var(--space-2));
 	}
 }
 /* The showcase's specimen of the burger. It is a PICTURE of the control
