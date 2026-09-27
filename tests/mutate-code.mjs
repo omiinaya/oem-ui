@@ -25,21 +25,21 @@ const MUTATIONS = [
 		file: 'src/astro/CodeBlock.astro',
 		from: /class="cm-btn cm-btn--sm cm-copy"/,
 		to: 'class="cm-copy"',
-		expectFail: 'not composed from .cm-btn',
+		expectFail: 'the copy button is a house button, not a new visual language',
 	},
 	{
 		name: 'the copy control re-declares the button border',
 		file: 'src/styles/components.css',
 		from: /(\.cm-copy\s*\{[^}]*?)\n(\tcolor: var\(--ink-faint\);)/,
 		to: '$1\n\tborder: 1px solid var(--line);\n$2',
-		expectFail: 'second button implementation',
+		expectFail: 'the copy button is a house button, not a new visual language',
 	},
 	{
 		name: 'the tap floor is dropped from the coarse-pointer block',
 		file: 'src/styles/components.css',
 		from: '@media (pointer: coarse) {\n\t.cm-copy { min-height: var(--tap); }\n}',
 		to: '@media (pointer: coarse) {\n\t.cm-copy { min-height: 0; }\n}',
-		expectFail: 'below the tap floor on touch',
+		expectFail: 'a copy control is never below the tap floor on touch',
 	},
 	{
 		name: 'the tap floor moves to a hardcoded 44px',
@@ -53,49 +53,56 @@ const MUTATIONS = [
 		file: 'src/styles/components.css',
 		from: /\.cm-copy\.is-copied\s*\{[^}]*\}/,
 		to: '.cm-copy.is-nope { color: var(--ink); }',
-		expectFail: 'successful copy is visible',
+		expectFail: 'the copied state has a rule, so a successful copy is visible',
 	},
 	{
 		name: 'the glyph slot stops reserving its width',
 		file: 'src/styles/components.css',
-		from: /(\.cm-copy__state\s*\{[^}]*?)\n\tmin-width:\s*1\.4em;/,
-		to: '$1',
-		expectFail: 'the copied state has a rule, so a successful copy is visible',
+		from: /(\tmin-width:\s*1\.4em;)/,
+		to: '',
+		expectFail: 'the glyph slot reserves its width, so the label never shifts',
 	},
 	{
 		name: 'the initCopy bind guard is removed',
 		file: 'src/js/cli-mono.js',
 		from: "\t\t\t\tif (btn.dataset.cmCopyBound) return;\n\t\t\t\tbtn.dataset.cmCopyBound = '1';\n",
 		to: '',
-		expectFail: 'double-binds every copy button',
+		expectFail: 'the copy button is bound once, however often init runs again',
 	},
 	{
 		name: 'the label goes back into textContent, destroying the slot',
 		file: 'src/js/cli-mono.js',
 		from: "setCopyLabel(btn, 'copied');",
 		to: "btn.textContent = 'copied';",
-		expectFail: 'destroys the glyph slot',
+		expectFail: 'the copy button keeps its glyph slot when the label changes',
 	},
 	{
 		name: 'setCopyLabel stops honouring the label slot',
 		file: 'src/js/cli-mono.js',
 		from: "var slot = btn.querySelector('[data-cm-copy-label]');\n\t\tif (slot) slot.textContent = text;\n\t\telse btn.textContent = text;",
 		to: 'btn.textContent = text;',
-		expectFail: 'no label slot to write into',
+		expectFail: 'the copy button keeps its glyph slot when the label changes',
 	},
 	{
-		name: 'the language label stops truncating',
+		name: 'the language label stops shrinking',
 		file: 'src/styles/components.css',
-		from: /(\.cm-codebar__lang > span\s*\{[^}]*?)\n\tmin-width:\s*0;/,
-		to: '$1',
-		expectFail: 'min-width: 0',
+		from: '.cm-codebar__lang { min-width: 0; }',
+		to: '.cm-codebar__lang { }',
+		expectFail: 'a long language label cannot push the copy button off the row',
 	},
 	{
 		name: 'the code bar stops flattening the pre default it wraps',
 		file: 'src/styles/components.css',
-		from: /\.cm-codebar > pre\s*\{[^}]*?\n\tborder-radius:\s*0;/,
-		to: '.cm-codebar > pre { border-radius: var(--radius-sm); }',
+		from: '\tborder-left: 0;\n\tborder-radius: 0;',
+		to: '\tborder-left: 0;\n\tborder-radius: var(--radius-sm);',
 		expectFail: 'the code bar flattens the pre default it wraps',
+	},
+	{
+		name: 'the code bar goes back to asymmetric insets',
+		file: 'src/styles/components.css',
+		from: '	padding: 0 var(--space-2);',
+		to: '	padding: 0 var(--space-2) 0 var(--space-4);',
+		expectFail: 'the code bar is symmetric, so the copy button is not hugging the edge',
 	},
 	{
 		name: 'the code bar draws a hardcoded radius',
@@ -107,30 +114,30 @@ const MUTATIONS = [
 	{
 		name: 'the copy control stops being a real button',
 		file: 'src/astro/CodeBlock.astro',
-		from: /<button type="button"/,
-		to: '<span role="button" tabindex="0"',
-		expectFail: 'not a <button type="button">',
+		from: /<button([\s\S]*?)type="button"/,
+		to: '<span role="button" tabindex="0" data-was-button',
+		expectFail: 'the copy button is a real button a keyboard can reach',
 	},
 	{
 		name: 'CodeBlock stops refusing to build without an id',
 		file: 'src/astro/CodeBlock.astro',
 		from: /if \(!id\)[\s\S]*?\}\n/,
 		to: '',
-		expectFail: 'fails the build',
+		expectFail: 'a code block without an id fails the build instead of shipping a dead button',
 	},
 	{
 		name: 'the showcase ships only one copy button',
 		file: 'src/pages/index.astro',
 		from: /\t\t\t\t<CodeBlock\n\t\t\t\t\tid="demo-config"[\s\S]*?`\}\n\t\t\t\t\/>/,
 		to: '',
-		expectFail: 'two are needed to exercise per-block resolution',
+		expectFail: 'the showcase demonstrates copy with more than one block',
 	},
 	{
 		name: 'the copy button loses its rendered label slot',
 		file: 'src/astro/CodeBlock.astro',
 		from: 'data-cm-copy-label',
 		to: 'data-cm-nope',
-		expectFail: 'no [data-cm-copy-label] slot',
+		expectFail: 'the copy button keeps its glyph slot when the label changes',
 	},
 	{
 		name: 'the copy control drops out of the mobile type floor',
@@ -149,12 +156,41 @@ const runSuite = () =>
 // devDependency, so this is offline and takes about a second.
 const rebuild = () => {
 	const r = spawnSync('npx', ['astro', 'build'], { encoding: 'utf8', cwd: root, shell: true });
-	return r.status === 0;
+	// Return the outcome AND the output. A boolean made the caller
+	// short-circuit on a build failure and never run the suite, which is
+	// how a caught mutation was reported as MISSED.
+	return { ok: r.status === 0, out: (r.stdout || '') + (r.stderr || '') };
 };
 
 let caught = 0;
 const noops = [];
 const unexpected = [];
+
+// --dry reports which patterns match the CURRENT source and exits. A
+// pattern that does not match is a NO-OP, and running the slow path to
+// discover that costs two full rebuilds per dead pattern. This is the
+// only parser of the mutation list: a second implementation in another
+// language silently disagrees with this one about what a pattern means.
+const DRY = process.argv.includes('--dry');
+if (DRY) {
+	console.log(`mutation dry-run: code / copy (${MUTATIONS.length} mutations)\n`);
+	for (const m of MUTATIONS) {
+		const original = readFileSync(p(m.file), 'utf8');
+		const re = m.from instanceof RegExp
+			? m.from
+			: new RegExp(m.from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\n/g, '\\n'), 'g');
+		const hit = original.match(re);
+		const changes = hit ? original.replace(re, m.to) !== original : false;
+		if (!hit || !changes) {
+			console.log(`  NO-OP  ${m.name}`);
+			noops.push(m.name);
+		} else {
+			console.log(`  match  ${m.name}`);
+		}
+	}
+	console.log(`\n${MUTATIONS.length - noops.length} match, ${noops.length} no-op`);
+	process.exit(noops.length ? 1 : 0);
+}
 
 console.log(`mutation: code / copy (${MUTATIONS.length} mutations)\n`);
 
@@ -185,9 +221,30 @@ for (const m of MUTATIONS) {
 	}
 	writeFileSync(file, mutated);
 
+	// The restore MUST run even if the suite or the build throws, or a
+	// crash leaves the working tree holding a mutant and the next commit
+	// ships it. This is not hypothetical: a ReferenceError in this file
+	// skipped the restore, another thread committed the mutated
+	// CodeBlock.astro, and the suite was red on origin until it was
+	// noticed. try/finally, no exceptions.
 	let out = '';
-	if (rebuild()) out = runSuite().stdout || '';
-	else out = 'BUILD FAILED\n' + (out || '');
+	let built = { ok: false, out: '' };
+	try {
+		// Run the suite whether or not the build succeeded, and KEEP the
+		// build output. A mutation that breaks the Astro build (a <span>
+		// where the component had a <button> closes the tag differently)
+		// used to short-circuit here: `rebuild()` returned false, `out`
+		// was set to a BUILD FAILED string and the suite never ran, so
+		// the check could not be seen.
+		built = rebuild();
+		out = runSuite().stdout || '';
+		if (!built.ok && !/FAIL  /.test(out)) {
+			out += '\nBUILD FAILED\n' + (built.out || '');
+		}
+	} finally {
+		writeFileSync(file, original);
+		rebuild();
+	}
 
 	// Match the CHECK NAME, not a message substring: the suite prints
 	// "FAIL  <name>" and a message can be reworded without the test
@@ -195,9 +252,7 @@ for (const m of MUTATIONS) {
 	// MISSED. This is the accounting bug that made mutation 1 report a
 	// miss when the suite had in fact failed.
 	const failed = out.includes('FAIL  ' + m.expectFail) || out.includes('FAIL  ' + m.expectFail + ':');
-	// restore BEFORE reporting, so a throw cannot leave the tree mutated
-	writeFileSync(file, original);
-	rebuild();
+	// Already restored in the `finally` above.
 
 	if (failed) {
 		caught++;

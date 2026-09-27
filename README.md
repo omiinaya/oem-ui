@@ -548,6 +548,63 @@ The bar is a picture of a number, so the number has to exist as text and
 the picture has to come from it. A `--cm-meter-fill` set independently of
 the printed value is a chart that disagrees with its own caption.
 
+### Code blocks and copy
+
+A `<pre>` is an element default, so it is on-brand before you add a class.
+`.cm-codebar` is the wrapper that gives it a label row and a place to put a
+copy button, and `.cm-copy` is the button.
+
+```html
+<div class="cm-codebar">
+  <div class="cm-codebar__bar">
+    <span class="cm-codebar__lang"><span>bash</span></span>
+    <button class="cm-btn cm-btn--sm cm-copy" type="button"
+            data-cm-copy="#install" aria-label="Copy install command">
+      <span class="cm-copy__state" aria-hidden="true"></span>
+      <span data-cm-copy-label>copy</span>
+    </button>
+  </div>
+  <pre id="install" tabindex="0"><code>curl -fsSL https://example.com/install.sh | sh</code></pre>
+</div>
+```
+
+The runtime binds `[data-cm-copy]`; the value is the `id` of the block to
+copy. Or use the component, which throws at build time if you forget the
+`id` rather than shipping a button that copies nothing:
+
+```astro
+<CodeBlock id="install" lang="bash" code={`curl -fsSL https://example.com/install.sh | sh`} />
+```
+
+| class | for |
+|---|---|
+| `.cm-codebar` | the wrapper. Owns the radius, so the `<pre>` inside drops its own |
+| `.cm-codebar__bar` | the label row |
+| `.cm-codebar__lang` | the language name. Truncates with an ellipsis so a long one cannot push the button off the row |
+| `.cm-copy` | the button. Composed from `.cm-btn .cm-btn--sm`, so it inherits the tap floor |
+| `.cm-copy__state` | the glyph slot. `min-width` is reserved, so the label does not shift when the state changes |
+| `.is-copied` | set by the runtime on success |
+| `.is-error` | set by the runtime when the clipboard refused |
+
+Three decisions that are not obvious from the CSS:
+
+- **The button composes `.cm-btn`; it does not re-implement one.** A
+  parallel skin would be a second button implementation, and the tap-floor
+  bug `.cm-btn` already had would simply recur there.
+- **The label lives in a `[data-cm-copy-label]` slot, not in the button's
+  own text.** The runtime rewrites the label; writing `textContent` would
+  replace the button's children and destroy the glyph slot on the first
+  copy. Omit the slot and the runtime falls back to `textContent`, which is
+  fine for a button that has no glyph.
+- **A `<pre>` inside a bar is flattened.** `pre` is an element default with
+  its own border, left accent rule and radius; inside `.cm-codebar` those
+  are the panel's chrome, so `.cm-codebar > pre` turns them off. Without
+  that the bar draws two borders.
+
+The success state is a **non-hue cue on purpose**: this system has no
+chroma, so `--ink` on `--bg-3` has to carry it, and it has to read in
+greyscale.
+
 ### Page shapes
 
 ```html
@@ -692,6 +749,7 @@ Copy from `src/astro/` and set your identity in `config.ts`:
 | `TimelineItem.astro` | one dated record, with the `now` variant |
 | `Card.astro` | one card inside a `.cm-cards` grid. Slots for head, body and foot |
 | `Meter.astro` | one labelled proportion bar. Throws on a `pct` outside 0-100 |
+| `CodeBlock.astro` | a `<pre>` with a language label and a copy button. Throws on a missing `id` |
 
 ```astro
 ---

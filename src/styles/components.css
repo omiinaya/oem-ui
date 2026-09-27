@@ -383,7 +383,13 @@
 	justify-content: space-between;
 	gap: var(--space-3);
 	min-height: 2.4rem;
-	padding: 0 var(--space-2) 0 var(--space-4);
+	/* Symmetric on purpose. This was `0 var(--space-2) 0 var(--space-4)`,
+	   which put the language label 16px from the bar edge and the copy
+	   button only 8px: measured at 390px, the control the eye is meant
+	   to land on was hugging the edge while its label had room to
+	   breathe. A bar with two different insets reads as off-grid even
+	   when every element inside it is correctly placed. */
+	padding: 0 var(--space-2);
 	background: var(--bg-3);
 	border-bottom: 1px solid var(--line);
 	font-family: var(--font-mono);

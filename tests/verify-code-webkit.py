@@ -56,8 +56,8 @@ window.__copied = [];
 """
 
 
-def page(pw, width=390, height=844):
-    ctx = pw.new_context(
+def page(browser, width=390, height=844):
+    ctx = browser.new_context(
         viewport={"width": width, "height": height},
         device_scale_factor=3,
         is_mobile=True,
@@ -73,29 +73,54 @@ def page(pw, width=390, height=844):
 
 def main():
     with sync_playwright() as pw:
-        print(f"url: {URL}\n")
+        browser = pw.webkit.launch()
+        print(f"url: {URL} (webkit)\n")
 
         # ---------- desktop + both themes: the is-copied state is legible --
-        ctx, p, errors = page(pw, 1280, 900)
+        ctx, p, errors = page(browser, 1280, 900)
         for theme in ("dark", "light"):
             p.evaluate(
                 "t => document.documentElement.setAttribute('data-theme', t)", theme
             )
             res = p.evaluate(
-                """() => {
+                """async () => {
                   const btns = [...document.querySelectorAll('button[data-cm-copy]')];
                   if (!btns.length) return { n: 0 };
                   const b = btns[0];
-                  const idle = getComputedStyle(b);
+                  // Read the BEFORE values as STRINGS, and force a style
+                  // flush between the write and the read.
+                  //
+                  // `getComputedStyle` returns a LIVE CSSStyleDeclaration,
+                  // so holding it in a variable and comparing after the
+                  // class change compares the element against ITSELF in
+                  // its final state: idleColor and doneColor were the same
+                  // object and both read post-change. That reported a
+                  // real, working rule as a no-op, and the only way to
+                  // tell the difference is to measure.
+                  const idleColor = getComputedStyle(b).color;
+                  const idleBg = getComputedStyle(b).backgroundColor;
+                  const idleBc = getComputedStyle(b).borderTopColor;
                   b.classList.add('is-copied');
-                  const done = getComputedStyle(b);
+                  void b.offsetWidth;
+                  // WAIT for the transition to settle before reading.
+                  //
+                  // .cm-btn carries a colour/background transition, so at
+                  // t=0 the computed value is still the IDLE one and it
+                  // animates in over ~200ms. Sampling immediately reads
+                  // the element against itself and reports a working rule
+                  // as a no-op. Measured: 139 -> 180 -> 232 across the
+                  // transition, then 139 again when the runtime's 1400ms
+                  // reset timer strips the class.
+                  const settle = () => new Promise(r => setTimeout(r, 400));
+                  await settle();
+                  const doneColor = getComputedStyle(b).color;
+                  const doneBg = getComputedStyle(b).backgroundColor;
+                  const doneBc = getComputedStyle(b).borderTopColor;
                   const r = b.getBoundingClientRect();
                   const out = {
                     n: btns.length,
-                    idleColor: idle.color,
-                    doneColor: done.color,
-                    idleBg: idle.backgroundColor,
-                    doneBg: done.backgroundColor,
+                    idleColor, doneColor, idleBg, doneBg, idleBc, doneBc,
+                    applied: b.classList.contains('is-copied'),
                     w: r.width, h: r.height,
                   };
                   b.classList.remove('is-copied');
@@ -103,6 +128,11 @@ def main():
                 }"""
             )
             check(res["n"] >= 2, f"[{theme}] two live copy buttons render", f"n={res['n']}")
+            check(
+                res.get("applied") is True,
+                f"[{theme}] the is-copied class was actually applied",
+                f"applied={res.get('applied')}",
+            )
             check(
                 res["doneColor"] != res["idleColor"],
                 f"[{theme}] is-copied changes the text colour",
@@ -117,7 +147,7 @@ def main():
 
         # ---------- phone: tap floor, overflow, scrolling --------------
         for width in (320, 390):
-            ctx, p, errors = page(pw, width, 844)
+            ctx, p, errors = page(browser, width, 844)
             print(f"\n  {width}px, coarse pointer, touch")
             res = p.evaluate(
                 """() => {
@@ -207,7 +237,7 @@ def main():
             ctx.close()
 
         # ---------- behaviour: own block, once, after a re-init --------
-        ctx, p, errors = page(pw, 390, 844)
+        ctx, p, errors = page(browser, 390, 844)
         print("\n  copy behaviour")
 
         # Re-init the way Astro's page-load does, which is the double-bind
@@ -277,6 +307,7 @@ def main():
 
         check(not errors, "no page errors", "; ".join(errors))
         ctx.close()
+        browser.close()
 
     print()
     if FAILS:

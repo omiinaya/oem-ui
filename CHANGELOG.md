@@ -8,10 +8,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Code blocks with a copy button.** `.cm-codebar` (the wrapper that gives a
+  `<pre>` a label row and a home for a control), `.cm-copy` (the button) and
+  `.cm-copy__state` (a reserved-width glyph slot), plus a `<CodeBlock>` Astro
+  component. The runtime has bound `[data-cm-copy]` since it shipped and every
+  consumer has it vendored, but **not one page in the fleet had a button
+  using it** - a capability that cannot be reached is not a capability. The
+  copy control is composed from `.cm-btn .cm-btn--sm` rather than a parallel
+  button skin, so it inherits the tap floor and every button fix for free.
 - **CI.** `npm ci`, `npm run build`, `npm test` on the pve-scripts
   self-hosted runner, because the Actions minute budget on this account is
   exhausted and a GitHub-hosted runner will not start a job at all. A runner
   was registered for this repo; personal-account runners are per-repo.
+
+### Fixed
+- **One click copied twice.** `initCopy` was the only `init*` in the runtime
+  with no bind guard, and `init()` runs again on every `astro:page-load`, so
+  each run attached another click listener. Measured in WebKit at 390px:
+  after a re-`init`, one click on a copy button produced 2 clipboard writes.
+  It now carries `data-cm-copy-bound` like the burger, the tabs and the
+  dialogs.
+- **A successful copy was invisible.** The runtime has set `.is-copied` since
+  it shipped and the library had **no rule for it anywhere** - the label text
+  changed and the only feedback was the motion. The state now steps to
+  `--ink` on a `--bg-3` surface, a non-hue cue that survives greyscale. A
+  failure path got an `.is-error` class for the same reason.
+- **The copy button destroyed its own glyph slot.** The runtime wrote
+  `btn.textContent = 'copied'`, which replaces the button's children, so a
+  button carrying a reserved glyph lost it on the first copy and could never
+  get it back. The label is now written into a `[data-cm-copy-label]` slot,
+  and the button keeps its tick.
 
 ### Fixed
 - **The repo only worked on the machine it was written on.** A clone

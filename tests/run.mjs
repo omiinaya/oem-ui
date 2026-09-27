@@ -3911,6 +3911,37 @@ check('the glyph slot reserves its width, so the label never shifts', () => {
 		'the glyph slot is not centred, so the tick sits off the word');
 });
 
+check('the code bar is symmetric, so the copy button is not hugging the edge', () => {
+	// `padding: 0 var(--space-2) 0 var(--space-4)` put the language label
+	// 16px from the bar's left edge and the copy button 8px from the
+	// right. Measured at 390px. Every element was individually placed
+	// and the bar still read as off-grid, because a row whose two ends
+	// have different insets has no rail to sit on.
+	//
+	// A `padding` shorthand with a THREE-value form is the shape of this
+	// bug: `0 X 0 Y` looks like a deliberate override and is really an
+	// asymmetry. Reject that form outright rather than testing the two
+	// numbers, so a retune of the token cannot reintroduce it.
+	const bar = /\.cm-codebar__bar\s*\{([^}]*)\}/.exec(comp);
+	assert(bar, '.cm-codebar__bar rule missing');
+	const pad = bar[1].match(/padding(?:-inline)?:\s*([^;]+)/);
+	assert(pad, '.cm-codebar__bar has no padding declaration');
+	const parts = pad[1].trim().split(/\s+/);
+	assert(parts.length !== 3,
+		`padding is "${pad[1].trim()}" — a three-value form is an asymmetric row`);
+	// CSS box shorthand: 1 value = all, 2 = V H, 3 = T H B, 4 = T R B L.
+	// The asymmetry only exists in the 3- and 4-value forms; a 2-value
+	// `0 var(--space-2)` is top/bottom 0, both sides --space-2, and is
+	// symmetric by definition.
+	if (parts.length === 4) {
+		assert(parts[1] === parts[3],
+			`left inset ${parts[1]} != right inset ${parts[3]}; the bar has no rail`);
+	}
+	// And it must come from the spacing scale, not a literal.
+	assert(/var\(--space-/.test(pad[1]),
+		`padding "${pad[1].trim()}" is a literal; spacing must come from --space-*`);
+});
+
 check('the code bar corners come from the radius token', () => {
 	// A hardcoded 4px here measures fine and is a rebrand bug: retune
 	// --radius-sm and this bar keeps the old corner while every other
@@ -3956,13 +3987,31 @@ check('the copy button is a real button a keyboard can reach', () => {
 	// It is a <button type="button">, so it is focusable, fires on Enter
 	// and Space, and is not submitted as part of a form. A div with a click
 	// handler reaches none of that.
-	assert(/<button/.test(cb) && /type="button"/.test(cb),
-		'the copy control is not a <button type="button">');
+	const cbTags = read('src/astro/CodeBlock.astro')
+		.replace(/\/\*[\s\S]*?\*\//g, '')
+		.replace(/^\s*\/\/.*$/gm, '');
+	// COMMENT-STRIPPED, and this is not optional. The doc comment above the
+	// markup explains that the control is a <button type="button">, so both
+	// `/<button/` and `/type="button"/` matched the PROSE: deleting the whole
+	// element left this check green. It was reading the explanation of the
+	// thing instead of the thing - the same trap the aria-invalid doc
+	// comment set, and the same reason the CSS checks strip comments before
+	// matching source.
+	assert(/<button[\s>]/.test(cbTags),
+		'the copy control is not a <button>; it must be focusable and fire on Enter/Space for free');
+	// `type="button"` must be ON the tag, not merely somewhere in the file,
+	// or a copy button inside a form submits it.
+	const btnTag = /<button[\s\S]*?>/.exec(cbTags);
+	assert(btnTag, 'could not parse the copy button tag');
+	assert(/type="button"/.test(btnTag[0]),
+		'the copy button has no type="button", so it submits a form it sits inside');
+	assert(!/<(div|span)[^>]*data-cm-copy[\s=]/.test(cbTags),
+		'the copy control is a div/span, not a button element');
 	// The glyph slot is decorative and must not be announced.
-	assert(/class="cm-copy__state" aria-hidden="true"/.test(cb),
+	assert(/class="cm-copy__state" aria-hidden="true"/.test(cbTags),
 		'the glyph slot is not aria-hidden, so a screen reader reads the tick');
 	// The <pre> scrolls, so it must be focusable for a keyboard user.
-	assert(/<pre id=\{id\} tabindex="0">/.test(cb),
+	assert(/<pre id=\{id\} tabindex="0">/.test(cbTags),
 		'the scrollable <pre> is not focusable, so a keyboard cannot scroll it');
 });
 
