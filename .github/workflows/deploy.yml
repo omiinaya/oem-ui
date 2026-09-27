@@ -1,0 +1,60 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  # Allows a manual re-deploy without pushing a commit.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a new push supersede an in-flight deploy rather than queueing behind it.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: [self-hosted, linux, x64, pve-scripts]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # Failing the deploy on a broken contract keeps a bad build from ever
+      # reaching the published showcase.
+      - name: Contract tests
+        run: npm test
+
+      - name: Build
+        # Served from the GitHub Pages fallback URL
+        # (omiinaya.github.io/oem-ui/), so a path prefix applies. If a custom
+        # domain ever goes live it is served from its own root and both values
+        # become SITE_URL=<domain> and SITE_BASE=/ — change them as a pair.
+        env:
+          SITE_URL: https://omiinaya.github.io
+          SITE_BASE: /oem-ui/
+        run: npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: [self-hosted, linux, x64, pve-scripts]
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

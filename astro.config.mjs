@@ -5,8 +5,13 @@ import { defineConfig } from 'astro/config';
 // Everything it renders comes out of ./src (the library itself), so a
 // successful `npm run build` is a real compile of every component.
 export default defineConfig({
-	site: 'https://oem-ui.example.com',
-	base: '/',
+	// The showcase is published on GitHub Pages, which serves it from
+	// /oem-ui/ on the Pages fallback host, so `base` MUST match that path or
+	// every asset 404s. Both values are env-driven so a future custom domain
+	// is a two-value change (SITE_URL + SITE_BASE=/) and nothing else. The
+	// defaults keep the local LAN preview working with no environment set.
+	site: process.env.SITE_URL ?? 'http://localhost:4321',
+	base: process.env.SITE_BASE ?? '/',
 	outDir: './dist',
 	build: { format: 'directory' },
 	// The dev/preview servers bind 0.0.0.0 so the showcase is reachable
