@@ -9,6 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`.cm-lede`, `.cm-split` and `.cm-back`, plus a measure scale.**
+
+  Three page shapes the library did not own and every consumer had
+  re-implemented with its own numbers. oem-portfolio carried a 348-line
+  `global.css` holding `max-width: 68ch`, `max-width: 58ch` and a
+  `grid-template-columns: 1.6fr 1fr`, none of them named; this library
+  had `34ch` typed inline in a single rule. A measure is a property of
+  the type, not of a component, so it now has tokens:
+
+  | token | value | for |
+  |---|---|---|
+  | `--measure` | `68ch` | a reading column — prose, and the lede |
+  | `--measure-narrow` | `34ch` | one compact block that must not re-wrap |
+
+  Declared once in `:root` and the same in both themes, so light and dark
+  cannot silently disagree about how long a line is. `.cm-state__body`
+  now reads `var(--measure-narrow)` instead of its own `34ch`.
+
+  The split's two decisions are baked in rather than left open: it
+  **stacks below 700px** (two columns of text on a phone is two
+  unreadable columns, so the single-column rule is the default and the
+  two-column rule sits inside a `min-width` query), and the columns are
+  **`1.6fr / 1fr`**, because the aside holds a label and a value and at
+  `1fr` the aside starts wrapping its own values.
+
+  Mutation-checked: `tests/mutate-layout.mjs`, **8 killed, 0 missed,
+  0 no-op** — including dropping the token, redeclaring it per theme,
+  restoring the raw `ch` literal, un-stacking the split, lifting the
+  two-column rule out of its query, and deleting each new rule outright.
+
+  Two of those mutants first reported MISSED, and both times the bug was
+  in the test, not the code. A class was "defined" if its name appeared
+  anywhere in the file, which a **compound selector**
+  (`.cm-back:hover .cm-back__arrow {`) and an **explanatory comment**
+  both satisfied, so deleting the whole rule left the suite green. The
+  check now walks the rules and requires a class to be a selector on its
+  own. A substring search for "is this class defined" is a test that
+  stops testing the moment a comment is written well.
+
 - **The drift checker now verifies a vendored layer is actually loaded.**
   It compared bytes and nothing else, so it reported `in sync` for a week
   on a project that had all four files vendored and imported none of them:

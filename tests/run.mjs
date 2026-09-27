@@ -1307,6 +1307,107 @@ check('every class the showcase demonstrates is defined in the library', () => {
 	}
 });
 
+/* ================= page-shape layout ================= */
+console.log('\npage-shape layout');
+const LAYOUT_CLASSES = ['cm-lede', 'cm-split', 'cm-split__aside', 'cm-back', 'cm-back__arrow'];
+
+/* True iff some rule in `css` actually DECLARES `cls`.
+ *
+ * A substring search is not "defined". The name also occurs inside a
+ * COMPOUND selector (`.cm-back:hover .cm-back__arrow`) and inside the
+ * explanatory comments, and both scored as a definition: the mutation
+ * check deleted the whole rule and the suite stayed green twice. So
+ * this walks the rules, and requires the class to be a selector on its
+ * own. A selector containing a space needs an ANCESTOR, which means the
+ * class is being styled conditionally rather than defined here.
+ */
+function isDeclared(css, cls) {
+	const bare = new RegExp(`^\\.${cls}(?![\\w-])$`);
+	for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g)) {
+		const sel = m[1].trim();
+		if (sel.startsWith('@')) continue; // at-rule prelude, not a selector
+		for (const part of sel.split(',')) {
+			const one = part.trim();
+			if (one && !/\s/.test(one) && bare.test(one)) return true;
+		}
+	}
+	return false;
+}
+
+/* The set of classes the showcase actually puts on an element. Parsed by
+   splitting the ATTRIBUTE on whitespace rather than by matching a token
+   with `\b`: `_` is a word character in JS regex, so `\bcm-back__arrow\b`
+   silently fails to match inside a longer name. The mutation check caught
+   exactly that: the test stayed green with the class undefined. */
+const demoedClasses = new Set(
+	[...showcase.matchAll(/class="([^"]*)"/g)].flatMap((m) => m[1].split(/\s+/).filter(Boolean)),
+);
+
+check('the page-shape classes are defined and demonstrated', () => {
+	for (const c of LAYOUT_CLASSES) {
+		// "Appears somewhere in the file" is NOT "is defined". A class name
+		// also occurs inside a COMPOUND selector (`.cm-back:hover
+		// .cm-back__arrow`) and inside the explanatory comments, and a
+		// substring search scored both as a definition: the mutation check
+		// deleted the whole rule and the suite stayed green. Require a real
+		// declaration - the class immediately followed by a block - in
+		// comment-stripped source.
+		assert(isDeclared(compSrc, c),
+			`.${c} is used by the showcase but components.css never defines a rule for it`);
+		assert(demoedClasses.has(c),
+			`.${c} is defined in the library but the showcase never demonstrates it`);
+	}
+});
+
+check('the measure tokens are declared once, in :root, and theme-independent', () => {
+	for (const name of ['--measure', '--measure-narrow']) {
+		const all = [...tokenSrc.matchAll(new RegExp(`${name}\\s*:`, 'g'))];
+		assert(all.length === 1, `${name} is declared ${all.length} times; it must exist once in :root`);
+	}
+	// A measure is a property of the font, not of a theme. Redeclaring it
+	// per theme would let light and dark silently disagree about how long a
+	// line is, which is exactly the "0 violations by two themes" trap.
+	const themed = [...tokenSrc.matchAll(/(data-theme[^{]*)\{([^}]*)\}/g)]
+		.flatMap(m => [...m[2].matchAll(/--(?:measure)[\w-]*\s*:/g)]);
+	assert(themed.length === 0, 'a measure token is redeclared inside a theme block');
+});
+
+check('a page-shape width comes from a measure token, not a typed ch literal', () => {
+	// The failure this catches is the one that shipped: a consumer (and
+	// once this library) wrote `max-width: 34ch` inline, so the reading
+	// width was a number in a rule instead of a named decision in the
+	// scale. `ch` is only legal in tokens.css.
+	const css = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	const literals = [...css.matchAll(/\b(max|min)-width:\s*([\d.]+)ch\b/g)];
+	assert(literals.length === 0,
+		`a component hardcodes a measure in ch (${literals.map(m => m[0]).join(', ')}); use var(--measure)`);
+	// ...and the showcase must not reintroduce one either.
+	const demo = showcase.slice(showcase.indexOf('id="layout"'));
+	const end = demo.search(/<section id="/);
+	const block = end > 0 ? demo.slice(0, demo.indexOf('id="', 10)) : demo;
+	const demoLiterals = [...block.matchAll(/\b(max|min)-width:\s*([\d.]+)ch\b/g)];
+	assert(demoLiterals.length === 0,
+		`the layout specimen hardcodes a measure (${demoLiterals.map(m => m[0]).join(', ')})`);
+});
+
+check('the split stacks below its breakpoint, on purpose', () => {
+	// Two columns of text on a phone is two unreadable columns, so the
+	// single-column rule is the default and the two-column rule lives
+	// inside a min-width query. Reversing that (1fr by default at wide,
+	 // stack at narrow) is the regression: it silently ships two cramped
+	// columns to every phone.
+	const block = comp.slice(comp.indexOf('.cm-split {'), comp.indexOf('.cm-split__aside'));
+	assert(/grid-template-columns:\s*1fr\s*;/.test(block),
+		'.cm-split must default to a single column, so it stacks before the breakpoint');
+	const mq = comp.slice(comp.indexOf('@media (min-width: 700px)'));
+	assert(/grid-template-columns:\s*1\.6fr 1fr/.test(mq),
+		'the wide case of .cm-split must be inside a min-width query and be 1.6fr/1fr');
+	// The breakpoint must not be a raw px in a second place; it is the
+	// one value the two rules share.
+	assert((comp.match(/min-width:\s*700px/g) || []).length === 1,
+		'the split breakpoint must be declared in exactly one media query');
+});
+
 /* ================= drift guard ================= */
 console.log('\ndrift guard');
 check('ships an executable drift checker', () => {

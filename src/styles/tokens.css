@@ -23,6 +23,21 @@
 	--radius: 10px;
 	--radius-sm: 6px;
 
+	/* ---- measure (line length) ----------------------------------
+	   A width in `ch` against the monospace font, so a line's character
+	   count is the thing being decided rather than an accident of the
+	   container. Two widths are genuinely different jobs, and both
+	   existed as raw numbers in a consumer:
+	     --measure       a reading column, the one prose sits in
+	     --measure-narrow a single compact block (a status line, a
+	                      definition body) that must not be re-wrapped
+	   Declared here rather than per component because a measure is a
+	   property of TYPE, not of a component: a consumer that invents its
+	   own is how oem-portfolio ended up with 34ch, 58ch and 68ch
+	   literals in one file, none of them named. */
+	--measure: 68ch;
+	--measure-narrow: 34ch;
+
 	/* Widest colour swatch: the chip (1.4em) + its gap + the longest token
 	   name in the system at --min-font. Sized once, from the tokens. */
 	--swatch-col: calc(1.4em + var(--space-2) + 15ch);

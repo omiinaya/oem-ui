@@ -52,6 +52,7 @@ import { SITE } from '../astro/config';
 				{ href: '#records', label: 'records' },
 				{ href: '#cards', label: 'cards' },
 				{ href: '#prose', label: 'prose' },
+				{ href: '#layout', label: 'layout' },
 				{ href: '#forms', label: 'forms' },
 				{ href: '#readme', label: 'readme' },
 			]}
@@ -756,6 +757,79 @@ import { SITE } from '../astro/config';
 						<pre><code>{`:root { --maxw: 860px; --gutter: 1.25rem; }`}</code></pre>
 					</div>
 				</article>
+			</section>
+			<!-- ==================================================== layout
+			     The two page shapes that are not a single column: a lede
+			     under the head, and a main block with a metadata aside.
+			     Both were hand-rolled per consumer with a raw `ch` in
+			     each file, so a change to reading measure never reached
+			     any of them. The specimens below are drawn FROM the
+			     tokens they document. -->
+			<section id="layout" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+				<h2>layout</h2>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
+					<code>.cm-lede</code> is the opening sentence under a page
+					head, and <code>.cm-split</code> puts a metadata column beside
+					a content block. The measure comes from
+					<code>--measure</code>, not a number typed next to it, so
+					changing the reading width is a token change. The split
+					stacks below 700px on purpose: two columns of text on a
+					phone is two unreadable columns.
+				</p>
+
+				<div class="cm-spec" style="margin-bottom:var(--space-6)">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--measure</code></span>
+						<span class="cm-spec__sample"><span class="cm-lede" style="margin:0">The widest a reading column gets, in characters.</span></span>
+						<span class="cm-spec__val"><code>68ch</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--measure-narrow</code></span>
+						<span class="cm-spec__sample"><span class="cm-lede" style="margin:0;max-width:var(--measure-narrow)">A compact block, not re-wrapped.</span></span>
+						<span class="cm-spec__val"><code>34ch</code></span>
+					</div>
+				</div>
+
+				<h3 class="cm-kicker cm-kicker--plain">lede</h3>
+				<p class="cm-lede">
+					Read this before the rest. It is wider and dimmer than the
+					body text, so the eye takes the sentence in once and then
+					moves down to the content instead of reading the page twice.
+				</p>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">split</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-4)">
+					The main block and the aside below are the same DOM at every
+					width; only the column count changes. Narrow the window past
+					700px and the aside drops under the content rather than
+					squeezing beside it.
+				</p>
+				<div class="cm-split">
+					<div>
+						<p style="margin-top:0">
+							The main column keeps the reading measure and takes the
+							wider share of the two. Nothing about it changes shape
+							across the breakpoint, so the paragraph you read on a
+							phone is the paragraph you read on a desktop.
+						</p>
+						<p>
+							A second paragraph, so the column is taller than a single
+							block of text and the gap between the columns is doing
+							visible work.
+						</p>
+					</div>
+					<aside class="cm-split__aside">
+						<dl class="cm-kv">
+							<dt>role</dt><dd>engineer</dd>
+							<dt>since</dt><dd>2014</dd>
+							<dt>based</dt><dd>remote</dd>
+						</dl>
+						<a class="cm-back" href="#layout">
+							<span class="cm-back__arrow" aria-hidden="true">&#8592;</span>
+							<span>back to layout</span>
+						</a>
+					</aside>
+				</div>
 			</section>
 
 			<section id="readme" class="cm-section cm-section--pad">

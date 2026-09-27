@@ -478,6 +478,67 @@ html {
 .cm-prose a { color: var(--ink-dim); }
 .cm-prose a:hover { color: var(--ink); }
 
+/* ---------- lede ----------
+   The sentence directly under a page head. It is the first thing read
+   on the page, so it gets the widest measure and the most generous
+   leading, and it is dimmer than the body so the eye reads past it
+   to the content. Owned here rather than per consumer: this exact
+   paragraph exists in three projects, and a consumer's own copy is a
+   second implementation that no library fix can reach. */
+.cm-lede {
+	max-width: var(--measure);
+	font-size: max(var(--min-font), 1rem);
+	line-height: 1.75;
+	color: var(--ink-dim);
+	margin: 0 0 var(--space-5);
+}
+
+/* ---------- split: main + aside ----------
+   A wide content block with a narrow metadata column beside it. This
+   is the one two-column layout the system needed, and the decision
+   is baked in: it stacks on a phone. Two columns of text at 390px is
+   two unreadable columns, so there is no "wide phone" case to
+   preserve - the breakpoint exists because the layout is wrong there,
+   not because the screen is small.
+
+   The columns are 1.6fr / 1fr, NOT 2fr/1fr: the aside is a label and
+   a value, and at 1fr it starts wrapping its own values. */
+.cm-split {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: var(--space-6);
+	align-items: start;
+}
+.cm-split__aside { min-width: 0; }
+/* The aside stacks its own blocks, so a consumer adding a second
+   definition list does not have to re-derive the sibling margin. */
+.cm-split__aside > * + * { margin-top: var(--space-5); }
+
+@media (min-width: 700px) {
+	.cm-split {
+		grid-template-columns: 1.6fr 1fr;
+		gap: var(--space-7);
+	}
+}
+
+/* ---------- back link ----------
+   "← back" above a detail page. A tap target in its own right, so it
+   takes the --tap floor on a coarse pointer, and the arrow is its
+   own element so it can slide without the label moving with it. */
+.cm-back {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2);
+	color: var(--ink-dim);
+	text-decoration: none;
+}
+.cm-back:hover { color: var(--ink); }
+.cm-back__arrow {
+	transition: transform var(--cm-t) var(--cm-ease);
+}
+.cm-back:hover .cm-back__arrow,
+.cm-back:focus-visible .cm-back__arrow { transform: translateX(-0.2em); }
+
 @media (max-width: 680px) {
 	.cm-rows--inline .cm-row__desc,
 	.cm-rows--inline .cm-row__meta { display: none; }
@@ -602,7 +663,7 @@ html {
 	font-size: var(--min-font);
 }
 .cm-state__title { color: var(--ink); margin: 0 0 var(--space-2); }
-.cm-state__body { margin: 0 auto; max-width: 34ch; color: var(--ink-dim); }
+.cm-state__body { margin: 0 auto; max-width: var(--measure-narrow); color: var(--ink-dim); }
 .cm-state__actions {
 	margin-top: var(--space-5);
 	display: flex; gap: var(--space-2); justify-content: center; flex-wrap: wrap;

@@ -533,6 +533,44 @@ The bar is a picture of a number, so the number has to exist as text and
 the picture has to come from it. A `--cm-meter-fill` set independently of
 the printed value is a chart that disagrees with its own caption.
 
+### Page shapes
+
+```html
+<p class="cm-lede">The opening sentence under a page head.</p>
+
+<div class="cm-split">
+  <div>the main block</div>
+  <aside class="cm-split__aside">
+    <dl class="cm-kv"><dt>role</dt><dd>engineer</dd></dl>
+    <a class="cm-back" href="/"><span class="cm-back__arrow" aria-hidden="true">&larr;</span><span>back</span></a>
+  </aside>
+</div>
+```
+
+`.cm-lede` is wider and dimmer than body text, and `.cm-split` puts a
+metadata column beside a content block. Two decisions are baked in
+rather than left to the consumer:
+
+- **The split stacks below 700px.** Two columns of text on a phone is
+  two unreadable columns, so the single-column rule is the default and
+  the two-column rule lives inside a `min-width` query.
+- **The columns are `1.6fr / 1fr`, not `2fr / 1fr`.** The aside holds a
+  label and a value, and at `1fr` the aside starts wrapping its own
+  values.
+
+Both take their width from the measure scale rather than a number:
+
+| token | value | for |
+|---|---|---|
+| `--measure` | `68ch` | a reading column — prose, and the lede |
+| `--measure-narrow` | `34ch` | one compact block that must not re-wrap |
+
+A measure is a property of the type, not of a component, so it is
+declared once in `:root` and is the same in both themes. Writing
+`max-width: 68ch` in a rule instead is the bug this replaces: a
+consumer that invents its own measure is a second implementation no
+library fix can reach.
+
 ### Everything else
 
 ```html
