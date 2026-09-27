@@ -21,6 +21,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A foundation section that documents the design language.** Colour
+  swatches, the type scale, the eleven-step spacing scale and shape/motion
+  specimens, each rendered from the token it documents rather than typed
+  beside it: a swatch paints `var(--ink-dim)`, a spacing bar is
+  `width: var(--space-N)`. `.cm-swatch` and `.cm-spec` are library
+  components, so a consumer can document its own tokens the same way.
+- `--swatch-col`, the swatch column floor, derived from the font
+  (`1.4em + --space-2 + 15ch`) rather than a magic rem value, so a token
+  name that is longer than any we have today still fits its column.
+
+### Fixed
+
+- **`--space-05` renamed to `--space-0`.** A zero-padded first step next
+  to plain `1` read as a different scale. The specimen table is what made
+  it obvious. The step list and the spacing tests now parse the scale out
+  of `tokens.css` instead of restating its names, so a rename cannot break
+  them.
+- **A token name could be truncated in a swatch.** `--accent-bright`
+  rendered as `--accent-bri…`. The chip is now font-relative and the label
+  never wraps or ellipsises: a token name is either shown whole or the
+  specimen is not a specimen of anything.
+- **A specimen row's value pill claimed the whole line once it wrapped**,
+  so `--space-10` ballooned to 283px and made its own row taller for no
+  reason. It now keeps the width its text needs.
+- **The foundation section set `margin-bottom: 1.8rem` inline**, a
+  spacing value that is not on the scale, in the one block whose job is to
+  prove the scale is used. Now `var(--space-7)`.
+
+### Added
+
 - **Per-project theme storage key.** `<html data-cm-theme-key="...">`
   selects the localStorage key, and `data-cm-theme-legacy="a,b"` lists
   any key the site used before. A value found under an old key is
@@ -61,7 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **A spacing scale: `--space-05` … `--space-10`** (0.125 → 6rem), the only
+- **A spacing scale: `--space-0` … `--space-10`** (0.125 → 6rem), the only
   legal vertical and inline rhythm. The two layers previously carried **69
   distinct spacing values**, which is why two heroes built a week apart
   could not share a rhythm and why a tightened gap was indistinguishable

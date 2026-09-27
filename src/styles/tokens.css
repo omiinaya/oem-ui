@@ -23,6 +23,10 @@
 	--radius: 10px;
 	--radius-sm: 6px;
 
+	/* Widest colour swatch: the chip (1.4em) + its gap + the longest token
+	   name in the system at --min-font. Sized once, from the tokens. */
+	--swatch-col: calc(1.4em + var(--space-2) + 15ch);
+
 	/* ---- spacing scale -----------------------------------------
 	   The ONLY legal vertical and inline rhythm. Before this existed the
 	   two layers carried 69 distinct spacing values (0.15rem .. 6rem),
@@ -40,7 +44,7 @@
 	   3     48px   between page sections
 	   4     64px   above a top-of-page head
 	   6     96px   page-level breathing room  */
-	--space-05: 0.125rem;
+	--space-0: 0.125rem;
 	--space-1: 0.25rem;
 	--space-2: 0.5rem;
 	--space-3: 0.75rem;

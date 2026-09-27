@@ -51,8 +51,150 @@ import { SITE } from '../astro/config';
 				css, js and astro components verified. build-testable.
 			</StatusStrip>
 
-			<section id="foundation" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
+			<!-- ==================================================== foundation
+			     Every specimen below is rendered FROM the token it documents
+			     (var(--ink), var(--space-4), and so on) rather than from a
+			     hardcoded value pasted alongside. A specimen that disagreed
+			     with its own token would be worse than no specimen, and a
+			     test asserts the wiring. -->
+			<section id="foundation" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
 				<h2>foundation</h2>
+				<p class="cm-head__sub">
+					The design language, shown as specimens. Every value here is
+					rendered from the token it documents, so this page cannot
+					drift away from the system it demos.
+				</p>
+
+				<h3>colour</h3>
+				<p class="cm-head__sub">
+					Greyscale only. There is no chroma anywhere in the system,
+					so hierarchy is carried by weight, size and contrast - never
+					by hue. <code>--ink-faint</code> is the one to watch: it is
+					the dimmest text we allow, and it still clears WCAG AA.
+				</p>
+				<ul class="cm-swatch" role="list">
+					<li class="cm-swatch__item">
+						<span class="cm-swatch__chip" style="background:var(--bg)"></span>
+						<span class="cm-swatch__meta"><code>--bg</code></span>
+					</li>
+					<li class="cm-swatch__item">
+						<span class="cm-swatch__chip" style="background:var(--panel)"></span>
+						<span class="cm-swatch__meta"><code>--panel</code></span>
+					</li>
+					<li class="cm-swatch__item">
+						<span class="cm-swatch__chip" style="background:var(--line)"></span>
+						<span class="cm-swatch__meta"><code>--line</code></span>
+					</li>
+					<li class="cm-swatch__item">
+						<span class="cm-swatch__chip" style="background:var(--ink)"></span>
+						<span class="cm-swatch__meta"><code>--ink</code></span>
+					</li>
+					<li class="cm-swatch__item">
+						<span class="cm-swatch__chip" style="background:var(--ink-dim)"></span>
+						<span class="cm-swatch__meta"><code>--ink-dim</code></span>
+					</li>
+					<li class="cm-swatch__item">
+						<span class="cm-swatch__chip" style="background:var(--ink-faint)"></span>
+						<span class="cm-swatch__meta"><code>--ink-faint</code></span>
+					</li>
+					<li class="cm-swatch__item">
+						<span class="cm-swatch__chip" style="background:var(--accent-bright)"></span>
+						<span class="cm-swatch__meta"><code>--accent-bright</code></span>
+					</li>
+				</ul>
+
+				<h3>type</h3>
+				<p class="cm-head__sub">
+					One family, everywhere: that is the identity. Sizes are set in
+					<code>rem</code> against a 16px root; the floor is
+					<code>--min-font</code>, below which we never render text.
+				</p>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>h1</code></span>
+						<span class="cm-spec__sample" style="font-size:2.1rem">Aa</span>
+						<span class="cm-spec__val"><code>2.1rem · 33.6px</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>h2</code></span>
+						<span class="cm-spec__sample" style="font-size:1.45rem">Aa</span>
+						<span class="cm-spec__val"><code>1.45rem · 23.2px</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>h3</code></span>
+						<span class="cm-spec__sample" style="font-size:1.2rem">Aa</span>
+						<span class="cm-spec__val"><code>1.2rem · 19.2px</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>body</code></span>
+						<span class="cm-spec__sample" style="font-size:1rem">Aa</span>
+						<span class="cm-spec__val"><code>1rem · 16px</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>small</code></span>
+						<span class="cm-spec__sample" style="font-size:max(var(--min-font), 0.82rem)">Aa</span>
+						<span class="cm-spec__val"><code>--min-font floor · 13.1px</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>floor</code></span>
+						<span class="cm-spec__sample" style="font-size:var(--min-font)">Aa</span>
+						<span class="cm-spec__val"><code>--min-font · 12px, the minimum</code></span>
+					</div>
+				</div>
+
+				<h3>spacing</h3>
+				<p class="cm-head__sub">
+					Eleven steps, and no raw <code>rem</code> anywhere in the
+					layers. A gap that is not on this scale is the bug that made
+					oem-links' hero weld its eyebrow to its title.
+				</p>
+				<div class="cm-spec">
+					{[
+						['--space-0', '0.125rem', '2px'],
+						['--space-1', '0.25rem', '4px'],
+						['--space-2', '0.5rem', '8px'],
+						['--space-3', '0.75rem', '12px'],
+						['--space-4', '1rem', '16px'],
+						['--space-5', '1.25rem', '20px'],
+						['--space-6', '1.5rem', '24px'],
+						['--space-7', '2rem', '32px'],
+						['--space-8', '3rem', '48px'],
+						['--space-9', '4rem', '64px'],
+						['--space-10', '6rem', '96px'],
+					].map(([token, rem, px]) => (
+						<div class="cm-spec__row">
+							<span class="cm-spec__label"><code>{token}</code></span>
+							<span class="cm-spec__bar" style={`width:var(${token})`}></span>
+							<span class="cm-spec__val"><code>{rem} · {px}</code></span>
+						</div>
+					))}
+				</div>
+
+				<h3>shape &amp; motion</h3>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--radius</code></span>
+						<span class="cm-spec__chip" style="border-radius:var(--radius)"></span>
+						<span class="cm-spec__val"><code>10px</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--radius-sm</code></span>
+						<span class="cm-spec__chip" style="border-radius:var(--radius-sm)"></span>
+						<span class="cm-spec__val"><code>6px</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--tap</code></span>
+						<span class="cm-spec__chip cm-spec__chip--tap"></span>
+						<span class="cm-spec__val"><code>44px · the tap target floor</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--cm-t</code></span>
+						<span class="cm-spec__chip cm-spec__chip--motion"></span>
+						<span class="cm-spec__val"><code>0.12s · every transition</code></span>
+					</div>
+				</div>
+
+				<h3>layers</h3>
 				<dl class="cm-kv">
 					<dt>tokens</dt><dd><code>src/styles/tokens.css</code> (CSS vars, themes)</dd>
 					<dt>base</dt><dd><code>src/styles/base.css</code> (elements, prose, scrollbar)</dd>

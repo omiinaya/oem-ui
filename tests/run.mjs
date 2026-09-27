@@ -734,19 +734,26 @@ for (const f of ['README.md', 'LICENSE', 'AGENTS.md', 'CLAUDE.md', 'CONTRIBUTING
 
 /* ================= spacing scale ================= */
 console.log('\nspacing scale');
+// Read the scale out of tokens.css rather than restating it. A test that
+// hardcodes the step NAMES breaks on a rename, and a rename is exactly the
+// moment you least want the suite to be arguing about anything else.
+const scaleSteps = () => [...read('src/styles/tokens.css')
+	.matchAll(/--space-([\d]+):\s*([\d.]+)rem/g)]
+	.map(m => ({ name: m[1], rem: parseFloat(m[2]) }));
+
 check('declares the full --space-* scale', () => {
-	const t = read('src/styles/tokens.css');
-	const steps = ['05', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
-	for (const s of steps) {
-		assert(new RegExp(`--space-${s}:\\s*[\\d.]+rem;`).test(t),
-			`--space-${s} is not declared in tokens.css`);
+	const steps = scaleSteps();
+	assert(steps.length === 11, `expected 11 steps, found ${steps.length}`);
+	for (let i = 0; i < steps.length; i++) {
+		assert(steps[i].name === String(i),
+			`step ${i} is named --space-${steps[i].name}; the scale must run 0..10`);
+		assert(steps[i].rem > 0, `--space-${steps[i].name} has no length`);
 	}
 });
 
 check('the scale is monotonic and distinct', () => {
 	const t = read('src/styles/tokens.css');
-	const vals = [...t.matchAll(/--space-(?:05|1|2|3|4|5|6|7|8|9|10):\s*([\d.]+)rem/g)]
-		.map(m => parseFloat(m[1]));
+	const vals = scaleSteps().map(s => s.rem);
 	assert(vals.length === 11, `expected 11 steps, parsed ${vals.length}`);
 	for (let i = 1; i < vals.length; i++) {
 		assert(vals[i] > vals[i - 1],
@@ -785,7 +792,7 @@ check('the scale is theme-independent, declared once in :root', () => {
 	// :root block only. A step redeclared in a theme block would let the two
 	// themes drift apart on rhythm, which is the bug the scale exists to stop.
 	const t = read('src/styles/tokens.css').replace(/\/\*[\s\S]*?\*\//g, '');
-	assert([...t.matchAll(/--space-(?:05|1|2|3|4|5|6|7|8|9|10):/g)].length === 11,
+	assert([...t.matchAll(/--space-[\d]+:/g)].length === 11,
 		'expected exactly 11 --space-* declarations across the file');
 	// Find the :root block and every theme block, then assert the space
 	// tokens live only in :root.
@@ -957,6 +964,63 @@ check('the runtime reads its key from <html> and can migrate an old one', () => 
 	);
 });
 
+/* ================= the design language is documented ================= */
+console.log('\ndesign language');
+const tokenSrc = read('src/styles/tokens.css').replace(/\/\*[\s\S]*?\*\//g, '');
+const compSrc = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+const showcase = read('src/pages/index.astro');
+
+check('the spacing scale is a run: 0,1,2…10 with no gaps or strays', () => {
+	const names = [...tokenSrc.matchAll(/--space-(\S+?):/g)].map(m => m[1]);
+	assert(names.length === 11, `expected 11 steps, found ${names.length}: ${names}`);
+	const expect = [...Array(11).keys()].map(String);
+	assert(JSON.stringify(names) === JSON.stringify(expect),
+		`steps must read 0,1,2…10 in order, found ${names.join(',')}`);
+	// A leading-zero name like `05` next to plain `1` is a real hazard: the two
+	// sort and read as different scales. That is exactly what shipped.
+	assert(!names.some(n => n.length > 1 && n[0] === '0'),
+		`no step may be zero-padded: ${names}`);
+});
+
+check('every specimen in the showcase is rendered from a token, not typed', () => {
+	const f = showcase.slice(showcase.indexOf('id="foundation"'),
+		showcase.indexOf('id="buttons"'));
+	// spacing: the bar must be width:var(--space-N), the value text is data
+	assert(f.includes("['--space-0', '0.125rem', '2px']"), 'space-0 specimen missing');
+	assert(/width:\s*var\(\$\{token\}\)/.test(f) && /class="cm-spec__bar"/.test(f),
+		'spacing bars must be drawn from the token they name, not a literal px value');
+	const specRows = f.match(/\['--space-\d+',/g) || [];
+	assert(specRows.length === 11, `all 11 steps must be listed, found ${specRows.length}`);
+	// swatches: the chip must paint the token it names
+	const chips = f.match(/background:\s*var\(--[\w-]+\)/g) || [];
+	assert(chips.length >= 7, `swatch chips must paint their token, found ${chips.length}`);
+	// type scale: each sample must set the size from a token
+	assert(/font-size:\s*var\(--/.test(f),
+		'type specimens must render their size from a token, not a literal rem');
+	assert(/font-size:\s*var\(--min-font\)/.test(f),
+		'the type scale must show the --min-font floor as a specimen');
+	// and one hardcoded spacing value in the block would defeat the whole point.
+	// The slice has to reach back to the section's own opening tag: an inline
+	// style on <section> or its heading sits BEFORE the id, and that is exactly
+	// where a stray `margin-bottom:1.8rem` hid while this test passed.
+	const start = showcase.lastIndexOf('<section', showcase.indexOf('id="foundation"'));
+	const whole = showcase.slice(start, showcase.indexOf('id="buttons"'));
+	const raw = whole.match(/(?:padding|margin|gap)[a-z-]*:[\d.]+(?:px|rem)\b/g) || [];
+	assert(raw.length === 0, `foundation must not hardcode spacing, found: ${raw.join(', ')}`);
+});
+
+check('a token name can never be truncated in a swatch', () => {
+	assert(/white-space:\s*nowrap/.test(compSrc), 'swatch labels must not wrap');
+	// and must not be elided either: an ellipsis renders a name that does not
+	// exist, which is the same defect wearing a different hat
+	const swatchBlock = compSrc.slice(compSrc.indexOf('.cm-swatch__meta'),
+		compSrc.indexOf('.cm-spec {'));
+	assert(!/text-overflow:\s*ellipsis/.test(swatchBlock),
+		'swatch labels must not ellipsise; size the chip off the font instead');
+	assert(/\.cm-swatch__chip\s*\{[^}]*width:\s*[\d.]+em/.test(compSrc),
+		'the swatch chip must be font-relative so a long name still fits');
+});
+
 /* ================= shared row surface ================= */
 console.log('\nrow surface (migrated from oem-links)');
 check('the row icon slot exists and is a fixed-width centred box', () => {
@@ -973,7 +1037,7 @@ check('a column row stacks title over desc with a tight gap', () => {
 	const css = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
 	assert(/\.cm-rows--column \.cm-row__body\s*\{[^}]*flex-direction:\s*column/.test(css),
 		'.cm-rows--column must stack the row body in a column');
-	assert(/\.cm-rows--column \.cm-row__body\s*\{[^}]*gap:\s*var\(--space-05\)/.test(css),
+	assert(/\.cm-rows--column \.cm-row__body\s*\{[^}]*gap:\s*var\(--space-0\)/.test(css),
 		'the stacked body must use a scale step for its gap, not a raw value');
 });
 

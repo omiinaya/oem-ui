@@ -12,10 +12,10 @@ runtime, and optional Astro components you can copy in.
 ## Spacing
 
 **Never write a raw `rem`/`px` spacing value.** The system owns one scale,
-`--space-05` (2px) through `--space-10` (96px), and a test rejects any
+`--space-0` (2px) through `--space-10` (96px), and a test rejects any
 other number in `base.css` or `components.css`.
 
-- `--space-05` `0.125rem` 2px — hairline nudges, icon to label
+- `--space-0` `0.125rem` 2px — hairline nudges, icon to label
 - `--space-1` `0.25rem` 4px — tight stacks, inside a control
 - `--space-2` `0.5rem` 8px — **the default gap** between related items
 - `--space-3` `0.75rem` 12px — label to its value
@@ -349,3 +349,15 @@ component, it goes in `CHANGELOG.md`.
 ## License
 
 MIT
+
+## Documenting the design language
+
+The showcase's foundation section exists so the system can be read, not
+just copied: colour swatches, the type scale, every spacing step and the
+shape/motion tokens, each rendered from the token it documents. A swatch
+paints `var(--ink-dim)`; a spacing bar is `width: var(--space-N)`. Nothing
+in that block is typed as a literal, so the page cannot drift away from the
+system it demos — and a test enforces that.
+
+`.cm-swatch` and `.cm-spec` are library components, not showcase-local, so
+a consumer can document its own tokens the same way.

@@ -66,6 +66,115 @@
 	margin: 0;
 }
 
+/* ---- specimens (showcase only, but library-owned so a consumer can
+   document its own design language the same way) ---- */
+.cm-swatch {
+	list-style: none;
+	margin: 0 0 var(--space-6);
+	padding: 0;
+	display: grid;
+	/* auto-fill + minmax gives every column an EQUAL share. A token name is
+	   an arbitrary string, so the only way to guarantee the longest one fits
+	   is a floor sized from the label itself, not a magic number: --name is
+	   the width of the chip plus the longest token we document, and it lives
+	   in :root next to the tokens it measures so it cannot drift from them. */
+	grid-template-columns: repeat(auto-fill, minmax(var(--swatch-col), 1fr));
+	gap: var(--space-3);
+}
+.cm-swatch__item {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	min-width: 0;
+}
+/* The chip is drawn from the token itself, so a swatch cannot claim a
+   colour the system does not actually use. */
+.cm-swatch__chip {
+	/* The chip is sized off the font, so a swatch grid of long token names
+	   still fits its column. A fixed chip width plus a long name is how
+	   `--accent-bright` ended up rendered as `--accent-bri…`. */
+	width: 1.4em;
+	height: 1.4em;
+	flex: 0 0 auto;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+}
+.cm-swatch__meta {
+	min-width: 0;
+	/* No overflow, no ellipsis, no wrap: a token name is either shown whole
+	   or it is not a specimen of anything. The grid below gives the label
+	   enough room for the longest name in the system. */
+	white-space: nowrap;
+}
+
+.cm-spec {
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	overflow: hidden;
+	margin: 0 0 var(--space-6);
+}
+.cm-spec__row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	padding: var(--space-2) var(--space-3);
+	border-bottom: 1px solid var(--line);
+	min-height: var(--tap);
+}
+.cm-spec__row:last-child { border-bottom: 0; }
+.cm-spec__label { flex: 0 0 6.5rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cm-spec__sample { flex: 1; min-width: 0; line-height: 1.1; }
+.cm-spec__val { flex: 0 0 auto; text-align: right; }
+.cm-spec__bar {
+	height: 0.7rem;
+	flex: 0 0 auto;
+	max-width: 45%;
+	background: var(--ink-dim);
+	border-radius: 2px;
+}
+.cm-spec__chip {
+	width: 2.4rem;
+	height: 2.4rem;
+	flex: 0 0 auto;
+	border: 1px solid var(--line);
+	background: var(--panel);
+}
+/* The tap-target specimen is sized from the token in CSS, not inline, so the
+   bar it draws is the real floor rather than a number typed next to it. */
+.cm-spec__chip--tap { min-width: var(--tap); min-height: var(--tap); width: var(--tap); height: var(--tap); }
+.cm-spec__chip--motion { animation: cm-spec-pulse 1.2s var(--cm-ease) infinite alternate; }
+@keyframes cm-spec-pulse {
+	from { background: var(--panel); border-color: var(--line); }
+	to { background: var(--ink-dim); border-color: var(--ink-dim); }
+}
+@media (prefers-reduced-motion: reduce) {
+	.cm-spec__chip--motion { animation: none; }
+}
+/* On a phone the three columns will not fit: stack the label above the
+   sample and let the value sit on the same line as the label. */
+@media (max-width: 680px) {
+	/* Label and value share the first line; the specimen gets the second.
+	   A three-column row cannot fit 350px, and letting the label and value
+	   each take a line of their own left the specimen stranded. */
+	.cm-spec__row {
+		flex-wrap: wrap;
+		row-gap: var(--space-1);
+		column-gap: var(--space-3);
+	}
+	.cm-spec__label { flex: 0 1 auto; }
+	/* The value keeps only the width its text needs. flex:1 here would let a
+	   wrapping row's value claim the entire line, which is how --space-10's
+	   "6rem · 96px" ballooned to 283px and made its own row taller. */
+	.cm-spec__val { flex: 0 1 auto; text-align: right; margin-left: auto; }
+	.cm-spec__sample { flex: 1 0 100%; }
+	/* The bar must NOT stretch: its width IS the measurement. It keeps the
+	   label's line and starts at the label's left edge, so the scale still
+	   reads as a sequence of increasing lengths on a phone. */
+	.cm-spec__bar { flex: 0 0 auto; max-width: 100%; }
+	.cm-spec__chip { flex: 0 0 auto; }
+	.cm-spec__chip--tap { width: var(--tap); }
+}
+
 /* ---------- byline ---------- */
 .cm-byline {
 	display: flex;
@@ -287,7 +396,7 @@ html {
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
-	gap: var(--space-05);
+	gap: var(--space-0);
 }
 
 .cm-rows--column .cm-row__title {
@@ -404,7 +513,7 @@ html {
 /* Below this width the two columns starve the value cell (a file path gets
    ~118px and wraps through the middle of an identifier). Stack instead. */
 @media (max-width: 520px) {
-	.cm-kv { grid-template-columns: 1fr; gap: var(--space-05); }
+	.cm-kv { grid-template-columns: 1fr; gap: var(--space-0); }
 	.cm-kv dd { margin-bottom: var(--space-2); }
 	.cm-kv dt { font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
 	/* The chip is the label and the annotation is the detail. On one line
