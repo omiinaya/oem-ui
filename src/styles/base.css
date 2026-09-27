@@ -86,6 +86,18 @@ p {
 	text-wrap: balance;
 }
 
+/* Emphasis inside dim prose. A bare <strong> is the browser default, which
+   is colour-only: it renders dim text a shade brighter than its paragraph
+   and nothing else. In a system whose dim token is --ink-dim, that is a
+   ~1.6:1 nudge - unreadable as emphasis, and every consumer re-declared it
+   (oem-log did, in two separate pages, in two scoped blocks).
+
+   Weight is the cue that survives greyscale, and colour is the second one:
+   --ink against --ink-dim is the widest step the palette has, and it is the
+   SAME pair the row title uses against its description. An element default,
+   not a class, because a bare <strong> with no class on it is the case. */
+strong, b { color: var(--ink); font-weight: 700; }
+
 /* inline code */
 code {
 	font-family: var(--font-mono);

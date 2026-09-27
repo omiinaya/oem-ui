@@ -753,6 +753,15 @@ import { SITE } from '../astro/config';
 					<div class="cm-prose">
 						<h2>A heading</h2>
 						<p>oem-ui is the design language: sharp, flat, mono, high-contrast, dark by default. Transitions are <code>0.12s</code>, corners stay square, and borders do the lifting.</p>
+						<p>
+							Emphasis is an element default, not a class, so this <strong>bold
+							word</strong> needs nothing on it. It has to work as a bare tag because
+							that is how every consumer writes it — the browser's own default is
+							colour-only, and against <code>--ink-dim</code> prose that is a step too
+							small to read as emphasis. The library sets <code>--ink</code> and the
+							weight together, so it survives greyscale and clears 16:1 on the
+							surface behind it.
+						</p>
 						<blockquote>Only touch a line if you can explain why it moved. The layout must be stable between scrolling and non-scrolling pages.</blockquote>
 						<pre><code>{`:root { --maxw: 860px; --gutter: 1.25rem; }`}</code></pre>
 					</div>

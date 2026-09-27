@@ -1359,6 +1359,127 @@ check('the page-shape classes are defined and demonstrated', () => {
 	}
 });
 
+/** Like isDeclared, for a bare ELEMENT selector (`strong`, `b`, `label`).
+ *  isDeclared anchors on a leading dot, because it answers "is this
+ *  .class defined"; an element has no dot and would never match. Same
+ *  comment-stripping and same compound-selector rules for the same reasons. */
+function isElementDeclared(css, tag) {
+	const bare = new RegExp(`^${tag}(?![\\w-])$`);
+	for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g)) {
+		const sel = m[1].trim();
+		if (sel.startsWith('@')) continue; // at-rule prelude, not a selector
+		for (const part of sel.split(',')) {
+			const one = part.trim();
+			// A selector containing a space names an ANCESTOR, so the tag
+			// is being styled conditionally rather than defined here.
+			if (one && !/\s/.test(one) && bare.test(one)) return true;
+		}
+	}
+	return false;
+}
+
+check('emphasis is an element default, so a bare <strong> is on-brand', () => {
+	// The same argument the form controls already make, for a different
+	// reason. `strong` is a bare ELEMENT: oem-log re-declared it in two
+	// separate pages, in two separate scoped blocks, before it was
+	// declared once here. A consumer writing <strong> with no class is
+	// the case that has to work, so this must be a selector of its own
+	// and not a `.cm-*` rule.
+	//
+	// isDeclared, not `base.includes('strong')`: the word also appears
+	// inside the comment block explaining why the rule exists, and a
+	// substring check scored that prose as a definition. That is the
+	// exact trap the deletion mutation below is here to catch.
+	assert(isElementDeclared(base, 'strong'),
+		'strong is not declared as a bare element selector in base.css');
+	assert(isElementDeclared(base, 'b'),
+		'b is not declared as a bare element selector in base.css');
+
+	// One owner per rule. A second declaration in components.css would be
+	// a silent cascade race, which is how a consumer ends up with a
+	// different strong than the one the library documents.
+	const owners = [base, comp].filter((css) => isElementDeclared(css, 'strong')).length;
+	assert(owners === 1,
+		`strong is declared in ${owners} layers; exactly one owner per rule`);
+
+	// Both cues, not one. Colour alone is what the browser gives you and
+	// it is a ~1.6:1 nudge inside --ink-dim prose, which is not emphasis.
+	// Weight alone survives, but the house style carries the step too,
+	// and it is the same --ink/--ink-dim pair the row title uses.
+	//
+	// Read the body from COMMENT-STRIPPED source. The block above this
+	// rule explains why it exists, and a regex over the raw file matches
+	// that prose as readily as the rule - the same class of bug the
+	// deletion mutation is here to catch.
+	const baseNoComments = base.replace(/\/\*[\s\S]*?\*\//g, '');
+	const rule = /(?:^|\n)strong,\s*b\s*\{([^}]*)\}/.exec(baseNoComments);
+	assert(rule, 'could not parse the strong/b rule body');
+	assert(/font-weight:\s*700/.test(rule[1]),
+		'emphasis must carry a weight cue, not colour alone');
+	assert(/color:\s*var\(--ink\)/.test(rule[1]),
+		'emphasis must step to --ink, not a hardcoded colour');
+	// A hardcoded hex here would be a rebrand bug and would not follow
+	// the theme. Token-only, so both themes come along for free.
+	assert(!/#[0-9a-f]{3,6}/i.test(rule[1]),
+		'the emphasis colour must come from a token, not a literal hex');
+	// And the showcase must actually RENDER one, in a dim paragraph, or the
+	// rule is shipped undemonstrated and the next person reads the CSS
+	// instead of the page. A bare <strong> with a class on it would prove
+	// nothing, so the specimen must carry none.
+	const prose = showcase.slice(showcase.indexOf('id="prose"'),
+		showcase.indexOf('id="layout"'));
+	assert(prose.length > 0, 'the prose section is missing from the showcase');
+	const strongs = [...prose.matchAll(/<strong([^>]*)>/g)];
+	assert(strongs.length > 0, 'the showcase demonstrates no <strong>');
+	for (const attrs of strongs) {
+		assert(!/class=/.test(attrs[1]),
+			`the emphasis specimen must be a BARE <strong>, found attributes:${attrs[1]}`);
+	}
+	// ...and it has to sit inside prose, which is the case the default is
+	// for. A <strong> directly in a section would never be dim.
+	assert(/<p>[\s\S]*?<strong>/.test(prose),
+		'the emphasis specimen must sit inside a paragraph, not loose on the section');
+});
+
+check('the emphasis colour is legible on the surfaces it renders on', () => {
+	// The rule above can be structurally perfect and still be unreadable.
+	//
+	// The quantity WCAG actually asks about is the text against its
+	// SURFACE, not against the paragraph sitting beside it: --ink
+	// emphasised inside a --ink-dim paragraph is still required to clear
+	// 4.5:1 against --bg / --panel behind both. An earlier draft of this
+	// test asserted the dim->ink ratio at 4.5:1, which is measuring the
+	// wrong thing - that step is a RELATIVE cue and it is 2.2:1, on
+	// purpose, because the library's own faint->dim step is only 1.24:1.
+	// What is asserted here is legibility; the step is asserted below as
+	// a step, against the library's existing step rather than a magic
+	// number of its own.
+	// varOf already reads the Nth declaration per document theme from the
+	// real file and asserts both themes declare the token, which is the
+	// indexing this needs. `bg-2` has to be passed as a bare name: the
+	// helper builds `--${name}:`, and writing the token with its dashes
+	// would look for `--bg-2:` under the name "bg-2", which is the same
+	// string, so a failure here is the token being absent, not the
+	// pattern.
+	for (const theme of ['dark', 'light']) {
+		for (const surface of ['bg', 'bg-2', 'panel']) {
+			const ratio = contrast(varOf(surface, theme), varOf('ink', theme));
+			assert(ratio >= 4.5,
+				`${theme}: --ink on --${surface} is ${ratio.toFixed(2)}:1, under AA 4.5:1`);
+		}
+	}
+
+	// The emphasis must also be a VISIBLE step against the dim prose it
+	// sits in - a token change that quietly flattened the two to the same
+	// value would still pass every legibility check above while making
+	// <strong> mean nothing. Compared to the library's own subtle
+	// faint->dim step rather than to a number invented here.
+	const subtle = contrast(varOf('ink-faint', 'dark'), varOf('ink-dim', 'dark'));
+	const emphasis = contrast(varOf('ink-dim', 'dark'), varOf('ink', 'dark'));
+	assert(emphasis > subtle,
+		`--ink-dim->--ink (${emphasis.toFixed(2)}:1) is not a more visible step than --ink-faint->--ink-dim (${subtle.toFixed(2)}:1)`);
+});
+
 check('the measure tokens are declared once, in :root, and theme-independent', () => {
 	for (const name of ['--measure', '--measure-narrow']) {
 		const all = [...tokenSrc.matchAll(new RegExp(`${name}\\s*:`, 'g'))];

@@ -1729,7 +1729,7 @@ html {
 .cm-meter__fill {
 	display: block;
 	height: 100%;
-	width: var(--cm-meter-fill, 0%);
+	width: 100%;
 	background: var(--ink-dim);
 }
 .cm-meter--accent .cm-meter__fill { background: var(--accent); }
