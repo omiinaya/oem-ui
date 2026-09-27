@@ -49,6 +49,12 @@ function assert(cond, msg) {
 	if (!cond) throw new Error(msg || 'assertion failed');
 }
 
+// Sources the component tests read, stripped of comments once so a note in
+// the CSS can never be mistaken for a rule.
+const tokenSrc = read('src/styles/tokens.css').replace(/\/\*[\s\S]*?\*\//g, '');
+const compSrc = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+const showcase = read('src/pages/index.astro');
+
 /* ================= contrast math (WCAG 2.1) ================= */
 const srgb = (h) => {
 	const x = h.replace('#', '');
@@ -964,11 +970,180 @@ check('the runtime reads its key from <html> and can migrate an old one', () => 
 	);
 });
 
+/* ================= async states ================= */
+console.log('\nasync states');
+check('every animation in the system is guarded by prefers-reduced-motion', () => {
+	// An animation with no guard is not a nit: an unguarded spinner is a real
+	// accessibility failure. List every animated selector in the library, then
+	// assert the single reduced-motion block names all of them. A guard that
+	// lives beside one component silently leaves the next one unguarded.
+	// A rule may name several selectors, and they may be written on several
+	// lines. Split on the rule's OWN braces first, then on commas, so
+	// `.a, .b {` yields two selectors and not one mangled string.
+	// Walk the sheet rule by rule. `@keyframes` bodies are not rules and hold
+	// no `animation:` shorthand, so they fall out naturally.
+	const animated = [];
+	const rule = /(^|[};])\s*([^;{}@][^{}]*?)\s*\{([^{}]*)\}/gm;
+	const guardAt = compSrc.indexOf('@media (prefers-reduced-motion: reduce)');
+	assert(guardAt !== -1, 'there must be a reduced-motion block in components.css');
+	for (const m of compSrc.matchAll(rule)) {
+		if (!/\banimation\s*:/.test(m[3])) continue;
+		// The guard's own rule sets `animation: none` — that is the guard doing
+		// its job, not a component that needs guarding. Decide that by VALUE,
+		// not by position: components may be declared before OR after the
+		// @media block, and a position test silently drops whichever half.
+		if (/animation\s*:\s*none\b/.test(m[3])) continue;
+		// A selector list may be written across SEVERAL lines, which is how the
+		// reduced-motion guard itself is written. Take the whole run and join
+		// it, or a multi-line list yields only its last line and the earlier
+		// components look unguarded.
+		const head = m[2].replace(/\s+/g, ' ');
+		for (const one of head.split(',')) {
+			const t = one.trim();
+			// A BEM element like `.cm-skeleton__line` must not be collected as
+			// its block `.cm-skeleton`: a prefix match invents a selector that
+			// does not exist, and then demands a guard for it.
+			if (/^\.cm-[\w-]+$/.test(t)) animated.push(t);
+		}
+	}
+	assert(animated.length > 0, 'no animated components found — is the parse stale?');
+	// The guard is the ONE @media block and nothing after it. Slicing to the
+	// end of the file would let any later mention of the selector — another
+	// media query, a comment, a rule that happens to repeat it — satisfy the
+	// check, which is exactly how a real gap stays green.
+	const close = compSrc.indexOf('\n}', guardAt);
+	assert(close !== -1, 'the reduced-motion block is not closed');
+	const guard = compSrc.slice(guardAt, close);
+	// The selector must appear in the rule that sets `animation: none`, not
+	// merely somewhere in the block. The block also carries cosmetic rules
+	// (`.cm-cursor { opacity: 1 }`) and a loose "does the name appear" test
+	// counts those as a guard, which is precisely how a real gap stays green.
+	const stopRules = [...guard.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+		.filter(m => /animation\s*:\s*none\b/.test(m[2]))
+		.map(m => m[1])
+		.join(',');
+	assert(stopRules.trim(), 'the reduced-motion block must set animation: none');
+	const missing = [...new Set(animated)].filter(
+		// The last selector in a list has no trailing comma, so accept the end
+		// of the list too.
+		sel => !new RegExp(`${sel.replace('.', '\\.')}\\s*(,|\\s*\\{|\\s*$)`, 'm').test(stopRules));
+	assert(missing.length === 0,
+		`animated but unguarded under reduced motion: ${missing.join(', ')}`);
+});
+
+check('the state components carry no chroma', () => {
+	// House rule: greyscale only. A state colour is the easiest place to break
+	// it, because "red for error" is the reflex.
+	// Test the RULES that own the state components, not a slice of the file.
+	// An earlier version cut the section out using its `/* ---- */` comment
+	// header — but this test runs against comment-stripped source, so that
+	// marker was already gone, the slice silently became the whole sheet, and
+	// every alert variant landed outside the range it checked. Collect the
+	// rules by selector instead: those exist whatever the comments say.
+	const STATE = ['.cm-skeleton', '.cm-spinner', '.cm-alert', '.cm-table'];
+	const blocks = STATE.flatMap(sel =>
+		[...compSrc.matchAll(new RegExp(
+			`(^|[};])\\s*([^;{}@]*\\b${sel.slice(1)}\\b[^{}]*?)\\s*\\{([^{}]*)\\}`, 'gm'))]
+			.map(m => m[2] + ' {' + m[3] + '}'));
+	assert(blocks.length > 0, 'no state rules found — is the parse stale?');
+	const block = blocks.join('\n');
+	const hex = block.match(/#[0-9a-f]{3,8}\b/gi) || [];
+	const named = block.match(/:\s*(red|green|blue|yellow|orange|purple|pink|teal)\b/gi) || [];
+	assert(hex.length === 0, `state components must use tokens, found literal colours: ${hex}`);
+	assert(named.length === 0, `state components must use tokens, found named colours: ${named}`);
+	// every colour-ish declaration must go through a var()
+	// Every colour-ish declaration must be a var() reference. Checked per
+	// declaration, not with a loose `[^v]` class, which is thrown off by
+	// leading whitespace and matches values a token already covers.
+	const raw = [...block.matchAll(
+		/(?:^|[;{])\s*((?:-webkit-)?[a-z-]*color|(?:-webkit-)?background(?:-color)?|border(?:-[a-z]+)?-color|outline(?:-[a-z]+)?-color|box-shadow|fill|stroke|caret-color)\s*:\s*([^;}]+)/g)]
+		.filter(m => !/^var\(|^currentColor$|^inherit$|^none$|^transparent$/.test(m[2].trim()))
+		.map(m => `${m[1]}: ${m[2].trim()}`);
+	assert(raw.length === 0, `colour must come from a token, found: ${raw.join(', ')}`);
+});
+
+check('status is never carried by colour alone', () => {
+	// A colour-blind user and a greyscale print both still need to read the
+	// state, so every alert variant ships a glyph slot and every state surface
+	// ships a mark.
+	assert(/\.cm-alert__mark/.test(compSrc), 'alerts need a glyph slot');
+	// Each variant must ship a GLYPH, and the glyphs must differ. A rule that
+	// sets only the border colour leaves a greyscale print with three alerts
+	// that read identically, which defeats the point of having three variants.
+	const glyph = {};
+	for (const v of ['ok', 'warn', 'err']) {
+		assert(new RegExp(`\\.cm-alert--${v}\\b`).test(compSrc), `.cm-alert--${v} is missing`);
+		// Build the pattern by concatenation: nesting a backtick escape
+		// inside a template literal is unreadable and easy to break.
+		const want = '.cm-alert--' + v + ' .cm-alert__mark::before';
+		const re = new RegExp(
+			want.replace('.', '\\.').replace(' ', ' ') + '\\s*\\{[^}]*content:\\s*\'([^\']*)\'');
+		const m = compSrc.match(re);
+		assert(m, `.cm-alert--${v} must carry a ::before glyph, not a colour alone`);
+		glyph[v] = m[1];
+	}
+	assert(new Set(Object.values(glyph)).size === 3,
+		`the three alert glyphs must differ, got ${JSON.stringify(glyph)}`);
+	// Differing is not enough: an emptied glyph is a distinct value, and the
+	// alert then carries nothing at all in a greyscale print. Trailing `\\00a0`
+	// is the deliberate non-breaking space that keeps the mark attached to its
+	// text, so it does not count as content.
+	for (const [v, g] of Object.entries(glyph)) {
+		const marks = g.replace(/\\00a0/g, '').trim();
+		assert(marks !== '', `.cm-alert--${v} has an empty glyph`);
+	}
+	assert(/\.cm-state__mark/.test(compSrc), 'empty/skeleton surfaces need a mark');
+	// and the mark must be hidden from assistive tech, not read as "circle slash"
+	const show = showcase.slice(showcase.indexOf('id="states"'),
+		showcase.indexOf('id="prose"'));
+	const marks = show.match(/class="cm-state__mark"[^>]*>/g) || [];
+	assert(marks.length >= 1, 'the showcase must demo the state mark');
+	for (const m of marks) assert(m.includes('aria-hidden'), `state mark needs aria-hidden: ${m}`);
+	// The alert glyph is injected by CSS per variant, so the markup must be
+	// EMPTY. A literal glyph left in the span renders twice — CSS adds one —
+	// which reads as a duplicated mark and is announced twice by a screen
+	// reader. This shipped once, so it is worth a permanent test.
+	const alertMarks = show.match(/<span class="cm-alert__mark"[^>]*>([\s\S]*?)<\/span>/g) || [];
+	assert(alertMarks.length === 3, `expected 3 alert marks, found ${alertMarks.length}`);
+	for (const m of alertMarks) {
+		const inner = m.replace(/^<span[^>]*>/, '').replace(/<\/span>$/, '').trim();
+		assert(inner === '',
+			`the alert mark must be empty; CSS owns the glyph. Found: ${JSON.stringify(inner)}`);
+	}
+});
+
+check('the table owns its scroll wrapper', () => {
+	assert(/\.cm-table-wrap\s*\{[^}]*overflow-x:\s*auto/.test(compSrc),
+		'a wide table must scroll inside its own wrapper, not overflow the page');
+	// sticky headers only work when the wrapper is the scroll box
+	assert(/\.cm-table th\s*\{[^}]*position:\s*sticky/.test(compSrc),
+		'the table head must be sticky');
+	// and the wrapper must be keyboard reachable, which is a markup duty
+	const show = showcase.slice(showcase.indexOf('id="states"'),
+		showcase.indexOf('id="prose"'));
+	assert(/class="cm-table-wrap"[^>]*tabindex="0"/.test(show),
+		'a scrollable region needs tabindex="0" to be keyboard reachable');
+	assert(/class="cm-table-wrap"[^>]*aria-label=/.test(show),
+		'a scrollable region needs an accessible name');
+});
+
+check('the showcase demonstrates every new state component', () => {
+	const show = showcase.slice(showcase.indexOf('id="states"'),
+		showcase.indexOf('id="prose"'));
+	for (const cls of ['cm-state', 'cm-state__title', 'cm-state__body',
+		'cm-skeleton', 'cm-skeleton__line', 'cm-spinner',
+		'cm-alert', 'cm-alert--ok', 'cm-alert--warn', 'cm-alert--err',
+		'cm-table', 'cm-table-wrap']) {
+		assert(new RegExp(`class="[^"]*\\b${cls}\\b`).test(show),
+			`the states section should demonstrate .${cls}`);
+	}
+	// and a skeleton or spinner must never be the only thing announced
+	assert(/cm-spinner-row[^>]*role="status"/.test(show),
+		'a spinner row needs role="status" so the wait is announced once');
+});
+
 /* ================= the design language is documented ================= */
 console.log('\ndesign language');
-const tokenSrc = read('src/styles/tokens.css').replace(/\/\*[\s\S]*?\*\//g, '');
-const compSrc = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
-const showcase = read('src/pages/index.astro');
 
 check('the spacing scale is a run: 0,1,2…10 with no gaps or strays', () => {
 	const names = [...tokenSrc.matchAll(/--space-(\S+?):/g)].map(m => m[1]);

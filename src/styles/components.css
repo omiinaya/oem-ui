@@ -148,7 +148,19 @@
 	to { background: var(--ink-dim); border-color: var(--ink-dim); }
 }
 @media (prefers-reduced-motion: reduce) {
-	.cm-spec__chip--motion { animation: none; }
+	/* Every animation in the system is listed here, not next to its own
+	   rule. A guard that lives beside one component silently leaves the next
+	   component unguarded, and an unguarded spinner is a real accessibility
+	   failure rather than a nit. */
+	.cm-cursor,
+	.cm-spec__chip--motion,
+	.cm-skeleton__line,
+	.cm-skeleton__block,
+	.cm-spinner { animation: none; }
+	/* With no pulse, a skeleton must still read as a placeholder, and a
+	   blinking caret must still read as a caret. */
+	.cm-skeleton__line, .cm-skeleton__block { opacity: 0.55; }
+	.cm-cursor { opacity: 1; }
 }
 /* On a phone the three columns will not fit: stack the label above the
    sample and let the value sit on the same line as the label. */
@@ -529,6 +541,145 @@ html {
 	   Same size and weight made them compete; the caption steps down. */
 	.cm-kv dd { font-size: 0.78rem; color: var(--ink-dim); }
 	.cm-kv dd code { font-size: 0.82rem; color: var(--ink); }
+}
+
+/* ---------- state: empty, loading, error ----------
+   A system without these forces every consumer to invent them, and they get
+   invented badly: usually in colour, or as a spinner with no reduced-motion
+   guard, or as an empty div with no vertical rhythm. These are the three
+   states every async surface has to render, so the library owns them. */
+.cm-state {
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	padding: var(--space-7) var(--space-4);
+	text-align: center;
+	color: var(--ink-dim);
+	background: var(--panel);
+}
+/* The glyph is decoration, so it is hidden from assistive tech rather than
+   read out as "circle slash". */
+.cm-state__mark {
+	display: block;
+	margin: 0 auto var(--space-3);
+	width: 2.4rem;
+	height: 2.4rem;
+	border: 1px dashed var(--line);
+	border-radius: 50%;
+	color: var(--ink-faint);
+	line-height: 2.3rem;
+	font-size: var(--min-font);
+}
+.cm-state__title { color: var(--ink); margin: 0 0 var(--space-2); }
+.cm-state__body { margin: 0 auto; max-width: 34ch; color: var(--ink-dim); }
+.cm-state__actions {
+	margin-top: var(--space-5);
+	display: flex; gap: var(--space-2); justify-content: center; flex-wrap: wrap;
+}
+
+/* A skeleton is a placeholder, never a spinner. It is aria-hidden because
+   "loading" is announced once by the region, not once per bar. */
+.cm-skeleton { display: grid; gap: var(--space-3); }
+.cm-skeleton__line, .cm-skeleton__block {
+	background: var(--bg-3);
+	border: 1px solid var(--line);
+	border-radius: 3px;
+	animation: cm-skeleton-pulse 1.4s var(--cm-ease) infinite alternate;
+}
+.cm-skeleton__line { height: 0.85rem; }
+.cm-skeleton__line--w60 { width: 60%; }
+.cm-skeleton__line--w40 { width: 40%; }
+.cm-skeleton__block { height: 4.5rem; }
+@keyframes cm-skeleton-pulse {
+	from { background: var(--bg-3); }
+	to { background: var(--bg-2); }
+}
+
+/* A spinner is for an action in flight, not for a surface loading. The
+   border-colour trick keeps it greyscale: no chroma, per the house rule. */
+.cm-spinner {
+	display: inline-block;
+	width: 1.1rem;
+	height: 1.1rem;
+	border: 2px solid var(--line);
+	border-top-color: var(--ink-dim);
+	border-radius: 50%;
+	animation: cm-spin 0.7s linear infinite;
+	vertical-align: -0.2em;
+}
+.cm-spinner--lg { width: 1.6rem; height: 1.6rem; }
+@keyframes cm-spin { to { transform: rotate(360deg); } }
+.cm-spinner-row {
+	display: flex; align-items: center; gap: var(--space-2);
+	color: var(--ink-dim); font-size: var(--min-font);
+}
+
+/* ---------- alert ----------
+   Status is carried by a glyph and a word, never by hue alone: colour-blind
+   users and greyscale print both still read ● and ✕ correctly. */
+.cm-alert {
+	display: flex;
+	gap: var(--space-3);
+	padding: var(--space-4);
+	border: 1px solid var(--line);
+	border-left-width: 3px;
+	border-radius: var(--radius-sm);
+	background: var(--panel);
+}
+.cm-alert__mark { flex: 0 0 auto; color: var(--ink-faint); }
+.cm-alert__body { min-width: 0; }
+.cm-alert__title { margin: 0 0 var(--space-1); color: var(--ink); }
+.cm-alert__text { margin: 0; color: var(--ink-dim); }
+/* A border colour alone does not survive a greyscale print or a
+   colour-blind read, so every variant carries a glyph too. The glyphs are
+   escaped hex rather than literal symbols: the source stays pure ASCII, and a
+   literal ● in CSS is a byte-count hazard on every file that imports it. */
+.cm-alert--ok .cm-alert__mark::before { content: '\25cf\00a0'; }
+.cm-alert--warn .cm-alert__mark::before { content: '\25b2\00a0'; }
+.cm-alert--err .cm-alert__mark::before { content: '\2715\00a0'; }
+.cm-alert--ok { border-left-color: var(--ink-dim); }
+.cm-alert--warn { border-left-color: var(--ink-faint); }
+.cm-alert--err { border-left-color: var(--ink); }
+
+/* ---------- table ----------
+   Data, not prose. The scroll wrapper is part of the component because a
+   wide table that overflows the page is the single most common way a
+   monospace layout breaks on a phone. */
+.cm-table-wrap {
+	overflow-x: auto;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	-webkit-overflow-scrolling: touch;
+}
+.cm-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+/* Sticky needs the wrapper to be the scroll box, not the page. */
+.cm-table th, .cm-table td {
+	text-align: left;
+	padding: var(--space-2) var(--space-3);
+	border-bottom: 1px solid var(--line);
+	white-space: nowrap;
+}
+.cm-table th {
+	color: var(--ink-dim);
+	font-weight: 400;
+	font-size: var(--min-font);
+	text-transform: lowercase;
+	letter-spacing: 0.04em;
+	background: var(--panel);
+	position: sticky;
+	top: 0;
+}
+.cm-table tbody tr:last-child td { border-bottom: 0; }
+.cm-table tbody tr:hover td { background: var(--panel); }
+.cm-table tbody tr[aria-selected='true'] td {
+	background: var(--bg-3);
+	color: var(--ink);
+}
+.cm-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* On a phone a nowrap cell will make the table scroll; that is intended, but
+   the first column should still wrap rather than push the table past the
+   viewport. */
+@media (max-width: 680px) {
+	.cm-table th:first-child, .cm-table td:first-child { white-space: normal; }
 }
 
 /* ---------- tag / chip ---------- */

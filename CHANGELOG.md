@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`.cm-cursor` was never guarded by `prefers-reduced-motion`.** Every
+  other animation in the system was; the blinking prompt was not, and
+  a screen that never stops blinking is a real accessibility failure.
+- **The three alert variants carried no glyph**, only a border colour,
+  so a greyscale print rendered all three identically. Each now ships a
+  distinct `\25cf` / `\25b2` / `\2715`, escaped so the source stays
+  ASCII.
+- **The showcase drew each alert glyph twice** — once as literal text in
+  the markup and once from CSS `::before`.
+
 ### Changed
 
 - **The project is now `oem-ui`.** Renamed from `cli-mono` (GitHub
@@ -20,7 +32,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   references keep resolving.
 
 ### Added
-
+- **Async state components.** `.cm-skeleton`, `.cm-skeleton__line`,
+  `.cm-skeleton__block`, `.cm-spinner`, `.cm-alert` with
+  `.cm-alert__mark` / `.cm-alert__body` / `.cm-alert__title` /
+  `.cm-alert__text` and `--ok` / `--warn` / `--err` variants, plus
+  `.cm-table-wrap`, `.cm-table`, `.cm-table td.num`,
+  `.cm-table-wrap:focus-visible` and `.cm-spec__chip--tap`. A surface
+  that does not own its own empty/loading/error states lets every
+  consumer invent them.
+- **A `states` section in the showcase** demonstrating all of them.
 - **A foundation section that documents the design language.** Colour
   swatches, the type scale, the eleven-step spacing scale and shape/motion
   specimens, each rendered from the token it documents rather than typed

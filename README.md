@@ -9,6 +9,44 @@ runtime, and optional Astro components you can copy in.
 
 ---
 
+## States
+
+Every async surface needs three things: what it shows before it has
+data, what it shows while it loads, and what it shows when it fails. The
+system owns all three so no consumer has to invent them.
+
+```html
+<!-- empty -->
+<div class="cm-state">
+  <span class="cm-state__mark" aria-hidden="true">&#8709;</span>
+  <p class="cm-state__title">Nothing here yet</p>
+  <p class="cm-state__text">One line on what would fill this.</p>
+</div>
+
+<!-- loading: a skeleton for a shape you know, a spinner for an action -->
+<div class="cm-skeleton" aria-hidden="true">
+  <div class="cm-skeleton__line" style="width:60%"></div>
+</div>
+<span class="cm-spinner" role="status" aria-label="working"></span>
+
+<!-- failure -->
+<div class="cm-alert cm-alert--err">
+  <span class="cm-alert__mark" aria-hidden="true"></span>
+  <div class="cm-alert__body">
+    <p class="cm-alert__title">build failed</p>
+    <p class="cm-alert__text">What went wrong, and what to do next.</p>
+  </div>
+</div>
+```
+
+Two rules the tests enforce:
+
+- **The alert mark is empty in the markup.** CSS injects the glyph per
+  variant, so a literal glyph in the span renders twice.
+- **State is never carried by colour alone.** Every alert variant ships
+  a distinct glyph (`●` / `▲` / `✕`), and every animation in the system
+  is listed together in one `prefers-reduced-motion` block.
+
 ## Spacing
 
 **Never write a raw `rem`/`px` spacing value.** The system owns one scale,

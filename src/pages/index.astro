@@ -40,6 +40,7 @@ import { SITE } from '../astro/config';
 				{ href: '#foundation', label: 'foundation' },
 				{ href: '#buttons', label: 'buttons' },
 				{ href: '#lists', label: 'lists' },
+				{ href: '#states', label: 'states' },
 				{ href: '#prose', label: 'prose' },
 				{ href: '#forms', label: 'forms' },
 				{ href: '#readme', label: 'readme' },
@@ -276,6 +277,94 @@ import { SITE } from '../astro/config';
 						<button type="submit" class="cm-btn cm-btn--primary">save</button>
 					</div>
 				</form>
+			</section>
+
+			<!-- ==================================================== states
+			     Every async surface has to render these three, and a system
+			     that does not own them lets every consumer invent them —
+			     usually in colour, or as an unguarded spinner. -->
+			<section id="states" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+				<h2>states</h2>
+				<p class="cm-head__sub">
+					What a surface shows before it has data, and after it fails. Status is
+					carried by a glyph and a word, never by hue: this system has no chroma to
+					carry it, and greyscale print still reads correctly.
+				</p>
+
+				<h3 class="cm-kicker">empty</h3>
+				<div class="cm-state">
+					<span class="cm-state__mark" aria-hidden="true">Ø</span>
+					<p class="cm-state__title">Nothing here yet</p>
+					<p class="cm-state__body">
+						An empty surface still needs a shape. A blank div reads as a broken
+						page; this one says the same thing on purpose.
+					</p>
+					<div class="cm-state__actions">
+						<a class="cm-btn cm-btn--sm" href="#states">create the first one</a>
+					</div>
+				</div>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">loading</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+					Two different jobs. A <strong>skeleton</strong> is for a surface whose
+					shape you already know; a <strong>spinner</strong> is for an action in
+					flight. Both stop under <code>prefers-reduced-motion</code>.
+				</p>
+				<div class="cm-skeleton" aria-hidden="true" style="max-width:22rem">
+					<div class="cm-skeleton__block"></div>
+					<div class="cm-skeleton__line"></div>
+					<div class="cm-skeleton__line cm-skeleton__line--w60"></div>
+					<div class="cm-skeleton__line cm-skeleton__line--w40"></div>
+				</div>
+				<p class="cm-spinner-row" role="status" style="margin-top:var(--space-4)">
+					<span class="cm-spinner" aria-hidden="true"></span>
+					working…
+				</p>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">alerts</h3>
+				<div style="display:grid;gap:var(--space-3);max-width:34rem">
+					<div class="cm-alert cm-alert--ok" role="status">
+						<span class="cm-alert__mark" aria-hidden="true"></span>
+						<div class="cm-alert__body">
+							<p class="cm-alert__title">saved</p>
+							<p class="cm-alert__text">The runtime is bundled and the toggle persists under this site's own key.</p>
+						</div>
+					</div>
+					<div class="cm-alert cm-alert--warn" role="status">
+						<span class="cm-alert__mark" aria-hidden="true"></span>
+						<div class="cm-alert__body">
+							<p class="cm-alert__title">vendored copy is stale</p>
+							<p class="cm-alert__text">A consumer still holds an old copy of the layers. Run the sync check before trusting its CSS.</p>
+						</div>
+					</div>
+					<div class="cm-alert cm-alert--err" role="alert">
+						<span class="cm-alert__mark" aria-hidden="true"></span>
+						<div class="cm-alert__body">
+							<p class="cm-alert__title">build failed</p>
+							<p class="cm-alert__text">Two of eleven spacing bars measured the wrong length. A specimen that lies is worse than no specimen.</p>
+						</div>
+					</div>
+				</div>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">table</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+					Data, not prose. The scroll wrapper is part of the component: a wide table
+					that overflows the page is the most common way a mono layout breaks on a
+					phone, so the component refuses to let it.
+				</p>
+				<div class="cm-table-wrap" tabindex="0" role="region" aria-label="token cost by layer">
+					<table class="cm-table">
+						<thead>
+							<tr><th>layer</th><th>file</th><th class="num">lines</th><th class="num">touches</th></tr>
+						</thead>
+						<tbody>
+							<tr aria-selected="true"><td>tokens</td><td>tokens.css</td><td class="num">231</td><td class="num">4</td></tr>
+							<tr><td>base</td><td>base.css</td><td class="num">412</td><td class="num">7</td></tr>
+							<tr><td>components</td><td>components.css</td><td class="num">1180</td><td class="num">31</td></tr>
+							<tr><td>runtime</td><td>cli-mono.js</td><td class="num">196</td><td class="num">3</td></tr>
+						</tbody>
+					</table>
+				</div>
 			</section>
 
 			<section id="prose" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
