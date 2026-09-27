@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **The mobile drawer rendered 0px tall and was invisible.** `.cm-header`
+  carried `backdrop-filter`, which makes an element the containing block
+  for `position: fixed` descendants, so the panel's `inset-block: 0`
+  resolved against the 62px header instead of the viewport. The blur is
+  removed from the header and from `.cm-header__nav` (the panel's own
+  parent, which trapped it identically), and `--header-bg` is now solid
+  in both themes rather than `rgba(..., 0.92)`, since a translucent header
+  with nothing to frost it shows content through it. The panel measures
+  320px wide and 781px tall at 390px.
+- The burger's `:nth-child(2)` middle-bar rule matched nothing, because
+  `::before` and `::after` do not count toward `:nth-child()`. The middle
+  bar fell back to `top: 0`, landed on the first, and the burger drew two
+  lines.
+- The burger now leads on the left edge, as a direct sibling of the brand,
+  so `order` has something to order. It was a child of
+  `.cm-header__controls`, where no `order` value could move it.
+
+### Changed
+- The mobile nav region slices in `tests/run.mjs` were empty, so every
+  check in the block was passing vacuously: `indexOf` from an offset
+  searches from that offset, and the panel moved into the media query
+  after the burger's.
+- The tap-floor check asserted the `padding` that used to imply the floor
+  rather than the `min-height` that now delivers it.
+
+
 ### Added
 - **Mobile nav disclosure.** `.cm-nav-toggle` collapses the header nav into a
   burger panel under 640px, with `aria-expanded` / `aria-controls`, Escape to

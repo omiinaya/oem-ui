@@ -633,6 +633,19 @@ and do not count toward `:nth-child()`. A `:nth-child(2)` selector for it
 matches nothing, the bar falls back to `top: 0` and lands on top of the
 `::before` bar, and the burger draws two lines - which reads as an arrow.
 
+**The drawer cannot live under a filtered ancestor.** The panel is
+`position: fixed`, and any ancestor with `backdrop-filter`, `filter`,
+`transform`, `perspective`, `contain` or `will-change` becomes the
+containing block for fixed descendants. `top: 0` and `bottom: 0` then
+resolve against that ancestor instead of the viewport and the panel
+collapses to 0px tall - the scrim appears, the button becomes an X, and
+the menu is simply not there. `.cm-header` and `.cm-header__nav` (the
+panel's own parent) are both asserted clean of those properties, and
+`--header-bg` is solid in both themes because the header has no blur to
+frost it. A rule-level test cannot see this: the panel's CSS is identical
+whether or not an ancestor traps it. `tests/verify-burger-webkit.py`
+measures the live panel's height and offsetTop.
+
 ## Theming
 
 Change the tokens, keep the components.
