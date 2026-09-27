@@ -229,7 +229,7 @@ select {
 	background-position: calc(100% - 1.1rem) 52%, calc(100% - 0.75rem) 52%;
 	background-size: 0.35rem 0.35rem, 0.35rem 0.35rem;
 	background-repeat: no-repeat;
-	padding-right: 2.2rem;
+	padding-right: var(--space-7);
 }
 input::placeholder,
 textarea::placeholder { color: var(--ink-faint); opacity: 1; }
@@ -322,8 +322,8 @@ input[type='radio']:checked {
 }
 
 /* the label is the tap target, so a phone-sized hit area is the text row */
-label { display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; }
-fieldset { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 1rem; margin: 0; }
+label { display: inline-flex; align-items: center; gap: var(--space-2); cursor: pointer; }
+fieldset { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: var(--space-4); margin: 0; }
 legend { padding: 0 0.4rem; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.12em; }
 
 /* ============ touch ergonomics ============
@@ -352,7 +352,7 @@ legend { padding: 0 0.4rem; color: var(--ink-dim); text-transform: uppercase; le
 		display: inline-flex;
 		align-items: center;
 		min-height: var(--tap);
-		padding-block: 0.35rem;
+		padding-block: var(--space-1);
 	}
 	.cm-row,
 	.cm-list-more a,

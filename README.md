@@ -9,6 +9,28 @@ runtime, and optional Astro components you can copy in.
 
 ---
 
+## Spacing
+
+**Never write a raw `rem`/`px` spacing value.** The system owns one scale,
+`--space-05` (2px) through `--space-10` (96px), and a test rejects any
+other number in `base.css` or `components.css`.
+
+- `--space-05` `0.125rem` 2px — hairline nudges, icon to label
+- `--space-1` `0.25rem` 4px — tight stacks, inside a control
+- `--space-2` `0.5rem` 8px — **the default gap** between related items
+- `--space-3` `0.75rem` 12px — label to its value
+- `--space-4` `1rem` 16px — between blocks; the workhorse
+- `--space-5` `1.25rem` 20px — group separation
+- `--space-6` `1.5rem` 24px — between sections
+- `--space-7` `2rem` 32px — between major blocks
+- `--space-8` `3rem` 48px — between page sections
+- `--space-9` `4rem` 64px — above a top-of-page head
+- `--space-10` `6rem` 96px — page-level breathing room
+
+The scale is theme-independent and lives in `:root` only. `em`, `calc()`,
+`var()`, `auto` and `0` are exempt: those are relative to a font size or
+a computed value, not to the rhythm.
+
 ## Keeping a consumer in sync
 
 Vendored files go stale silently — the site still builds, still renders,

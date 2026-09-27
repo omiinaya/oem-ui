@@ -21,6 +21,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A spacing scale: `--space-05` … `--space-10`** (0.125 → 6rem), the only
+  legal vertical and inline rhythm. The two layers previously carried **69
+  distinct spacing values**, which is why two heroes built a week apart
+  could not share a rhythm and why a tightened gap was indistinguishable
+  from a bug. All 37 raw rem values in the library now resolve to a step;
+  the largest visual change anywhere on the showcase is **2.4px**, and the
+  page is 19px shorter. A test rejects any future raw rem/px spacing value
+  in `base.css` or `components.css`, and one asserts the scale stays
+  theme-independent so the two themes cannot drift apart.
+
+### Added
+
 - **`scripts/check-design-sync.sh`** — detects when a consumer project's
   vendored files drift from oem-ui source. With no arguments it scans every
   project under `/root/projects`; given paths it checks those. Exits 1 and

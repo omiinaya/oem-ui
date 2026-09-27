@@ -704,6 +704,75 @@ for (const f of ['README.md', 'LICENSE', 'AGENTS.md', 'CLAUDE.md', 'CONTRIBUTING
 	check(`ships ${f}`, () => assert(read(f).trim().length > 0, `${f} empty`));
 }
 
+/* ================= spacing scale ================= */
+console.log('\nspacing scale');
+check('declares the full --space-* scale', () => {
+	const t = read('src/styles/tokens.css');
+	const steps = ['05', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+	for (const s of steps) {
+		assert(new RegExp(`--space-${s}:\\s*[\\d.]+rem;`).test(t),
+			`--space-${s} is not declared in tokens.css`);
+	}
+});
+
+check('the scale is monotonic and distinct', () => {
+	const t = read('src/styles/tokens.css');
+	const vals = [...t.matchAll(/--space-(?:05|1|2|3|4|5|6|7|8|9|10):\s*([\d.]+)rem/g)]
+		.map(m => parseFloat(m[1]));
+	assert(vals.length === 11, `expected 11 steps, parsed ${vals.length}`);
+	for (let i = 1; i < vals.length; i++) {
+		assert(vals[i] > vals[i - 1],
+			`step ${i} (${vals[i]}rem) is not larger than step ${i - 1} (${vals[i - 1]}rem)`);
+	}
+});
+
+check('no layer hardcodes a raw rem/px spacing value', () => {
+	// The whole point of the scale: a gap is a step, not a number. A raw
+	// value here is how the hero rhythm drifted in the first place, and
+	// how a tightened gap silently became 0 during the migration.
+	// em, calc(), var(), auto and 0 are exempt: they are relative to a
+	// font size, not the rhythm.
+	const dec = /\b(margin|padding|gap|row-gap|column-gap)((?:-[a-z]+)*):\s*(-?[\d.]+)(rem|px)\s*;/g;
+	for (const f of ['src/styles/base.css', 'src/styles/components.css']) {
+		const css = read(f).replace(/\/\*[\s\S]*?\*\//g, '');
+		for (const m of css.matchAll(dec)) {
+			assert.fail(`${f}: ${m[1]}${m[2]}: ${m[3]}${m[4]} is a raw spacing value; use var(--space-*)`);
+		}
+	}
+});
+
+check('components consume the scale rather than redefining steps', () => {
+	// A component must not reintroduce a local spacing scale under a
+	// different name; --space-* is the only rhythm the system owns.
+	for (const f of ['src/styles/base.css', 'src/styles/components.css']) {
+		const css = read(f).replace(/\/\*[\s\S]*?\*\//g, '');
+		const local = [...css.matchAll(/(--cm-space[a-z-]*|cm-space[a-z-]*):\s*[\d.]/g)];
+		assert(local.length === 0,
+			`${f} declares its own spacing scale: ${local.map(m => m[1]).join(', ')}`);
+	}
+});
+
+check('the scale is theme-independent, declared once in :root', () => {
+	// Spacing does not vary by theme, so the scale belongs in the shared
+	// :root block only. A step redeclared in a theme block would let the two
+	// themes drift apart on rhythm, which is the bug the scale exists to stop.
+	const t = read('src/styles/tokens.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	assert([...t.matchAll(/--space-(?:05|1|2|3|4|5|6|7|8|9|10):/g)].length === 11,
+		'expected exactly 11 --space-* declarations across the file');
+	// Find the :root block and every theme block, then assert the space
+	// tokens live only in :root.
+	const blocks = [...t.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+		.map(m => ({ sel: m[1].trim(), body: m[2] }))
+		.filter(b => b.sel);
+	const rootBlocks = blocks.filter(b => b.sel === ':root');
+	assert(rootBlocks.length === 1, `expected one plain :root block, found ${rootBlocks.length}`);
+	const themeBlocks = blocks.filter(b => b.sel !== ':root');
+	for (const b of themeBlocks) {
+		assert(!/--space-\d/.test(b.body),
+			`theme block ${b.sel} redefines --space-*; spacing must be theme-independent`);
+	}
+});
+
 /* ================= drift guard ================= */
 console.log('\ndrift guard');
 check('ships an executable drift checker', () => {

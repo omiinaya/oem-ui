@@ -51,7 +51,7 @@
    The single source for the top-of-page vertical start. Use on
    every page's opening block so all routes begin at the same y. */
 .cm-head { padding: var(--head-top) 0 2rem; }
-.cm-head .cm-kicker { margin-bottom: 0.8rem; }
+.cm-head .cm-kicker { margin-bottom: var(--space-3); }
 .cm-head h1,
 .cm-head .cm-head__title {
 	font-size: var(--head-h1);
@@ -71,7 +71,7 @@
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
-	gap: 0.6rem;
+	gap: var(--space-2);
 	font-family: var(--font-mono);
 	font-size: 0.78rem;
 	color: var(--ink-faint);
@@ -85,7 +85,7 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	gap: 0.5rem;
+	gap: var(--space-2);
 	padding: 0.6em 1.3em;
 	border-radius: 0;
 	font-family: var(--font-mono);
@@ -140,7 +140,7 @@
 .cm-btn--sm { padding: 0.4em 0.9em; font-size: 0.78rem; }
 .cm-btn--block { width: 100%; }
 
-.cm-btn-group { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+.cm-btn-group { display: flex; gap: var(--space-3); flex-wrap: wrap; }
 
 /* ---------- status strip ----------
    label/value pair on a flat panel. Use for live state, build
@@ -192,8 +192,8 @@ html {
 	text-transform: uppercase;
 	letter-spacing: 0.18em;
 	border-bottom: 1px solid var(--line);
-	padding-bottom: 0.6rem;
-	margin-bottom: 0.2rem;
+	padding-bottom: var(--space-2);
+	margin-bottom: var(--space-1);
 }
 
 /* ---------- terminal list rows ----------
@@ -204,7 +204,7 @@ html {
 .cm-row {
 	display: flex;
 	align-items: center;
-	gap: 1.1rem;
+	gap: var(--space-4);
 	padding: 0.85rem 0.5rem;
 	border-bottom: 1px solid var(--line);
 	text-decoration: none;
@@ -226,7 +226,7 @@ html {
 	   together as inline text and the desc overruns the date column. */
 	display: flex;
 	align-items: baseline;
-	gap: 0.5rem;
+	gap: var(--space-2);
 }
 .cm-row__title {
 	font-weight: 700;
@@ -273,12 +273,12 @@ html {
 .cm-rows--stacked .cm-row__title { display: block; white-space: normal; font-size: 1.05rem; }
 .cm-rows--stacked .cm-row__desc {
 	display: block; white-space: normal; font-size: 0.85rem;
-	line-height: 1.5; margin-top: 0.3rem;
+	line-height: 1.5; margin-top: var(--space-1);
 }
-.cm-rows--stacked .cm-row__meta { display: block; font-size: 0.72rem; margin-top: 0.3rem; }
+.cm-rows--stacked .cm-row__meta { display: block; font-size: 0.72rem; margin-top: var(--space-1); }
 
 /* list footer link, right-aligned */
-.cm-list-more { margin-top: 1.4rem; text-align: right; }
+.cm-list-more { margin-top: var(--space-6); text-align: right; }
 .cm-list-more a {
 	font-family: var(--font-mono); font-size: 0.84rem; color: var(--ink-dim);
 }
@@ -323,7 +323,7 @@ html {
 @keyframes cm-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
 /* ---------- mono divider with optional label ---------- */
-.cm-rule { display: flex; align-items: center; gap: 0.8rem; margin: 2rem 0; }
+.cm-rule { display: flex; align-items: center; gap: var(--space-3); margin: 2rem 0; }
 .cm-rule::before,
 .cm-rule::after { content: ''; height: 1px; background: var(--line); flex: 1; }
 .cm-rule__label {
@@ -340,7 +340,7 @@ html {
 	margin: 0 0 1.4em;
 }
 .cm-term__bar {
-	display: flex; align-items: center; gap: 0.5rem;
+	display: flex; align-items: center; gap: var(--space-2);
 	padding: 0.5rem 0.9rem;
 	border-bottom: 1px solid var(--line);
 	background: var(--bg-3);
@@ -372,8 +372,8 @@ html {
 /* Below this width the two columns starve the value cell (a file path gets
    ~118px and wraps through the middle of an identifier). Stack instead. */
 @media (max-width: 520px) {
-	.cm-kv { grid-template-columns: 1fr; gap: 0.15rem; }
-	.cm-kv dd { margin-bottom: 0.55rem; }
+	.cm-kv { grid-template-columns: 1fr; gap: var(--space-05); }
+	.cm-kv dd { margin-bottom: var(--space-2); }
 	.cm-kv dt { font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
 	/* The chip is the label and the annotation is the detail. On one line
 	   they wrap into each other and the continuation looks like a new value,
@@ -382,7 +382,7 @@ html {
 		display: block;
 		width: fit-content;
 		max-width: 100%;
-		margin-bottom: 0.2rem;
+		margin-bottom: var(--space-1);
 	}
 	/* The chip is the primary path and the parenthetical is its caption.
 	   Same size and weight made them compete; the caption steps down. */
@@ -392,7 +392,7 @@ html {
 
 /* ---------- tag / chip ---------- */
 .cm-tag {
-	display: inline-flex; align-items: center; gap: 0.35rem;
+	display: inline-flex; align-items: center; gap: var(--space-1);
 	padding: 0.15em 0.6em;
 	border: 1px solid var(--line);
 	border-radius: 4px;
@@ -406,17 +406,17 @@ html {
 	border-top: 1px solid var(--line);
 	background: var(--footer-bg);
 	padding: 2rem var(--gutter);
-	margin-top: 3rem;
+	margin-top: var(--space-8);
 }
 .cm-footer__inner { max-width: var(--maxw); margin: 0 auto; }
 .cm-footer__meta {
-	display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem;
+	display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2);
 	color: var(--ink-faint); font-size: 0.78rem; font-family: var(--font-mono);
 }
 .cm-footer__meta a { color: var(--ink-dim); }
 .cm-footer__meta a:hover { color: var(--ink); }
 .cm-footer__status {
-	margin: 1.4rem auto 0; padding-top: 1rem;
+	margin: 1.4rem auto 0; padding-top: var(--space-4);
 	border-top: 1px dashed var(--line);
 	font-family: var(--font-mono); font-size: 0.72rem; color: var(--ink-faint);
 }
@@ -448,7 +448,7 @@ html {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 1rem;
+	gap: var(--space-4);
 	/* allow the flex children to shrink so a long nav wraps instead of
 	   forcing horizontal page scroll */
 	flex-wrap: wrap;
@@ -458,7 +458,7 @@ html {
 .cm-header__brand {
 	display: flex;
 	align-items: center;
-	gap: 0.5rem;
+	gap: var(--space-2);
 	min-width: 0;
 	text-decoration: none;
 	color: var(--ink);
@@ -509,7 +509,7 @@ html {
 	text-underline-offset: 5px;
 	text-decoration-color: var(--ink-faint);
 }
-.cm-header__controls { display: flex; align-items: center; gap: 0.85rem; }
+.cm-header__controls { display: flex; align-items: center; gap: var(--space-3); }
 .cm-icon-btn {
 	display: inline-flex;
 	align-items: center;
@@ -543,7 +543,7 @@ html {
 @media (max-width: 640px) {
 	.cm-header__nav {
 		height: auto;
-		row-gap: 0.4rem;
+		row-gap: var(--space-2);
 		padding: 0.55rem 0;
 	}
 	.cm-header__brand { margin-right: auto; }
@@ -558,7 +558,7 @@ html {
 		padding-left: var(--gutter);
 		padding-right: var(--gutter);
 		border-top: 1px solid var(--line);
-		padding-top: 0.45rem;
+		padding-top: var(--space-2);
 		justify-content: flex-start;
 	}
 	/* Once the nav WRAPS, the pipe separators are a lie: they only exist
@@ -572,7 +572,7 @@ html {
 }
 @media (max-width: 360px) {
 	.cm-header__link { padding: 0 0.5rem; font-size: 0.78rem; }
-	.cm-header__controls { gap: 0.6rem; }
+	.cm-header__controls { gap: var(--space-2); }
 }
 
 /* ============ mobile type floor ============
@@ -625,8 +625,8 @@ html {
 .cm-field {
 	display: flex;
 	flex-direction: column;
-	gap: 0.35rem;
-	margin-bottom: 1rem;
+	gap: var(--space-1);
+	margin-bottom: var(--space-4);
 }
 .cm-field__label {
 	font-size: max(var(--min-font), 0.78rem);
@@ -641,7 +641,7 @@ html {
 .cm-field label {
 	display: flex;
 	align-items: center;
-	gap: 0.55rem;
+	gap: var(--space-2);
 	min-height: var(--tap);
 	cursor: pointer;
 }
@@ -654,7 +654,7 @@ html {
 	color: var(--ink);
 	display: flex;
 	align-items: baseline;
-	gap: 0.35rem;
+	gap: var(--space-1);
 }
 .cm-field__error::before { content: '!'; opacity: 0.7; }
 
@@ -669,11 +669,11 @@ html {
 .cm-form__actions {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0.6rem;
+	gap: var(--space-2);
 	justify-content: flex-end;
-	padding-top: 0.5rem;
+	padding-top: var(--space-2);
 	border-top: 1px solid var(--line-soft);
-	margin-top: 0.5rem;
+	margin-top: var(--space-2);
 }
 @media (max-width: 520px) {
 	.cm-form__actions { justify-content: stretch; }
