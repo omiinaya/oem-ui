@@ -1,0 +1,23 @@
+---
+/**
+ * oem-ui <Stat> — one metric tile inside a .cm-stats list.
+ * Value first, label under it, optional note. No hardcoded identity:
+ * every string arrives as a prop.
+ */
+interface Props {
+	/** The number or short figure. Keep it short; it is set at 1.35rem. */
+	value: string;
+	/** What the number counts. */
+	label: string;
+	/** Optional qualifier: the scope that makes the number honest. */
+	note?: string;
+}
+
+const { value, label, note } = Astro.props;
+---
+
+<li class="cm-stat">
+	<span class="cm-stat__val">{value}</span>
+	<span class="cm-stat__label">{label}</span>
+	{note && <span class="cm-stat__note">{note}</span>}
+</li>

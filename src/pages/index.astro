@@ -10,6 +10,8 @@ import Header from '../astro/Header.astro';
 import Footer from '../astro/Footer.astro';
 import StatusStrip from '../astro/StatusStrip.astro';
 import PostRow from '../astro/PostRow.astro';
+import Stat from '../astro/Stat.astro';
+import TimelineItem from '../astro/TimelineItem.astro';
 import HeaderLink from '../astro/HeaderLink.astro';
 import { SITE } from '../astro/config';
 ---
@@ -44,6 +46,7 @@ import { SITE } from '../astro/config';
 				{ href: '#lists', label: 'lists' },
 				{ href: '#states', label: 'states' },
 				{ href: '#overlays', label: 'overlays' },
+				{ href: '#records', label: 'records' },
 				{ href: '#prose', label: 'prose' },
 				{ href: '#forms', label: 'forms' },
 				{ href: '#readme', label: 'readme' },
@@ -596,6 +599,51 @@ import { SITE } from '../astro/config';
 						</span>
 					</span>
 				</p>
+			</section>
+
+			<!-- ==================================================== records
+			     A metric tile is not a key/value row and a work history
+			     is not a link list, so both needed a real component. -->
+			<section id="records" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+				<h2>Records</h2>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
+					Stat tiles and a dated timeline. The tile count is data, so
+					<code>.cm-stats</code> sizes its columns with
+					<code>auto-fit</code> rather than a fixed number, and the timeline
+					rail is drawn on the <em>item</em> so it stops at the last
+					record on its own, with no script.
+				</p>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">stat tiles</h3>
+				<ul class="cm-stats">
+					<Stat value="8+" label="years in IT" note="since 2014" />
+					<Stat value="5,000+" label="users and devices" note="global estate" />
+					<Stat value="3" label="CompTIA certs" note="A+, Tech+, ITF+" />
+				</ul>
+				<p class="cm-head__sub" style="margin-top:var(--space-3)">
+					The note line is optional. It is the qualifier that makes a
+					number honest: “5,000+” on its own is a boast, “5,000+ across
+					the estate” is a fact.
+				</p>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6);margin-bottom:var(--space-3)">timeline</h3>
+				<ul class="cm-timeline">
+					<TimelineItem
+						period="2014 – 2017"
+						role="Help Desk Technical Support"
+						org="Union University"
+						meta="Jackson, TN"
+						body={'Phone-based support for university services. Setup of campus computers, printers and peripherals.'}
+					/>
+					<TimelineItem
+						period="Feb 2022 – present"
+						role="L2 Tech Analyst"
+						org="Richemont"
+						meta="Coral Gables, FL"
+						body={'Owns HQ office IT for a global luxury group: device lifecycle, access management and compliance reporting.'}
+						now
+					/>
+				</ul>
 			</section>
 
 			<section id="prose" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">

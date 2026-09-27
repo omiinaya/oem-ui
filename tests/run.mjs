@@ -2202,6 +2202,261 @@ check('install.sh still lands the layers, scrim included', () => {
 	assert(/--scrim:/.test(read('src/styles/tokens.css')), 'the token file defines no --scrim');
 });
 
+/* ---------- stat tiles ---------- */
+
+check('cm-stats: the tile count is data, so the grid cannot be a fixed column count', () => {
+	// A hardcoded `repeat(3, …)` leaves a stranded half-row at 4 or 5
+	// tiles and an empty column at 2. auto-fit is the only column rule
+	// that is right for every count.
+	const rule = /^\.cm-stats\s*\{([^}]*)\}/m.exec(compSrc);
+	assert(rule, '.cm-stats is not defined');
+	assert(/grid-template-columns:\s*repeat\(auto-fit/.test(rule[1]),
+		'.cm-stats must size its columns with auto-fit, not a fixed count');
+	// `min()` inside minmax: without it a single tile sets a 9rem track
+	// floor and a 320px screen gains horizontal scroll.
+	assert(/minmax\(min\(/m.test(rule[1]),
+		'the track minimum must be min(…, 100%) or a narrow screen overflows');
+	assert(/list-style:\s*none/.test(rule[1]),
+		'.cm-stats is a list; it must suppress its own markers');
+});
+
+check('cm-stats: tiles in one row are equal height', () => {
+	// A metric row with a one-line label beside a two-line label looks
+	// broken unless the tiles stretch to a common height.
+	assert(/height:\s*100%/.test(compSrc), '.cm-stat must stretch to the row height');
+});
+
+check('cm-stat: the value can never be the loudest thing in its section', () => {
+	// The section h2 is 1.45rem. A metric tile is allowed to be emphatic
+	// but not louder than the heading that introduces it — that inversion
+	// is invisible in code review and obvious on the page.
+	//
+	// The comparison is against the BARE element default in base.css, not
+	// against any `h2` selector: `.cm-prose h2` is a heading inside long
+	// form copy and is deliberately a step smaller, so matching it would
+	// compare a section tile against the wrong scale entirely.
+	const h2 = /(?:^|\n)h2\s*\{[^}]*font-size:\s*([0-9.]+)rem/.exec(base);
+	assert(h2, 'no bare h2 element default found in base.css');
+	const val = /^\.cm-stat__val\s*\{([^}]*)\}/m.exec(compSrc);
+	assert(val, '.cm-stat__val is not defined');
+	const v = /font-size:\s*([0-9.]+)rem/.exec(val[1]);
+	assert(v, '.cm-stat__val declares no rem font-size');
+	assert(parseFloat(v[1]) <= parseFloat(h2[1]),
+		`.cm-stat__val (${v[1]}rem) must not exceed the section h2 (${h2[1]}rem)`);
+	// And a wrapping figure must not widen the grid track.
+	assert(/overflow-wrap:\s*break-word/.test(val[1]),
+		'a long value must wrap inside its tile, not widen the grid');
+});
+
+check('cm-stat: the micro labels are floored, and the tile cannot render under 12px', () => {
+	// Same contract as the rest of the library: a 0.72rem label is 11.5px,
+	// which is why the exhaustive base-layer scan exists. Each of these
+	// must carry the floor at its own definition.
+	for (const sel of ['.cm-stat__label', '.cm-stat__note']) {
+		const rule = new RegExp(`${sel.replace('.', '\\.')}\\s*\\{([^}]*)\\}`, 'g');
+		const bodies = [...compSrc.matchAll(rule)].map((m) => m[1]);
+		assert(bodies.length > 0, `${sel} is not defined`);
+		for (const b of bodies) {
+			if (!/font-size:/.test(b)) continue;
+			assert(/max\(var\(--min-font\)/.test(b),
+				`${sel} declares a font-size with no --min-font floor`);
+		}
+	}
+});
+
+/* ---------- timeline ---------- */
+
+check('cm-timeline: the rail is drawn on the item, not on a wrapper', () => {
+	// Drawn on the list, the rail cannot know where the last record is,
+	// so it either runs past the final dot (implying a record that is not
+	// there) or needs a JS pass to trim. On the item, :last-child ends it.
+	//
+	// The guard is on the ELEMENT, not on the list's own block: moving the
+	// rail to `.cm-timeline::before` leaves the list's rule untouched, so a
+	// check that only reads `.cm-timeline { … }` passes while the rail has
+	// silently moved somewhere it cannot terminate itself.
+	assert(!/\.cm-timeline::(before|after)/.test(compSrc),
+		'the rail must not be drawn on .cm-timeline itself');
+	const item = /^\.cm-timeline__item\s*\{([^}]*)\}/m.exec(compSrc);
+	assert(item && /position:\s*relative/.test(item[1]),
+		'.cm-timeline__item must be the positioned element that owns the rail');
+	assert(/\.cm-timeline__item::before/.test(compSrc),
+		'no ::before rail on the item');
+});
+
+check('cm-timeline: the rail stops at the last record', () => {
+	// A line that outlives the final dot claims a next entry is coming.
+	// The data never makes that claim, so the rule must exist and must
+	// target the last item specifically.
+	const rule = /\.cm-timeline__item:last-child::before\s*\{([^}]*)\}/.exec(compSrc);
+	assert(rule, 'no :last-child rule, so the rail runs past the final record');
+	assert(/content:\s*none/.test(rule[1]),
+		'the last rail must be removed, not merely shortened');
+});
+
+check('cm-timeline: the dot is centred on the rail by construction', () => {
+	// The rail is 1px wide at left:0, the dot is 0.5rem wide. Centring it
+	// needs the negative half-offset; without it the dot hangs to the
+	// right of the line and the two read as unrelated.
+	const dot = /^\.cm-timeline__item::after\s*\{([^}]*)\}/m.exec(compSrc);
+	assert(dot, 'no ::after dot on the timeline item');
+	const w = /width:\s*([0-9.]+)rem/.exec(dot[1]);
+	// The offset is read unit-TOLERANT on purpose: `left: 0` is the exact
+	// mutation this check exists to catch, and a rem-only pattern would
+	// fail to match it and report the wrong defect ("no left offset")
+	// instead of the real one (the dot is off the rail).
+	const left = /left:\s*(-?[0-9.]+)(rem)?\s*;/.exec(dot[1]);
+	assert(w && left, 'the dot must declare a rem width and a left offset');
+	const half = parseFloat(w[1]) / 2;
+	const offset = parseFloat(left[1]);
+	assert(Math.abs(offset + half) < 0.001,
+		`the dot left offset (${left[1]}${left[2] || ''}) must be exactly -half its width (-${half}rem) to sit on the rail`);
+	assert(/background:\s*var\(/.test(dot[1]),
+		'the dot must take its fill from a token, not a literal');
+});
+
+check('cm-timeline: "now" is a fill, not a second hue', () => {
+	// The palette is greyscale. If the current record were marked with a
+	// colour it would be the only colour on the page; a filled dot reads
+	// as current in both themes and in a greyscale print.
+	const rule = /\.cm-timeline__item--now::after\s*\{([^}]*)\}/.exec(compSrc);
+	assert(rule, 'no --now variant, so the current record cannot be marked');
+	assert(/background:\s*var\(--ink\)/.test(rule[1]),
+		'--now must fill the dot with --ink');
+	// Checked across the WHOLE variant block, not just the declaration the
+	// rule above matched: a hardcoded colour on `border-color` while
+	// `background` stayed tokenised would pass a one-property read.
+	assert(!/#[0-9a-f]{3,8}\b/i.test(rule[1]),
+		'--now must not introduce a literal colour');
+	// Every colour-ish property in the block must go through a token. The
+	// value is CAPTURED and inspected rather than guarded with a lookahead:
+	// a lookahead after `\s*` is defeated by that quantifier backtracking,
+	// so `border-color: var(--ink)` would still trip a naive `color:`
+	// pattern and fail a block that is entirely tokenised.
+	const raw = [...rule[1].matchAll(
+		/(?:^|[;{\s])(?:-webkit-)?(?:[a-z-]*color|background(?:-color)?|border(?:-[a-z]+)?-color|outline(?:-[a-z]+)?-color|box-shadow|fill|stroke)\s*:\s*([^;}]+)/g,
+	)]
+		.map((m) => m[1].trim())
+		.filter((v) => !/^var\(|^currentColor$|^inherit$|^none$|^transparent$/.test(v));
+	assert(raw.length === 0, `--now must not hardcode a colour, found: ${raw.join(', ')}`);
+});
+
+check('cm-timeline: the record components carry no colour of their own', () => {
+	// The same rule the overlays and state components live under: this
+	// palette is greyscale, and a new surface is exactly where it breaks.
+	//
+	// The pattern has to match BEM PARTS, not just the block name: `_` is a
+	// word character, so a `\bcm-stat\b` boundary never matches
+	// `.cm-stat__label` and the scan would quietly pass over every rule
+	// that actually sets a colour. `(?:__[a-z0-9-]+)?` is what makes
+	// `.cm-stat`, `.cm-stat__val` and `.cm-timeline__item` all land here.
+	const partOf = (b) => new RegExp(
+		`(^|[};])\\s*([^;{}@]*\\b${b}(?:__[a-z0-9-]+)?\\b[^{}]*?)\\s*\\{([^{}]*)\\}`, 'gm',
+	);
+	const blocks = ['cm-stats', 'cm-stat', 'cm-timeline']
+		.flatMap((b) => [...compSrc.matchAll(partOf(b))].map((m) => m[2] + ' {' + m[3] + '}'));
+	assert(blocks.length > 0, 'no rules found for the record components — is the parse stale?');
+	// A three-block parse means the BEM parts are being skipped, which is
+	// exactly the silent-pass this check exists to prevent.
+	assert(blocks.length >= 8,
+		`only ${blocks.length} record rules parsed; the scan is missing the BEM parts`);
+	const block = blocks.join('\n');
+	const hex = block.match(/#[0-9a-f]{3,8}\b/gi) || [];
+	assert(hex.length === 0, `the record components must use tokens, found literal colours: ${hex}`);
+	const raw = [...block.matchAll(
+		/(?:^|[;{])\s*((?:-webkit-)?[a-z-]*color|(?:-webkit-)?background(?:-color)?|border(?:-[a-z]+)?-color|outline(?:-[a-z]+)?-color|box-shadow|fill|stroke)\s*:\s*([^;}]+)/g,
+	)]
+		.filter((m) => !/^var\(|^currentColor$|^inherit$|^none$|^transparent$/.test(m[2].trim()))
+		.map((m) => `${m[1]}: ${m[2].trim()}`);
+	assert(raw.length === 0, `colour must come from a token, found: ${raw.join(', ')}`);
+});
+
+check('cm-timeline: the body cannot inherit a bullet or snap under the rail', () => {
+	// Two real defects this guards. (1) base.css gives a bare `ul` a
+	// ::before marker in the text run, so a wrapped second line snaps back
+	// to the container edge and runs UNDER the rail. (2) The list inside
+	// the body must not inherit the outer list's own padding.
+	const pad = /\.cm-timeline__body ul\s*\{([^}]*)\}/.exec(compSrc);
+	assert(pad, '.cm-timeline__body ul has no rule of its own');
+	assert(/padding-left:\s*1\.2em/.test(pad[1]), 'the inner list must be indented explicitly');
+	assert(/\.cm-timeline__body li::before\s*\{([^}]*)\}/.test(compSrc),
+		'the inner list must cancel the inherited ::before marker');
+});
+
+check('the record Astro components ship, and hardcode no identity', () => {
+	// The same rule every other component lives under: identity comes from
+	// props, so a library file can never carry one site's name.
+	for (const f of ['Stat.astro', 'TimelineItem.astro']) {
+		assert(exists(`src/astro/${f}`), `does not ship src/astro/${f}`);
+	}
+	for (const f of ['Stat.astro', 'TimelineItem.astro']) {
+		const s = read(`src/astro/${f}`);
+		assert(!/Omar|omiinaya|oem\.|mrx/i.test(s), `${f} hardcodes a site identity`);
+	}
+	// The rail/dot classes are structural, so the component MUST emit them
+	// itself: a consumer that forgets one gets an un-drawn timeline.
+	const t = read('src/astro/TimelineItem.astro');
+	assert(/class="cm-timeline__item"/.test(t),
+		'TimelineItem does not emit .cm-timeline__item, so it draws no rail');
+	assert(/cm-timeline__item--now/.test(t),
+		'TimelineItem cannot express the current record');
+	assert(/class:list/.test(t),
+		'TimelineItem does not use class:list for its --now variant');
+	// class:list is what makes the variant CONDITIONAL. Hand-writing
+	// `class="cm-timeline__item cm-timeline__item--now"` would satisfy a
+	// substring check while marking every record as current, so the rule
+	// has to be proven to read the `now` prop rather than be a literal.
+	assert(/class:list=\{\{[^}]*'cm-timeline__item--now':\s*now\s*\}\}/.test(t),
+		'the --now class must be bound to the now prop through class:list, not hardcoded');
+	assert(!/class="[^"]*cm-timeline__item--now/.test(t),
+		'TimelineItem hardcodes --now into every item');
+});
+
+check('the record components are documented, and the docs are real', () => {
+	// A component nobody can find is a component nobody adopts: each class
+	// must be DEMONSTRATED with markup, not merely named in a sentence.
+	const readme = read('README.md');
+	const from = readme.indexOf('### Stat tiles and timeline');
+	assert(from !== -1, 'the README has no section documenting the record components');
+	const section = readme.slice(from, readme.indexOf('### ', from + 4));
+	assert(section.length > 400, 'the README section is a stub');
+	// Each class must be documented in the class TABLE, i.e. wrapped in
+	// backticks. A bare `includes('cm-stat__note')` is satisfied by the
+	// markup example further up the section, so deleting the table row
+	// entirely would leave the check green on the example that is left.
+	for (const sel of ['cm-stats', 'cm-stat__val', 'cm-stat__label', 'cm-stat__note',
+		'cm-timeline__item', 'cm-timeline__role', 'cm-timeline__org', 'cm-timeline__meta',
+		'cm-timeline__period', 'cm-timeline__body', 'cm-timeline__item--now']) {
+		// The needle is built with concatenation, not a template literal:
+		// inside one, the backticks and the $ of `.cm-stat__val` have to be
+		// escaped, and a mis-escaped `$$` silently compares the literal
+		// text "${sel}" instead of the class name.
+		assert(section.includes('`.' + sel + '`'),
+			'the README does not document `.' + sel + '` in its class table');
+	}
+	for (const sel of ['cm-stats', 'cm-timeline']) {
+		let shown = false;
+		for (const m of section.matchAll(/```html\n([\s\S]*?)```/g)) {
+			if (m[1].includes(sel)) { shown = true; break; }
+		}
+		assert(shown, `the README names .${sel} but shows no markup for it`);
+	}
+});
+
+check('the record components are reachable from the showcase nav', () => {
+	// A section that exists but is not linked is a section nobody scrolls
+	// to, and a component that is not demoed is dead CSS.
+	assert(/href:\s*['"]#records['"]/.test(showcase), 'the records section is not in the nav');
+	assert(/id="records"/.test(showcase), 'the nav points at a section that does not exist');
+});
+
+check('install.sh still lands the layers the record components live in', () => {
+	// The components are pure CSS, so they ship inside components.css —
+	// but that only helps a consumer who ran the installer.
+	const sh = read('scripts/install.sh');
+	assert(/components\.css/.test(sh), 'the installer does not copy components.css');
+});
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {

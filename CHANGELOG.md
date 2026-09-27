@@ -9,6 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Two record components: `.cm-stats` / `.cm-stat`, and `.cm-timeline`.**
+  A metric is not a `.cm-kv` row and a work history is not a `.cm-rows`
+  list, so both were being re-declared privately by every consumer that
+  needed one. Pure CSS, no runtime.
+  - The tile grid is `repeat(auto-fit, minmax(min(9rem, 100%), 1fr))`,
+    not a fixed column count: the tile count is data, and a hardcoded 3
+    strands a half-row at four tiles and an empty column at two. The
+    `min()` keeps a single tile from forcing horizontal scroll at 320px.
+  - `.cm-stat__val` is capped **below** the section `h2` and a test
+    enforces it. A metric tile is allowed to be emphatic; it is not
+    allowed to out-shout the heading that introduces it, and that
+    inversion is invisible in review and obvious on the page.
+  - The timeline rail and dot are drawn on **`.cm-timeline__item`**, not
+    on the list. A rail drawn on the list cannot know where the final
+    record is, so it either runs past the last dot (implying an entry
+    that does not exist) or needs a script to trim it. On the item,
+    `:last-child` ends it and the cost is zero.
+  - The dot is a square and is centred on the rail by a negative
+    half-width, so the mark and the line can never drift apart. A test
+    asserts the offset is exactly `-width / 2`.
+  - `--now` marks the current record by **filling** the dot with
+    `--ink` rather than introducing a hue. This palette is greyscale;
+    a colour here would be the only colour on the page, and it would
+    print wrong.
+  - `.cm-timeline__body` cancels the inherited `::before` list marker,
+    which would otherwise snap a wrapped line back to the container
+    edge and run it under the rail.
+- **`Stat.astro` and `TimelineItem.astro`.** Both take every string as a
+  prop and hardcode no identity. `TimelineItem` emits the rail/dot
+  classes itself, because a consumer that forgets one gets an un-drawn
+  timeline that looks like a styling bug rather than a missing class.
+- **A `records` section in the showcase**, in the nav between overlays
+  and prose, and a README section documenting every class above.
+
 - **Five native-first interactive components: `.cm-tabs`, `.cm-dialog`,
   `.cm-toast`, `.cm-dropdown`, `.cm-tooltip`.** Four of the five are the
   platform's own element doing the platform's own thing — a `<dialog>`

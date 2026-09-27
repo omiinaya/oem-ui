@@ -401,6 +401,65 @@ which buys light-dismiss, `Escape` and focus return for free.
 - Use `--end` when the trigger sits against the right edge; that is an
   edge case you name, not one the reader discovers.
 
+### Stat tiles and timeline
+
+A metric is not a key/value row and a work history is not a link list, so
+both got their own component. Both are pure CSS: no runtime, no script.
+
+**`.cm-stats`** is the grid, **`.cm-stat`** the tile. The column count is
+`auto-fit` because the tile count is data — a fixed `repeat(3, …)` strands
+a half-row at four tiles and an empty column at two.
+
+```html
+<ul class="cm-stats">
+  <li class="cm-stat">
+    <span class="cm-stat__val">5,000+</span>
+    <span class="cm-stat__label">users and devices</span>
+    <span class="cm-stat__note">global estate</span>
+  </li>
+</ul>
+```
+
+| Class | Role |
+|---|---|
+| `.cm-stats` | the list / grid container |
+| `.cm-stat` | one tile; `height:100%` so a row matches |
+| `.cm-stat__val` | the figure. 1.35rem, **capped below the section h2** so a tile is never the loudest thing in its own section |
+| `.cm-stat__label` | what the number counts |
+| `.cm-stat__note` | optional qualifier. The thing that makes the number honest |
+
+**`.cm-timeline`** is a dated record with a rail. The rail and the dot are
+drawn on the **item**, never on the list, so the line stops at the last
+record through `:last-child` alone — no script, and no JS pass to trim it
+when the data changes.
+
+```html
+<ul class="cm-timeline">
+  <li class="cm-timeline__item cm-timeline__item--now">
+    <span class="cm-timeline__period">Feb 2022 – present</span>
+    <span class="cm-timeline__role">L2 Tech Analyst</span>
+    <span class="cm-timeline__org">Richemont</span>
+    <span class="cm-timeline__meta">Coral Gables, FL</span>
+    <div class="cm-timeline__body">…</div>
+  </li>
+</ul>
+```
+
+| Class | Role |
+|---|---|
+| `.cm-timeline` | the list; draws nothing itself |
+| `.cm-timeline__item` | one record. Owns `position:relative`, the rail and the dot |
+| `.cm-timeline__item--now` | the record you are in now. **Fills** the dot with `--ink`, because the palette is greyscale and a second hue would be the only colour on the page |
+| `.cm-timeline__period` | when, set in the `cm-term` uppercase micro-label style |
+| `.cm-timeline__role` | the heading: the role, title or record name |
+| `.cm-timeline__org` | the organisation, project or owner |
+| `.cm-timeline__meta` | a sub-line for location or record type. Allowed to wrap |
+| `.cm-timeline__body` | optional prose. Includes a rule that stops a wrapped line snapping back under the rail |
+
+The dot is a square, for the same reason the checkbox is: a drawn mark
+reads as drawn, and it is centred on the rail by a negative half-width so
+the two can never drift apart.
+
 ### Everything else
 
 ```html
@@ -459,6 +518,8 @@ Copy from `src/astro/` and set your identity in `config.ts`:
 | `PostHead.astro` | article head with byline |
 | `PostRow.astro` | one list row |
 | `StatusStrip.astro` | label / value status line |
+| `Stat.astro` | one metric tile inside a `.cm-stats` list |
+| `TimelineItem.astro` | one dated record, with the `now` variant |
 
 ```astro
 ---

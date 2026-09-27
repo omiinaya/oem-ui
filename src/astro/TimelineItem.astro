@@ -1,0 +1,39 @@
+---
+/**
+ * oem-ui <TimelineItem> — one dated record inside a .cm-timeline list.
+ *
+ * Renders the rail and the dot itself, so a consumer only has to own
+ * the <ul> and the ordering. `now` fills the dot, which is how the
+ * current role is marked without a second colour.
+ */
+interface Props {
+	/** When the record applies: "2014 – 2017", "Feb 2022 – present". */
+	period: string;
+	role: string;
+	org: string;
+	/** Optional second org line: location, employment type. */
+	meta?: string;
+	/** Optional prose or a list of lines under the heading. */
+	body?: string;
+	/** Marks the record the person is in now. Fills the dot. */
+	now?: boolean;
+}
+
+const { period, role, org, meta, body, now = false } = Astro.props;
+---
+
+<li class="cm-timeline__item" class:list={{ 'cm-timeline__item--now': now }}>
+	<span class="cm-timeline__period">{period}</span>
+	<span class="cm-timeline__role">{role}</span>
+	<span class="cm-timeline__org">{org}</span>
+	{meta && <span class="cm-timeline__meta">{meta}</span>}
+	{
+		body && (
+			<div class="cm-timeline__body">
+				{body.split('\n').filter((line) => line.trim()).map((line) => (
+					<p>{line}</p>
+				))}
+			</div>
+		)
+	}
+</li>
