@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The drift checker now verifies a vendored layer is actually loaded.**
+  It compared bytes and nothing else, so it reported `in sync` for a week
+  on a project that had all four files vendored and imported none of them:
+  that site rendered its own 264-line design system with `--ink-faint`
+  at 2.66:1 contrast, while a byte-identical copy of the fixed values
+  sat unused in its `src/`. A copy is not adoption.
+
+  `scripts/check-design-sync.sh` now also reports `UNREACHABLE` for a layer
+  no source file references, matched on the file name so both the JS-import
+  and the CSS-`@import` routes count (oem-portfolio uses the latter; the
+  first version of the check flagged it, which is the same failure as a
+  check that never fires). It skips a project with no source files at all —
+  that is not drifted, it is not built yet.
+
+  The runtime is reported as a `note`, never a failure: a static site can
+  adopt the design system and want no theme toggle. Making it strict is
+  the obvious next edit and it would be wrong, so a test pins it.
+
+  Mutation-checked: `tests/mutate-reachability.mjs`, **7 killed, 0 missed,
+  0 no-op** — including the mutants that drop the report, drop only the
+  non-zero exit, revert to path matching, scan the vendored dir, and gate
+  on `src/` existing.
+
 - **`.cm-post-head`, the article variant of `.cm-head`.** `<PostHead>`
   shipped `cm-post-head` on its `<header>` while the stylesheet had no
   rule for it, so the article head rendered with none of the separation
