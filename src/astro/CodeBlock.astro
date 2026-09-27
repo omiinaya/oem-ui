@@ -1,0 +1,53 @@
+---
+/**
+ * oem-ui <CodeBlock> — a <pre> with a language label and a copy button.
+ *
+ * The runtime has bound [data-cm-copy] since it shipped and every consumer
+ * has it vendored, but not one page in the fleet had a button using it:
+ * a capability with no surface is a capability nobody can reach. This is
+ * the surface, and the markup that reaches it.
+ *
+ * The button's visible text lives in a [data-cm-copy-label] slot rather
+ * than being the button's own text, because the runtime rewrites the
+ * label on copy and writing btn.textContent would destroy the slot (and
+ * the glyph in it) on the first press.
+ *
+ * The id is what data-cm-copy points at. It is derived from `id`, and a
+ * block without one throws rather than shipping a button that copies
+ * nothing - the same build-time contract <Meter> has for an out-of-range
+ * percentage.
+ */
+interface Props {
+	/** The code itself. Rendered as text, never as HTML. */
+	code: string;
+	/** Language shown in the bar, e.g. 'bash'. */
+	lang?: string;
+	/** Element id for the <pre>; the copy button targets it. */
+	id: string;
+	/** Button label before the first copy. */
+	label?: string;
+}
+
+const { code, lang, id, label = 'copy' } = Astro.props;
+
+if (!id) {
+	throw new Error('<CodeBlock> needs an id: the copy button targets it by id');
+}
+---
+
+<div class="cm-codebar">
+	<div class="cm-codebar__bar">
+		<span class="cm-codebar__lang"><span>{lang ?? 'text'}</span></span>
+		<button
+			class="cm-btn cm-btn--sm cm-copy"
+			type="button"
+			data-cm-copy={`#${id}`}
+			data-cm-label={label}
+			data-cm-copy-label
+		>
+			<span class="cm-copy__state" aria-hidden="true"></span>
+			<span data-cm-copy-label>{label}</span>
+		</button>
+	</div>
+	<pre id={id} tabindex="0"><code>{code}</code></pre>
+</div>

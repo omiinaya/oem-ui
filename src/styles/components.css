@@ -311,6 +311,109 @@
 
 .cm-btn-group { display: flex; gap: var(--space-3); flex-wrap: wrap; }
 
+/* ---------- copy button ----------
+   The runtime has bound [data-cm-copy] since it shipped, and every consumer
+   has it vendored, yet no page in the fleet had a single button using it:
+   a capability with no surface is a capability nobody can reach. This is
+   that surface.
+
+   The button is a .cm-btn--sm, so it is the house control at a dense size
+   rather than a new visual language. It must sit in a container that puts
+   it over a block to copy - .cm-codebar below - because a copy button with
+   no code next to it is a button that copies nothing. */
+.cm-copy {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	font-size: 0.7rem;
+	color: var(--ink-faint);
+	/* Uppercase + tracking to match .cm-term__bar, which is the other
+	   small-label surface this usually shares a row with. */
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+}
+/* The tick and the cross must be the same reserved width or the label
+   shifts sideways every time the state changes: the word "copy" is
+   replaced by "copied" and an unreserved glyph reflows the whole bar. */
+.cm-copy__state {
+	display: inline-block;
+	min-width: 1.4em;
+	text-align: center;
+}
+/* The runtime sets .is-copied and it shipped with no rule for it anywhere in
+   the library, so a successful copy produced no visual confirmation at all:
+   the label text changed and the only cue was the motion. These are those
+   rules. */
+.cm-copy.is-copied {
+	color: var(--ink);
+	border-color: var(--ink-dim);
+	background: var(--bg-3);
+}
+.cm-copy.is-error {
+	color: var(--ink);
+	border-color: var(--ink);
+}
+
+/* ---------- code bar: the row a copy button lives in ----------
+   A copy control needs a code block to act on and a place to sit. Wrapping
+   the <pre> in .cm-codebar gives both without asking every consumer to
+   hand-roll the positioning. */
+.cm-codebar {
+	position: relative;
+	margin: 0 0 1.4em;
+	/* The bar owns the radius now; the block inside must not draw its own
+	   or the two corners double up. */
+	border-radius: var(--radius-sm);
+	overflow: hidden;
+}
+/* The pre is an ELEMENT default in base.css with its own border, radius
+   and left accent rule. Inside a bar it is the body of the panel, so those
+   come off and the bar's own chrome replaces them - the same reason
+   .cm-term__body pre is flattened. */
+.cm-codebar > pre {
+	margin: 0;
+	border: 0;
+	border-left: 0;
+	border-radius: 0;
+	background: var(--bg-2);
+}
+.cm-codebar__bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+	min-height: 2.4rem;
+	padding: 0 var(--space-2) 0 var(--space-4);
+	background: var(--bg-3);
+	border-bottom: 1px solid var(--line);
+	font-family: var(--font-mono);
+	font-size: 0.7rem;
+	color: var(--ink-faint);
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+}
+.cm-codebar__lang { min-width: 0; }
+/* A long language name must not push the copy button off the row on a
+   phone: the label truncates with an ellipsis and the button keeps its
+   size. min-width:0 on the flex child is what makes the ellipsis possible
+   at all - without it the label's min-content width wins and the row
+   overflows instead. */
+.cm-codebar__lang > span {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* On a touch viewport the copy control is a real target, not a 2.4rem
+   label, so it takes the tap floor. It must live in THIS file, not the
+   coarse-pointer block in base.css: base.css loads first, and the
+   .cm-btn--sm min-height:0 above is declared later at equal specificity,
+   so a rule in base.css would lose the cascade silently. */
+@media (pointer: coarse) {
+	.cm-copy { min-height: var(--tap); }
+}
+
 /* ---------- status strip ----------
    label/value pair on a flat panel. Use for live state, build
    info, or a one-line system message. */
@@ -1192,7 +1295,9 @@ html {
 	.cm-card__sub,
 	.cm-card__text,
 	.cm-meter__label,
-	.cm-meter__val {
+	.cm-meter__val,
+	.cm-codebar__bar,
+	.cm-copy {
 		font-size: max(var(--min-font), 0.66rem);
 	}
 	pre { font-size: max(var(--min-font), 0.78rem); }

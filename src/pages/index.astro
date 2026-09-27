@@ -15,6 +15,7 @@ import Stat from '../astro/Stat.astro';
 import TimelineItem from '../astro/TimelineItem.astro';
 import Card from '../astro/Card.astro';
 import Meter from '../astro/Meter.astro';
+import CodeBlock from '../astro/CodeBlock.astro';
 import HeaderLink from '../astro/HeaderLink.astro';
 import { SITE } from '../astro/config';
 ---
@@ -51,6 +52,7 @@ import { SITE } from '../astro/config';
 				{ href: '#overlays', label: 'overlays' },
 				{ href: '#records', label: 'records' },
 				{ href: '#cards', label: 'cards' },
+				{ href: '#code', label: 'code' },
 				{ href: '#prose', label: 'prose' },
 				{ href: '#layout', label: 'layout' },
 				{ href: '#forms', label: 'forms' },
@@ -478,6 +480,77 @@ import { SITE } from '../astro/config';
 				</div>
 			</section>
 
+			<!-- ==================================================== code
+			     The one surface the runtime had and the library never
+			     showed. [data-cm-copy] has been bound since it shipped
+			     and every consumer has it vendored, but not one page
+			     had a button using it, so nobody could reach the
+			     capability and nobody could see a failure in it. Two
+			     blocks here, on purpose: the bug that made every copy
+			     button on a page copy the FIRST block only, and the
+			     double-bind, both need a second button to exist. -->
+			<section id="code" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+				<h2>code</h2>
+				<p class="cm-head__sub">
+					A <code>&lt;pre&gt;</code> is an element default, so it is on-brand
+					before you add a class. <code>.cm-codebar</code> is the wrapper that
+					gives it a label row and a home for a copy button, and
+					<code>.cm-copy</code> is the button. Press one: the label
+					changes, and the state class is the only feedback &mdash; this
+					system has no chroma, so the change has to be legible in
+					greyscale.
+				</p>
+
+				<CodeBlock
+					id="demo-install"
+					lang="bash"
+					code={`curl -fsSL https://example.com/install.sh | sh`}
+				/>
+
+				<CodeBlock
+					id="demo-config"
+					lang="typescript"
+					code={`export const site = {
+  name: 'oem',
+  theme: 'dark',
+} satisfies SiteConfig;`}
+				/>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">states</h3>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>idle</code></span>
+						<span class="cm-spec__sample">
+							<span class="cm-btn cm-btn--sm cm-copy">
+								<span class="cm-copy__state" aria-hidden="true"></span>
+								<span>copy</span>
+							</span>
+						</span>
+						<span class="cm-spec__val"><code>default</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>copied</code></span>
+						<span class="cm-spec__sample">
+							<span class="cm-btn cm-btn--sm cm-copy is-copied">
+								<span class="cm-copy__state" aria-hidden="true">&#10003;</span>
+								<span>copied</span>
+							</span>
+						</span>
+						<span class="cm-spec__val"><code>runtime</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>error</code></span>
+						<span class="cm-spec__sample">
+							<span class="cm-btn cm-btn--sm cm-copy is-error">
+								<span class="cm-copy__state" aria-hidden="true">&#10007;</span>
+								<span>press &#8984;c</span>
+							</span>
+						</span>
+						<span class="cm-spec__val"><code>runtime</code></span>
+					</div>
+				</div>
+			</section>
+
 			<!-- ==================================================== overlays
 			     Five components that sit ON TOP of the page, and three of
 			     them are the platform's element: <dialog>, [popover] and
@@ -899,7 +972,7 @@ Astro: import Header/Footer/Head/PageHead/PostHead from 'oem-ui/astro'.</pre>
 		</main>
 		<Footer
 			items={['astro', 'static', 'zero deps']}
-			contactHref="mailto:omar@mrxlab.net"
+			contactHref="mailto:omar@mrx.sh"
 			status="all systems nominal — sig: static only"
 		/>
 

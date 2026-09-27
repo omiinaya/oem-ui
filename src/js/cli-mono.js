@@ -368,6 +368,15 @@
 		(root || document)
 			.querySelectorAll('[data-cm-copy]')
 			.forEach(function (btn) {
+				/* The bind guard every other init* here has, and the only
+				   one this was missing. init() runs again on every
+				   astro:page-load, and each run added a SECOND click
+				   listener to the same button, so one click copied twice
+				   and the label flickered through two state changes.
+				   Measured in WebKit: after a re-init, one click on a
+				   copy button produced 2 clipboard writes. */
+				if (btn.dataset.cmCopyBound) return;
+				btn.dataset.cmCopyBound = '1';
 				btn.addEventListener('click', function () {
 					var sel = btn.getAttribute('data-cm-copy');
 					var src = sel ? document.querySelector(sel) : btn.previousElementSibling;
@@ -376,20 +385,33 @@
 					var original = btn.getAttribute('data-cm-label') || btn.textContent;
 					copyText(String(text).trim())
 						.then(function () {
-							btn.textContent = 'copied';
+							setCopyLabel(btn, 'copied');
 							btn.classList.add('is-copied');
+							btn.classList.remove('is-error');
 						})
 						.catch(function () {
-							btn.textContent = 'press ⌘c';
+							setCopyLabel(btn, 'press \u2318c');
+							btn.classList.add('is-error');
 						})
 						.then(function () {
 							setTimeout(function () {
-								btn.textContent = original;
+								setCopyLabel(btn, original);
 								btn.classList.remove('is-copied');
+								btn.classList.remove('is-error');
 							}, 1400);
 						});
 				});
 			});
+	}
+
+	/* Writing btn.textContent DESTROYS the button's own children, so a
+	   button carrying a reserved glyph slot lost it on the first copy and
+	   could never get it back. Write into the label slot when the author
+	   supplied one, and only fall back to textContent for a bare button. */
+	function setCopyLabel(btn, text) {
+		var slot = btn.querySelector('[data-cm-copy-label]');
+		if (slot) slot.textContent = text;
+		else btn.textContent = text;
 	}
 
 	/* ---------- external link hardening ---------- */

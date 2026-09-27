@@ -3704,6 +3704,268 @@ check('the drawer locks page scroll while it is open', () => {
 		throw new Error('closing the drawer never restores page scroll');
 });
 
+/* ================= copy / code bar =================
+   The runtime bound [data-cm-copy] long before this section existed, and
+   every consumer has it vendored - but no page in the fleet had a single
+   button using it. A capability with no surface is a capability nobody can
+   reach, and it hid two real defects: a missing bind guard, and a
+   textContent write that destroyed the button's own children. */
+console.log('\ncopy + code bar');
+
+/* "Is this class defined?" needs the class to be a selector on its own,
+   OR a state hook the runtime actually sets. A bare `.cls {` regex is
+   satisfied by a COMPOUND selector (`.cm-back:hover .cm-back__arrow {`)
+   and by the same name inside a comment above it, which is how two
+   mutants in mutate-layout.mjs first reported MISSED. State hooks are
+   the deliberate exception: `.cm-copy.is-copied` is how a state hook
+   is spelled, and a space-free compound of two classes is still one
+   element, not an ancestor. */
+function isClassDefined(css, cls) {
+	const bare = new RegExp(`^\\.${cls}$`);
+	const state = new RegExp(`\\.[A-Za-z0-9_-]+\\.${cls}$`);
+	for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g)) {
+		const sel = m[1].trim();
+		if (sel.startsWith('@')) continue; // at-rule prelude, not a selector
+		for (const part of sel.split(',')) {
+			const one = part.trim();
+			// A selector containing a space names an ANCESTOR, so the
+			// class is styled conditionally, not defined here.
+			if (one && !/\s/.test(one) && (bare.test(one) || state.test(one))) return true;
+		}
+	}
+	return false;
+}
+
+check('the copy surface is defined as classes of its own', () => {
+	for (const cls of ['cm-copy', 'cm-copy__state', 'cm-codebar', 'cm-codebar__bar', 'cm-codebar__lang']) {
+		assert(isClassDefined(comp, cls), `.${cls} is not defined as a selector of its own`);
+	}
+});
+
+/* The built showcase page, or '' when there is no build.
+   Several checks have to read this rather than the source: a component
+   that renders from an imported .astro file puts its markup in dist/ and
+   nowhere else, so a source-level assertion cannot see it at all. */
+function builtHtml() {
+	const f = join(root, 'dist/index.html');
+	return existsSync(f) ? readFileSync(f, 'utf8') : '';
+}
+
+// The component that emits the markup. Several checks below have to read
+// THIS rather than the showcase source: the button is not written in
+// src/pages/index.astro, so a source-level assertion cannot see it.
+const cb = read('src/astro/CodeBlock.astro');
+
+check('the copy button is a house button, not a new visual language', () => {
+	// The copy control must COMPOSE the existing button rather than skin a
+	// parallel one. A second button implementation is the duplication this
+	// library exists to prevent: the bug the first .cm-btn tap-floor fix
+	// made would simply recur here, in a control that inherits none of it.
+	assert(/\bclass="cm-btn cm-btn--sm cm-copy"/.test(cb),
+		'the copy button is not composed from .cm-btn .cm-btn--sm .cm-copy');
+	// And the page that renders it must actually carry that class, or the
+	// component is correct and nothing uses it. Asserting on the showcase
+	// source here would pass on the three inert state specimens while the
+	// real button in <CodeBlock> went unstyled - which is exactly what the
+	// first mutation of this test proved.
+	const built = builtHtml();
+	if (built) {
+		const btns = built.match(/<button[^>]*data-cm-copy\b[\s\S]*?<\/button>/g) || [];
+		assert(btns.length > 0, 'the built page has no copy button to inspect');
+		for (const b of btns) {
+			assert(/\bclass="[^"]*\bcm-copy\b/.test(b),
+				'a rendered copy button does not carry the .cm-copy class');
+		}
+	}
+	// A .cm-copy that re-declared the border or padding would be a second
+	// implementation of the button rather than a variant of it.
+	const copy = /\.cm-copy\s*\{([^}]*)\}/.exec(comp);
+	assert(copy, '.cm-copy rule missing');
+	assert(!/border\s*:/.test(copy[1]),
+		'.cm-copy re-declares the button border; that is a second button implementation');
+	assert(!/padding\s*:/.test(copy[1]),
+		'.cm-copy re-declares the button padding; the floor and the padding belong to .cm-btn');
+});
+
+check('a copy control is never below the tap floor on touch', () => {
+	// The coarse-pointer floor for .cm-copy MUST live in components.css,
+	// not in the base.css block. base.css loads first and the .cm-btn--sm
+	// min-height:0 is declared later at equal specificity, so a rule in
+	// base.css loses the cascade silently and the button measures 2.4rem
+	// tall on a phone. The same trap already cost .cm-icon-btn its width.
+	const inComponents = /@media \(pointer: coarse\)\s*\{\s*\.cm-copy\s*\{[^}]*min-height:\s*var\(--tap\)/.test(comp);
+	assert(inComponents,
+		'.cm-copy does not take --tap from a coarse-pointer block in components.css');
+	// A hardcoded 44px would measure right and be wrong: a consumer that
+	// retunes --tap gets a button stuck at the old size.
+	assert(!/\.cm-copy[^{]*\{[^}]*min-height:\s*44px/.test(comp),
+		'.cm-copy hardcodes 44px instead of taking the --tap token');
+});
+
+check('the copied state has a rule, so a successful copy is visible', () => {
+	// The runtime has set .is-copied since it shipped and the library had
+	// no rule for it anywhere: the label text changed and the only feedback
+	// was the motion. Assert the class in a SELECTOR, not as a substring,
+	// so the explanatory comment above the rule cannot satisfy this.
+	assert(isClassDefined(comp, 'is-copied'),
+		'the runtime sets .is-copied but no rule renders it, so a copy has no confirmation');
+	// And the failure path needs one too, for the same reason: the greyscale
+	// palette has no hue to carry it.
+	assert(isClassDefined(comp, 'is-error'),
+		'the failure path has no state class, so a refused copy is indistinguishable');
+	// The runtime must actually set the class the CSS styles.
+	assert(/classList\.add\('is-error'\)/.test(runtimeSrc),
+		'the runtime never sets .is-error, so the failure state is unreachable');
+});
+
+check('the copy button keeps its glyph slot when the label changes', () => {
+	// Writing btn.textContent DESTROYS the button's children, so a button
+	// carrying a reserved glyph slot lost it on the first copy and could
+	// never get it back. The label must be written into a slot.
+	assert(!/\bbtn\.textContent\s*=\s*'copied'/.test(runtimeSrc),
+		'the runtime writes btn.textContent, which destroys the glyph slot');
+	assert(/data-cm-copy-label/.test(runtimeSrc),
+		'the runtime has no label slot to write into');
+	// The slot must be RENDERED, and this has to read the BUILT page. The
+	// button comes out of <CodeBlock>, so the markup is not in
+	// src/pages/index.astro at all: a source-level assertion here can only
+	// ever fail, or (worse) be written against something else and pass
+	// forever. The runtime's own lesson, verbatim: a relative
+	// <script src> tag compiled fine, was dropped from dist/ entirely, and
+	// a source-level test stayed green the whole time.
+	const built = builtHtml();
+	assert(built, 'dist/index.html is missing — run `npm run build` before the contract tests');
+	const buttons = built.match(/<button[^>]*data-cm-copy\b[\s\S]*?<\/button>/g) || [];
+	assert(buttons.length > 0, 'the built page has no copy button at all');
+	for (const b of buttons) {
+		assert(/data-cm-copy-label/.test(b),
+			'a rendered copy button has no [data-cm-copy-label] slot, so the '
+			+ 'runtime textContent write will destroy the glyph it reserves');
+	}
+});
+
+check('the copy button is bound once, however often init runs again', () => {
+	// init() runs on every astro:page-load and initCopy had no bind guard,
+	// so each run attached another click listener: one click, two clipboard
+	// writes. Measured in WebKit at 390px before the fix.
+	const copy = /function initCopy[\s\S]*?\n\t}/.exec(runtimeSrc);
+	assert(copy, 'could not parse initCopy');
+	assert(/if \(btn\.dataset\.cmCopyBound\) return;/.test(copy[0]),
+		'initCopy has no bind guard, so astro:page-load double-binds every copy button');
+	assert(/btn\.dataset\.cmCopyBound\s*=\s*'1';/.test(copy[0]),
+		'the guard is never set, so it cannot skip a second bind');
+});
+
+check('the showcase demonstrates copy with more than one block', () => {
+	// Both defects this section fixes are only observable with two copy
+	// buttons on one page. A single specimen would have hidden them, which
+	// is exactly what happened for as long as the surface did not exist.
+	//
+	// Built html, not source: the buttons are emitted by <CodeBlock>, so
+	// src/pages/index.astro contains none of them. Counting there would be
+	// counting a string that can never grow past the two mentions in the
+	// prose.
+	const built = builtHtml();
+	assert(built, 'dist/index.html is missing — run `npm run build` before the contract tests');
+	const targets = [...built.matchAll(/data-cm-copy="([^"]+)"/g)].map(m => m[1]);
+	assert(targets.length >= 2,
+		`the showcase has ${targets.length} copy button(s); two are needed to exercise per-block resolution`);
+	// Each button must target a DISTINCT id, or every button copies the
+	// same first block and the specimen is decorative.
+	assert(new Set(targets).size === targets.length,
+		`two copy buttons target the same block: ${targets.join(', ')}`);
+	// And those ids must exist in the markup, or the button copies nothing.
+	for (const t of targets) {
+		assert(new RegExp(`id="${t.replace('#', '')}"`).test(built),
+			`the copy target ${t} has no matching element in the built page`);
+	}
+});
+
+check('a long language label cannot push the copy button off the row', () => {
+	// The bar is a flex row: a long language name wins on min-content width
+	// and pushes the button out of the panel. min-width:0 on the label is
+	// what lets it shrink, and the ellipsis is what makes the truncation
+	// legible. Without min-width:0 the row overflows the section instead.
+	const lang = /\.cm-codebar__lang\s*\{([^}]*)\}/.exec(comp);
+	assert(lang, '.cm-codebar__lang rule missing');
+	assert(/min-width:\s*0/.test(lang[1]),
+		'.cm-codebar__lang has no min-width:0, so a long language name widens the row');
+	const span = /\.cm-codebar__lang\s*>\s*span\s*\{([^}]*)\}/.exec(comp);
+	assert(span, '.cm-codebar__lang has no inner span to truncate');
+	assert(/text-overflow:\s*ellipsis/.test(span[1]),
+		'the language label does not truncate with an ellipsis');
+	assert(/overflow:\s*hidden/.test(span[1]),
+		'the language label has overflow:hidden, so the ellipsis never appears');
+});
+
+check('the glyph slot reserves its width, so the label never shifts', () => {
+	// The runtime replaces "copy" with "copied" and puts a tick in the
+	// slot. An unreserved glyph reflows the whole bar on every state
+	// change, which is the kind of thing only a screenshot catches and
+	// nobody measures. min-width on the slot is the reservation.
+	const slot = /\.cm-copy__state\s*\{([^}]*)\}/.exec(comp);
+	assert(slot, '.cm-copy__state rule missing');
+	assert(/min-width:\s*1\.4em/.test(slot[1]),
+		'the glyph slot reserves no width, so the label shifts on every state change');
+	assert(/text-align:\s*center/.test(slot[1]),
+		'the glyph slot is not centred, so the tick sits off the word');
+});
+
+check('the code bar corners come from the radius token', () => {
+	// A hardcoded 4px here measures fine and is a rebrand bug: retune
+	// --radius-sm and this bar keeps the old corner while every other
+	// panel in the system moves. Same rule the bordered-block test
+	// applies to .cm-section / .cm-card.
+	const bar = /\.cm-codebar\s*\{([^}]*)\}/.exec(comp);
+	assert(bar, '.cm-codebar rule missing');
+	assert(/border-radius:\s*var\(--radius-sm\)/.test(bar[1]),
+		'.cm-codebar does not take its radius from --radius-sm');
+	assert(!/border-radius:\s*\d/.test(bar[1]),
+		'.cm-codebar hardcodes a border-radius instead of using the token');
+});
+
+check('the code bar flattens the pre default it wraps', () => {
+	// `pre` is an ELEMENT default carrying its own border, left accent rule
+	// and radius. Inside a bar those are the panel's chrome, not the body's,
+	// and leaving them draws a second border inside the bar. Same reason
+	// .cm-term__body pre is flattened.
+	const pre = /\.cm-codebar\s*>\s*pre\s*\{([^}]*)\}/.exec(comp);
+	assert(pre, '.cm-codebar > pre rule missing');
+	assert(/border:\s*0/.test(pre[1]),
+		'the wrapped pre keeps its own border, so the bar draws two');
+	assert(/border-left:\s*0|border:\s*0/.test(pre[1]),
+		'the pre keeps its left accent rule inside the bar');
+	assert(/border-radius:\s*0/.test(pre[1]),
+		'the wrapped pre keeps its own radius, so the two corners double up');
+});
+
+check('a code block without an id fails the build instead of shipping a dead button', () => {
+	// The same contract <Meter> has for an out-of-range percentage: a
+	// button that copies nothing is worse than no button, and the failure
+	// is invisible on the page.
+	assert(/throw new Error/.test(cb),
+		'<CodeBlock> does not throw on a missing id');
+	assert(/if \(!id\)/.test(cb),
+		'the throw is not guarded on the id prop');
+	// The button must target the id it was given, not a literal.
+	assert(/data-cm-copy=\{`#\$\{id\}`\}/.test(cb),
+		'the copy button does not target the id it was handed');
+});
+
+check('the copy button is a real button a keyboard can reach', () => {
+	// It is a <button type="button">, so it is focusable, fires on Enter
+	// and Space, and is not submitted as part of a form. A div with a click
+	// handler reaches none of that.
+	assert(/<button/.test(cb) && /type="button"/.test(cb),
+		'the copy control is not a <button type="button">');
+	// The glyph slot is decorative and must not be announced.
+	assert(/class="cm-copy__state" aria-hidden="true"/.test(cb),
+		'the glyph slot is not aria-hidden, so a screen reader reads the tick');
+	// The <pre> scrolls, so it must be focusable for a keyboard user.
+	assert(/<pre id=\{id\} tabindex="0">/.test(cb),
+		'the scrollable <pre> is not focusable, so a keyboard cannot scroll it');
+});
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {
