@@ -7,7 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`.cm-chip` — a state chip for table cells and row summaries.**
+  The library had `.cm-status` (a full-width strip) and `.cm-tag` (a chip
+  with no state), and nothing in between, so every consumer that needed
+  "scored / warming / error" in a dense table cell hand-rolled one. The
+  first one measured was hermes-hearth's `.pill` family: 20 hex literals,
+  four states differentiated **by hue alone**, and the two
+  `color: var(--ink-dim)` states (`pill idle` and `pill set`) carrying no
+  cue at all.
+
+  Since the palette is greyscale by contract, a state cannot be carried by
+  colour, so each state carries a second, non-hue cue as a `::before`
+  glyph — circle, triangle, cross — the same treatment `.cm-status`,
+  `.cm-toast` and `.cm-alert` already use and for the same reason.
+  `.cm-chip--set` is dashed, for "this value is not the default", which the
+  value itself cannot say.
+
+  Two forms, not one, and the split is measured rather than taste: the
+  **base is a mark** and deliberately does *not* reach `--tap`, because
+  forcing the floor on an inline chip in a table cell inflates the row from
+  39.6px to 60.5px at 390px (+53%) to make something that is not a target
+  look tappable. `.cm-chip--action` is the interactive form and does carry
+  `min-height: var(--tap)` from the token.
+
 ### Fixed
+- **The tap-target check was verifying one component out of four.**
+  `INTERACTIVE` listed `cm-tab` and `cm-nav__link`, neither of which has
+  ever been a class in this library (the tab is `.cm-tabs__tab`), and a
+  `continue` on the un-matched case meant those two were skipped silently
+  while the suite reported success. A vacuous pass is worse than a failure
+  because it reads as coverage. The list is corrected, the skip is now a
+  failure that names the misspelling, and the lookup is a real rule walk
+  (recursing into at-rules, accepting a selector list or an ancestor
+  prefix) instead of a regex over raw text. `.cm-chip` was in that list
+  too, reserved long before the component existed.
+- **`.cm-nav-toggle` reached 44px by accident.** The burger's size came
+  from the header being a stretched flex row, not from any declaration on
+  the button itself — so making the header a plain block would have left
+  the phone's only way into the nav as a 12px target (the bar box). The
+  floor is now declared on the rule.
+- **A check could pass on a sibling's declaration.** `[role='tab']` shares
+  one block with `a, button, label, input, textarea, select` and
+  `[role='button']`, so asking "does this block mention `var(--tap)`" is
+  answered by `a`'s floor and passes with the tab at 20px. The element is
+  now named in the prelude and its own value read.
+
 - **The FOUC guard could not see a theme saved under a legacy key.**
   `themeInitScript()` built its key list from the module-level
   `LEGACY_KEYS`, which is still `[]` at the moment the inline `<head>`

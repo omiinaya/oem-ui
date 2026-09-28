@@ -926,6 +926,79 @@ html {
 }
 .cm-tag--accent { border-color: var(--accent-dim); color: var(--ink); }
 
+/* ---------- state chip ----------
+   A tag that carries STATE, for a table cell or a row summary: "scored",
+   "warming", "error", "cold". This is a separate block from `.cm-tag` and
+   not a modifier of it, because the two answer different questions and a
+   consumer should not have to override a chip's padding to get a plain one.
+
+   Why a class at all: the palette is greyscale by contract, so a state
+   cannot be carried by hue. Every admin surface invents its own answer to
+   that, and they all invent it the same wrong way - colour alone. Measured
+   in hermes-hearth's console, the hand-rolled `.pill` family carried four
+   states on hue (green/amber/red/grey) with one glyph shape for all of
+   them, so on a greyscale screen, in a print, or to a reader with
+   deuteranopia, "error" and "scored" are the same chip.
+
+   So every state here carries a SECOND, non-hue cue on top of the
+   contrast step: a distinct ::before glyph, exactly the way .cm-status,
+   .cm-toast and .cm-alert already do it. Circle, triangle, cross. The one
+   invariant this block has to keep is that a state chip never reaches the
+   12px floor from below - these sit in a table cell, which is dense by
+   definition, so the floor is asserted rather than assumed. */
+.cm-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	padding: 0.15em 0.6em;
+	border: 1px solid var(--line);
+	border-radius: 4px;
+	background: var(--bg-3);
+	font-family: var(--font-mono);
+	font-size: max(var(--min-font), 0.7rem);
+	line-height: 1.4;
+	color: var(--ink-dim);
+	white-space: nowrap;
+	max-width: 100%;
+}
+/* The glyph duplicates the word beside it, which is the whole point: the
+   state survives a greyscale screen, a print, and a reader who cannot
+   separate the hues. .cm-status, .cm-toast and .cm-alert carry the same
+   ::before glyph for the same reason, and take the same treatment - CSS
+   generated content, not an aria-hidden span, so the two never drift into
+   different markup conventions. */
+.cm-chip::before { color: var(--ink-faint); }
+.cm-chip--ok::before { content: '\25cf\00a0'; color: var(--ink-dim); }
+.cm-chip--warn::before { content: '\25b2\00a0'; color: var(--ink-dim); }
+.cm-chip--err::before { content: '\2715\00a0'; color: var(--ink); }
+/* A set-but-not-errored state is a "this value is not the default", which
+   is information the value itself cannot carry - a number that happens to
+   equal the default and one that was deliberately set are the same glyph
+   otherwise. Dim rule + no glyph. */
+.cm-chip--set { border-style: dashed; color: var(--ink-dim); }
+
+/* The chip does NOT reach --tap, and that is a measured decision rather than
+   an oversight. The suite listed `cm-chip` as interactive before this block
+   existed, so the name and the contract were already in conflict. Measured
+   in WebKit at 390px, inside a real .cm-table cell:
+
+     no floor    chip 22.4px   row 39.6px
+     min-height 44px         row 60.5px
+
+   The chip is inline in a run of non-target text inside a cell, which is
+   the case WCAG 2.5.8 explicitly exempts ("size is otherwise constrained
+   by the line-height of non-target text") - the same exemption the library
+   already applies to an inline prose link. Forcing the floor here would
+   inflate every status row by 53% to make a mark look tappable, and it
+   would read as a button that goes nowhere. */
+
+/* ...but a chip that IS the target needs the floor, so there is an explicit
+   interactive form rather than a default that is wrong in half the cases.
+   This is the resolution of the contradiction: the base is a mark, the
+   action is a control, and neither has to be overridden by hand. */
+.cm-chip--action { min-height: var(--tap); padding: 0 var(--space-3); cursor: pointer; }
+.cm-chip--action:hover { border-color: var(--ink); color: var(--ink); }
+
 /* ---------- footer shell ---------- */
 .cm-footer {
 	border-top: 1px solid var(--line);
@@ -1101,7 +1174,22 @@ html {
    link on screen rather than a button that cannot open anything. Same
    reasoning as the theme FOUC guard: the enhanced path must never be the
    only path. */
-.cm-nav-toggle { display: none; }
+.cm-nav-toggle {
+	display: none;
+	/* The 44px floor is declared on the BASE rule, not inherited from a
+	   stretched flex parent and not buried in the 640px block. It used to
+	   measure 44px only because the header is a stretched flex row, so the
+	   button was as tall as its container - true until someone makes the
+	   header a plain block, and then the burger silently becomes 12px tall
+	   (the bar box) and the phone's only way into the nav is a 12px target.
+	   A floor that depends on an ancestor's align-items is not a floor. The
+	   rule is inert while the control is display:none, so declaring it here
+	   costs nothing and cannot rot in a media query. */
+	align-items: center;
+	justify-content: center;
+	min-width: var(--tap);
+	min-height: var(--tap);
+}
 /* Only ever a phone control: a burger on a 1280px screen next to a
    perfectly good inline nav is noise. */
 @media (max-width: 640px) {

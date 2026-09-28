@@ -715,6 +715,38 @@ instead of pushing 26px past its row. It is `break-word` and not
 `anywhere`: `anywhere` also shrinks min-content sizing and splits `.cm-*`
 identifiers mid-token.
 
+## State chips
+
+`.cm-tag` is a chip with no state. When a chip has to *report* state — a
+table cell that says scored, warming, failed, or "this value was set" —
+use `.cm-chip` and one modifier.
+
+```html
+<span class="cm-chip">cold</span>
+<span class="cm-chip cm-chip--ok">scored</span>
+<span class="cm-chip cm-chip--warn">warming</span>
+<span class="cm-chip cm-chip--err">error</span>
+<span class="cm-chip cm-chip--set">set</span>
+<button class="cm-chip cm-chip--err cm-chip--action">retry</button>
+```
+
+The palette is greyscale, so **a modifier may never be the only thing
+carrying the state**. Each one adds a non-hue cue on top of the contrast
+step: `--ok` / `--warn` / `--err` hang a `::before` glyph (●, ▲, ✕) the
+way `.cm-status` and `.cm-toast` already do, and `--set` goes dashed for
+"this is not the default", which the value itself cannot say. A contract
+test fails the build if two states share a glyph, so the shapes cannot
+collapse into each other.
+
+**The base is a mark, not a target, and it does not reach `--tap`.** A chip
+sits inline in a run of non-target text inside a table cell, which is the
+case WCAG 2.5.8 exempts ("size is otherwise constrained by the
+line-height of non-target text"). Measured in WebKit at 390px, forcing the
+floor on the base inflates the row from **39.6px to 60.5px** to make
+something that is not a control look tappable. When the chip *is* the
+target, use `.cm-chip--action`, which carries `min-height: var(--tap)` from
+the token.
+
 ## Mobile nav
 
 Under 640px the header nav collapses behind a burger. Nothing to wire up:

@@ -3403,18 +3403,174 @@ check('the --tap token is the 44px floor', () => {
 });
 // A component is checked by the rule that actually sets its box, so a
 // `min-height` on a later, less specific rule cannot mask a missing one.
-const INTERACTIVE = ['cm-btn', 'cm-tab', 'cm-chip', 'cm-nav__link'];
+//
+// TWO of these four reach --tap in a MEDIA QUERY rather than in the base
+// rule, and reading the base rule alone reports them as failures:
+//
+//   .cm-tabs__tab   the floor is in the 640px block that turns the nav into
+//                   a vertical drawer, because a tab on a phone is a menu
+//                   row, not a toolbar tab.
+//   .cm-nav-toggle  hidden above 640px entirely (it is a phone-only
+//                   control), so it has no base box to put a floor on.
+//
+// So the check reads the WHOLE stylesheet, not the first match. It is still
+// anchored on the exact selector - a bare /min-height:var\(--tap\)/ finds
+// some other component's declaration and every one of these would pass for
+// the wrong reason, which is the same trap as the "a rule a different
+// occurrence of the string can satisfy" case.
+//
+// `cm-chip` is deliberately NOT in this list, and was added by mistake long
+// before the component existed: the name was reserved here, no `.cm-chip`
+// rule was ever written, and the `continue` that used to sit here made the
+// check vacuous - a silently-skipped check that reports nothing and reads
+// as coverage. Now that the component is real the decision is explicit:
+// a chip is a mark by default (measured: the --tap floor inflates a status
+// row from 39.6px to 60.5px at 390px) and `.cm-chip--action` is the
+// interactive form that carries the floor.
+const INTERACTIVE = ['cm-btn', 'cm-tabs__tab', 'cm-nav-toggle', 'cm-chip--action'];
+// Every rule that DECLARES the class - parsed as a rule list, not matched
+// with a regex over raw text, because the forms here are exactly the ones a
+// regex gets wrong:
+//
+//   .cm-btn, .cm-btn:hover { }        a selector LIST
+//   .cm-js .cm-nav-toggle { }         an ANCESTOR prefix (the real rule)
+//   @media (max-width: 640px) { }     the rule lives INSIDE a block
+//   /* prose mentioning it */         comments, stripped first
+//
+// A regex that requires the class at the start of a line misses the
+// `.cm-js` form entirely; one that bleeds across a brace picks up a
+// neighbour's declarations; and one that ignores at-rules misses every
+// conditional rule, which is where TWO of these components keep their floor.
+// So walk the stylesheet properly: on an at-rule, recurse into its body;
+// on a style rule, test the selector list.
+//
+// BOTH layers are read. A control does not have to declare its own floor to
+// reach 44px, and in fact most of them do not: base.css's coarse-pointer
+// block gives `a, button, label, input, textarea, select, [role='button'],
+// [role='tab']` the floor by ELEMENT, so .cm-tabs__tab (a <button
+// role="tab">) is already at 44px with no rule of its own. Reading
+// components.css alone reported that as a failure - a check scoped to the
+// wrong layer, which is the same defect as one scoped to the wrong selector.
+const declsOf = (sel, src = allCss) => {
+	const css = src.replace(/\/\*[\s\S]*?\*\//g, '');
+	const out = [];
+	const walk = (text) => {
+		let i = 0;
+		while (i < text.length) {
+			const open = text.indexOf('{', i);
+			if (open === -1) break;
+			const prelude = text.slice(i, open).trim();
+			// Find this block's matching close, so a nested at-rule is
+			// consumed whole rather than split at its inner brace.
+			let depth = 1, j = open + 1;
+			while (j < text.length && depth > 0) {
+				if (text[j] === '{') depth++;
+				else if (text[j] === '}') depth--;
+				j++;
+			}
+			const body = text.slice(open + 1, j - 1);
+			if (prelude.startsWith('@')) {
+				walk(body);
+			} else {
+				const own = prelude.split(',').some((s) => {
+					const t = s.trim();
+					// A selector that IS the class, or a state of it.
+					if (t.startsWith('.')) return t === '.' + sel ||
+						t.startsWith('.' + sel + ':') || t.startsWith('.' + sel + '[') ||
+						t.startsWith('.' + sel + '.');
+					// A compound selector names the class CONDITIONALLY,
+					// which still styles it, so it counts. An exact match
+					// would miss `.cm-js .cm-nav-toggle`, which is the only
+					// rule that has ever set that button's box.
+					return new RegExp('\\.' + sel + '(?![a-z0-9_-])').test(t);
+				});
+				if (own) out.push(body);
+			}
+			i = j;
+		}
+	};
+	walk(css);
+	return out.join('\n');
+};
 for (const sel of INTERACTIVE) {
-	const m = compSrc.match(new RegExp('\\.' + sel + '\\s*(?:,[^{]*)?\\{([^}]*)\\}'));
-	if (!m) continue; // not every name is a standalone rule; skip quietly
+	// A name that matches no rule used to `continue` silently, so the check
+	// reported success while examining one name out of three: `cm-tab` and
+	// `cm-nav__link` are not classes this library has ever defined (the tab
+	// is `.cm-tabs__tab`), and the skip hid that for as long as the list
+	// existed. A vacuous pass is worse than a failure because it reports
+	// coverage, so an unmatchable name is now a failure.
+	//
+	// The floor may come from EITHER place, and which one it is differs per
+	// component: a rule that names the class, or base.css's coarse-pointer
+	// element default. `.cm-tabs__tab` is the second case in full - it
+	// declares no min-height at all and is still 44px, because it is a
+	// <button role="tab">. So each entry declares WHICH guarantee it relies
+	// on, and the check asks about that one. A single mechanism would have
+	// to be a union (either place), which is weaker: it cannot tell a
+	// control that lost its element default from one that never had a rule.
+	const IN_THE_BASE_ELEMENT_LAYER = new Set(['cm-tabs__tab']);
+	const all = declsOf(sel);
+	// The value, not the substring. `[role='tab']` shares ONE declaration
+	// block with `a, button, label, input, textarea, select` and
+	// `[role='button']`, so a check that asks "does this block contain
+	// var(--tap) anywhere" is satisfied by `a`'s floor and would have
+	// passed with `[role='tab'] { min-height: 20px }` - a check that reports
+	// a green suite while the tab sits at 20px. (Proven: that exact
+	// mutation is in tests/mutate-chip.mjs.) So the element has to be NAMED
+	// in the prelude, and then its own declaration read.
+	const coarseBlock = (read('src/styles/base.css').replace(/\/\*[\s\S]*?\*\//g, '')
+		.match(/@media \(pointer: coarse\) \{([\s\S]*?)\n\}/)?.[1] || '');
+	const elementFloor = (() => {
+		for (const m of coarseBlock.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+			const pre = m[1].trim();
+			if (pre.split(',').some((s) => s.trim() === "[role='tab']")) return m[2];
+		}
+		return '';
+	})();
+	if (!all && !IN_THE_BASE_ELEMENT_LAYER.has(sel)) {
+		failures.push([`.${sel} meets the tap floor`,
+			`no rule in components.css matches .${sel} - is the name misspelled, or does the class not exist?`]);
+		console.log(`FAIL  .${sel} meets the tap floor\n        no rule in components.css matches .${sel} - is the name misspelled, or does the class not exist?`);
+		continue;
+	}
 	check(`.${sel} meets the tap floor`, () => {
-		const body = m[1];
-		const min = body.match(/min-height:\s*(\d+)px/);
+		if (IN_THE_BASE_ELEMENT_LAYER.has(sel)) {
+			// The element default is the claim, so assert the ELEMENT and
+			// the media query, not the class - a check that passed on
+			// `.cm-tabs__tab { min-height: var(--tap) }` existing would
+			// keep passing if the base default were deleted.
+			assert(elementFloor,
+				`${sel} relies on base.css's coarse-pointer element default for its floor, and [role='tab'] no longer appears in that block`);
+			// Read the VALUE, not the substring: `20px` in that block is
+			// exactly the mutation this was written to catch, and a
+			// `var(--tap)`-present check would sail past it.
+			const em = elementFloor.match(/min-height:\s*(\d+)px/);
+			if (em) {
+				assert(+em[1] >= TAP,
+					`[role='tab'] declares min-height:${em[1]}px in the coarse-pointer block, under ${TAP}px`);
+				return;
+			}
+			assert(/min-height:\s*var\(--tap\)/.test(elementFloor),
+				`[role='tab'] in the coarse-pointer block declares no min-height, so the tab's box is set by padding alone`);
+			// ...and that the class is rendered as one of those elements.
+			// Read dist/ directly rather than the shared `built` const: that
+			// is declared ~900 lines BELOW this loop, so touching it here is
+			// a TDZ ReferenceError, not a value. (A real one, hit while
+			// writing this check.)
+			const builtNow = existsSync(join(root, 'dist/index.html'))
+				? readFileSync(join(root, 'dist/index.html'), 'utf8') : '';
+			// The class ATTRIBUTE parsed rather than regex-bounded: `_` is a
+			// word character, so a `\b` boundary cannot match a BEM name.
+			assert(builtNow.includes(`class="cm-tabs__tab`),
+				`${sel} is claimed to be a coarse-pointer element, but the built page renders no <button> carrying it`);
+			return;
+		}
+		const min = all.match(/min-height:\s*(\d+)px/);
 		if (min) {
 			assert(+min[1] >= TAP, `min-height is ${min[1]}px, under ${TAP}px`);
 			return;
 		}
-		const v = body.match(/min-height:\s*var\(--tap\)/);
+		const v = all.match(/min-height:\s*var\(--tap\)/);
 		assert(v, `no min-height from --tap, so its box is set by padding alone`);
 	});
 }
@@ -4349,6 +4505,191 @@ check('.cm-tag survives a word too long for its column', () => {
 	// long, or the rule is defending against nothing and can be deleted.
 	assert(/cm-tag[^"]*">infrastructureascodeverylong/.test(surfaceSection),
 		'the variants section must render a genuinely long tag');
+});
+
+/* ================= state chip =================
+   Added because a real consumer needed it and could not build it from the
+   library. hermes-hearth's console carries four states (ok/warn/err/idle)
+   in a hand-rolled .pill family whose ONLY differentiator is hue, on a
+   palette the library declares greyscale. So the chip is not a convenience
+   wrapper around .cm-tag: it is the rule that a state must carry a second,
+   non-hue cue. The checks below are the ways that can fail. */
+console.log('\nstate chip');
+
+// Scoped to the chip's own block on purpose. A bare content search, or a
+// class-name substring, is satisfied by .cm-status and .cm-toast, which
+// carry the same three glyphs - so a chip that dropped its content
+// ENTIRELY would still pass, because its siblings say it.
+//
+// `[^}]*` cannot span to the base rule: `.cm-chip::before` is its own block,
+// and a regex loose enough to find it from the variants section would find
+// .cm-status's content instead. Anchored, then the content read from inside
+// the captured body.
+// The escape set is written as `[.*+?^$|]` plus a separately-escaped `[` and
+// `]` - a character class cannot contain its own brackets unescaped, and
+// `/[.*+?^${}()|[\]\\]/g` is the form that actually works. Getting that
+// wrong produces a regex that matches nothing, which here reads as "no
+// rule found" rather than "broken helper" - a NO-OP masquerading as a
+// verdict. (A real one, hit while writing this check.)
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const chipGlyphOf = (selector) => {
+	const m = new RegExp('^' + escapeRe(selector) + '\\s*\\{([^}]*)\\}', 'm').exec(compSrc);
+	if (!m) return null;
+	const g = /content:\s*'([^']+)'/.exec(m[1]);
+	return g ? g[1] : null;
+};
+
+check('a state chip carries a non-hue cue, not just a colour step', () => {
+	// The whole reason the block exists. A chip that differentiates only by
+	// brightness is invisible on a greyscale screen, in a print, and to a
+	// reader with deuteranopia - and it is the answer every consumer
+	// invents by default, which is why it is worth a test.
+	// The base chip has NO glyph, and that is the design: a state-free chip
+	// has no state to signal. So "no ::before rule" and "a ::before rule
+	// with no content" are different verdicts, and conflating them reports a
+	// correct component as missing one. `chipGlyphOf` returns the content or
+	// null; the base is asserted to have the RULE, and its three variants to
+	// have the CONTENT.
+	const hasChipBeforeRule = new RegExp('^' + escapeRe('.cm-chip::before') + '\\s*\\{', 'm').test(compSrc);
+	const glyphs = new Set();
+	assert(hasChipBeforeRule,
+		'no .cm-chip::before rule found, so no variant can hang a glyph off it');
+	for (const v of ['--ok', '--warn', '--err']) {
+		const g = chipGlyphOf(`.cm-chip${v}::before`);
+		assert(g, `.cm-chip${v} has no ::before content, so it differs from its base by colour alone`);
+		glyphs.add(g);
+	}
+	assert(glyphs.size === 3,
+		`the three states share ${glyphs.size} distinct glyph(s) (${[...glyphs]}) - a state that looks like another state is not a state`);
+});
+
+check('a state chip cannot fall below the 12px text floor', () => {
+	// A chip lives in a table cell, which is dense by definition, and the
+	// size every other inline mark in the system uses is 0.7rem - 11.2px
+	// at the default 16px root, UNDER --min-font. A chip that inherits it
+	// is sub-floor in the one place a consumer will never think to look.
+	// Asserted against the TOKEN, not 12px, so a retune of --min-font does
+	// not leave the chip pinned to a number that no longer means anything.
+	const rule = /^\.cm-chip \{([^}]*)\}/m.exec(compSrc);
+	assert(rule, 'no .cm-chip base rule found');
+	assert(/font-size:\s*max\(var\(--min-font\),\s*0\.7rem\)/.test(rule[1]),
+		'.cm-chip must floor its font-size at var(--min-font) via max(); 0.7rem alone is 11.2px');
+	// The same floor the rest of the system asserts, so the two cannot
+	// disagree about what the floor is.
+	assert(/--min-font:\s*12px/.test(tokenSrc),
+		'--min-font is not 12px; the chip floor is only meaningful against this value');
+});
+
+check('a chip is a mark by default and a control only when it is the target', () => {
+	// The one place in this repo where the obvious "make it 44px like
+	// everything else" edit is WRONG, so it gets a test. Measured in
+	// WebKit at 390px inside a real .cm-table cell: a bare chip is 22.4px
+	// and the row is 39.6px; adding min-height:var(--tap) makes the chip
+	// 44px and the row 60.5px. +53% of row height, in exchange for making
+	// a mark look tappable. WCAG 2.5.8 exempts a target whose size is
+	// constrained by the line-height of the non-target text around it,
+	// which is exactly a chip inside a table cell.
+	//
+	// So the base must NOT carry the floor, and the INTERACTIVE form must.
+	// Both halves, because "no floor anywhere" and "floor everywhere" are
+	// each a real way to get this wrong.
+	const base_ = /^\.cm-chip \{([^}]*)\}/m.exec(compSrc);
+	assert(base_, 'no .cm-chip base rule found');
+	assert(!/min-height:\s*var\(--tap\)/.test(base_[1]),
+		'.cm-chip must not carry the --tap floor: measured, it inflates a status row by 53%');
+	assert(/display:\s*inline-flex/.test(base_[1]), '.cm-chip must stay an inline-flex box');
+
+	// The escape hatch for a chip that IS the target. Without it, a
+	// consumer with a tappable chip has to hand-write the floor, and the
+	// obvious place they write it is on the base - which is the bug above.
+	const act = /^\.cm-chip--action \{([^}]*)\}/m.exec(compSrc);
+	assert(act, 'no .cm-chip--action rule found');
+	assert(/min-height:\s*var\(--tap\)/.test(act[1]),
+		'.cm-chip--action must reach var(--tap) from the token, not a hardcoded 44px');
+	assert(!/min-height:\s*44px/.test(act[1]),
+		'.cm-chip--action hardcodes 44px, so a retune of --tap leaves it at the old size');
+});
+
+check('every chip variant is demonstrated against its own base', () => {
+	// The presence-only trap: a chip variant can be in the markup, in the
+	// CSS, and still render exactly like its base. Reuse the variants
+	// table's mechanism rather than a presence assertion.
+	//
+	// The class ATTRIBUTE is parsed, not regex-matched. `\b` is useless on a
+	// BEM name because `_` is a word character, so a boundary-delimited
+	// search for `cm-chip--ok` also matches inside `cm-chip--okay`; and an
+	// unordered one matches a chip in some OTHER element's class list.
+	// Split the attribute and compare tokens, which is the same discipline
+	// the reachability check uses on the built page.
+	const renderedVariants = new Set();
+	for (const m of surfaceSection.matchAll(/class="([^"]*)"/g)) {
+		const toks = m[1].split(/\s+/);
+		if (toks.includes('cm-chip')) toks.filter(t => t.startsWith('cm-chip--')).forEach(t => renderedVariants.add(t));
+	}
+	for (const v of ['cm-chip--ok', 'cm-chip--warn', 'cm-chip--err', 'cm-chip--set']) {
+		assert(renderedVariants.has(v),
+			`${v} is not rendered on an element that also carries cm-chip in the variants section ` +
+			`(found: ${[...renderedVariants].join(', ') || 'none'})`);
+	}
+	// And the plain base, so "state vs no state" is a comparison the page
+	// can actually make.
+	assert(/class="cm-chip">/.test(surfaceSection),
+		'the variants section must render a plain .cm-chip to compare the states against');
+	// --action is the fourth form, and it is the one a reviewer is most
+	// likely to believe is just a styling hint.
+	assert(renderedVariants.has('cm-chip--action'),
+		'cm-chip--action is not demonstrated, so the tap-floor escape hatch is a promise');
+});
+
+check('a chip modifier that renders like its base is not a modifier', () => {
+	// The presence check above is necessary and not sufficient, and the gap
+	// is real: `.cm-chip--set` declared `border-style: dashed` AND
+	// `color: var(--ink-dim)`, the latter of which its base also declares.
+	// Deleting the dashed border leaves the modifier with declarations, so a
+	// "is it rendered with its base" assertion still passes while the chip
+	// is visually identical to the plain one. That is the same
+	// "declares nothing its base does not" idea the variants table
+	// already applies to cm-tag/cm-status, applied to the family that was
+	// added this cycle.
+	const chipBase = (() => {
+		const m = /^\.cm-chip \{([^}]*)\}/m.exec(compSrc);
+		assert(m, 'no .cm-chip base rule found');
+		return new Set(m[1].split(';').map((d) => d.trim()).filter(Boolean));
+	})();
+	// A modifier may hang its difference off the ELEMENT (--set) or off a
+	// pseudo-element (--ok's ::before glyph), and both are real variants.
+	// Requiring a bare `.cm-chip--ok { }` block would report the three
+	// glyph states as unstyled, which is the same false negative as a
+	// class-scoped search that ignores at-rules: the selector exists, it
+	// just has a ::before on it.
+	for (const v of ['cm-chip--ok', 'cm-chip--warn', 'cm-chip--err', 'cm-chip--set', 'cm-chip--action']) {
+		const sel = '.' + v;
+		const hasOwn = new RegExp('^' + escapeRe(sel) + '\\s*\\{', 'm').test(compSrc);
+		const hasBefore = new RegExp('^' + escapeRe(sel + '::before') + '\\s*\\{', 'm').test(compSrc);
+		assert(hasOwn || hasBefore, `no rule styles .${v}, by element or by ::before`);
+		if (!hasOwn) continue; // the glyph variant; asserted by the glyph check
+		const m = new RegExp('^' + escapeRe(sel) + ' \\{([^}]*)\\}', 'm').exec(compSrc);
+		const decls = m[1].split(';').map((d) => d.trim()).filter(Boolean);
+		const only = decls.filter((d) => !chipBase.has(d));
+		assert(only.length > 0,
+			`.${v} declares nothing .cm-chip does not, so it renders identically to its base`);
+	}
+});
+
+check('a chip in a table cell cannot widen the table past the viewport', () => {
+	// The reason .cm-tag needed min-width/max-width/break-word: an
+	// inline-flex is a BFC root, so a long single word lays out at its own
+	// max-content width and pushes past the column. A chip repeats that
+	// shape. white-space:nowrap means the chip itself will not break, so it
+	// has to be allowed to SHRINK instead - otherwise one long state name
+	// drags the whole table sideways, the defect this library already
+	// fixed once in .cm-table-wrap.
+	const rule = /^\.cm-chip \{([^}]*)\}/m.exec(compSrc);
+	assert(rule, 'no .cm-chip base rule found');
+	assert(/max-width:\s*100%/.test(rule[1]),
+		'.cm-chip needs max-width:100% so a long state name cannot widen its column');
+	assert(/white-space:\s*nowrap/.test(rule[1]),
+		'.cm-chip must be nowrap: a state name that wraps inside a chip breaks the cell rhythm');
 });
 
 /* ================= async checks (installer) ================= */
