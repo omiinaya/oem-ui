@@ -55,10 +55,12 @@ TARGET="$(mkdir -p "$TARGET" && cd "$TARGET" && pwd)"
 if [ "$FLAT" -eq 1 ]; then
   CSS_DIR="$TARGET/cli-mono"
   JS_DEST="$TARGET/cli-mono.js"
+  GUARD_DEST="$TARGET/cli-mono-theme-guard.js"
   mkdir -p "$CSS_DIR"
 else
   CSS_DIR="$TARGET/src/styles/cli-mono"
   JS_DEST="$TARGET/src/js/cli-mono.js"
+  GUARD_DEST="$TARGET/src/js/cli-mono-theme-guard.js"
   mkdir -p "$CSS_DIR" "$(dirname "$JS_DEST")"
 fi
 
@@ -66,11 +68,13 @@ install -m 0644 "$FROM/src/styles/tokens.css"     "$CSS_DIR/tokens.css"
 install -m 0644 "$FROM/src/styles/base.css"       "$CSS_DIR/base.css"
 install -m 0644 "$FROM/src/styles/components.css" "$CSS_DIR/components.css"
 install -m 0644 "$FROM/src/js/cli-mono.js"        "$JS_DEST"
+install -m 0644 "$FROM/src/js/cli-mono-theme-guard.js" "$GUARD_DEST"
 
 say "tokens.css     -> $CSS_DIR/tokens.css"
 say "base.css       -> $CSS_DIR/base.css"
 say "components.css -> $CSS_DIR/components.css"
 say "cli-mono.js    -> $JS_DEST"
+say "guard          -> $GUARD_DEST"
 
 printf '\nLoad in this order (tokens, base, components), JS last:\n'
 if [ "$FLAT" -eq 1 ]; then
@@ -78,10 +82,15 @@ if [ "$FLAT" -eq 1 ]; then
   printf '  <link rel="stylesheet" href="/cli-mono/base.css" />\n'
   printf '  <link rel="stylesheet" href="/cli-mono/components.css" />\n'
   printf '  <script src="/cli-mono.js"></script>\n'
+  printf '  and FIRST in <head>, before any stylesheet:\n'
+  printf '  <script src="/cli-mono-theme-guard.js"></script>\n'
 else
   printf '  <link rel="stylesheet" href="/src/styles/cli-mono/tokens.css" />\n'
   printf '  <link rel="stylesheet" href="/src/styles/cli-mono/base.css" />\n'
   printf '  <link rel="stylesheet" href="/src/styles/cli-mono/components.css" />\n'
   printf '  <script src="/src/js/cli-mono.js"></script>\n'
+  printf '  and FIRST in <head>, before any stylesheet (Astro: ?raw import):\n'
+  printf '  import guard from "../js/cli-mono-theme-guard.js?raw";\n'
+  printf '  <script is:inline set:html={guard} />\n'
 fi
 printf '\nStyle with the .cm-* classes; tokens are the contract.\n'

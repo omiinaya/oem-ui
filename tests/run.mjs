@@ -304,11 +304,71 @@ check('Head ships the FOUC guard before the stylesheet', () => {
 	// Compare positions in the *markup*, ignoring comments, so a comment
 	// that merely mentions the word "stylesheet" cannot fail this test.
 	const markup = h.replace(/<!--[\s\S]*?-->/g, '').replace(/^\s*\/\*[\s\S]*?\*\/\s*$/gm, '');
-	const guard = markup.indexOf('cm-theme');
+	const guard = markup.indexOf('set:html={guard}');
 	const sheet = markup.indexOf('rel="stylesheet"');
 	assert(guard !== -1, 'Head.astro missing theme guard');
 	assert(guard < sheet, `FOUC guard must precede the stylesheet link (guard@${guard}, sheet@${sheet})`);
 	assert(/stylesHref\s*&&\s*<link/.test(markup), 'stylesheet must be prop-driven, not hardcoded');
+});
+
+/* The guard is inlined into <head> verbatim, and the HTML parser ends a
+   script element at the first closing tag sequence it sees WHETHER OR NOT
+   IT SITS INSIDE A JAVASCRIPT COMMENT.
+
+   That is not hypothetical. The first version of the shared guard
+   documented its own usage by writing the closing tag literally in the
+   header comment. The build succeeded, all 269 contract tests passed, and
+   the consumer shipped NO GUARD AT ALL: the parser cut the file at the
+   comment, so what reached dist/ was a truncated comment with the entire
+   code body missing. Every green signal agreed and the page was broken -
+   the exact failure mode this repo keeps rediscovering, and the reason
+   this asserts on the BUILT output.
+
+   The same applies to an HTML comment opener, which a parser can treat as
+   legacy script-data escaping. Neither sequence may appear anywhere in
+   the file, comment included, and `docs` is proven by a mutation. */
+check('the shared guard carries no sequence that can close its own script tag', () => {
+	const src = read('src/js/cli-mono-theme-guard.js');
+	const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+	// The code body must actually be here, and must be a real IIFE that
+	// ends in its own invocation. A file that is nothing but comments
+	// passes a "no bad sequence" test while shipping no guard at all -
+	// which is precisely how the first version slipped through.
+	assert(/\(function\s*\(\)\s*\{/.test(code),
+		'the guard file must contain an executable IIFE, not only prose');
+	assert(code.trimEnd().endsWith('})();'),
+		'the guard must end by invoking itself, or nothing runs before first paint');
+	for (const probe of ['data-cm-theme-key', 'data-cm-theme-legacy', 'localStorage.getItem']) {
+		assert(code.includes(probe),
+			`the guard body must read ${probe}; a comment mentioning it proves nothing`);
+	}
+
+	// The whole file, comments included. This is the check that would have
+	// caught the shipped bug.
+	for (const [what, seq] of [
+		['a script-closing tag', '</script'],
+		['a script tag', '<script'],
+		['an HTML comment opener', '<!--'],
+		['an HTML comment closer', '-->'],
+	]) {
+		assert(!src.toLowerCase().includes(seq),
+			`the guard file contains ${what} ("${seq}"). Inlined into <head> the HTML parser ` +
+				'stops there, comment or not, and the page silently loses the guard. ' +
+				'Describe the tag in prose, never spell it.');
+	}
+});
+
+check('the guard file is the one the installer and the drift checker ship', () => {
+	// Three hand-maintained lists have to agree, and a disagreement is
+	// silent: a consumer is told to copy a file the installer never
+	// installs, or a fix lands in a file no consumer is compared against.
+	const inst = read('scripts/install.sh');
+	const sync = read('scripts/check-design-sync.sh');
+	assert(/cli-mono-theme-guard\.js/.test(inst),
+		'install.sh must install the guard, or a consumer cannot obtain it');
+	assert(/src\/js\/cli-mono-theme-guard\.js:/.test(sync),
+		'check-design-sync.sh must compare the guard, or a copy drifts silently');
 });
 
 /* A component that emits a class the stylesheet never defines is the
@@ -1207,13 +1267,23 @@ check('the FOUC guard is the first node in <head>, not inside <header>', () => {
 		['Head.astro', 'src/astro/Head.astro'],
 	]) {
 		const s = read(path);
-		// Match the tag WITH its attributes: an inline guard that also
-		// carries define:vars or set:html is still the guard, and pinning
-		// the bare `<script is:inline>` spelling makes this check report a
-		// missing guard for a file that has one.
-		const guardAt = s.search(/<script\s+is:inline[^>]*>\s*\(function/);
+		// Two legal spellings. Either the tag carries its body directly,
+		// or - the shape a consumer with its own <head> must now use -
+		// it inlines the shared guard FILE with set:html, which is
+		// self-closing. Both are scoped to set:html or an IIFE body so an
+		// unrelated self-closing inline script cannot satisfy this.
+		//
+		// An external <script src> is NOT a match: it runs after the
+		// stylesheets, which is the flash this checks for.
+		const guardAt = s.search(
+			/<script\s+is:inline[^>]*set:html[^>]*\/>|<script\s+is:inline[^>]*>\s*\(function/
+		);
 		const charsetAt = s.indexOf('<meta charset');
 		assert(guardAt !== -1, `${name}: no inline FOUC guard found`);
+		assert(
+			!/<script[^>]*is:inline[^>]*src=/.test(s),
+			`${name}: the guard must be INLINE; a src= tag runs after the stylesheets, which is the flash`,
+		);
 		assert(
 			charsetAt === -1 || guardAt < charsetAt,
 			`${name}: the FOUC guard must precede <meta charset>, or a light-theme visitor sees a dark flash`,
@@ -1825,11 +1895,17 @@ check('the drift checker fails on a vendored-but-never-imported layer', () => {
 		// Half 2: import them the way a real consumer does and the same
 		// files must now be accepted. Without this the check would just be
 		// "vendoring is an error", which would forbid the layout itself.
+		//
+		// The guard is wired in with the ?raw import a real Astro consumer
+		// uses, because that is the only shape that keeps it INLINE. A
+		// script src= would run after the stylesheets, which is the flash.
 		mkdirSync(join(dir, 'src/components'), { recursive: true });
 		writeFileSync(join(dir, 'src/components/BaseHead.astro'), [
 			"import '../styles/cli-mono/tokens.css';",
 			"import '../styles/cli-mono/base.css';",
 			"import '../styles/cli-mono/components.css';",
+			"import themeGuard from '../js/cli-mono-theme-guard.js?raw';",
+			'<script is:inline set:html={themeGuard} />',
 			'<script is:inline src="/src/js/cli-mono.js"></script>',
 		].join('\n'));
 		const loaded = run();
@@ -1842,6 +1918,11 @@ check('the drift checker fails on a vendored-but-never-imported layer', () => {
 		rmSync(join(dir, 'src/components/BaseHead.astro'), { force: true });
 		writeFileSync(join(dir, 'src/styles/site.css'),
 			"@import './cli-mono/tokens.css';\n@import './cli-mono/base.css';\n@import './cli-mono/components.css';\n");
+		// The guard is still required: loading CSS by @import says nothing
+		// about the theme, and a site that loads the layers but drops the
+		// guard still flashes black for every light-theme visitor.
+		writeFileSync(join(dir, 'src/pages/index.astro'),
+			'<html>\n<head>\n<script is:inline src="/cli-mono-theme-guard.js"></script>\n</head>\n</html>\n');
 		const viaCss = run();
 		assert(viaCss.status === 0,
 			`a consumer loading the layers by CSS @import must pass, got ${viaCss.status}: ${viaCss.stdout.trim()}`);
@@ -1852,6 +1933,18 @@ check('the drift checker fails on a vendored-but-never-imported layer', () => {
 		// strict" is the obvious next edit and it would be wrong.
 		assert(/note:.*vendors cli-mono\.js/.test(viaCss.stdout),
 			`a missing runtime reference should be noted, got: ${viaCss.stdout.trim()}`);
+
+		// Half 5: the guard is the ONE vendored file that is not optional.
+		// The runtime can go unused in a static site that wants no toggle,
+		// but an unused guard is a black flash, and the file sitting there
+		// reads as adoption. This is the dev-blog trap exactly, one file
+		// down: the layers loaded, the guard did not.
+		writeFileSync(join(dir, 'src/pages/index.astro'), '<html></html>\n');
+		const noGuard = run();
+		assert(noGuard.status === 1,
+			`a consumer that vendors the guard but no head loads it must fail, got ${noGuard.status}: ${noGuard.stdout.trim()}`);
+		assert(/UNREACHABLE\s+cli-mono-theme-guard\.js/.test(noGuard.stdout),
+			`the unused guard must be named, got: ${noGuard.stdout.trim()}`);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
@@ -4187,6 +4280,65 @@ check('the copy button keeps its glyph slot when the label changes', () => {
 			'a rendered copy button has no [data-cm-copy-label] slot, so the '
 			+ 'runtime textContent write will destroy the glyph it reserves');
 	}
+});
+
+/* The guard must SURVIVE the trip into the built page. This is the only
+   assertion in the suite that would have caught the shipped bug: the
+   source file was valid, the build was green, the source-level tests were
+   green, and the guard the browser received was a truncated COMMENT with
+   no code in it. A source test cannot see that - the truncation happens in
+   the HTML parser, downstream of everything the suite reads.
+
+   So assert the rendered geometry of the head instead: one inline script,
+   carrying the real body, positioned before the charset and the first
+   stylesheet. */
+check('the BUILT page ships a working guard, not a truncated comment', () => {
+	const built = builtHtml();
+	assert(built, 'dist/index.html is missing — run `npm run build` before the contract tests');
+	const headEnd = built.indexOf('</head>');
+	assert(headEnd !== -1, 'the built page has no </head>');
+	const head = built.slice(0, headEnd);
+
+	// The guard is the first script in the head, and it is INLINE (no src),
+	// because an external tag is fetched and run after the stylesheets.
+	const firstScript = /<script\b([^>]*)>([\s\S]*?)<\/script>/.exec(head);
+	assert(firstScript, 'the built head has no inline script at all');
+	assert(!/\bsrc=/.test(firstScript[1]),
+		`the first script in the built head has a src= attribute: ${firstScript[1].trim()}. ` +
+			'That runs after the stylesheets, which is the flash this prevents.');
+
+	const body = firstScript[2];
+	// Strip the JS comment so prose cannot satisfy a code assertion - the
+	// real bug was a file that was ALL prose.
+	const code = body.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+	assert(/\(function\s*\(\)\s*\{/.test(code),
+		'the built head script contains no executable IIFE: it shipped as a comment');
+	assert(code.trimEnd().endsWith('})();'),
+		'the built guard does not invoke itself, so it cannot apply a saved theme');
+	for (const probe of [
+		'data-cm-theme-key',
+		'data-cm-theme-legacy',
+		'localStorage.getItem',
+		"setAttribute('data-theme', 'light')",
+	]) {
+		assert(code.includes(probe),
+			`the built guard never references ${probe}; the guard is not the one the library ships`);
+	}
+	// Dark is the default and is applied by CSS, so writing anything but
+	// light would be wrong, and writing to storage here would race the
+	// runtime's own migration.
+	assert(!/localStorage\.setItem/.test(code),
+		'the built guard writes to localStorage; that is the runtime\'s job, after the paint');
+
+	// Position, measured on the built bytes.
+	const guardEnd = head.indexOf('</script>', firstScript.index) + '</script>'.length;
+	const charset = head.indexOf('<meta charset');
+	const sheet = head.search(/<link[^>]+rel="stylesheet"/);
+	assert(guardEnd <= charset || charset === -1,
+		'the built guard does not precede <meta charset>, so a light-theme visitor sees a dark flash');
+	assert(guardEnd <= sheet || sheet === -1,
+		'the built guard does not precede the first stylesheet, so the flash comes back');
 });
 
 check('the copy button is bound once, however often init runs again', () => {

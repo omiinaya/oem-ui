@@ -8,6 +8,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`cli-mono-theme-guard.js` — the FOUC guard as a shipped file, and
+  three consumers migrated onto it.**
+  The fixed guard (reads its key list from `<html>` at run time) existed in
+  exactly two places: inside `src/astro/Head.astro`, which `install.sh` does
+  not ship, and inside the runtime, which cannot be used from `<head>` —
+  the guard runs before the runtime bundle exists, so anything it read from
+  the module was empty at that moment.
+
+  The consequence was measured, not predicted: every consumer that owns its
+  own `<head>` had re-implemented the guard, and the deep-audit script
+  reported five of them. `links` had a `themeInitSnippet(storageKey,
+  legacyKeys)` helper that took the key list as a **build-time argument**,
+  which is precisely the bug the library fixed — it cannot see a theme saved
+  under a legacy key, so every returning light-theme visitor got a black
+  flash. `oem-portfolio` still had the older single-hardcoded-key form.
+  `dev-blog` had a correct copy that would still drift.
+
+  The guard is now one file, installed by `install.sh`, compared by
+  `check-design-sync.sh`, and inlined by consumers with a `?raw` import. All
+  three consumers migrated; their hand-rolled copies and `links`'s
+  `src/lib/cm-theme.ts` are deleted. `check-design-sync.sh` now treats an
+  un*referenced* guard as a **failure** rather than a note: the runtime can
+  legitimately go unused in a static site, but an unused guard is a black
+  flash, and the file sitting there reads as adoption.
+
+  `Head.astro`'s `themeKey` / `legacyKey` props are now a documented
+  fallback for a host that has *not* declared the attributes; they must not
+  become a way to build a second key list, which is the original bug.
+
+  **The bug this cycle shipped and caught, which is the reason the file
+  carries a warning about itself.** The guard is inlined verbatim into
+  `<head>`, and the HTML parser ends a script element at the first closing
+  tag it sees *whether or not it is inside a JavaScript comment*. The first
+  version of this file documented its own usage by writing the closing tag
+  literally in its header comment. The build succeeded, all 269 contract
+  tests passed, `links` deployed a working page, and **every visitor got no
+  guard at all** — the parser cut the file at the comment, so the shipped
+  script was 2,128 bytes of prose with the entire body missing. Found by
+  asserting on the built bytes rather than the source.
+
+  The suite now has a check that the guard file contains no
+  script-closing-tag sequence, no script tag and no HTML comment sequence
+  **anywhere in the file**, a check that the built head carries a real
+  self-invoking body positioned before `<meta charset>` and the first
+  stylesheet, and `tests/verify-guard-webkit.py`, which seeds a stored theme
+  under a *legacy* key in WebKit at a 390px iPhone viewport and measures the
+  **painted** background, not just the attribute.
+
+  Measured in WebKit at 390px: 10 cases across three consumers, all
+  correct. A legacy-key light theme on `links` paints `rgb(250,250,250)`;
+  reverting the guard to the single-key form drops it to `rgb(10,10,10)` —
+  the black flash, measured. 0 sideways-scroll and the guard confirmed
+  inline in `<head>` on all three. 6 mutations, 6 caught, 0 no-ops.
 - **`.cm-chip` — a state chip for table cells and row summaries.**
   The library had `.cm-status` (a full-width strip) and `.cm-tag` (a chip
   with no state), and nothing in between, so every consumer that needed

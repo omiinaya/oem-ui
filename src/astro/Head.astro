@@ -4,6 +4,11 @@
  * Copy-paste. Import your own global stylesheet where noted.
  */
 import { SITE } from './config';
+// The guard is ONE file, shared with every consumer, so the fix that closes
+// the black-flash hole cannot land in the library and be missing from a
+// project that owns its own <head>. `?raw` inlines it verbatim: a <script
+// src> here would run AFTER the stylesheets, which is the bug.
+import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 
 interface Props {
 	title: string;
@@ -11,19 +16,42 @@ interface Props {
 	/** path to your global.css, relative to this component */
 	stylesHref?: string;
 	/**
-	 * Storage key for the saved theme. Declare it once here and once on
-	 * `<html data-cm-theme-key>`. A project that stored its theme under a
-	 * different key before the library owned it passes `legacyKey`, and
-	 * both the FOUC guard and the runtime will find that value.
+	 * Storage key for the saved theme. Declare it once on
+	 * `<html data-cm-theme-key>`; that attribute is the contract the guard
+	 * and the runtime both read. This prop is only a fallback for a host
+	 * that has NOT declared the attribute, and it must stay that way: the
+	 * guard runs before the runtime exists, so a key list built at build
+	 * time cannot see a legacy value and reintroduces the black flash.
 	 */
 	themeKey?: string;
-	/** key(s) this project used BEFORE the library owned the theme */
+	/**
+	 * Retained for backwards compatibility. Declare previous keys on
+	 * `<html data-cm-theme-legacy="a,b">` instead; the guard reads the list
+	 * from the DOM precisely so it does not have to be passed in.
+	 */
 	legacyKey?: string;
 }
 
 const { title, description = SITE.description, stylesHref, themeKey, legacyKey } = Astro.props;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://example.com');
 const fullTitle = title === SITE.title ? title : `${title} — ${SITE.title}`;
+
+/* The guard reads its keys from <html> at run time, which is the whole
+   point: the attribute is the single declaration both the guard and the
+   runtime consult, so they cannot drift.
+
+   A host that passes `themeKey` without also declaring
+   `<html data-cm-theme-key>` would otherwise silently get the default
+   key, so the prop is honoured as the FALLBACK only - substituted into
+   the one literal, never used to build a second list. Substituting a
+   list here is the original bug: this snippet is evaluated before the
+   runtime bundle exists, so a key list assembled at build time cannot
+   see a legacy value, and that returning visitor gets a black flash. */
+const GUARD_DEFAULT_KEY = "'cm-theme'";
+const guard =
+	themeKey && themeGuard.includes(GUARD_DEFAULT_KEY)
+		? themeGuard.replace(GUARD_DEFAULT_KEY, JSON.stringify(themeKey))
+		: themeGuard;
 ---
 
 <!--
@@ -37,30 +65,7 @@ const fullTitle = title === SITE.title ? title : `${title} — ${SITE.title}`;
 	cli-mono.js already drifted once, and the cost was a black flash for
 	every visitor whose theme predated the library.
 -->
-<script is:inline define:vars={{ themeKey, legacyKey }}>
-	(function () {
-		try {
-			var d = document.documentElement;
-			var g = function (a) {
-				try {
-					return d.getAttribute(a);
-				} catch (e) {
-					return null;
-				}
-			};
-			var k = (g('data-cm-theme-key') || themeKey || 'cm-theme')
-				.split(',')
-				.concat((g('data-cm-theme-legacy') || legacyKey || '').split(','));
-			for (var i = 0; i < k.length; i++) {
-				var s = localStorage.getItem(k[i].trim());
-				if (s === 'light' || s === 'dark') {
-					if (s === 'light') d.setAttribute('data-theme', 'light');
-					return;
-				}
-			}
-		} catch (e) {}
-	})();
-</script>
+<script is:inline set:html={guard} />
 
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />

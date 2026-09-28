@@ -187,8 +187,46 @@ oem project:
   see a theme saved under the old one, and that returning visitor is the
   exact person the guard exists to protect.
 
-`<Head>` takes `themeKey` / `legacyKey` props and emits the same
-attribute-driven guard, so an Astro consumer does not hand-write it.
+`<Head>` emits the same attribute-driven guard, so an Astro consumer does
+not hand-write it.
+
+### The guard is a FILE, because <head> cannot use the runtime
+
+`cli-mono.js` exposes `themeInitScript()`, but you cannot use it to build
+the guard: the guard runs *before* the runtime bundle exists, so anything
+it read from the module would be empty at that moment. That is the
+original bug — a guard that bakes its key list in at build time cannot see
+a legacy value — and it is why every project that owned its own `<head>`
+kept re-implementing the guard by hand.
+
+So the guard ships as its own file, `cli-mono-theme-guard.js`, which
+`install.sh` copies and `check-design-sync.sh` compares. One copy, so a
+fix reaches every consumer.
+
+**Astro consumer with its own `<head>`:**
+
+```astro
+---
+import themeGuard from '../js/cli-mono-theme-guard.js?raw';
+---
+<head>
+  <script is:inline set:html={themeGuard} />   <!-- before <meta charset> -->
+```
+
+**Plain HTML (`--flat` install):** reference it with a plain script tag
+*before* every stylesheet. A blocking external script only beats the
+stylesheet if it is placed first.
+
+> **Do not put a script-closing tag or an HTML comment opener anywhere in
+> that file, including in a comment.** It is inlined into `<head>`, and the
+> HTML parser ends a script element at the first closing tag it sees
+> *whether or not it is inside a JavaScript comment*. The first version of
+> this file documented its own usage by writing the tag literally: the
+> build went green, all contract tests went green, and every visitor got a
+> page with **no guard at all**, because the parser cut the file at the
+> comment. The suite now asserts on the built page, and
+> `tests/verify-guard-webkit.py` seeds a legacy-key theme and measures the
+> paint.
 
 > **Astro gotcha:** import the runtime with a real `<script src="...">` tag at
 > the bottom of `<body>`. A frontmatter `import '../js/cli-mono.js'` gets
@@ -203,6 +241,7 @@ attribute-driven guard, so an Astro consumer does not hand-write it.
 | `base.css` | element defaults, prose rhythm, scrollbar, a11y | rarely |
 | `components.css` | `.cm-*` component classes | adding components |
 | `cli-mono.js` | theme, sticky header, scroll-spy, copy, year | rarely |
+| `cli-mono-theme-guard.js` | the flash-of-wrong-theme guard, inlined into `<head>` | rarely |
 
 Load in that order. Each layer assumes the one above it.
 

@@ -30,6 +30,7 @@ MAP=(
 	"src/styles/base.css:src/styles/cli-mono/base.css"
 	"src/styles/components.css:src/styles/cli-mono/components.css"
 	"src/js/cli-mono.js:src/js/cli-mono.js"
+	"src/js/cli-mono-theme-guard.js:src/js/cli-mono-theme-guard.js"
 )
 
 targets=("$@")
@@ -76,7 +77,8 @@ for t in "${targets[@]}"; do
 		# Every .astro/.ts/.js/.css file outside the vendored dir itself.
 		sources=$(find "$t/src" -type f \
 			\( -name '*.astro' -o -name '*.ts' -o -name '*.js' -o -name '*.css' -o -name '*.mjs' \) \
-			! -path "*/styles/cli-mono/*" ! -name 'cli-mono.js' 2>/dev/null)
+			! -path "*/styles/cli-mono/*" ! -name 'cli-mono.js' \
+			! -name 'cli-mono-theme-guard.js' 2>/dev/null)
 		if [ -n "$sources" ]; then
 			# grep the whole source set once, not per file.
 			blob=$(cat $sources 2>/dev/null || true)
@@ -107,6 +109,24 @@ for t in "${targets[@]}"; do
 					echo "  note: $t vendors cli-mono.js but references no script tag for it"
 					echo "        (fine if the site needs no runtime; wire it as"
 					echo "         <script is:inline src=...> or the tag is dropped from dist/)"
+					;;
+			esac
+
+			# The FOUC guard is NOT optional the way the runtime is. A
+			# project can legitimately adopt the design system and not
+			# want a theme toggle, but a vendored guard that no <head>
+			# loads means a light-theme visitor gets a black flash, and
+			# the file sitting there unused reads as adoption. Fail hard.
+			#
+			# Match the FILE NAME, not a vendored path: a consumer may
+			# load it by a `?raw` import or by <script src>, and both are
+			# real. Requiring the literal path flagged a correct consumer
+			# in this repo's own history.
+			case "$blob" in
+				*"cli-mono-theme-guard.js"*) ;;
+				*)
+					out+="  UNREACHABLE  cli-mono-theme-guard.js is vendored but no <head> loads it"$'\n'
+					stale=1
 					;;
 			esac
 		fi

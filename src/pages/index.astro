@@ -5,6 +5,9 @@
 import '../styles/tokens.css';
 import '../styles/base.css';
 import '../styles/components.css';
+// The FOUC guard, inlined verbatim into <head> with ?raw. A <script src>
+// would run after the stylesheets, which is the flash it prevents.
+import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 import PageHead from '../astro/PageHead.astro';
 import PostHead from '../astro/PostHead.astro';
 import Header from '../astro/Header.astro';
@@ -25,15 +28,10 @@ import { SITE } from '../astro/config';
 	<head>
 		<!-- The FOUC guard is the FIRST node in <head>, before the charset
 		     declaration and before any stylesheet: a light-theme visitor must
-		     never see a dark flash. -->
-		<script is:inline>
-			(function () {
-				try {
-					var s = localStorage.getItem('cm-theme');
-					if (s === 'light') document.documentElement.setAttribute('data-theme', 'light');
-				} catch (e) {}
-			})();
-		</script>
+		     never see a dark flash. Inlined from the shared library file, so
+		     the showcase demonstrates the same guard a consumer installs
+		     rather than a fourth hand-rolled copy that can drift. -->
+		<script is:inline set:html={themeGuard} />
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width,initial-scale=1" />
 		<title>oem/ui — component library</title>
@@ -778,6 +776,26 @@ import { SITE } from '../astro/config';
   name: 'oem',
   theme: 'dark',
 } satisfies SiteConfig;`}
+				/>
+
+				<!-- The guard. Shown because the wiring is the whole point:
+				     a consumer that owns its own <head> must inline this
+				     file, and the ?raw import is the only shape that keeps
+				     it ahead of the stylesheets. -->
+				<CodeBlock
+					id="demo-guard"
+					lang="astro"
+					code={`---
+// <head> runs before the runtime bundle exists, so it cannot ask the
+// runtime for its keys. Inline the shipped file instead of hand-rolling
+// one, or a theme saved under a legacy key is missed and every returning
+// light-theme visitor gets a black flash.
+import themeGuard from '../js/cli-mono-theme-guard.js?raw';
+---
+<head>
+  <!-- before <meta charset>, before every stylesheet -->
+  <script is:inline set:html={themeGuard} />
+</head>`}
 				/>
 
 				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">states</h3>
