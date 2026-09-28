@@ -5,12 +5,17 @@ import { defineConfig } from 'astro/config';
 // Everything it renders comes out of ./src (the library itself), so a
 // successful `npm run build` is a real compile of every component.
 export default defineConfig({
-	// The showcase is published on GitHub Pages, which serves it from
-	// /oem-ui/ on the Pages fallback host, so `base` MUST match that path or
-	// every asset 404s. Both values are env-driven so a future custom domain
-	// is a two-value change (SITE_URL + SITE_BASE=/) and nothing else. The
-	// defaults keep the local LAN preview working with no environment set.
-	site: process.env.SITE_URL ?? 'http://localhost:4321',
+	// TWO hosts serve this build, and they need DIFFERENT bases:
+	//
+	//   https://omiinaya.github.io/oem-ui/  ->  base /oem-ui/
+	//   https://ui.mrx.sh/                  ->  base /
+	//
+	// A custom domain is served from its own root, so the prefix that is
+	// mandatory on the Pages fallback URL is exactly wrong there: with
+	// base=/oem-ui/ the custom domain requests /oem-ui/_astro/*.css, which
+	// 404s, and the page renders completely unstyled. The domain build is
+	// the canonical one; the fallback gets a separate job below.
+	site: process.env.SITE_URL ?? 'https://ui.mrx.sh',
 	base: process.env.SITE_BASE ?? '/',
 	outDir: './dist',
 	build: { format: 'directory' },

@@ -30,14 +30,16 @@ jobs:
       - name: Install
         run: npm ci
 
-      # Served from the GitHub Pages fallback URL
-      # (omiinaya.github.io/oem-ui/), so a path prefix applies. If a custom
-      # domain ever goes live it is served from its own root and both values
-      # become SITE_URL=<domain> and SITE_BASE=/ — change them as a pair.
+      # Built for the CUSTOM DOMAIN, which GitHub serves from its own root,
+      # so base=/ and no path prefix. Serving the /oem-ui/-prefixed build here
+      # instead makes every asset 404 on ui.mrx.sh and renders the page
+      # completely unstyled. If the domain is ever retired, set this pair to
+      # SITE_URL=https://omiinaya.github.io + SITE_BASE=/oem-ui/ — both
+      # values together, never just one.
       - name: Build
         env:
-          SITE_URL: https://omiinaya.github.io
-          SITE_BASE: /oem-ui/
+          SITE_URL: https://ui.mrx.sh
+          SITE_BASE: '/'
         run: npm run build
 
       # AFTER the build, not before: the copy-button contract tests read the
