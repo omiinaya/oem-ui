@@ -136,14 +136,30 @@ Both become live the day this repo goes public, with no code change.
 ### Wire it up
 
 ```html
+<html data-cm-theme-key="my-site-theme">
 <head>
   <!-- 1. FOUC guard FIRST, inline, before any stylesheet.
-          Without it a light-theme user sees a black flash. -->
+          Without it a light-theme user sees a black flash.
+
+          Read the key from <html> instead of typing it here. The guard
+          runs BEFORE the runtime bundle exists, so it cannot ask the
+          runtime which keys to use -- and a hand-typed list drifts the
+          moment a project renames its key. Reading the same attribute
+          the runtime reads makes that impossible. -->
   <script>
     (function () {
       try {
-        var s = localStorage.getItem('cm-theme');
-        if (s === 'light') document.documentElement.setAttribute('data-theme', 'light');
+        var d = document.documentElement;
+        var g = function (a) { try { return d.getAttribute(a); } catch (e) { return null; } };
+        var k = (g('data-cm-theme-key') || 'cm-theme').split(',')
+          .concat((g('data-cm-theme-legacy') || '').split(','));
+        for (var i = 0; i < k.length; i++) {
+          var s = localStorage.getItem(k[i].trim());
+          if (s === 'light' || s === 'dark') {
+            if (s === 'light') d.setAttribute('data-theme', 'light');
+            return;
+          }
+        }
       } catch (e) {}
     })();
   </script>
@@ -156,6 +172,23 @@ Both become live the day this repo goes public, with no code change.
   <script src="/js/cli-mono.js"></script>  <!-- 2. runtime LAST -->
 </body>
 ```
+
+**Two rules the guard lives or dies by**, both of which have bitten a real
+oem project:
+
+- **It must be in `<head>`, in the component that owns `<head>`.** dev-blog's
+  guard sat in `Header.astro`, which renders inside `<body>` — so it ran
+  *after* the stylesheets had painted and the flash still happened. The
+  guard is the only theme code that runs before the runtime exists, and it
+  is useless anywhere else.
+- **It must read `<html>`, not a literal.** A project that renamed its
+  storage key declares `data-cm-theme-key` plus
+  `data-cm-theme-legacy="old-key"`. A guard with one hardcoded key cannot
+  see a theme saved under the old one, and that returning visitor is the
+  exact person the guard exists to protect.
+
+`<Head>` takes `themeKey` / `legacyKey` props and emits the same
+attribute-driven guard, so an Astro consumer does not hand-write it.
 
 > **Astro gotcha:** import the runtime with a real `<script src="...">` tag at
 > the bottom of `<body>`. A frontmatter `import '../js/cli-mono.js'` gets

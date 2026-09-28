@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **The FOUC guard could not see a theme saved under a legacy key.**
+  `themeInitScript()` built its key list from the module-level
+  `LEGACY_KEYS`, which is still `[]` at the moment the inline `<head>`
+  snippet is evaluated — the guard necessarily runs *before* the runtime
+  bundle has executed. The emitted snippet therefore carried exactly one
+  key, so a returning visitor whose theme lived under a pre-library key
+  got a black flash: the precise failure the guard exists to prevent.
+  It now reads `data-cm-theme-key` / `data-cm-theme-legacy` from `<html>`
+  at run time, which is the same declaration the runtime uses, so the
+  guard and the toggle can no longer disagree about where the saved theme
+  lives. The existing test passed only because it called
+  `setLegacyKeys()` first — something a `<head>` snippet structurally
+  cannot do. That test is replaced by two behavioural ones that evaluate
+  the snippet in a `<head>`-shaped context with no module state seeded.
+  `tests/mutate-fouc-guard.mjs`: 6 mutations, 6 caught, 0 no-op — and the
+  first one restores the old implementation verbatim, so the regression
+  itself is what gets tested.
+- **dev-blog's FOUC guard was in the wrong document position.** It lived
+  in `Header.astro`, which renders inside `<body>`, so it ran *after* the
+  stylesheets had painted — the flash was still happening. Moved to
+  `BaseHead.astro`, the component that owns `<head>` and renders on every
+  page, and rewritten to read the same `<html>` attributes the runtime
+  does instead of a hand-typed `['oem-log-theme', 'cm-theme']`.
+  The library's own `<Head>` had the same hand-typed key list; it now
+  reads the same attributes, and accepts `themeKey` / `legacyKey` props.
+  Two new contract checks derive the expected keys from each consumer's
+  own `<html>` tags, so a guard that searches a different key than the
+  runtime will is now a build failure instead of a black flash.
+  (The first version of that check asserted "more than one key" and
+  failed on oem-portfolio, which legitimately has exactly one; the
+  invariant is consistency with `<html>`, not cardinality.)
+
 ### Added
 - **A `variants` showcase section, and a reachability contract test.** 26
   classes were defined in the stylesheet and rendered nowhere: `.cm-tag`,

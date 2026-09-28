@@ -1025,6 +1025,30 @@ const listAstroFiles = (dir) => {
 	return out;
 };
 
+check('no consumer keeps its FOUC guard inside the body', () => {
+	// dev-blog's guard lived in Header.astro, which renders inside <body>.
+	// A guard there runs AFTER the stylesheets have painted, so the flash
+	// it exists to prevent still happens. Source order in a component file
+	// is not the rendered order, so assert on the COMPONENT that owns
+	// <head>, which is the only placement that can be correct.
+	for (const c of [
+		{ name: 'dev-blog', dir: '../dev-blog', body: 'src/components/Header.astro' },
+		{ name: 'oem-portfolio', dir: '../oem-portfolio', body: 'src/components/Header.astro' },
+	]) {
+		const p = join(root, c.dir, c.body);
+		if (!existsSync(p)) continue;
+		const s = readFileSync(p, 'utf8')
+			.replace(/\/\*[\s\S]*?\*\//g, '')
+			.replace(/<!--[\s\S]*?-->/g, '');
+		if (!/data-theme/.test(s)) continue; // not a theme guard
+		assert(
+			!/<script[^>]*is:inline/.test(s),
+			`${c.name}: ${c.body} emits a theme guard from a component that renders inside <body>; ` +
+				'move it to the component that owns <head> or the flash comes back',
+		);
+	}
+});
+
 check('every shipped FOUC guard covers the keys its own <html> declares', () => {
 	// The real invariant is CONSISTENCY, not "more than one key": a project
 	// that never renamed its key legitimately has exactly one. What must
@@ -1034,7 +1058,10 @@ check('every shipped FOUC guard covers the keys its own <html> declares', () => 
 	// So derive the expected key list from the project's own <html> tags
 	// and require every one of them to appear in the guard.
 	const CONSUMERS = [
-		{ name: 'dev-blog', dir: '../dev-blog', guard: 'src/components/Header.astro' },
+		// The guard must live in the <head> owner. It used to sit in
+		// Header.astro, which renders inside <body> — the one placement the
+		// FOUC guard can never occupy.
+		{ name: 'dev-blog', dir: '../dev-blog', guard: 'src/components/BaseHead.astro' },
 		{ name: 'oem-portfolio', dir: '../oem-portfolio', guard: 'src/components/Head.astro' },
 	];
 	for (const c of CONSUMERS) {

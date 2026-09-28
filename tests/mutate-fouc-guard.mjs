@@ -28,8 +28,8 @@ const p = (f) => join(root, f);
 const RUNTIME = 'src/js/cli-mono.js';
 
 const CONSUMERS = {
-	'dev-blog': { dir: '/root/projects/dev-blog', guard: 'src/components/Header.astro' },
-	'oem-portfolio': { dir: '/root/projects/oem-portfolio', guard: 'src/components/Head.astro' },
+	'dev-blog': { dir: '/root/projects/dev-blog', guard: 'src/components/BaseHead.astro', body: 'src/components/Header.astro' },
+	'oem-portfolio': { dir: '/root/projects/oem-portfolio', guard: 'src/components/Head.astro', body: 'src/components/Header.astro' },
 };
 
 // The guard as it was before this cycle: one hardcoded key, no loop.
@@ -90,19 +90,42 @@ const MUTATIONS = [
 		// proven to fire against a real project file.
 		name: "dev-blog's guard stops searching its own oem-log-theme key",
 		consumer: 'dev-blog',
-		from: /var keys = \['oem-log-theme', 'cm-theme'\];/,
-		to: "var keys = ['cm-theme'];",
+		from: /var k = \(g\('data-cm-theme-key'\) \|\| 'oem-log-theme'\)/,
+		to: "var k = 'cm-theme'",
 		expectFail: 'every shipped FOUC guard covers the keys its own <html> declares',
+	},
+	{
+		// THE POSITION BUG. The guard lived in Header.astro, which renders
+		// inside <body>, so it ran after the stylesheets had painted. Put
+		// it back and the placement check must fire.
+		name: "dev-blog's guard is moved back into a <body> component",
+		consumer: 'dev-blog',
+		consumerFile: 'src/components/Header.astro',
+		from: /<header>/,
+		to: `<script is:inline>
+	(function () {
+		try {
+			var d = document.documentElement;
+			d.setAttribute('data-theme', 'light');
+		} catch (e) {}
+	})();
+</script>
+
+<header>`,
+		expectFail: 'no consumer keeps its FOUC guard inside the body',
 	},
 ];
 
 // Resolve a mutation to an absolute path. A `consumer` mutation edits a
 // real project file outside this repo, which is why the restore below is
 // not optional: a crash would leave a consumer holding a mutant.
-const target = (m) =>
-	m.consumer
-		? join(CONSUMERS[m.consumer].dir, CONSUMERS[m.consumer].guard)
-		: p(m.file);
+// `consumerFile` overrides which file of that project is edited, so one
+// consumer can carry mutations against two different components.
+const target = (m) => {
+	if (!m.consumer) return p(m.file);
+	const c = CONSUMERS[m.consumer];
+	return join(c.dir, m.consumerFile || c.guard);
+};
 
 const apply = (original, m) => {
 	if (m.replaceScript) {
