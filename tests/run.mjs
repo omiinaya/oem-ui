@@ -10,7 +10,7 @@
  * checks execute the actual cli-mono.js runtime against a minimal fake DOM so a
  * regression in the theme logic fails the build.
  */
-import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, statSync, rmSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, statSync, rmSync, readdirSync, renameSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -1883,6 +1883,36 @@ check('a trailing slash on the target does not invent drift', () => {
 			`real drift must still fail through a trailing slash, got ${drifted.status}`);
 		assert(/STALE/.test(drifted.stdout),
 			`expected STALE through a trailing slash, got: ${drifted.stdout.trim()}`);
+
+		// The no-argument sweep is a SEPARATE branch - it enumerates
+		// "$CONSUMER_ROOT"/*/ itself, so a fix applied only to the "$@" path
+		// leaves the sweep broken, and the sweep is the one a CI job runs.
+		// CONSUMER_ROOT is the documented override that makes this testable
+		// without scanning the real projects tree.
+		const tree = mkdtempSync(join(tmpdir(), 'cm-tree-'));
+		try {
+			renameSync(join(dir, 'src'), join(dir, 'src-live'));
+			mkdirSync(join(tree, 'links'), { recursive: true });
+			renameSync(join(dir, 'src-live'), join(tree, 'links', 'src'));
+			const swept = spawnSync('bash', [join(root, 'scripts/check-design-sync.sh')], {
+				encoding: 'utf8', env: { ...process.env, OEM_UI_SRC: root, CONSUMER_ROOT: tree },
+			});
+			// base.css is still the drifted copy from above, so a correct
+			// sweep reports it - which is the point: the sweep has to SEE the
+			// consumer at all. An implementation that skipped it would print
+			// "no consumer projects found" and exit 0.
+			assert(/STALE/.test(swept.stdout),
+				`the no-argument sweep did not report the drifted consumer: ${swept.stdout.trim()}`);
+			// AND the sweep must not INVENT drift, which is the mutation this
+			// exists to catch. Asserting only for STALE was not enough: the
+			// real drift above already produced that word, so a sweep that
+			// reported STALE *and* a phantom ORPHAN still satisfied the
+			// assertion and the mutation read as MISSED.
+			assert(!/ORPHAN/.test(swept.stdout),
+				`the no-argument sweep invented an ORPHAN on a path it already owns: ${swept.stdout.trim()}`);
+		} finally {
+			rmSync(tree, { recursive: true, force: true });
+		}
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
@@ -3812,7 +3842,11 @@ check('the --tap token is the 44px floor', () => {
 // a chip is a mark by default (measured: the --tap floor inflates a status
 // row from 39.6px to 60.5px at 390px) and `.cm-chip--action` is the
 // interactive form that carries the floor.
-const INTERACTIVE = ['cm-btn', 'cm-tabs__tab', 'cm-nav-toggle', 'cm-chip--action'];
+// `cm-icon-btn--bare` is the fourth: a <button> that carries its own box, so
+// it is the case where inheriting the floor on ONE axis is the bug rather
+// than the safety net. Measured at 32x44 on both live sites before the
+// variant existed.
+const INTERACTIVE = ['cm-btn', 'cm-tabs__tab', 'cm-nav-toggle', 'cm-chip--action', 'cm-icon-btn--bare'];
 // Every rule that DECLARES the class - parsed as a rule list, not matched
 // with a regex over raw text, because the forms here are exactly the ones a
 // regex gets wrong:
@@ -3877,6 +3911,21 @@ const declsOf = (sel, src = allCss) => {
 	walk(css);
 	return out.join('\n');
 };
+// Every rule inside a `pointer: coarse` block that names this class ON ITS
+// OWN, as [prelude, body]. Declared HERE, above the tap sweep, because the
+// sweep uses it - and a helper referenced before its `const` is a TDZ
+// ReferenceError rather than a value, which is a real one this file
+// already hit once (see the dist/index.html note above).
+//
+// Written once and shared by both consumers, because two hand-rolled copies
+// of a parse is how one of them ends up quietly checking a different block
+// than the other.
+const rulesFor = (sel) => {
+	const coarse = compSrc.replace(/\/\*[\s\S]*?\*\//g, '')
+		.match(/@media \(pointer: coarse\) \{[\s\S]*?\n\}/g) || [];
+	return coarse.flatMap((b) => [...b.matchAll(/([^{}]+)\{([^{}]*)\}/g)])
+		.filter((m) => m[1].split(',').some((s) => s.trim() === '.' + sel));
+};
 for (const sel of INTERACTIVE) {
 	// A name that matches no rule used to `continue` silently, so the check
 	// reported success while examining one name out of three: `cm-tab` and
@@ -3893,7 +3942,22 @@ for (const sel of INTERACTIVE) {
 	// on, and the check asks about that one. A single mechanism would have
 	// to be a union (either place), which is weaker: it cannot tell a
 	// control that lost its element default from one that never had a rule.
+	// A component can reach the floor three legitimate ways, and the entry
+	// says which one it relies on, because a single union would be weaker:
+	// it cannot tell a control that lost its element default from one that
+	// never had a rule.
+	//
+	//   IN_THE_BASE_ELEMENT_LAYER  the coarse-pointer block gives it by ELEMENT
+	//   PINS_BOTH_DIMENSIONS       the component's own coarse-pointer rule sets
+	//                              width AND height from --tap
+	//   (default)                  a min-height: var(--tap) in its own rule
+	//
+	// The middle case is a real one and is not exotic: a square icon button
+	// sets both axes so it cannot be stretched into a 44x32 pill. Reading
+	// only for min-height reports that as a failure, which is the same
+	// defect as a check scoped to the wrong layer.
 	const IN_THE_BASE_ELEMENT_LAYER = new Set(['cm-tabs__tab']);
+	const PINS_BOTH_DIMENSIONS = new Set(['cm-icon-btn--bare']);
 	const all = declsOf(sel);
 	// The value, not the substring. `[role='tab']` shares ONE declaration
 	// block with `a, button, label, input, textarea, select` and
@@ -3912,7 +3976,7 @@ for (const sel of INTERACTIVE) {
 		}
 		return '';
 	})();
-	if (!all && !IN_THE_BASE_ELEMENT_LAYER.has(sel)) {
+	if (!all && !IN_THE_BASE_ELEMENT_LAYER.has(sel) && !PINS_BOTH_DIMENSIONS.has(sel)) {
 		failures.push([`.${sel} meets the tap floor`,
 			`no rule in components.css matches .${sel} - is the name misspelled, or does the class not exist?`]);
 		console.log(`FAIL  .${sel} meets the tap floor\n        no rule in components.css matches .${sel} - is the name misspelled, or does the class not exist?`);
@@ -3948,6 +4012,22 @@ for (const sel of INTERACTIVE) {
 			// word character, so a `\b` boundary cannot match a BEM name.
 			assert(builtNow.includes(`class="cm-tabs__tab`),
 				`${sel} is claimed to be a coarse-pointer element, but the built page renders no <button> carrying it`);
+			return;
+		}
+		if (PINS_BOTH_DIMENSIONS.has(sel)) {
+			// The claim is a SQUARE target, so both axes come from the token.
+			// Reading only one of them is what let the two live sites serve a
+			// 32x44 pill: base.css's floor supplied the height, the glyph box
+			// supplied the width, and neither check noticed.
+			const own = rulesFor(sel).filter(([, , b]) => /var\(--tap\)/.test(b));
+			assert(own.length > 0,
+				`${sel} claims to reach the floor by pinning both dimensions, but no rule of its own mentions --tap`);
+			for (const [, , b] of own) {
+				assert(/width:\s*var\(--tap\)/.test(b),
+					`${sel} pins only one axis from --tap; a tap floor needs BOTH dimensions`);
+				assert(/height:\s*var\(--tap\)/.test(b),
+					`${sel} pins only one axis from --tap; a tap floor needs BOTH dimensions`);
+			}
 			return;
 		}
 		const min = all.match(/min-height:\s*(\d+)px/);
@@ -5134,6 +5214,122 @@ check('a chip in a table cell cannot widen the table past the viewport', () => {
 		'.cm-chip needs max-width:100% so a long state name cannot widen its column');
 	assert(/white-space:\s*nowrap/.test(rule[1]),
 		'.cm-chip must be nowrap: a state name that wraps inside a chip breaks the cell rhythm');
+});
+
+/* ================= the bare icon button ================= */
+console.log('\nbare icon button');
+
+check('.cm-icon-btn--bare is a defined, demonstrated variant', () => {
+	// A class in components.css that no page renders is dead code the next
+	// person cannot trust, so the demonstration is part of the contract,
+	// not a nicety. Read the BUILT page: a showcase edit that never reached
+	// dist/ builds fine and demonstrates nothing.
+	assert(/^\.cm-icon-btn--bare\s*\{/m.test(compSrc),
+		'.cm-icon-btn--bare is not defined in components.css');
+	const built = existsSync(join(root, 'dist/index.html'))
+		? readFileSync(join(root, 'dist/index.html'), 'utf8') : '';
+	assert(built.includes('cm-icon-btn--bare'),
+		'the built showcase renders no .cm-icon-btn--bare, so the variant is undocumented in practice');
+});
+
+check('.cm-icon-btn--bare renders DIFFERENTLY from its base', () => {
+	// Presence in the stylesheet is not a variant. The failure this guards
+	// is the one .cm-chip--set hit: a modifier that declares a property its
+	// base also declares is visually identical to the base, so every
+	// consumer swapping to it changes nothing and the migration is a no-op
+	// that still looks like an adoption.
+	//
+	// Read the VALUE, and read it from the bare rule - not "does this
+	// selector's block mention border", which the base's own block also
+	// satisfies at a different class.
+	const stripped = compSrc.replace(/\/\*[\s\S]*?\*\//g, '');
+	const base = /^\.cm-icon-btn \{([^}]*)\}/m.exec(stripped);
+	assert(base, 'no .cm-icon-btn base rule found');
+	const bare = /^\.cm-icon-btn--bare \{([^}]*)\}/m.exec(stripped);
+	assert(bare, 'no .cm-icon-btn--bare rule found');
+	const baseDecls = new Set(base[1].split(';').map((d) => d.trim()).filter(Boolean));
+	const only = bare[1].split(';').map((d) => d.trim()).filter(Boolean)
+		.filter((d) => !baseDecls.has(d));
+	assert(only.length > 0,
+		'.cm-icon-btn--bare declares nothing .cm-icon-btn does not, so it renders identically to its base');
+	// The specific difference, asserted as values: the whole point of the
+	// variant is that it has NO frame, and the base has a 1px one.
+	assert(/border:\s*0/.test(bare[1]),
+		'.cm-icon-btn--bare must set border:0 - the variant exists to drop the frame');
+	assert(/border:\s*1px/.test(base[1]),
+		'.cm-icon-btn no longer has a 1px border, so --bare has nothing to drop');
+});
+
+check('an icon button cannot be shrunk below its own target', () => {
+	// The flex-shrink trap, which NO stylesheet-reading check can see.
+	//
+	// Measured in WebKit at 390px: with `width: var(--tap)` correctly
+	// applied in the coarse-pointer block, the bare toggle still rendered
+	// 37.89x44. `.cm-spec__sample` is `flex: 1; min-width: 0` and the button
+	// inherited the default `flex-shrink: 1`, so a tight row squeezed the
+	// box BELOW its declared width. The declaration was applied and then
+	// overridden by layout - reading the CSS reports the fix as present
+	// while the page renders a 44-tall, 38-wide pill.
+	//
+	// So the rule must not allow the control to give way. A control whose
+	// size IS the measurement cannot be the thing that shrinks. This is the
+	// same reasoning the file already applies to .cm-spec children.
+	//
+	// A comment is NOT a declaration. The first version of this check
+	// matched the rule body with a plain `[^}]*`, so the comment directly
+	// above the declaration - which QUOTES `flex: 0 0 auto` while explaining
+	// the fix - satisfied the assertion. Deleting the declaration left the
+	// suite green and the mutation reading MISSED, on exactly the trap this
+	// file has been bitten by three times. Strip comments, and anchor on the
+	// rule that NAMES the class so a sibling rule cannot stand in for it.
+	const cls = '.cm-icon-btn';
+	// Parse the file once, comments gone, and find the rule whose OWN
+	// selector is this class - a compound or descendant selector names it
+	// conditionally, which is not the rule being asserted on.
+	const rule = new RegExp('(^|\\})\\s*' + escapeRe(cls) + '\\s*\\{([^}]*)\\}', 'm')
+		.exec(compSrc.replace(/\/\*[\s\S]*?\*\//g, ''));
+	assert(rule, `no ${cls} base rule found in components.css`);
+	assert(/(^|;)\s*flex:\s*0 0 auto\s*(;|$)/.test(rule[2]),
+		`${cls} has no flex: 0 0 auto - measured at 37.89x44 in WebKit, because a flex row shrank the box below its own declared width`);
+});
+
+check('the bare icon button pins BOTH dimensions on a coarse pointer', () => {
+	// THE TAP FLOOR NEEDS BOTH DIMENSIONS, and this is the case that proves
+	// it. Measured in WebKit at an iPhone viewport against the two live
+	// sites: links.oem.ngo and log.oem.ngo both served a theme toggle
+	// measuring 32x44 - base.css's coarse-pointer block gives `button` a
+	// min-height: var(--tap), and the hand-rolled class declared width and
+	// height but no coarse-pointer override, so the floor stretched the box
+	// on one axis only. Tall enough to pass a height-only check, still 12px
+	// too narrow to hit comfortably.
+	//
+	// So the override must set BOTH width and height, and it must name the
+	// VARIANT rather than the base class. A check that asked only "is there
+	// a min-height from --tap" passes on a 44x32 pill, which is the bug.
+	const rules = rulesFor('cm-icon-btn--bare');
+	assert(rules.length > 0,
+		'.cm-icon-btn--bare has no pointer:coarse rule of its own, so a consumer keeping a hardcoded width gets a 44x32 pill - exactly what the two live sites measured');
+	for (const [, , body] of rules) {
+		assert(/width:\s*var\(--tap\)/.test(body),
+			'.cm-icon-btn--bare must pin WIDTH from --tap too, not only height');
+		assert(/height:\s*var\(--tap\)/.test(body),
+			'.cm-icon-btn--bare must pin HEIGHT from --tap');
+		// A hardcoded 44 measures right and is still wrong: a consumer that
+		// retunes --tap would be stuck at the old size.
+		assert(!/width:\s*\d+px/.test(body),
+			'a hardcoded px width ignores --tap; the floor must come from the token');
+	}
+});
+
+check('the bare icon button reaches the tap floor like every other control', () => {
+	// The generic sweep asserts the floor for a fixed list of classes. The
+	// bare variant is on a <button>, so it inherits base.css's element
+	// floor - but it also carries its own box, and the list is the only
+	// thing keeping a new interactive class from being added without a
+	// tap-target claim. Add it explicitly rather than trusting inheritance
+	// silently, and pin the element it is rendered as.
+	assert(INTERACTIVE.includes('cm-icon-btn--bare'),
+		'cm-icon-btn--bare is interactive and must be in the INTERACTIVE list the tap sweep checks');
 });
 
 /* ================= async checks (installer) ================= */

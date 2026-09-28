@@ -1129,6 +1129,19 @@ html {
 	justify-content: center;
 	width: 32px;
 	height: 32px;
+	/* Measured in WebKit at 390px: without this the bare variant rendered
+	   37.89x44 inside `.cm-spec__sample`, which is `flex: 1; min-width: 0`.
+	   The button is a flex item with the default `flex-shrink: 1`, so when
+	   the row is tight the box was squeezed BELOW its own declared width -
+	   the coarse-pointer `width: var(--tap)` was applied and then
+	   overridden by layout, which no amount of re-reading the stylesheet
+	   will reveal.
+
+	   The same reasoning the rest of the file already applies to .cm-spec
+	   children: a control whose size IS the measurement must not be the
+	   thing that gives way. `flex: 0 0 auto` also fixes the height, which
+	   was 44 only because the floor stretched it. */
+	flex: 0 0 auto;
 	border: 1px solid var(--line);
 	border-radius: 6px;
 	background: transparent;
@@ -1162,6 +1175,48 @@ html {
    wherever it sits. */
 @media (pointer: coarse) {
 	.cm-icon-btn { width: var(--tap); height: var(--tap); }
+}
+
+/* ---- .cm-icon-btn--bare: a glyph on a surface that already has one ----
+
+   Driven by two live consumers. dev-blog (log.oem.ngo) and oem-links
+   (links.oem.ngo) each hand-rolled a `.theme-toggle` that is byte-identical
+   to the other - same 32x32, same no border, same no radius, same 0.95rem -
+   with the rationale in a comment on each side: "Both controls are bare
+   glyphs on the header surface: no box, no border. An outlined button next
+   to an unoutlined one reads as a mistake." The library had the boxed form
+   only, so both sites kept a second implementation of surface it already
+   owned, and a fix here would never reach them.
+
+   The BUG that migration exposed, measured in WebKit at an iPhone viewport
+   against the two live sites: both toggles were 32x44. base.css's
+   coarse-pointer block gives `button` a min-height: var(--tap), and
+   `.cm-icon-btn` answers that with an explicit width AND height, so it
+   stays square - but the hand-rolled version declared only width/height
+   and no coarse-pointer override, so 44px of min-height stretched a 32px
+   box into a 44x32 pill. A tap floor needs BOTH dimensions; getting one
+   dimension from the floor and the other from the glyph box is how a
+   "44px target" ends up too narrow to hit.
+
+   So the variant's job is to carry the box itself, not to re-declare the
+   floor: pinning both dimensions here means a consumer that swaps
+   .theme-toggle for this class gets the square target back. */
+.cm-icon-btn--bare {
+	border: 0;
+	border-radius: 0;
+}
+.cm-icon-btn--bare:hover {
+	border-color: transparent;
+}
+
+/* The coarse-pointer override has to name the VARIANT, not just the base
+   class. `.cm-icon-btn { width: var(--tap); height: var(--tap) }` is an
+   (0,1,0) rule and so does win against the base box - but a consumer that
+   keeps the hand-rolled `.theme-toggle { width: 32px }` next to it is
+   exactly the case that produced 32x44, so the guarantee is asserted on
+   the class as rendered rather than inferred from the base. */
+@media (pointer: coarse) {
+	.cm-icon-btn--bare { width: var(--tap); height: var(--tap); }
 }
 
 /* ============ mobile nav: a disclosure, not a wall ============
@@ -1800,6 +1855,7 @@ html {
 	   lines tall at every width measured, and the alignment variants
 	   below are what actually keep it on screen near an edge. */
 	max-width: min(18rem, calc(100vw - 2 * var(--gutter)));
+
 	/* Without this transform `left:50%` put the trigger's MIDDLE at the
 	   tip's left edge, so the tip always hung to the right of the
 	   trigger. Centring is the transform's whole job. */

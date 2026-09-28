@@ -8,6 +8,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`.cm-icon-btn--bare`, a bare glyph for a surface that already has one,
+  and a real fix for a tap target that was 44 tall and 32 wide.**
+
+  Driven by two live consumers. dev-blog (log.oem.ngo) and oem-links
+  (links.oem.ngo) each hand-rolled a `.theme-toggle` that is
+  byte-identical to the other — same 32×32, same no border, same no radius,
+  same 0.95rem — with the same rationale in a comment on each side: *"Both
+  controls are bare glyphs on the header surface: no box, no border. An
+  outlined button next to an unoutlined one reads as a mistake."* The
+  library had the boxed form only, so both sites were maintaining a second
+  implementation of surface it already owned, and a fix here would never
+  reach them. The gap was real and the duplication was the evidence for it.
+
+  Migrating the markup exposed the bug underneath. Measured in WebKit at an
+  iPhone viewport against both **live** sites, the hand-rolled toggle was
+  **32×44**. `base.css`'s coarse-pointer block gives `button` a
+  `min-height: var(--tap)`, and the class declared an explicit `width` and
+  `height` with no coarse-pointer override, so the floor stretched the box
+  on one axis only: tall enough to pass a height-only check, still 12px too
+  narrow to hit comfortably. The variant pins **both** axes from the token,
+  which is the only form of this defect that is actually comfortable to tap.
+
+  Building the showcase specimen exposed a second defect that no
+  stylesheet-reading check can see. With `width: var(--tap)` correct and
+  applied, the bare toggle still measured **37.89×44** inside
+  `.cm-spec__sample` (`flex: 1; min-width: 0`): the button was a flex item
+  with the default `flex-shrink: 1`, so a tight row squeezed it *below* its
+  own declared width. `.cm-icon-btn` now carries `flex: 0 0 auto` — a
+  control whose size **is** the measurement cannot be the thing that gives
+  way — and a contract test plus a mutation pin it. Deleting the
+  declaration restores the exact 37.89px, which is how the mutation was
+  proven rather than assumed.
+
+### Fixed
+- **`check-design-sync.sh` reported all three real consumers as drifted when
+  they were byte-identical, and this repo's own audit could not explain
+  its own output.**
+
+  The shadow-copy scan decides whether a vendored file is already accounted
+  for with a *string* comparison, `[ "$f" = "$t/${pair##*:}" ]`, where `$f`
+  comes from `find "$t"` and therefore never carries a trailing slash. Pass
+  the target as `/root/projects/links/` — which is exactly what a
+  `for d in /root/projects/*/` loop produces, and exactly what
+  `oem-ui-deep-audit.sh` passes — and the comparison fails, so every copy
+  `MAP` already owns was reported as an `ORPHAN`.
+
+  The audit counted only lines matching `STALE`, so an `ORPHAN`-only result
+  printed the self-contradictory `STALE -- 0 file(s) differ`: a failure it
+  could not name. Targets are now normalised once, up front, and both the
+  argument path and the no-argument sweep are covered by a test that also
+  proves real drift still **fails** through a trailing slash — a fix that
+  made the script quiet rather than correct would pass everything else,
+  which is the failure mode of every "just relax the assertion" edit.
+
+  Measured: with a clean `--public` consumer installed, `/dir` and `/dir/`
+  now both exit 0 and report `in sync`; a one-line edit to `base.css` still
+  exits 1 with `STALE` through either spelling.
+
+### Added (previously unreleased)
 - **`install.sh --public`, and a drift checker that cannot be fooled by a
   second copy of the runtime.**
   The library ships a runtime in two homes for some consumers. The normal

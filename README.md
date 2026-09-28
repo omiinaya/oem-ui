@@ -809,6 +809,43 @@ something that is not a control look tappable. When the chip *is* the
 target, use `.cm-chip--action`, which carries `min-height: var(--tap)` from
 the token.
 
+## Icon buttons
+
+`.cm-icon-btn` is a square button that holds one glyph. On a phone it is
+`--tap` on **both** axes, from the token.
+
+```html
+<!-- its own frame says "press me" -->
+<button class="cm-icon-btn" type="button" aria-label="Filter">
+  <span aria-hidden="true">&#9673;</span>
+</button>
+
+<!-- a bare glyph, sharing a surface with other glyphs -->
+<button class="cm-icon-btn cm-icon-btn--bare" type="button"
+        data-cm-theme-toggle aria-label="Toggle theme">
+  <span data-cm-theme-icon aria-hidden="true">&#9728;</span>
+</button>
+```
+
+Use `--bare` when the button sits on a surface that already carries other
+glyphs — a header row, a toolbar. An outlined button next to an unoutlined
+icon reads as a mistake rather than a control. The variant drops the border
+and the radius and nothing else; the box, the floor and the hover state are
+the base component's.
+
+`data-cm-theme-toggle` is the runtime's hook: it syncs the glyph between
+☾ and ☀, keeps `aria-pressed` and the label honest, and persists the
+choice. Without the attribute the button renders but does nothing, so ship
+the attribute with the class.
+
+**Do not hand-roll the box.** The tap floor has to reach *both* dimensions.
+Measured in WebKit at an iPhone viewport, two live sites (oem-log,
+oem-links) each carried their own 32×32 theme toggle; the coarse-pointer
+floor in `base.css` gives `button` a `min-height`, so the glyph box's
+explicit width won on one axis and the result measured **32×44** — tall
+enough to pass a height-only check, still 12px too narrow to hit. The
+class already pins both, so naming it is the whole fix.
+
 ## Mobile nav
 
 Under 640px the header nav collapses behind a burger. Nothing to wire up:

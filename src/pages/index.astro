@@ -296,6 +296,55 @@ import { SITE } from '../astro/config';
 					rather than leaking it into the next phone view.
 				</p>
 
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">bare glyph on a header surface</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+					<em>boxed</em> is the default: a button that needs to read as a
+					control on its own, sitting on a surface with no other chrome.
+					<em>bare</em> drops the border and the radius for a glyph that shares
+					a surface with other glyphs &mdash; a header row where an outlined
+					button next to an unoutlined icon reads as a mistake, not a
+					control. Both are the same component; only the framing differs.
+				</p>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>boxed</code></span>
+						<span class="cm-spec__sample" style="display:flex;align-items:center;gap:var(--space-3)">
+							<button
+								class="cm-icon-btn"
+								type="button"
+								aria-hidden="true"
+								tabindex="-1"
+							>&#9673;</button>
+							<span class="cm-head__sub">its own outline says &ldquo;press me&rdquo;</span>
+						</span>
+						<span class="cm-spec__val"><code>cm-icon-btn</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>bare</code></span>
+						<span class="cm-spec__sample" style="display:flex;align-items:center;gap:var(--space-3)">
+							<button
+								class="cm-icon-btn cm-icon-btn--bare"
+								type="button"
+								data-cm-theme-toggle
+								aria-label="Toggle theme"
+								title="Toggle theme"
+							>
+								<span data-cm-theme-icon aria-hidden="true">&#9728;</span>
+							</button>
+							<span class="cm-head__sub">the live control, same target either way</span>
+						</span>
+						<span class="cm-spec__val"><code>cm-icon-btn--bare</code></span>
+					</div>
+				</div>
+				<p class="cm-head__sub" style="margin-top:var(--space-3)">
+					Both stay square on a phone. The bare form is what
+					<a href="https://links.oem.ngo/">oem-links</a> and
+					<a href="https://log.oem.ngo/">oem-log</a> each hand-rolled; the
+					tap floor applies to both, and a bare glyph with only half its box
+					from the floor measures 44&times;32 &mdash; tall enough to pass a
+					height check, still too narrow to hit.
+				</p>
+
 				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">HeaderLink</h3>
 				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
 					Path matching is the part of a nav every consumer gets wrong, so the library
