@@ -908,6 +908,21 @@ html {
 	border-radius: 4px;
 	background: var(--bg-3);
 	font-family: var(--font-mono); font-size: 0.7rem; color: var(--ink-dim);
+	/* A tag is a single word in a narrow column, and `inline-flex` is a
+	   BFC root, so a long stack entry (oem-portfolio renders these inside
+	   an aside) laid out at its own max-content width and pushed 26px past
+	   the row at both 390 and 320. `max-width` + `min-width: 0` let the
+	   flex item shrink below its content, and `break-word` then lets the
+	   word itself break.
+
+	   `break-word`, NOT `anywhere`: `anywhere` also shrinks MIN-CONTENT
+	   sizing, which is what starves a value column, and it splits `.cm-*`
+	   identifiers mid-token. A sibling check bans `anywhere` outright for
+	   exactly that reason. `break-word` breaks only when the word cannot
+	   fit a line by itself, so the shrink here needs no `anywhere`. */
+	max-width: 100%;
+	min-width: 0;
+	overflow-wrap: break-word;
 }
 .cm-tag--accent { border-color: var(--accent-dim); color: var(--ink); }
 

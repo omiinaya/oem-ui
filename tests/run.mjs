@@ -53,6 +53,13 @@ function assert(cond, msg) {
 // the CSS can never be mistaken for a rule.
 const tokenSrc = read('src/styles/tokens.css').replace(/\/\*[\s\S]*?\*\//g, '');
 const compSrc = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+// Element defaults live in base.css by design - a bare `input` is
+// on-brand there, and `.cm-sr-only` is a bare element utility. A
+// reachability test that only reads components.css therefore reports
+// every base-layer class as unstyled, which is the same false negative
+// as a check that reads only the showcase source.
+const baseSrc = read('src/styles/base.css').replace(/\/\*[\s\S]*?\*\//g, '');
+const allCss = compSrc + '\n' + baseSrc;
 const showcase = read('src/pages/index.astro');
 
 /* ================= contrast math (WCAG 2.1) ================= */
@@ -4013,6 +4020,153 @@ check('the copy button is a real button a keyboard can reach', () => {
 	// The <pre> scrolls, so it must be focusable for a keyboard user.
 	assert(/<pre id=\{id\} tabindex="0">/.test(cbTags),
 		'the scrollable <pre> is not focusable, so a keyboard cannot scroll it');
+});
+
+/* ================= every defined class is REACHABLE =================
+   A class that nothing renders is not a feature, it is a promise nobody
+   can check. The audit script reported this by grepping the showcase
+   SOURCE, which is wrong twice over: `class:list` in an .astro component
+   never puts the string in index.astro (so .cm-meter--accent and
+   .cm-status--ok read as dead while rendering on the page), and a
+   class named in a comment reads as alive. The only honest question -
+   does this class appear in the markup the browser actually got? - is
+   answered by the BUILT page. */
+const built = builtHtml();
+// Only real class TOKENS, not every `cm-` substring on the page. Three
+// families collide with this prefix and none of them is a class:
+//   --cm-t, --cm-ease, --cm-meter-fill   CSS custom properties
+//   data-cm-open, data-cm-toasts          runtime data attributes
+//   cm-theme, cm-header-links             the string value of a class
+//                                        attribute that holds a name
+// So match `class="..."` attributes, split on whitespace, and keep the
+// tokens that actually look like component classes. `_` is a word
+// character in JS regex, so \b is useless on a BEM name: \bcm-tag\b will
+// not match inside `cm-tag--accent`. The lookahead is the boundary.
+const renderedClasses = new Set();
+for (const m of (built || '').matchAll(/class="([^"]*)"/g)) {
+	for (const tok of m[1].split(/\s+/)) {
+		// The BEM shape: `cm-block`, `cm-block__part`, `cm-block--variant`.
+		// `__` is a DOUBLE underscore, so one `-_` step does not cover it -
+		// a pattern that drops the part suffix silently reports every
+		// element part of the library as unrendered, which is how this
+		// check first answered "133 classes are dead" on a page that
+		// renders all of them.
+		if (/^cm-[a-z0-9]+(?:[-_]{1,2}[a-z0-9]+)*$/.test(tok)) renderedClasses.add(tok);
+	}
+}
+// The variants section, read ONCE. A `const` inside a check() is scoped to
+// that closure, so a second check that needs it does not see it - and the
+// failure mode is a ReferenceError that reads like a typo, not like a
+// missing fixture.
+const surfaceSection = showcase.slice(showcase.indexOf('id="surface"'),
+	showcase.indexOf('id="code"'));
+
+check('every class the library defines is rendered somewhere on the page', () => {
+	assert(built, 'dist/index.html is missing — run `npm run build` before the contract tests');
+	// `.cm-x` in CSS matches the SELECTOR's class; a compound selector
+	// still names a class that is only styled conditionally, so scope the
+	// claim: a class defined in CSS and absent from the rendered markup is
+	// unreachable on this page.
+	const defined = new Set((compSrc.match(/\.(cm-[a-z0-9_-]+)/g) || []).map(s => s.slice(1)));
+	assert(defined.size > 150, `only ${defined.size} classes parsed from components.css; the regex is wrong`);
+	// cm-js and cm-nav-scrim are injected by the runtime onto <html> and
+	// are correct only with JS on, so they cannot be in the served HTML.
+	const runtimeOnly = new Set(['cm-js', 'cm-nav-scrim']);
+	const dead = [...defined].filter(c => !renderedClasses.has(c) && !runtimeOnly.has(c));
+	assert(dead.length === 0,
+		`${dead.length} class(es) are defined but never rendered on the built page: ${dead.join(', ')}`);
+
+	// The OTHER direction, and the one that actually bites. Above asks
+	// "is everything in the CSS reachable?". This asks "is everything on
+	// the page actually styled?" - a class can render and carry NO rule at
+	// all, which is the renamed-without-selector bug: the markup moves to
+	// a new name, the rule keeps the old one, and the element renders
+	// unstyled with a green build. One direction cannot see it, because
+	// removing the selector also removes the class from the CSS set and
+	// the "defined" side never notices the element is stranded.
+	//
+	// A modifier is a selector of its own only if it is not merely part
+	// of a longer name, so the boundary check is a negative lookahead
+	// rather than \b: `_` is a word character, so \bcm-tag\b will not
+	// match inside `cm-tag--accent`.
+	const styled = (cls) => new RegExp('\\.' + cls + '(?![a-z0-9_-])').test(allCss);
+	const unstyled = [...renderedClasses].filter(c => !styled(c));
+	// cm-js is set on <html> by the runtime and is the progressive-
+	// enhancement hook, not a styled element; it is legitimately in the
+	// markup the browser got only when the script has run.
+	assert(unstyled.length === 0,
+		`${unstyled.length} class(es) render on the page but no rule styles them: ${unstyled.join(', ')}`);
+});
+
+check('a variant is only called demonstrated if it differs from its base', () => {
+	// The trap this closes: `.cm-tag--accent { color: var(--ink) }` beside
+	// `.cm-tag { color: var(--ink-dim) }` LOOKS like a variant, ships to
+	// oem-portfolio, and would be green in every existence test. So the
+	// showcase must carry a BASE and a MODIFIER of the same block, and
+	// the modifier must declare a declaration the base does not.
+	const variants = [
+		['cm-tag', 'cm-tag--accent'],
+		['cm-status', 'cm-status--ok'],
+		['cm-status', 'cm-status--warn'],
+		['cm-status', 'cm-status--err'],
+		['cm-toast', 'cm-toast--ok'],
+	];
+	const section = surfaceSection;
+	assert(section.length > 200, 'the variants section is missing or empty');
+	// The modifier must be rendered WITH its base class on the same
+	// element, or it is a standalone style and not a variant at all.
+	for (const [base, mod] of variants) {
+		assert(new RegExp(`class="[^"]*\\b${base}\\b[^"]*\\b${mod}\\b`).test(section),
+			`the variants section must render ${mod} together with ${base}`);
+	}
+	// And the CSS must give the modifier something the base lacks.
+	//
+	// Walk the rule's whole SELECTOR LIST, not `sel {`. Most of these
+	// variants are not declared on their own element at all: `.cm-status--ok`
+	// is a compound selector, `.cm-status--ok .cm-status__value::before`,
+	// because the state is a glyph on a child. A `sel {` lookup reports
+	// "no rule body of its own" for a variant that is very much alive -
+	// the same false negative as the `.cm-back:hover .cm-back__arrow` case.
+	// The class merely has to be ONE of the selectors on the rule.
+	const propsFor = (cls) => {
+		const out = new Set();
+		for (const m of compSrc.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+			const sels = m[1].split(',').map(s => s.trim());
+			if (!sels.some(s => new RegExp('\\.' + cls + '(?![a-z0-9_-])').test(s))) continue;
+			for (const d of (m[2].match(/([-a-z]+)\s*:/g) || [])) out.add(d.slice(0, -1).trim());
+		}
+		return out;
+	};
+	for (const [base, mod] of variants) {
+		const b = propsFor(base), m = propsFor(mod);
+		assert(m.size > 0, `.${mod} is styled by no rule whose selector names it`);
+		const only = [...m].filter(p => !b.has(p));
+		assert(only.length > 0,
+			`.${mod} declares nothing .${base} does not, so the variant renders identically to its base`);
+	}
+});
+
+check('.cm-tag survives a word too long for its column', () => {
+	// Measured in WebKit at 390 and 320: a long single-word tag laid out at
+	// its max-content width and pushed 26px past a 220px row, because
+	// inline-flex is a BFC root and nothing let the word break. Three
+	// declarations are load-bearing and only work together.
+	const rule = /^\.cm-tag \{([^}]*)\}/m.exec(compSrc);
+	assert(rule, 'no .cm-tag rule found');
+	const body = rule[1];
+	for (const decl of ['min-width:\\s*0', 'max-width:\\s*100%', 'overflow-wrap:\\s*break-word']) {
+		assert(new RegExp(decl).test(body),
+			`.cm-tag lost ${decl} — a long tag overflows its column without it`);
+	}
+	// `break-word` and NOT `anywhere`: anywhere also shrinks min-content
+	// sizing, which starves a value column, and splits `.cm-*` identifiers
+	// mid-token. A sibling check bans it; this pins the right replacement.
+	assert(!/overflow-wrap:\s*anywhere/.test(body),
+		'.cm-tag uses overflow-wrap:anywhere, which shrinks min-content sizing and splits identifiers');
+	// The showcase must prove the case with a specimen that is actually
+	// long, or the rule is defending against nothing and can be deleted.
+	assert(/cm-tag[^"]*">infrastructureascodeverylong/.test(surfaceSection),
+		'the variants section must render a genuinely long tag');
 });
 
 /* ================= async checks (installer) ================= */

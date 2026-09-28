@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **A `variants` showcase section, and a reachability contract test.** 26
+  classes were defined in the stylesheet and rendered nowhere: `.cm-tag`,
+  `.cm-tag--accent`, `.cm-rule`, `.cm-rule__label`, `.cm-media`,
+  `.cm-status--warn/--err`, `.cm-toast--*`, `.cm-term__line`,
+  `.cm-spinner--lg`, `.cm-rows--column/--stacked`, `.cm-row__icon` and
+  `.cm-head__title`. Four of them ship to a **live** consumer
+  (oem-portfolio renders `cm-tag` and `cm-rule` on its projects pages), so
+  this was surface in production that no one had ever seen rendered. A new
+  check now walks the BUILT page and fails if any defined class is
+  unreachable - and, in the direction that actually bites, if any rendered
+  class is styled by no rule (the renamed-without-selector bug).
+  `tests/mutate-variants.mjs` mutation-checks both: 10 mutations, 10 caught.
+- **`.cm-header__icon-link` is now demonstrated.** The showcase never
+  passed `extraLinks`, so a class oem-portfolio's own Header renders was
+  unreachable here.
 - **Code blocks with a copy button.** `.cm-codebar` (the wrapper that gives a
   `<pre>` a label row and a home for a control), `.cm-copy` (the button) and
   `.cm-copy__state` (a reserved-width glyph slot), plus a `<CodeBlock>` Astro
@@ -22,6 +37,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   was registered for this repo; personal-account runners are per-repo.
 
 ### Fixed
+- **A long tag overflowed its column.** `.cm-tag` is `inline-flex`, so it is
+  a BFC root: it laid out at its own max-content width and a single long
+  word pushed 26px past a 220px row, measured in WebKit at both 390 and 320.
+  oem-portfolio renders these inside an aside. Fixed with `max-width: 100%`
+  + `min-width: 0` + `overflow-wrap: break-word` - **`break-word`, not
+  `anywhere`**, which also shrinks min-content sizing and splits `.cm-*`
+  identifiers mid-token (a sibling check bans it for exactly that reason).
+- **Three consumers were stale** on the `.cm-copy` tap floor
+  (`min-height: 0` vs `var(--tap)`), so every copy button on links.oem.ngo
+  was under 44px. Re-vendored with `scripts/install.sh`.
 - **One click copied twice.** `initCopy` was the only `init*` in the runtime
   with no bind guard, and `init()` runs again on every `astro:page-load`, so
   each run attached another click listener. Measured in WebKit at 390px:

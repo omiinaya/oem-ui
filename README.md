@@ -659,6 +659,29 @@ library fix can reach.
 <footer class="cm-footer">…</footer>
 ```
 
+### Every class is rendered, and every rendered class is styled
+
+Both directions are contract-tested against the **built** page
+(`dist/index.html`), not the source:
+
+- a class defined in the stylesheet and rendered nowhere is a failure. A
+  class nothing renders is a promise nobody can check.
+- a class rendered on the page and styled by no rule is a failure. This is
+  the renamed-without-selector bug: the markup moves to a new name, the
+  rule keeps the old one, and the element renders unstyled behind a green
+  build.
+
+Reading the built page is the whole point. Grepping the showcase source is
+wrong twice over: `class:list` in an Astro component never puts the string
+in `index.astro`, and a class named in a comment reads as alive. Every new
+component ships with a specimen in the showcase for exactly this reason.
+
+`.cm-tag` carries `max-width: 100%`, `min-width: 0` and
+`overflow-wrap: break-word` so a long single word in a narrow column wraps
+instead of pushing 26px past its row. It is `break-word` and not
+`anywhere`: `anywhere` also shrinks min-content sizing and splits `.cm-*`
+identifiers mid-token.
+
 ## Mobile nav
 
 Under 640px the header nav collapses behind a burger. Nothing to wire up:

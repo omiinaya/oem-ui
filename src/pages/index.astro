@@ -58,7 +58,8 @@ import { SITE } from '../astro/config';
 				{ href: '#forms', label: 'forms' },
 				{ href: '#readme', label: 'readme' },
 			]}
-		/>
+		extraLinks={[{ href: 'https://github.com/omiinaya/oem-ui', label: 'github' }]}
+	/>
 		<main>
 			<PageHead kicker="design system" title="oem/ui" sub="mono/terminal components. dark default. works anywhere." />
 			<StatusStrip label="status" status="ok">
@@ -477,6 +478,233 @@ import { SITE } from '../astro/config';
 							<tr><td>runtime</td><td>cli-mono.js</td><td class="num">196</td><td class="num">3</td></tr>
 						</tbody>
 					</table>
+				</div>
+			</section>
+
+			<!-- ==================================================== surface
+			     Every VARIANT, rendered. The states section above shows
+			     the ok/warn/err alert family, but a dozen other modifier
+			     classes shipped to consumers without ever being drawn:
+			     oem-portfolio renders .cm-tag, .cm-tag--accent, .cm-rule
+			     and .cm-rule__label on a live site and a source grep of
+			     this page proved nothing, because "renders" is a claim
+			     about the BUILT page. Provenance, not a style decision:
+			     a modifier nobody can see is a modifier nobody trusts,
+			     and the tag row overflowing its column by 26px at 320
+			     lived here for the whole life of the class. -->
+			<section id="surface" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+				<h2>variants</h2>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
+					Each row is one modifier against its own base, so the
+					difference is the thing being reviewed. A variant that
+					computed identically to its base would be a class that
+					looks right in this table and does nothing anywhere
+					else.
+				</p>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">tags</h3>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>plain</code></span>
+						<span class="cm-spec__sample"><span class="cm-tag">linux</span></span>
+						<span class="cm-spec__val"><code>default</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--accent</code></span>
+						<span class="cm-spec__sample"><span class="cm-tag cm-tag--accent">astro</span></span>
+						<span class="cm-spec__val"><code>border + ink</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>long word</code></span>
+						<span class="cm-spec__sample"><span class="cm-tag">infrastructureascodeverylong</span></span>
+						<span class="cm-spec__val"><code>wraps</code></span>
+					</div>
+				</div>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">labelled rule</h3>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--rule</code></span>
+						<span class="cm-spec__sample" style="width:100%">
+							<div class="cm-rule" style="margin:0">
+								<span class="cm-rule__label">stack</span>
+							</div>
+						</span>
+						<span class="cm-spec__val"><code>flex</code></span>
+					</div>
+				</div>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">status</h3>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--ok</code></span>
+						<span class="cm-spec__sample" style="width:100%">
+							<div class="cm-status cm-status--ok">
+								<span class="cm-status__label">build</span>
+								<span class="cm-status__value">passed</span>
+							</div>
+						</span>
+						<span class="cm-spec__val"><code>&#9679;</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--warn</code></span>
+						<span class="cm-spec__sample" style="width:100%">
+							<div class="cm-status cm-status--warn">
+								<span class="cm-status__label">build</span>
+								<span class="cm-status__value">passed with warnings</span>
+							</div>
+						</span>
+						<span class="cm-spec__val"><code>&#9650;</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--err</code></span>
+						<span class="cm-spec__sample" style="width:100%">
+							<div class="cm-status cm-status--err">
+								<span class="cm-status__label">build</span>
+								<span class="cm-status__value">a long failure that has to wrap and stay aligned under the glyph</span>
+							</div>
+						</span>
+						<span class="cm-spec__val"><code>&#10005;</code></span>
+					</div>
+				</div>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">toast</h3>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--ok</code></span>
+						<span class="cm-spec__sample" style="width:100%">
+							<div class="cm-toast cm-toast--ok">
+								<span class="cm-toast__mark" aria-hidden="true"></span>
+								<div class="cm-toast__body">
+									<p class="cm-toast__title">deployed</p>
+									<p class="cm-toast__text">The static build is on the CDN.</p>
+								</div>
+								<button type="button" class="cm-toast__close" data-cm-toast-close aria-label="Dismiss">&times;</button>
+							</div>
+						</span>
+						<span class="cm-spec__val"><code>3px</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--warn</code></span>
+						<span class="cm-spec__sample" style="width:100%">
+							<div class="cm-toast cm-toast--warn">
+								<span class="cm-toast__mark" aria-hidden="true"></span>
+								<div class="cm-toast__body">
+									<p class="cm-toast__title">3 links deprecated</p>
+									<p class="cm-toast__text">Still resolving, still on-brand, but going away.</p>
+								</div>
+								<button type="button" class="cm-toast__close" data-cm-toast-close aria-label="Dismiss">&times;</button>
+							</div>
+						</span>
+						<span class="cm-spec__val"><code>faint</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--err</code></span>
+						<span class="cm-spec__sample" style="width:100%">
+							<div class="cm-toast cm-toast--err">
+								<span class="cm-toast__mark" aria-hidden="true"></span>
+								<div class="cm-toast__body">
+									<p class="cm-toast__title">build failed</p>
+									<p class="cm-toast__text">2 routes errored in 1.4s</p>
+								</div>
+								<button type="button" class="cm-toast__close" data-cm-toast-close aria-label="Dismiss">&times;</button>
+							</div>
+						</span>
+						<span class="cm-spec__val"><code>ink</code></span>
+					</div>
+				</div>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">terminal</h3>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>lines</code></span>
+						<span class="cm-spec__sample" style="width:100%">
+							<div class="cm-term" style="margin:0">
+								<div class="cm-term__bar">
+									<span class="cm-term__title">session</span>
+								</div>
+								<div class="cm-term__body">
+									<pre><span class="cm-term__line"><span class="cm-term__prompt">$</span> oem-ui build</span><span class="cm-term__line cm-term__line--out">built 2 routes in 1.4s</span></pre>
+								</div>
+							</div>
+						</span>
+						<span class="cm-spec__val"><code>pre-wrap</code></span>
+					</div>
+				</div>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">spinner + rows</h3>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--lg</code></span>
+						<span class="cm-spec__sample">
+							<span class="cm-spinner cm-spinner--lg" aria-hidden="true"></span>
+						</span>
+						<span class="cm-spec__val"><code>1.6rem</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--column</code></span>
+						<span class="cm-spec__sample" style="width:100%">
+							<ul class="cm-rows cm-rows--column">
+								<li>
+									<span class="cm-row">
+										<span class="cm-row__icon" aria-hidden="true">&#9656;</span>
+										<span class="cm-row__body">
+											<span class="cm-row__title">linux</span>
+											<span class="cm-row__desc">the kernel layer</span>
+										</span>
+									</span>
+								</li>
+							</ul>
+						</span>
+						<span class="cm-spec__val"><code>stack</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--stacked</code></span>
+						<span class="cm-spec__sample" style="width:100%">
+							<ul class="cm-rows cm-rows--stacked">
+								<li>
+									<span class="cm-row">
+										<span class="cm-row__icon" aria-hidden="true">&#9656;</span>
+										<span class="cm-row__body">
+											<span class="cm-row__title">astro</span>
+											<span class="cm-row__desc">the build layer</span>
+										</span>
+									</span>
+								</li>
+							</ul>
+						</span>
+						<span class="cm-spec__val"><code>block</code></span>
+					</div>
+				</div>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">media</h3>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--media</code></span>
+						<span class="cm-spec__sample" style="width:100%">
+							<figure class="cm-media" style="margin:0">
+								<img
+									src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='120'%3E%3Crect width='640' height='120' fill='%23262626'/%3E%3C/svg%3E"
+									alt="A flat grey placeholder frame, standing in for a screenshot."
+									width="640" height="120" loading="lazy" />
+							</figure>
+						</span>
+						<span class="cm-spec__val"><code>frame</code></span>
+					</div>
+				</div>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">head title hook</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+					<code>.cm-head h1</code> already sizes the title, so
+					<code>.cm-head__title</code> is the hook for a title
+					that is not an <code>h1</code> &mdash; an
+					<code>aria-label</code> on a landmark, or a
+					<code>&lt;h2&gt;</code> leading a section. It reads
+					the same size either way, which is the point: the
+					selector is a pair, not two competing rules.
+				</p>
+				<div class="cm-head" style="padding:0">
+					<p class="cm-head__title">a title that is not an h1</p>
 				</div>
 			</section>
 
