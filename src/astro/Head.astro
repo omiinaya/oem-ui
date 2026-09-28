@@ -10,9 +10,18 @@ interface Props {
 	description?: string;
 	/** path to your global.css, relative to this component */
 	stylesHref?: string;
+	/**
+	 * Storage key for the saved theme. Declare it once here and once on
+	 * `<html data-cm-theme-key>`. A project that stored its theme under a
+	 * different key before the library owned it passes `legacyKey`, and
+	 * both the FOUC guard and the runtime will find that value.
+	 */
+	themeKey?: string;
+	/** key(s) this project used BEFORE the library owned the theme */
+	legacyKey?: string;
 }
 
-const { title, description = SITE.description, stylesHref } = Astro.props;
+const { title, description = SITE.description, stylesHref, themeKey, legacyKey } = Astro.props;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://example.com');
 const fullTitle = title === SITE.title ? title : `${title} — ${SITE.title}`;
 ---
@@ -21,12 +30,34 @@ const fullTitle = title === SITE.title ? title : `${title} — ${SITE.title}`;
 	FOUC guard. MUST be the FIRST node in <head>, before even the charset
 	declaration and before any stylesheet, or a light-theme visitor sees a
 	dark flash. Keep it inline.
+
+	The key list is read from <html> at run time, the same two attributes
+	the runtime uses, so the guard and the toggle can never disagree about
+	where the saved theme lives. Do not hardcode a key here: this file and
+	cli-mono.js already drifted once, and the cost was a black flash for
+	every visitor whose theme predated the library.
 -->
-<script is:inline>
+<script is:inline define:vars={{ themeKey, legacyKey }}>
 	(function () {
 		try {
-			var s = localStorage.getItem('cm-theme');
-			if (s === 'light') document.documentElement.setAttribute('data-theme', 'light');
+			var d = document.documentElement;
+			var g = function (a) {
+				try {
+					return d.getAttribute(a);
+				} catch (e) {
+					return null;
+				}
+			};
+			var k = (g('data-cm-theme-key') || themeKey || 'cm-theme')
+				.split(',')
+				.concat((g('data-cm-theme-legacy') || legacyKey || '').split(','));
+			for (var i = 0; i < k.length; i++) {
+				var s = localStorage.getItem(k[i].trim());
+				if (s === 'light' || s === 'dark') {
+					if (s === 'light') d.setAttribute('data-theme', 'light');
+					return;
+				}
+			}
 		} catch (e) {}
 	})();
 </script>

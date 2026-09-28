@@ -126,17 +126,32 @@
 		applyTheme(getTheme() === 'light' ? 'dark' : 'light');
 	}
 
-	// The FOUC guard. Paste this in <head>, BEFORE any stylesheet,
-	// as an inline is:inline script. It runs before first paint so a
-	// light-theme user never sees a black flash.
+	/* The FOUC guard. Emit it in <head>, BEFORE any stylesheet, as an
+	   inline is:inline script. It runs before first paint so a light-theme
+	   visitor never sees a black flash.
+
+	   The key list is read FROM THE DOM at run time, not baked in at build
+	   time. The guard necessarily runs before the runtime bundle has
+	   executed, so the module-level LEGACY_KEYS is still [] when this
+	   string is evaluated -- reading it here produced a one-key guard that
+	   could not see a theme saved under a legacy key, i.e. the exact flash
+	   the guard exists to prevent. <html> already declares the keys
+	   (data-cm-theme-key / data-cm-theme-legacy) and the guard runs after
+	   <html> is parsed, so one declaration serves both the guard and the
+	   runtime and the two cannot drift.
+
+	   The explicit key stays as a fallback for a host page that calls this
+	   before its <html> is parsed. */
 	function themeInitScript(storageKey) {
-		var keys = [storageKey || 'cm-theme'].concat(LEGACY_KEYS);
 		return (
-			'(function(){try{var k=' +
-			JSON.stringify(keys) +
-			';for(var i=0;i<k.length;i++){var s=localStorage.getItem(k[i]);' +
+			'(function(){try{var d=document.documentElement;' +
+			'var g=function(a){try{return d.getAttribute(a);}catch(e){return null;}};' +
+			'var k=(g("data-cm-theme-key")||' +
+			JSON.stringify(storageKey || 'cm-theme') +
+			').split(",").concat((g("data-cm-theme-legacy")||"").split(","));' +
+			'for(var i=0;i<k.length;i++){var s=localStorage.getItem(k[i].trim());' +
 			'if(s==="light"||s==="dark"){if(s==="light")' +
-			'{document.documentElement.setAttribute("data-theme","light");}' +
+			'{d.setAttribute("data-theme","light");}' +
 			'return;}}}catch(e){}})();'
 		);
 	}

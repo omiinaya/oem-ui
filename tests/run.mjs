@@ -979,12 +979,163 @@ check('no stored preference anywhere still defaults to dark', () => {
 	assert(h.attrs['data-theme'] === undefined, 'reading the theme must not apply one');
 });
 
-check('the FOUC guard searches the legacy keys too', () => {
-	const h = themeHarness();
-	h.api.setLegacyKeys(['oem-log-theme']);
-	const src = h.api.themeInitScript('oem-links-theme');
-	assert(src.includes('oem-links-theme'), 'guard must check the project key');
-	assert(src.includes('oem-log-theme'), 'guard must also check the legacy key');
+check('the library <Head> guard reads the same keys the runtime does', () => {
+	// The guard is the one piece of theme code that runs BEFORE the runtime
+	// exists, so it cannot import anything. That made it a natural place to
+	// retype a key list by hand -- and it had drifted from cli-mono.js,
+	// which cost every returning light-theme visitor a black flash. Assert
+	// it reads the <html> attributes instead of a literal.
+	const src = readFileSync(join(root, 'src/astro/Head.astro'), 'utf8');
+	assert(
+		src.includes('data-cm-theme-key'),
+		'Head.astro must read data-cm-theme-key so the guard follows the project declaration',
+	);
+	assert(
+		src.includes('data-cm-theme-legacy'),
+		'Head.astro must read data-cm-theme-legacy or a pre-library theme is invisible',
+	);
+	// Strip comments before matching source, or the prose above satisfies it.
+	const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/<!--[\s\S]*?-->/g, '');
+	assert(
+		!/localStorage\.getItem\(\s*['"]cm-theme['"]\s*\)/.test(code),
+		"Head.astro must not hardcode a single getItem('cm-theme'); that is the drift",
+	);
+});
+
+// Every .astro under a consumer's src/, skipping node_modules and dist
+// (which hold copies of the same files and would only add noise).
+const listAstroFiles = (dir) => {
+	const out = [];
+	const stack = [join(dir, 'src')];
+	while (stack.length) {
+		const d = stack.pop();
+		let entries;
+		try {
+			entries = readdirSync(d, { withFileTypes: true });
+		} catch {
+			continue;
+		}
+		for (const e of entries) {
+			if (e.name === 'node_modules' || e.name === 'dist' || e.name.startsWith('.')) continue;
+			const p = join(d, e.name);
+			if (e.isDirectory()) stack.push(p);
+			else if (e.name.endsWith('.astro')) out.push(p.slice(dir.length + 1));
+		}
+	}
+	return out;
+};
+
+check('every shipped FOUC guard covers the keys its own <html> declares', () => {
+	// The real invariant is CONSISTENCY, not "more than one key": a project
+	// that never renamed its key legitimately has exactly one. What must
+	// never happen is a guard that searches a different key than the
+	// runtime will -- a returning light-theme visitor then flashes black.
+	//
+	// So derive the expected key list from the project's own <html> tags
+	// and require every one of them to appear in the guard.
+	const CONSUMERS = [
+		{ name: 'dev-blog', dir: '../dev-blog', guard: 'src/components/Header.astro' },
+		{ name: 'oem-portfolio', dir: '../oem-portfolio', guard: 'src/components/Head.astro' },
+	];
+	for (const c of CONSUMERS) {
+		const dir = join(root, c.dir);
+		if (!existsSync(dir)) continue;
+		const guard = readFileSync(join(dir, c.guard), 'utf8')
+			.replace(/\/\*[\s\S]*?\*\//g, '')
+			.replace(/<!--[\s\S]*?-->/g, '');
+		if (!/data-theme/.test(guard)) continue; // not a theme guard at all
+
+		// Every <html ...> in the project, so a key declared on one layout
+		// and forgotten on another is caught. Walk only the source tree:
+		// node_modules and dist hold copies that would add noise.
+		const htmlTags = [];
+		for (const f of listAstroFiles(dir)) {
+			const s = readFileSync(join(dir, f), 'utf8');
+			for (const m of s.match(/<html[\s\S]{0,400}?>/g) || []) htmlTags.push({ f, tag: m });
+		}
+		assert(htmlTags.length > 0, `${c.name}: no <html> tag found, so nothing to check the guard against`);
+
+		for (const { f, tag } of htmlTags) {
+			const key = (tag.match(/data-cm-theme-key="([^"]+)"/) || [])[1] || 'cm-theme';
+			const legacy = (tag.match(/data-cm-theme-legacy="([^"]+)"/) || [])[1];
+			for (const k of [key].concat(legacy ? legacy.split(',') : [])) {
+				const kk = k.trim();
+				assert(
+					guard.includes(kk),
+					`${c.name}: ${f} declares theme key ${JSON.stringify(kk)} but ${c.guard} never searches it, ` +
+						`so a visitor saved under it gets a black flash`,
+				);
+			}
+		}
+	}
+});
+
+check('the FOUC guard finds a theme saved under a LEGACY key', () => {
+	// The regression this guards: the guard is evaluated in <head>, before
+	// the runtime bundle has run, so the module's LEGACY_KEYS is still [].
+	// A guard that bakes its key list in at build time therefore sees only
+	// the project key and misses a visitor whose theme is stored under the
+	// old one -- a black flash for exactly the returning light-theme users
+	// the guard exists to protect.
+	//
+	// Assert the SNIPPET'S BEHAVIOUR in a context shaped like a real
+	// <head>: documentElement with BOTH attributes set, a store holding the
+	// theme under the legacy key ONLY, and no module state seeded at all.
+	const api = { module: { exports: {} }, window: undefined };
+	vm.runInNewContext(runtimeSrc, api);
+	const src = api.module.exports.themeInitScript('oem-links-theme');
+
+	const store = { 'oem-log-theme': 'light' };
+	const attrs = {
+		'data-cm-theme-key': 'oem-links-theme',
+		'data-cm-theme-legacy': 'cm-theme,oem-log-theme',
+	};
+	const ctx = {
+		localStorage: {
+			getItem: (k) => (k in store ? store[k] : null),
+			setItem: () => { throw new Error('FOUC guard must not write'); },
+		},
+		document: {
+			documentElement: {
+				getAttribute: (n) => (n in attrs ? attrs[n] : null),
+				setAttribute: (n, v) => { attrs[n] = v; },
+			},
+		},
+	};
+	vm.runInNewContext(src, ctx);
+	assert(
+		attrs['data-theme'] === 'light',
+		'a visitor whose light theme is stored under a legacy key must still get light before first paint, got ' +
+			JSON.stringify(attrs['data-theme'] ?? null),
+	);
+});
+
+check('the FOUC guard prefers the project key over the legacy ones', () => {
+	// Order matters: a project that has since written 'dark' under its own
+	// key must not be flipped back to light by a stale legacy value.
+	const api = { module: { exports: {} }, window: undefined };
+	vm.runInNewContext(runtimeSrc, api);
+	const src = api.module.exports.themeInitScript('oem-links-theme');
+
+	const store = { 'oem-links-theme': 'dark', 'oem-log-theme': 'light' };
+	const attrs = {
+		'data-cm-theme-key': 'oem-links-theme',
+		'data-cm-theme-legacy': 'cm-theme,oem-log-theme',
+	};
+	vm.runInNewContext(src, {
+		localStorage: { getItem: (k) => (k in store ? store[k] : null) },
+		document: {
+			documentElement: {
+				getAttribute: (n) => (n in attrs ? attrs[n] : null),
+				setAttribute: (n, v) => { attrs[n] = v; },
+			},
+		},
+	});
+	assert(
+		attrs['data-theme'] === undefined,
+		'dark is the default and is applied by CSS, so the guard must write nothing, got ' +
+			JSON.stringify(attrs['data-theme'] ?? null),
+	);
 });
 
 check('the toggle binds legacy .theme-toggle markup as well as the library one', () => {
@@ -1029,7 +1180,11 @@ check('the FOUC guard is the first node in <head>, not inside <header>', () => {
 		['Head.astro', 'src/astro/Head.astro'],
 	]) {
 		const s = read(path);
-		const guardAt = s.search(/<script is:inline>\s*\(function/);
+		// Match the tag WITH its attributes: an inline guard that also
+		// carries define:vars or set:html is still the guard, and pinning
+		// the bare `<script is:inline>` spelling makes this check report a
+		// missing guard for a file that has one.
+		const guardAt = s.search(/<script\s+is:inline[^>]*>\s*\(function/);
 		const charsetAt = s.indexOf('<meta charset');
 		assert(guardAt !== -1, `${name}: no inline FOUC guard found`);
 		assert(
