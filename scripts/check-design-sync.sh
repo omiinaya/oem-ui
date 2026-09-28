@@ -45,10 +45,34 @@ ALT=(
 	"src/js/cli-mono-theme-guard.js:cli-mono-theme-guard.js"
 )
 
-targets=("$@")
+# Normalise every target ONCE, here, and use the normalised form for the
+# rest of the script. Not cosmetic: the shadow-copy scan below decides
+# whether a vendored file is already accounted for with a STRING comparison
+#   [ "$f" = "$t/${pair##*:}" ]
+# where "$f" comes from `find "$t"` and therefore never carries a trailing
+# slash. A target given as "/root/projects/links/" - which is what a
+# `for d in /root/projects/*/` loop produces, and what this repo's own audit
+# script passes - makes that comparison fail, so every accounted-for copy was
+# reported as an ORPHAN. All three real consumers were reported as drifted
+# for files that were byte-identical and on a path MAP already owns.
+#
+# That is a check crying wolf, which is the same end state as one that never
+# fires: it trains you to ignore the output. And the audit that consumes it
+# counted only lines matching STALE, so an ORPHAN-only result printed the
+# self-contradictory "STALE -- 0 file(s) differ" - reporting a failure whose
+# cause it was unable to name.
+strip_slash() {
+	# ${1%/} once is not enough for "//" or a bare "/", so loop it.
+	local p="$1"
+	while [ "$p" != "/" ] && [ "${p%/}" != "$p" ]; do p="${p%/}"; done
+	printf '%s' "$p"
+}
+
+targets=()
+for t0 in "$@"; do targets+=("$(strip_slash "$t0")"); done
 if [ ${#targets[@]} -eq 0 ]; then
 	for d in "$CONSUMER_ROOT"/*/; do
-		[ -d "$d/src/styles/cli-mono" ] && targets+=("${d%/}")
+		[ -d "$d/src/styles/cli-mono" ] && targets+=("$(strip_slash "$d")")
 	done
 fi
 

@@ -1810,6 +1810,84 @@ check('ships an executable drift checker', () => {
 	assert(st.mode & 0o111, 'check-design-sync.sh is not executable');
 });
 
+check('a trailing slash on the target does not invent drift', () => {
+	// THE BUG THIS EXISTS FOR. Measured, not predicted.
+	//
+	// The shadow-copy scan decides whether a vendored file is already
+	// accounted for with a STRING comparison, `[ "$f" = "$t/${pair##*:}" ]`,
+	// where "$f" comes from `find "$t"` and so never has a trailing slash.
+	// Pass the target as "/root/projects/links/" - which is what a
+	// `for d in /root/projects/*/` loop produces, and what this repo's own
+	// audit script passes - and the comparison fails, so every copy MAP
+	// already owns is reported as an ORPHAN.
+	//
+	// All three real consumers were reported drifted for files that were
+	// byte-identical. The audit that consumes the output counted only lines
+	// matching STALE, so it printed the self-contradictory
+	// "STALE -- 0 file(s) differ": a failure it could not explain.
+	//
+	// A check that cries wolf is the same end state as one that never fires
+	// - it trains you to ignore the output - so the false positive is the
+	// defect, and it needs its own test.
+	//
+	// BOTH spellings must agree. Asserting only the slashed form would
+	// still pass if the script had simply learned to ignore the target it
+	// was given.
+	const dir = mkdtempSync(join(tmpdir(), 'cm-slash-'));
+	try {
+		const inst = spawnSync('bash', [join(root, 'scripts/install.sh'), dir, '--public'], {
+			encoding: 'utf8',
+		});
+		assert(inst.status === 0, `installer --public exited ${inst.status}: ${inst.stderr}`);
+
+		// A fully wired consumer: every layer imported, the guard in <head>,
+		// the verbatim runtime copy. This is the exact state of oem-links.
+		// Every vendored file here sits on a path MAP or ALT already owns, so
+		// a correct checker reports NOTHING.
+		mkdirSync(join(dir, 'src/pages'), { recursive: true });
+		mkdirSync(join(dir, 'src/components'), { recursive: true });
+		writeFileSync(join(dir, 'src/styles/site.css'),
+			"@import './cli-mono/tokens.css';\n@import './cli-mono/base.css';\n@import './cli-mono/components.css';\n");
+		writeFileSync(join(dir, 'src/components/BaseHead.astro'),
+			"import themeGuard from '../js/cli-mono-theme-guard.js?raw';\n" +
+			'<script is:inline set:html={themeGuard} />\n' +
+			'<script is:inline src="/cli-mono.js"></script>\n');
+		writeFileSync(join(dir, 'src/pages/index.astro'), '<html></html>\n');
+
+		const env = { ...process.env, OEM_UI_SRC: root };
+		const plain = spawnSync('bash', [join(root, 'scripts/check-design-sync.sh'), dir],
+			{ encoding: 'utf8', env });
+		const slashed = spawnSync('bash', [join(root, 'scripts/check-design-sync.sh'), dir + '/'],
+			{ encoding: 'utf8', env });
+
+		// The consumer really is clean: prove the baseline before blaming
+		// the slash, or this test passes for the wrong reason.
+		assert(plain.status === 0,
+			`a wired consumer must be clean without a slash, got ${plain.status}: ${plain.stdout.trim()}`);
+
+		assert(slashed.status === 0,
+			`a trailing slash invented drift on a clean consumer: ${slashed.stdout.trim()}`);
+		assert(!/ORPHAN/.test(slashed.stdout),
+			`a trailing slash reported an ORPHAN for a file on a mapped path: ${slashed.stdout.trim()}`);
+		assert(/in sync/.test(slashed.stdout),
+			`expected "in sync" with a trailing slash, got: ${slashed.stdout.trim()}`);
+
+		// AND the check must still FIRE through a trailing slash. A fix that
+		// made the script quiet rather than correct would pass everything
+		// above, which is the failure mode of every "just relax the
+		// assertion" edit.
+		writeFileSync(join(dir, 'src/styles/cli-mono/base.css'), '/* drift */\n');
+		const drifted = spawnSync('bash', [join(root, 'scripts/check-design-sync.sh'), dir + '/'],
+			{ encoding: 'utf8', env });
+		assert(drifted.status === 1,
+			`real drift must still fail through a trailing slash, got ${drifted.status}`);
+		assert(/STALE/.test(drifted.stdout),
+			`expected STALE through a trailing slash, got: ${drifted.stdout.trim()}`);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
 check('the drift checker fails on a stale consumer', async () => {
 	// Prove the check CAN fail. A sync check that never fails is decoration:
 	// silent drift is how 177 lines stayed stale while the site kept building
