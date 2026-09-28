@@ -8,6 +8,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`install.sh --public`, and a drift checker that cannot be fooled by a
+  second copy of the runtime.**
+  The library ships a runtime in two homes for some consumers. The normal
+  one is `src/js/cli-mono.js`. The other is `public/cli-mono.js`, served
+  verbatim, because Astro TREATS `<script src>` as a bundler asset
+  reference: when the src is a variable it cannot resolve, the tag is
+  **dropped from `dist/` entirely** while the HTML comment above it still
+  ships, so the page looks wired up and has no runtime at all. `is:inline`
+  fixes it, and a copy in `public/` is what makes `is:inline` serve
+  something.
+
+  The problem was not the shape. It was that **`install.sh` could not
+  produce it**, so a consumer that needed a verbatim copy had to maintain
+  one by hand - and `check-design-sync.sh` only compared the five paths in
+  its `MAP`, so a `public/` copy was invisible to it by construction.
+
+  Measured, not predicted. oem-portfolio reported **`in sync`** on every
+  audit run for three days while the runtime it **served over HTTP** was 140
+  lines behind the library:
+
+  | file | state |
+  |---|---|
+  | `oem-ui/src/js/cli-mono.js` | 684 lines, the origin |
+  | `oem-portfolio/src/js/cli-mono.js` | byte-identical - the check passed on this |
+  | `oem-portfolio/public/cli-mono.js` | **544 lines, the one the browser ran** |
+
+  The stale copy was missing `initNav` entirely (the drawer, the scrim, the
+  body scroll-lock, Escape), the copy-button re-init bind guard, and the
+  DOM-read guard key list - which is the black-flash fix. Every green signal
+  agreed: the vendored copy was current, the CSS was identical, the build
+  was clean.
+
+  What ships:
+
+  - **`install.sh --public`** installs both JS files into `public/` from the
+    same `$FROM`, so the two copies cannot disagree with each other, and
+    prints the shape (`is:inline`, `import.meta.env.BASE_URL`) so a consumer
+    does not go re-deriving it.
+  - **`check-design-sync.sh`** gains an `ALT` map for the verbatim homes
+    (`public/` and flat). Present, they are compared as hard as `src/js`;
+    absent, they are silent, because a consumer needs no verbatim copy and
+    demanding one would make the check cry wolf on every project not using
+    the flag.
+  - **A shadow scan.** `MAP` and `ALT` are still a whitelist, and a
+    whitelist is a hole: any other copy the consumer holds is now reported
+    as `SHADOW` (it differs) or `ORPHAN` (it is byte-identical on a path
+    nothing compares). **Both fail.** An identical copy is not safe - it is
+    precisely the state the drift grows out of.
+
+  Two bugs found while building it, both by the suite rather than by
+  reading:
+
+  - The shadow scan first skipped candidates by **basename**, which silently
+    skipped every file called `cli-mono.js` - including the `public/` one it
+    exists to find - because `MAP` also has a file of that name. It now
+    matches the full destination path. This is pinned by mutation #4.
+  - `ORPHAN` originally failed even a *current* `public/` copy, which would
+    have made `--public` unusable. The first version of the test caught it
+    by failing on a consumer that was provably in sync.
+
+  `oem-portfolio` is migrated: its `public/` copy now comes from
+  `install.sh --public` and is byte-identical to the origin, and its CI runs
+  the drift checker over **every** copy the repo holds, `public/` included.
+  That CI step degrades to a skip when the runner has no oem-ui checkout,
+  because a step that can only ever pass or fail on one machine gets
+  deleted rather than obeyed.
+
+  Verified in WebKit at a 390px iPhone viewport, over HTTP, against the
+  bytes actually served: `tests/verify-shadow-copy-webkit.py` (12 checks).
+  It asserts the progressive-disclosure contract in whichever direction the
+  site needs - and oem-portfolio turns out to ship **no** nav toggle, so
+  `.cm-js` must *not* be set, and all three nav links must stay visible and
+  above the 44px floor. An earlier draft of that probe asserted a drawer
+  exists, which is a probe describing a site it was not pointed at.
+
+  Mutation: `tests/mutate-shadow.mjs`, 11 mutations, **11 caught, 0 not
+  caught, 0 NO-OPs**. One of them initially survived - making `SHADOW`
+  advisory - because the test ran the shadow case while `public/` was still
+  stale, so `STALE` alone held the exit code at 1 and the assertion passed
+  for the wrong reason. The test now isolates each verdict.
+
 - **`cli-mono-theme-guard.js` — the FOUC guard as a shipped file, and
   three consumers migrated onto it.**
   The fixed guard (reads its key list from `<html>` at run time) existed in

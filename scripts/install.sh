@@ -13,11 +13,28 @@
 #   <target>/src/styles/cli-mono/base.css
 #   <target>/src/styles/cli-mono/components.css
 #   <target>/src/js/cli-mono.js
+#   <target>/src/js/cli-mono-theme-guard.js
 #
 # For a project that serves static files from elsewhere (a plain
 # web/index.html, an mkdocs site), pass --flat to get them at the top level:
 #
 #   <target>/cli-mono/tokens.css  ...  <target>/cli-mono.js
+#
+# --public additionally installs the two JS files into <target>/public/ so a
+# project can serve the runtime VERBATIM:
+#
+#   <target>/public/cli-mono.js
+#   <target>/public/cli-mono-theme-guard.js
+#
+# That is a real shape, not a preference. Astro TREATS <script src> as a
+# bundler asset reference, and when the src is a variable it cannot resolve
+# the tag is dropped from dist/ entirely while the HTML comment above it
+# still ships - so the page looks wired up and has no runtime at all. The
+# documented workaround is a copy in public/ loaded with is:inline, which
+# means the project has to maintain a SECOND copy of the runtime by hand.
+# It did, for three days, 140 lines behind, and the drift checker could not
+# see it because it only compared src/js. This flag is how a consumer gets
+# that copy from the library instead of from itself.
 #
 # Idempotent: re-running overwrites with the current library.
 
@@ -29,12 +46,14 @@ say() { printf '\033[32mok\033[0m    %s\n' "$*"; }
 TARGET=""
 FROM=""
 FLAT=0
+PUBLIC=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --from) FROM="${2:-}"; shift 2 ;;
     --flat) FLAT=1; shift ;;
-    -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --public) PUBLIC=1; shift ;;
+    -h|--help) sed -n '2,42p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) die "unknown flag: $1" ;;
     *) TARGET="$1"; shift ;;
   esac
@@ -76,6 +95,18 @@ say "components.css -> $CSS_DIR/components.css"
 say "cli-mono.js    -> $JS_DEST"
 say "guard          -> $GUARD_DEST"
 
+# --public: the verbatim-serve copy. Kept INSIDE this script on purpose - if
+# it lived in a README, every consumer would hand-maintain it and drift,
+# which is the failure this flag exists to remove. Both files come from the
+# same $FROM, so they cannot disagree with each other or with src/js.
+if [ "$PUBLIC" -eq 1 ]; then
+	mkdir -p "$TARGET/public"
+	install -m 0644 "$FROM/src/js/cli-mono.js"            "$TARGET/public/cli-mono.js"
+	install -m 0644 "$FROM/src/js/cli-mono-theme-guard.js" "$TARGET/public/cli-mono-theme-guard.js"
+	say "cli-mono.js    -> $TARGET/public/cli-mono.js (verbatim serve)"
+	say "guard          -> $TARGET/public/cli-mono-theme-guard.js (verbatim serve)"
+fi
+
 printf '\nLoad in this order (tokens, base, components), JS last:\n'
 if [ "$FLAT" -eq 1 ]; then
   printf '  <link rel="stylesheet" href="/cli-mono/tokens.css" />\n'
@@ -92,5 +123,12 @@ else
   printf '  and FIRST in <head>, before any stylesheet (Astro: ?raw import):\n'
   printf '  import guard from "../js/cli-mono-theme-guard.js?raw";\n'
   printf '  <script is:inline set:html={guard} />\n'
+  if [ "$PUBLIC" -eq 1 ]; then
+    printf '\nThis copy is ALSO in public/, to be served verbatim (Astro needs\n'
+    printf 'is:inline, or a variable src is dropped from dist/ entirely):\n'
+    printf '  const base = import.meta.env.BASE_URL;   // never a leading /\n'
+    printf '  <script is:inline src={base + "cli-mono.js"}></script>\n'
+    printf 'check-design-sync.sh now compares BOTH copies, so neither can drift.\n'
+  fi
 fi
 printf '\nStyle with the .cm-* classes; tokens are the contract.\n'

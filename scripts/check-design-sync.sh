@@ -32,6 +32,18 @@ MAP=(
 	"src/js/cli-mono.js:src/js/cli-mono.js"
 	"src/js/cli-mono-theme-guard.js:src/js/cli-mono-theme-guard.js"
 )
+# The runtime's SECOND, OPTIONAL home. A project that serves it verbatim
+# keeps a copy at public/ (Astro) or the flat layout; install.sh --public
+# produces exactly these. They are compared as hard as the MAP entries when
+# present, but their absence is not a failure - a project needs no verbatim
+# copy, and reporting a MISSING one would make the check cry wolf on every
+# consumer that does not use the flag.
+ALT=(
+	"src/js/cli-mono.js:public/cli-mono.js"
+	"src/js/cli-mono-theme-guard.js:public/cli-mono-theme-guard.js"
+	"src/js/cli-mono.js:cli-mono.js"
+	"src/js/cli-mono-theme-guard.js:cli-mono-theme-guard.js"
+)
 
 targets=("$@")
 if [ ${#targets[@]} -eq 0 ]; then
@@ -57,6 +69,85 @@ for t in "${targets[@]}"; do
 		elif ! cmp -s "$s" "$d"; then
 			n=$(diff "$s" "$d" | grep -c '^[<>]' || true)
 			out+="  STALE    ${pair##*:} ($n lines differ)"$'\n'
+			stale=1
+		fi
+	done
+
+	# The ALT copies: the verbatim-serve homes. Compared exactly as hard as a
+	# MAP entry when the file exists, and silent when it does not - a project
+	# that does not serve the runtime verbatim needs no copy, and demanding
+	# one would make this check cry wolf on every such consumer.
+	for pair in "${ALT[@]}"; do
+		s="$SRC/${pair%%:*}"
+		d="$t/${pair##*:}"
+		[ -f "$d" ] || continue
+		if ! cmp -s "$s" "$d"; then
+			n=$(diff "$s" "$d" | grep -c '^[<>]' || true)
+			out+="  STALE    ${pair##*:} ($n lines differ)"$'\n'
+			stale=1
+		fi
+	done
+
+	# ---- shadow copies (the map is a whitelist, and a whitelist is a hole) ----
+	# MAP and ALT together are still a WHITELIST: they name paths this script
+	# already knows. A consumer can hold a copy on any other path, and that
+	# copy is invisible to both. public/ is the shape that actually occurred
+	# - Astro TREATS <script src> as a bundler asset reference, so when the
+	# src is a variable it cannot resolve the tag is dropped from dist/
+	# entirely, and the documented workaround is a copy in public/ loaded
+	# with is:inline.
+	#
+	# That is not hypothetical. oem-portfolio reported "in sync" for three
+	# days while the runtime it SERVED over HTTP was 140 lines behind the
+	# library, missing initNav, the copy-button rebind guard and the DOM-read
+	# key list. Its src/js copy stayed current the whole time, which is
+	# exactly why nothing looked twice.
+	#
+	# So every OTHER cli-mono*.js the consumer holds is reported, and BOTH
+	# outcomes fail, because both are silent:
+	#   SHADOW  - it differs, so it is a drifted second copy
+	#   ORPHAN  - it is byte-identical, so it is adoption on a path nothing
+	#             compares, which is the state the drift grows out of.
+	#             Identical is NOT safe: a file nothing checks is a file
+	#             that drifts the first time the library changes.
+	#
+	# Matching on the full DESTINATION PATH, never the basename. A basename
+	# match would skip every copy called cli-mono.js - including the public/
+	# one this section exists to catch - because MAP also has a file of that
+	# name. That bug was written, caught by the suite against the real
+	# oem-portfolio state, and fixed in the same commit.
+	#
+	# Excluded: every path MAP and ALT already own, build output (dist/ is
+	# generated, and a hashed bundle asset is not a hand-kept copy) and
+	# vendored trees.
+	for f in $(find "$t" -type f -name 'cli-mono*.js' \
+		! -path '*/dist/*' ! -path '*/build/*' ! -path '*/node_modules/*' \
+		! -path '*/.git/*' ! -path '*/target/*' 2>/dev/null | sort); do
+		# Generated output, not a hand-kept copy.
+		case "$f" in
+			*.min.js|*.map) continue ;;
+		esac
+		already=0
+		for pair in "${MAP[@]}" "${ALT[@]}"; do
+			[ "$f" = "$t/${pair##*:}" ] && already=1 && break
+		done
+		[ "$already" -eq 1 ] && continue
+		# Which origin does this name correspond to?
+		case "$(basename "$f")" in
+			cli-mono.js)             o="$SRC/src/js/cli-mono.js" ;;
+			cli-mono-theme-guard.js) o="$SRC/src/js/cli-mono-theme-guard.js" ;;
+			*)                       o="" ;;
+		esac
+		# A cli-mono*.js that matches no known origin is some other tool's
+		# file. Naming it would be noise, and a noisy check gets ignored.
+		[ -n "$o" ] && [ -f "$o" ] || continue
+		rel="${f#$t/}"
+		if ! cmp -s "$o" "$f"; then
+			n=$(diff "$o" "$f" | grep -c '^[<>]' || true)
+			out+="  SHADOW   $rel ($n lines differ from the library)"$'\n'
+			stale=1
+		else
+			out+="  ORPHAN   $rel is byte-identical but on no path this check compares"$'\n'
 			stale=1
 		fi
 	done

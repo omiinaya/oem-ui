@@ -1950,6 +1950,220 @@ check('the drift checker fails on a vendored-but-never-imported layer', () => {
 	}
 });
 
+check('the drift checker catches a shadow copy of the runtime on an unchecked path', async () => {
+	// THE GAP THIS EXISTS FOR.
+	//
+	// The checker's MAP is a fixed list of five destination paths, so it can
+	// only ever compare a copy that sits on one of them. A consumer that
+	// serves the runtime VERBATIM keeps a second copy somewhere else -
+	// public/ + <script is:inline> is the shape Astro forces, because a
+	// variable <script src> is dropped from dist/ entirely - and that copy
+	// was invisible to the check.
+	//
+	// Measured, not hypothesised: oem-portfolio passed "in sync" while the
+	// runtime it SERVED over HTTP was 140 lines behind the library, missing
+	// initNav, the copy-button rebind guard and the DOM-read key list. The
+	// vendored src/js copy stayed current throughout, which is exactly why
+	// nobody looked twice.
+	//
+	// Both spellings must fail, and they are different defects:
+	//   differs   -> SHADOW: a drifted second copy
+	//   identical -> ORPHAN: adoption on a path nothing compares, which is
+	//                          the state the drift then grows out of
+	// A test that proved only the first would pass while the second - the
+	// actual precondition - stayed unproven.
+	const dir = mkdtempSync(join(tmpdir(), 'cm-shadow-'));
+	try {
+		const run = () => spawnSync('bash', [join(root, 'scripts/check-design-sync.sh'), dir], {
+			encoding: 'utf8', env: { ...process.env, OEM_UI_SRC: root },
+		});
+		const inst = spawnSync('bash', [join(root, 'scripts/install.sh'), dir, '--public'], {
+			encoding: 'utf8',
+		});
+		assert(inst.status === 0, `installer --public exited ${inst.status}: ${inst.stderr}`);
+
+		// A wired-up consumer that adopted the library, verbatim copy in
+		// place, must be clean. This is half 1 and it is the false-positive
+		// guard: a check that cries wolf is the same failure as one that
+		// never fires.
+		mkdirSync(join(dir, 'src/pages'), { recursive: true });
+		mkdirSync(join(dir, 'src/components'), { recursive: true });
+		writeFileSync(join(dir, 'src/styles/site.css'),
+			"@import './cli-mono/tokens.css';\n@import './cli-mono/base.css';\n@import './cli-mono/components.css';\n");
+		writeFileSync(join(dir, 'src/components/BaseHead.astro'),
+			"import themeGuard from '../js/cli-mono-theme-guard.js?raw';\n" +
+			'<script is:inline set:html={themeGuard} />\n' +
+			'<script is:inline src="/cli-mono.js"></script>\n');
+		writeFileSync(join(dir, 'src/pages/index.astro'), '<html></html>\n');
+		const clean = run();
+		assert(clean.status === 0,
+			`a consumer with a current public/ copy must pass, got ${clean.status}: ${clean.stdout.trim()}`);
+
+		// Half 2: the copy silently goes stale. The oem-portfolio defect,
+		// reproduced in a temp dir. public/ is an ALT path, so it is
+		// compared as hard as src/js and reports STALE - the fix message
+		// and the failing path are the two things a consumer acts on.
+		const pub = join(dir, 'public/cli-mono.js');
+		assert(exists(pub), '--public must install the runtime into public/');
+		writeFileSync(pub, '/* an old runtime */\n');
+		const drifted = run();
+		assert(drifted.status === 1,
+			`a stale public/ copy must fail, got ${drifted.status}: ${drifted.stdout.trim()}`);
+		assert(/STALE\s+public\/cli-mono\.js/.test(drifted.stdout),
+			`the stale copy must be named, got: ${drifted.stdout.trim()}`);
+
+		// Half 3: a copy on a path NEITHER map names. MAP and ALT are still
+		// a whitelist, and this is the hole that whitelist leaves - a
+		// consumer free to put the runtime anywhere. A drifted one is a
+		// SHADOW; a current one is an ORPHAN, which is also a failure
+		// because a file nothing checks is a file that drifts the first
+		// time the library changes. Proving only the drifted case would
+		// leave the state that CAUSED the drift unproven.
+		//
+		// The stale public/ copy is restored FIRST, and this isolation is
+		// load-bearing rather than tidiness. Left stale, its own STALE
+		// verdict would hold the exit code at 1 on its own, so the shadow
+		// case would pass for the wrong reason - and a mutation that made
+		// SHADOW advisory while still printing its name would survive. The
+		// mutation harness caught exactly that, which is what it is for.
+		writeFileSync(pub, read('src/js/cli-mono.js'));
+		mkdirSync(join(dir, 'assets'), { recursive: true });
+		const odd = join(dir, 'assets/cli-mono.js');
+		writeFileSync(odd, '/* a third runtime */\n');
+		const shadow = run();
+		assert(shadow.status === 1,
+			`a copy on an unnamed path must fail, got ${shadow.status}: ${shadow.stdout.trim()}`);
+		assert(/SHADOW\s+assets\/cli-mono\.js/.test(shadow.stdout),
+			`the shadow copy must be named, got: ${shadow.stdout.trim()}`);
+		// Nothing else may be under test here, or the verdict is ambiguous.
+		assert(!/STALE|ORPHAN|UNREACHABLE/.test(shadow.stdout),
+			`the shadow case must be the only finding, got: ${shadow.stdout.trim()}`);
+
+		// Same copy, made current: it becomes an ORPHAN, still a failure.
+		writeFileSync(odd, read('src/js/cli-mono.js'));
+		const orphan = run();
+		assert(orphan.status === 1,
+			`an identical copy on an unnamed path must still fail, got ${orphan.status}: ${orphan.stdout.trim()}`);
+		assert(/ORPHAN\s+assets\/cli-mono\.js/.test(orphan.stdout),
+			`the orphan copy must be named, got: ${orphan.stdout.trim()}`);
+		assert(!/STALE/.test(orphan.stdout),
+			`nothing else may be failing here, got: ${orphan.stdout.trim()}`);
+
+		// Removing the unnamed copies returns the consumer to a passing
+		// state. Without this, "the check is strict" and "the check is
+		// unusable" are indistinguishable, and a check nobody can satisfy
+		// gets deleted rather than obeyed.
+		rmSync(join(dir, 'assets'), { recursive: true, force: true });
+		const fixed = run();
+		assert(fixed.status === 0,
+			`removing the unnamed copy must return the consumer to in-sync, got ${fixed.status}: ${fixed.stdout.trim()}`);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+check('--public installs byte-identical copies and documents the verbatim shape', async () => {
+	// The flag has to actually produce a usable copy, and the reason it
+	// exists has to be written down, or a consumer hits the Astro
+	// drop-the-script-tag trap and goes hand-maintaining a copy again -
+	// which is the failure this was built to end.
+	const dir = mkdtempSync(join(tmpdir(), 'cm-public-'));
+	try {
+		const r = spawnSync('bash', [join(root, 'scripts/install.sh'), dir, '--public'], {
+			encoding: 'utf8',
+		});
+		assert(r.status === 0, `installer exited ${r.status}: ${r.stderr}`);
+		for (const f of ['cli-mono.js', 'cli-mono-theme-guard.js']) {
+			assert(read(join(dir, 'public', f)) === read(`src/js/${f}`),
+				`public/${f} must be byte-identical to src/js/${f}`);
+		}
+		// Both copies come from one $FROM, so they cannot disagree with each
+		// other. A guard and a runtime cut from different versions is the
+		// same class of bug one level down.
+		assert(read(join(dir, 'public/cli-mono.js')) === read(join(dir, 'src/js/cli-mono.js')),
+			'the public and src copies must not diverge from each other');
+
+		// Without --public, public/ must NOT be created. Creating it
+		// unconditionally would hand every consumer an ORPHAN to fail on.
+		const plain = mkdtempSync(join(tmpdir(), 'cm-nopub-'));
+		try {
+			spawnSync('bash', [join(root, 'scripts/install.sh'), plain], { encoding: 'utf8' });
+			assert(!exists(join(plain, 'public/cli-mono.js')),
+				'a plain install must not create a public/ copy');
+		} finally {
+			rmSync(plain, { recursive: true, force: true });
+		}
+
+		// The README says how many files get copied, in two places. It said
+		// "four" after the guard landed as a fifth file, and a count nobody
+		// checks is a count that rots again the next time the library gains
+		// a file. Counted on disk, from the installer's own output with the
+		// ANSI colour stripped - matching the raw stdout finds nothing,
+		// because `ok` is wrapped in escape codes.
+		const plainInstall = spawnSync('bash', [join(root, 'scripts/install.sh'), dir], {
+			encoding: 'utf8',
+		});
+		assert(plainInstall.status === 0, `plain install exited ${plainInstall.status}`);
+		const clean = plainInstall.stdout.replace(/\u001b\[[0-9;]*m/g, '');
+		const landed = (clean.match(/^ok\s+\S+\s+->/gm) || []).length;
+		assert(landed === 5,
+			`a plain install should report 5 files, it reported ${landed}; update the README count too`);
+		// And the same count read off the filesystem, so the number is a
+		// fact about the install rather than about a printf format.
+		const onDisk = [
+			'src/styles/cli-mono/tokens.css',
+			'src/styles/cli-mono/base.css',
+			'src/styles/cli-mono/components.css',
+			'src/js/cli-mono.js',
+			'src/js/cli-mono-theme-guard.js',
+		];
+		assert(onDisk.every((f) => exists(join(dir, f))),
+			'a plain install must land exactly these five files');
+		const readme = read('README.md');
+		assert(/copy five files/.test(readme),
+			'the README must state the real file count, which is 5');
+		assert(!/copy four files/.test(readme) && !/Copies the four files/.test(readme),
+			'the README still says four files; the guard made it five');
+
+		// The output has to teach the shape, and the two facts that make it
+		// work: is:inline (or the tag is dropped from dist/) and BASE_URL
+		// (or a subpath deploy 404s every asset).
+		assert(/is:inline/.test(r.stdout), 'the --public hint must mention is:inline');
+		assert(/BASE_URL/.test(r.stdout), 'the --public hint must mention BASE_URL');
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+check('a consumer that serves the runtime verbatim runs the drift check in CI', () => {
+	// A check nobody runs is a check that has already failed, quietly. This
+	// exists because the drift it catches was invisible for three days: the
+	// consumer's own comment said the layers are "copied into the repo, not
+	// installed from npm, so nothing on GitHub can notice when they drift",
+	// and the runtime it served was 140 lines behind the whole time.
+	//
+	// Scoped to the real consumer, with two things asserted by name. A
+	// generic "does some CI mention drift" would be satisfied by an
+	// unrelated job, which is the dead-check trap one level down.
+	const wf = '/root/projects/oem-portfolio/.github/workflows/ci.yml';
+	if (!exists(wf)) {
+		// The consumer is not on this machine. Say so rather than passing
+		// a vacuous check - a skipped assertion read as green is the exact
+		// thing this suite keeps failing to catch.
+		console.log('        (skipped: oem-portfolio is not checked out here)');
+		return true;
+	}
+	const ci = read(wf);
+	assert(/check-design-sync\.sh/.test(ci),
+		'the consumer CI must run the drift checker, or the copies drift silently');
+	assert(/public/.test(ci),
+		'the drift step must cover the public/ copy, which is the one that was stale');
+	// A step that hard-fails on a runner without the oem-ui checkout is a
+	// step that gets deleted the first time it blocks someone else.
+	assert(/not checked out/.test(ci),
+		'the drift step must degrade to a skip when oem-ui is absent from the runner');
+});
+
 /* ================= nav: current page + scroll-spy ================= */
 console.log('\nnav state');
 

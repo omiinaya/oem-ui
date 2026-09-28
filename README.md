@@ -92,7 +92,7 @@ re-invent every time. This is the same system, pulled apart into layers that
 any project can adopt:
 
 - swap the tokens, keep the components
-- copy four files, no package manager
+- copy five files, no package manager
 - works in Astro, React, Svelte, Hugo, Django, or a plain HTML file
 
 ## Install
@@ -107,14 +107,37 @@ installer is the default.
 ./scripts/install.sh <your-project-dir>
 ```
 
-Copies the four files into `<your-project-dir>` in one fixed layout, so every
+Copies the five files into `<your-project-dir>` in one fixed layout, so every
 project on the fleet ends up with identical paths. Idempotent — re-run it any
 time to pull the current library.
 
 ```bash
 # for a project that serves static files from a flat dir
 ./scripts/install.sh <your-project-dir> --flat
+
+# for an Astro project that must serve the runtime VERBATIM
+./scripts/install.sh <your-project-dir> --public
 ```
+
+`--public` exists because Astro TREATS `<script src>` as a bundler asset
+reference: when the src is a variable it cannot resolve, **the tag is
+dropped from `dist/` entirely** while the HTML comment above it still ships,
+so the page looks wired up and has no runtime. The fix is `is:inline`, which
+needs the file in `public/` to have something to serve:
+
+```astro
+---
+const base = import.meta.env.BASE_URL;   // never a leading "/"
+---
+<script is:inline src={base + "cli-mono.js"}></script>
+```
+
+Keep that copy **generated**. Hand-maintaining it is how oem-portfolio ended
+up serving a runtime 140 lines behind the library while its own
+`src/js/cli-mono.js` stayed byte-identical and every drift check passed —
+the copy lived on a path the checker did not know about. `install.sh
+--public` produces it from the same source as `src/js`, and
+`check-design-sync.sh` now compares both.
 
 ### Option B — copy the files by hand
 
