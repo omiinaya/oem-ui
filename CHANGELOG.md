@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SECTION_ORDER` array, and three contract tests assert that the index and
   the document agree position by position. `surface` also had no nav link
   at all, so the spy skipped it silently; it is in the index now.
+- **The rail stayed a two-column grid in a short window.** `flex-wrap:
+  wrap` is inherited from the bar's nav, and in a COLUMN it wraps ACROSS
+  once the children stop fitting the viewport *height*. Measured at
+  1280x500: links 1-7 at x=8, links 8-14 at x=143 inside a 231px rail, so
+  the index read as an overflow and the brand sat alone. The rail column
+  and its link list are both `nowrap` now, and the list is `align-self:
+  stretch` so it cannot shrink-wrap past the rail edge either. Proven at
+  7 window heights from 900 down to 400 (`tests/verify-rail-short-window.py`).
+  6 new contract tests, 26 mutations, 0 survivors.
 
 ### Added
 
