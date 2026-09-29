@@ -2461,6 +2461,15 @@ html {
 	place-items: center;
 	padding: var(--space-4);
 }
+/* `.cm-card` carries `height: 100%` because in a `.cm-cards` row the cards
+   must be equal height and something has to establish the row height. As the
+   grid item of a full-height page frame that rule resolves against the
+   100dvh and stretches a sign-in card to the whole viewport: 812px of card
+   around 392px of form, a third of a phone screen empty below the button,
+   and on a short landscape phone the submit button is pushed off entirely.
+   `align-self` cannot fix it, because the height is explicit, not stretch.
+   The card in this frame sizes to its own content. */
+.cm-auth > .cm-card { height: auto; }
 .cm-auth > * { width: 100%; max-width: 26rem; }
 .cm-auth--wide > * { max-width: 34rem; }
 
