@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **A tooltip near a screen edge no longer scrolls the whole page sideways.**
+  A tip is `width: max-content`, and whether it fits depends on where its
+  TRIGGER sits, which CSS cannot read. The cap was `100vw - 2*gutter`, which
+  is right for a tip centred on its trigger and wrong for every anchored
+  variant: `--start` pins the tip's left edge to the trigger's, so a
+  trigger at x=131 in a 360px window leaves 229px, not 360. Measured 52px of
+  sideways scroll at 360 and 92px at 320, plus 91px with JS disabled.
+  `anchor-size()` is the real fix and WebKit 26.6 has no support for it, so
+  there are now two caps: a tight viewport-fraction floor in CSS (what a
+  no-JS reader gets) and a runtime clamp that measures the trigger and only
+  ever tightens the floor. 0 sideways scroll at 320/360/390, with and
+  without JS. The old `KNOWN 320` line in
+  `tests/verify-no-sideways-scroll.py` was never asserted, which is a
+  silent skip; 320 is now a hard failure.
+
 ### Added
 - **`.cm-kv--link` — a key/value row whose whole row is the link.** Link
   only the `<dt>` and the target is the term: measured **14px tall** in

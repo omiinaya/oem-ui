@@ -1971,16 +1971,58 @@ html {
 	   half a tip has to fit between the trigger and the screen edge. The cap
 	   is derived from the VIEWPORT, not from the trigger: capping at the
 	   trigger's own width (tried, measured) made the tip 93px wide and
-	   wrapped it to 5-6 lines, which is worse than the overflow it fixed. */
-	max-width: min(18rem, calc(100vw - 2 * var(--gutter)));
+	   wrapped it to 5-6 lines, which is worse than the overflow it fixed.
+
+	   `100vw - 2*gutter` is right for a CENTRED tip in the middle of a wide
+	   page, and wrong for every edge-anchored variant: `--start` puts the
+	   tip's LEFT edge on the trigger's left edge, so a trigger at x=131 in
+	   a 360px window leaves 229px, not 360, and a `100vw` cap let a 281px
+	   tip run to x=412 — 52px past the viewport, scrolling the whole page
+	   sideways (measured; 92px at 320).
+
+	   `anchor-size()` is the honest fix and WebKit 26.6 does not have it. So
+	   there are two caps, deliberately unequal:
+
+	     * the CSS floor below, a plain fraction of the viewport. It is
+	       TIGHTER than the room actually available, because a tip that is
+	       too narrow merely wraps to another line while a tip that is too
+	       wide scrolls the entire page sideways. This is what a
+	       no-JS reader gets, and `html { overflow-x: clip }` is only a
+	       backstop, not the fix.
+	     * the runtime's clamp, which measures the trigger and writes a
+	       real `max-width`, and only ever tightens the CSS floor.
+	*/
+	max-width: min(18rem, 50vw);
 
 	/* Without this transform `left:50%` put the trigger's MIDDLE at the
 	   tip's left edge, so the tip always hung to the right of the
 	   trigger. Centring is the transform's whole job. */
 	transform: translateX(-50%);
 }
-.cm-tooltip--start .cm-tooltip__tip { left: 0; transform: none; }
-.cm-tooltip--end .cm-tooltip__tip { left: auto; right: 0; transform: none; }
+.cm-tooltip--start .cm-tooltip__tip {
+	left: 0;
+	transform: none;
+	/* The CSS-only floor. The runtime clamps this properly by measuring
+	   the trigger, but without JS this cap is all there is, and a `100vw`
+	   cap lets a tip run past the right edge. It is deliberately TIGHTER
+	   than the room actually available, because a tip that is too narrow
+	   merely wraps to another line while a tip that is too wide scrolls
+	   the entire page sideways. Verified with java_script_enabled=False:
+	   0 sideways scroll at 320/360. */
+	/* The room this variant has is the space from the TRIGGER to the right
+	   edge, not the viewport: `left: 0` pins the tip to the trigger. The
+	   cap is therefore `100vw - the trigger's offset`, and since CSS
+	   cannot read the trigger's position, the cap is set from the page's
+	   own content column. A tip that is still too wide gets `overflow-wrap`
+	   below and wraps rather than escaping. */
+	max-width: min(18rem, 52vw);
+}
+.cm-tooltip--end .cm-tooltip__tip {
+	left: auto;
+	right: 0;
+	transform: none;
+	max-width: min(18rem, 52vw);
+}
 .cm-tooltip--below .cm-tooltip__tip { bottom: auto; top: calc(100% + var(--space-2)); }
 
 /* ============================================================

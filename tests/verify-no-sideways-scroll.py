@@ -107,8 +107,17 @@ def main():
     # flooring rule is inside a coarse-pointer / narrow-viewport media
     # query, so at desktop widths a .cm-kicker measuring 11.5px is by
     # design, not a violation. Only the phone widths are asserted.
+    #
+    # 320 IS asserted now. It used to be a printed KNOWN: a tip is
+    # `width: max-content`, and whether it fits depends on where its
+    # TRIGGER sits, which CSS cannot read — so the edge-anchored
+    # variants ran past the viewport and scrolled the page sideways
+    # (measured 52px at 360, 92px at 320). The runtime now clamps a tip
+    # to the room its anchor leaves, and the check below is what stops
+    # that regressing. A KNOWN line that is never asserted is a silent
+    # skip, which is worse than a failing test.
     fails = []
-    for w in (390, 375):
+    for w in (390, 375, 320):
         d = out[f"webkit-{w}"]
         if d["sidewaysScroll"] != 0:
             fails.append(f"webkit {w} still scrolls sideways by {d['sidewaysScroll']}px")
@@ -129,13 +138,11 @@ def main():
         for f in fails:
             print("FAIL " + f)
         sys.exit(1)
-    print("PASS  0 sideways scroll at 390/375/1440, 0 tips outside, header sticky,")
-    print("      0 sub-12px on the phone widths, 0 JS errors")
+    print("PASS  0 sideways scroll at 390/375/320/1440, 0 tips outside, header")
+    print("      sticky, 0 sub-12px on the phone widths, 0 JS errors")
     print("      (desktop shows %d sub-12px elements, which is the floor being" % out["webkit-1440"]["subFloor"])
     print("       mobile-scoped by design: --min-font is 12px, not 16px)")
-    print("KNOWN 320 scrolls %dpx from a CENTRED tip over a trigger near the right"
-          % out["webkit-320"]["sidewaysScroll"])
-    print("      edge; CSS cannot detect the collision and it is documented, not hidden")
+
 
 
 if __name__ == "__main__":

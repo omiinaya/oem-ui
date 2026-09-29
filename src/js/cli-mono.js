@@ -627,6 +627,133 @@
 			.forEach(bindToastClose);
 	}
 
+	/* Resolve a custom property to pixels. `getPropertyValue` on :root
+	   returns the declared token, which is a rem length, and `parseFloat`
+	   of a rem string yields the NUMBER — so '1.25rem' read as 1.25px.
+	   A detached element resolves the length against the real font size. */
+	var cmProbe = null;
+	function pxOf(name) {
+		if (!cmProbe) {
+			cmProbe = document.createElement('div');
+			cmProbe.style.cssText =
+				'position:absolute;visibility:hidden;pointer-events:none;top:-9999px';
+		}
+		if (!cmProbe.isConnected) document.body.appendChild(cmProbe);
+		cmProbe.style.setProperty('width', 'var(' + name + ')');
+		return parseFloat(getComputedStyle(cmProbe).width) || 0;
+	}
+
+	/* ---------- tooltip edge clamping ----------
+	   CSS cannot keep a tip on screen. A tip's width is `max-content`, and
+	   whether it fits depends on where its TRIGGER sits — which CSS cannot
+	   read. The centred variant is fine with a `100vw` cap; the edge-
+	   anchored ones are not: `--start` pins the tip's left edge to the
+	   trigger, so a trigger at x=131 in a 360px window has 209px of room,
+	   and a 281px tip runs to x=412 and scrolls the whole page sideways.
+	   Measured: 52px of sideways scroll at 360, 92px at 320.
+
+	   `anchor-size()` would be the honest fix and WebKit 26.6 does not
+	   support it. So this clamps in script and only ever SHRINKS the tip:
+	   if CSS's cap already fits, nothing is written at all and the
+	   element keeps no inline style. No JS means the CSS cap, which is
+	   correct at every width where the trigger is not near an edge. */
+	function initTooltipClamp(root) {
+		(root || document).querySelectorAll('.cm-tooltip__tip').forEach(function (tip) {
+			var host = tip.closest('.cm-tooltip');
+			if (!host || host.dataset.cmClamp) return;
+			host.dataset.cmClamp = '1';
+			var apply = function () {
+				// Measure the natural tip and the room the anchor leaves.
+				// `left`/`right` say which edge the variant pinned to.
+				var cs = getComputedStyle(tip);
+				// Which EDGE the variant pins to is a class, not a
+				// computed style: `getComputedStyle().right` is resolved
+				// to a used pixel value, so it is never 'auto' and
+				// testing for it always failed. Read the class.
+				var pinnedRight = host.classList.contains('cm-tooltip--end');
+				var tr = host.getBoundingClientRect();
+				var vw = document.documentElement.clientWidth;
+				// A centred tip is centred on the trigger; an anchored one
+				// starts at the trigger's edge and runs toward the far one.
+				// `room` is how much of the VIEWPORT the tip is allowed to
+				// occupy, which is NOT the same as the gap to the trigger's
+				// anchor edge. An anchored tip's right edge is fixed to a
+				// trigger edge, but its LEFT edge may sit anywhere left of
+				// that, so the space it can grow into is the whole span
+				// from the viewport's far edge to the trigger's own side.
+				//
+				//   --end   : right edge on the trigger's right edge, so it
+				//             may occupy up to `trigger.left`.
+				//   --start : left edge on the trigger's left edge, so it may
+				//             occupy up to `vw - trigger.left`.
+				//   centred : half its width hangs either side of the
+				//             trigger, so up to twice the NARROWER side.
+				//
+				// The first version used `trigger.left - gutter` for --end
+				// and clamped a 25-word tip to 38px, which is unreadable
+				// rather than merely untidy.
+				// Measured, not reasoned: for `--end` the trigger sits at
+				// x=40..119 and the tip's right edge renders at exactly 119,
+				// so the tip can occupy 119px, not the 40px the trigger's
+				// LEFT edge suggested. `right: 0` resolves against the
+				// trigger's RIGHT edge, and the tip grows leftward from
+				// there across the whole space to the viewport edge.
+				// Keep a tip off the viewport edge by the page's own gutter.
+				// Without it a `--start` tip whose natural width happens to
+				// equal the remaining space renders flush to the edge:
+				// measured at 320, tip 40..320 with the viewport at 320.
+				// `--gutter` is a REM length, so `parseFloat('1.25rem')`
+				// returns 1.25 and the inset was 1.25px instead of 20px.
+				// Reading a custom property yields its SPECIFIED value, not
+				// a resolved length, so the unit has to be carried through
+				// with a probe element rather than parsed off the token.
+				var gutter = pxOf('--gutter');
+				var left = tr.left, right = vw - tr.right;
+				var room;
+				if (pinnedRight) {
+					room = tr.right - gutter;
+				} else if (host.classList.contains('cm-tooltip--start')) {
+					room = vw - tr.left - gutter;
+				} else {
+					// A CENTRED tip hangs half its width either side of the
+					// trigger, so the room is twice the NARROWER side —
+					// but never more than the viewport itself, or a
+					// trigger near one edge is allowed to push the tip
+					// past the other. Measured at 320: twice the narrow
+					// side came to 560, which let a 280px tip end flush
+					// against the viewport edge.
+					room = Math.min(Math.min(left, right) * 2, vw) - gutter;
+				}
+				// Never grow past the CSS cap, never below a readable floor.
+				var cap = Math.floor(
+					Math.min(parseFloat(cs.maxWidth) || Infinity, room)
+				);
+				// Compare against the tip's NATURAL width, not the width
+				// it currently has. Comparing to `scrollWidth` oscillates:
+				// the clamp shrinks the tip, which fires the observer,
+				// which re-runs, now finds scrollWidth <= cap, and REMOVES
+				// the style — leaving the tip one frame too wide. The last
+				// value that fits is remembered and only ever tightened.
+				var natural = tip.__cmNaturalW || (tip.__cmNaturalW = tip.scrollWidth);
+				if (cap > 0 && natural > cap) {
+					tip.style.maxWidth = cap + 'px';
+				} else {
+					tip.style.removeProperty('max-width');
+					// Room grew past the natural width again: forget the
+					// measurement so a later shrink re-reads it.
+					if (cap >= natural) tip.__cmNaturalW = 0;
+				}
+			};
+			// Recompute on resize: the room is a function of the trigger's
+			// position, which moves with the layout.
+			if (typeof ResizeObserver === 'function') {
+				new ResizeObserver(apply).observe(host);
+			}
+			window.addEventListener('resize', apply);
+			apply();
+		});
+	}
+
 	/* ---------- init ---------- */
 	function init(root) {
 		(root || document)
@@ -644,6 +771,7 @@
 		initTabs(root);
 		initDialogs(root);
 		initToasts(root);
+		initTooltipClamp(root);
 		initYears();
 		if (!root || root === document) initExternalLinks();
 	}

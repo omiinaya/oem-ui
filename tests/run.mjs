@@ -4236,9 +4236,30 @@ check('the page cannot scroll sideways on a phone, and the tip is capped', () =>
 	assert(tipRules.length >= 2, `found ${tipRules.length} .cm-tooltip__tip blocks; the class is split across two`);
 	const tip = tipRules.join('\n');
 	assert(/max-width:/.test(tip), 'the tip has no width cap');
+	// The cap must be a FRACTION OF THE VIEWPORT, and `vw` is the unit
+	// that says so. This used to demand `100vw` literally, which was
+	// wrong: a viewport cap is only correct for a tip CENTRED on its
+	// trigger. The edge-anchored variants start at the trigger, so a
+	// trigger at x=131 in a 360px window has 229px of room, not 360 —
+	// and a `100vw` cap let a 281px tip run to x=412, scrolling the page
+	// sideways by 52px (measured; 92px at 320). `vw` is asserted rather
+	// than `100vw` because both the tight no-JS floor (50vw) and the
+	// looser one are correct as long as they are viewport-derived.
 	assert(
-		/100vw/.test(tip),
-		'the tip cap must be derived from the viewport, not a bare px value, or it is wrong at every width but the one it was written for',
+		/\d+vw/.test(tip),
+		'the tip cap must be derived from the viewport (a vw fraction), not a bare px value, or it is wrong at every width but the one it was written for',
+	);
+	assert(
+		!/max-width:\s*\d+px/.test(tip),
+		'the tip cap is a bare px value, so it is wrong at every width but the one it was written for',
+	);
+	// The runtime's clamp is what makes the cap exact where CSS cannot
+	// be. It is an enhancement over the CSS floor, never a replacement:
+	// `verify-no-sideways-scroll.py` asserts 0 sideways scroll with
+	// java_script_enabled=False, which is the no-JS contract.
+	assert(
+		/initTooltipClamp/.test(read('src/js/cli-mono.js')),
+		'the runtime no longer clamps a tip to the room its trigger leaves, so a tip near an edge can run off the viewport',
 	);
 	assert(/transform:\s*translateX\(-50%\)/.test(tip), 'a centred tip needs its centring transform');
 });
