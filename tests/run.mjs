@@ -654,6 +654,108 @@ check('wrapping never breaks an identifier in half', () => {
 		'kv chip does not become a block on narrow screens, so annotations wrap into it');
 });
 
+/* ---------- the pair wrapper ----------
+   A <div> between the <dl> and its <dt>/<dd> is valid HTML and is the
+   natural way to give a row a control of its own, but it is a grid
+   ITEM, so it takes a cell and the two-column grid is gone. Measured
+   in WebKit on oem-portfolio /certs at 1280px: three wrapped pairs
+   laid out 2-across with every dt sharing its left edge with its own
+   dd. At 390px the library's own max-width:520px rule already stacks
+   the grid, so the bug is invisible on a phone - which is why the
+   check has to be about the DECLARATION and not about a narrow
+   viewport measurement.
+
+   Three things have to hold, and each is a separate way to be wrong:
+
+   1. the wrapper is neutralised, by the CHILD combinator. A descendant
+      selector (`.cm-kv div`) would also match a <div> nested inside a
+      <dd> - a value containing a rich block - and flatten that too,
+      which is a different and much worse bug. So the `>` is asserted,
+      not assumed.
+   2. it is `display: contents`, not `display: block` (no change) and
+      not `display: none` (which would delete the rows from the
+      accessibility tree along with the layout).
+   3. a margin is NOT added on a box that no longer exists. A
+      `display: contents` element generates no box, so a margin on it
+      is a declaration that cannot paint: it reads like a spacing
+      decision and does nothing.
+*/
+check('a wrapped dt/dd pair stays in the two-column kv grid', () => {
+	const comp = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+
+	// 2. a descendant rule would be the same declaration applied to a
+	//    <div> nested inside a <dd>, which is a different element with
+	//    a different job. Reject it by name, in ADDITION to the combinator
+	//    check above, and SEPARATELY from it: when the child rule is
+	//    deleted, assertion 1 fires first and these two are never reached,
+	//    so the mutation that swaps `>` for a space is caught by the wrong
+	//    check and the wrong message. Scanning for a descendant selector
+	//    FIRST makes each mutation land on its own claim.
+	assert(!/\.cm-kv\s+div\b/.test(comp),
+		'.cm-kv must not flatten a div nested inside a value - only a direct pair wrapper');
+	assert(!/\.cm-kv\s+span\b/.test(comp),
+		'.cm-kv must not flatten a span nested inside a value - only a direct pair wrapper');
+
+	// 1. the child combinator, on a selector that is its own rule. With
+	//    nothing above able to fire, this is now reachable on its own.
+	const rule = /\.cm-kv\s*>\s*(div|span)\s*\{([^}]*)\}/.exec(comp);
+	assert(rule, '.cm-kv neutralises its pair wrapper with a > child selector, not a descendant one');
+	const body = rule[2];
+
+	assert(!/display:\s*none/.test(body),
+		'the pair wrapper is neutralised, not removed - display:none hides the row from assistive tech too');
+	assert(!/display:\s*block/.test(body),
+		'display:block leaves the wrapper a grid item and the two-column grid never renders');
+	// Each declaration is checked by its PROPERTY name, not by a line
+	// anchor. The first version used `^\s*margin` with the `m` flag,
+	// which anchors to the start of a LINE, and the whole body is one
+	// line beginning `display: contents;` - so a margin added to the end
+	// of it was invisible and the mutation read as a pass. The property
+	// name has to be found wherever it sits in the body.
+	const props = body.split(';')
+		.map((d) => d.split(':')[0].trim())
+		.filter(Boolean);
+	assert(!props.some((prop) => /^margin(-|$)/.test(prop)),
+		'a display:contents wrapper generates no box, so a margin on it is dead CSS');
+	assert(/display:\s*contents\s*;/.test(body),
+		'a wrapped pair is taken out of the kv grid layout');
+});
+
+check('the showcase demonstrates a wrapped kv pair beside a direct one', () => {
+	// Presence in the markup is not demonstration: the wrapped list has
+	// to be rendered NEXT TO a direct one in the same state, or a
+	// screenshot at a phone width shows two identical stacked lists and
+	// proves nothing.
+	//
+	// Scope to THIS block before asserting anything. The showcase has
+	// other `<dl class="cm-kv">` lists (the layer list in foundation,
+	// the one inside the split aside), and a search over the whole file
+	// silently satisfies itself from one of those - the first version of
+	// this check did exactly that and failed on its own fixture, which
+	// is the only reason it was caught. The block runs from its own
+	// heading to the next heading of the same level.
+	const show = read('src/pages/index.astro');
+	const start = show.indexOf('key-value, wrapped pairs');
+	assert(start !== -1, 'the showcase has no section demonstrating wrapped dt/dd pairs');
+	const end = show.indexOf('<h3 class="cm-kicker', start + 10);
+	const block = show.slice(start, end === -1 ? show.length : end);
+
+	assert(/<dl class="cm-kv">\s*<dt>/.test(block),
+		'the showcase shows a direct dt/dd kv list, as the control for the wrapped one');
+	assert(/<dl class="cm-kv">\s*<div>\s*<dt>/.test(block),
+		'the showcase never demonstrates a wrapped dt/dd pair, so the fix is unproven');
+	// A specimen in the wrong state is GREEN, BUILT, and INVISIBLE: both
+	// specimens have to sit inside the SAME .cm-split, because that is
+	// what puts them side by side above 700px. Two lists in two separate
+	// sections compare nothing.
+	assert((block.match(/<div class="cm-split">/g) || []).length === 1,
+		'both kv specimens must share one .cm-split, or they cannot be compared side by side');
+	const splitAt = block.indexOf('<div class="cm-split">');
+	const nKv = (block.match(/<dl class="cm-kv">/g) || []).length;
+	assert(nKv === 2 && block.lastIndexOf('<dl class="cm-kv">') > splitAt,
+		'the direct and the wrapped kv list must both live inside that one .cm-split');
+});
+
 check('nav separators sit BETWEEN items, never before the first', () => {
 	// border-left on every link put a dangling pipe at the page margin on
 	// each WRAPPED row, and the left padding pushed the first item 11px off

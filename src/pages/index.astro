@@ -1250,6 +1250,40 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 					moves down to the content instead of reading the page twice.
 				</p>
 
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">key-value, wrapped pairs</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-4)">
+					HTML lets you group <code>dt</code>/<code>dd</code> inside a
+					<code>div</code> when a row needs a control of its own - a link
+					around the whole row, a toggle, a popover trigger. The
+					wrapper is a real element, and a real element inside a
+					<code>display:grid</code> parent becomes a grid
+					<em>item</em>, which is how a two-column list silently turns
+					into a grid of stacked blocks. The library takes the
+					wrapper out of the layout with <code>display:contents</code>.
+					Both lists below are the same markup; the second one only
+					adds the wrapper. <strong>Check them at a desktop width</strong>
+					- on a phone both stack to one column and look identical, so
+					a narrow-viewport pass cannot see this at all.
+				</p>
+				<div class="cm-split">
+					<div>
+						<h4 class="cm-kicker cm-kicker--plain">direct</h4>
+						<dl class="cm-kv">
+							<dt>role</dt><dd>engineer</dd>
+							<dt>since</dt><dd>2014</dd>
+							<dt>based</dt><dd>remote</dd>
+						</dl>
+					</div>
+					<div>
+						<h4 class="cm-kicker cm-kicker--plain">wrapped</h4>
+						<dl class="cm-kv">
+							<div><dt>role</dt><dd>engineer</dd></div>
+							<div><dt>since</dt><dd>2014</dd></div>
+							<div><dt>based</dt><dd>remote</dd></div>
+						</dl>
+					</div>
+				</div>
+
 				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">split</h3>
 				<p class="cm-head__sub" style="margin-bottom:var(--space-4)">
 					The main block and the aside below are the same DOM at every

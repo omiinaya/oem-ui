@@ -740,6 +740,45 @@ html {
    column. break-word only breaks a word that genuinely cannot fit. */
 .cm-kv dd { margin: 0; color: var(--ink); min-width: 0; overflow-wrap: break-word; }
 
+/* ---------- the pair wrapper ----------
+   A consumer cannot always put <dt>/<dd> straight into the <dl>. The
+   obvious reason is per-row control: an <a> wrapping the whole row, a
+   toggle, a comment, a popover trigger. HTML permits any flow content
+   inside a <dl> precisely for this, and the element to use is a <div>
+   (or <span> for phrasing content) whose children are still dt/dd
+   pairs.
+
+   That wrapper is a REAL element, and it breaks the grid silently.
+   `display: contents` on a grid ITEM is ignored, so the wrapper takes a
+   cell of its own: the grid stops being two columns of cells and
+   becomes a grid of wrappers, each holding a stacked term/value pair.
+
+   Measured in WebKit on a live consumer (oem-portfolio /certs) at a
+   1280px viewport: three wrapped pairs laid out 2-across, and every dt
+   shared its left edge with its own dd - the two-column grid the
+   component is built on was not being rendered at all. At 390px the
+   bug is INVISIBLE, because the rule below already stacks the grid to
+   one column there, which is why a phone-only check passes forever.
+
+   `display: contents` is the correct fix and not a hack: the wrapper
+   exists for semantics and scripting, not for layout, and asking the
+   box model to stop painting it is the one declaration that says so.
+   It has no accessibility cost here because the wrapper is not a
+   required child of <dl> and carries no role.
+
+   `> * + *` rather than a descendant selector: the stacking gap belongs
+   to the terms themselves, so it must not be re-applied to a nested
+   list that happens to live inside one cell. */
+.cm-kv > div,
+.cm-kv > span { display: contents; }
+
+/* No sibling margin here, and that is deliberate. A `display: contents`
+   element generates NO BOX, so a margin on it is a declaration that
+   cannot paint: it would read as a spacing decision while doing
+   nothing, which is the "two rules, one intent" trap this file already
+   documents for the tooltip cap. The grid's own `gap` separates the
+   pairs once they are cells again. */
+
 /* Below this width the two columns starve the value cell (a file path gets
    ~118px and wraps through the middle of an identifier). Stack instead. */
 @media (max-width: 520px) {

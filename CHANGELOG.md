@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`.cm-kv` no longer loses its two columns when a `dt`/`dd` pair is
+  wrapped in a `div`.** A `<div>` between a `<dl>` and its own `<dt>`/`<dd>`
+  is valid HTML — it is the natural way to give one row a control of its own
+  (a link around the whole row, a toggle, a popover trigger) — but the
+  wrapper is a real element, and `display: contents` is *ignored* on a grid
+  **item**. So the wrapper took a cell of its own: the grid stopped being two
+  columns of terms and values and became a grid of stacked blocks.
+
+  Measured in WebKit on a live consumer (oem-portfolio `/certs`) at 1280px,
+  before the fix: three wrapped pairs laid out **2-across**, and every `dt`
+  shared its left edge with its own `dd` (`dtXs == ddXs == [210, 991, 210]`)
+  — the two-column grid the component is built on was not being rendered at
+  all. After: `dtXs == [747, 747, 747]`, `ddXs == [878, 878, 878]`, two
+  distinct columns, at 1280px and at 768px.
+
+  **The bug is invisible on a phone.** Below 520px the library's own
+  `max-width: 520px` rule already stacks `.cm-kv` to one column, so at 390px
+  the wrapped and direct lists look identical. A narrow-viewport check —
+  the one this repo reaches for first — passes forever. The state the bug
+  occurs in is desktop, and the proof is taken there.
+
+  Fixed with `.cm-kv > div, .cm-kv > span { display: contents; }`. The
+  child combinator is load-bearing: a descendant selector (`.cm-kv div`)
+  also matches a `<div>` nested *inside* a `<dd>` — a value containing a
+  rich block — and would flatten that too, which is a worse bug than the
+  one being fixed. A test asserts the `>` specifically, and a mutation
+  swaps it for a space to prove the assertion fires.
+
+  No sibling margin is added on the wrapper, and that is deliberate: a
+  `display: contents` element generates no box, so a margin on it is a
+  declaration that cannot paint. The grid's own `gap` does the separating.
+
 ### Added
 - **`.cm-icon-btn--bare`, a bare glyph for a surface that already has one,
   and a real fix for a tap target that was 44 tall and 32 wide.**
