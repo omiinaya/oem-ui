@@ -33,6 +33,25 @@ PAGE = os.path.join(REPO, 'src/pages/index.astro')
 SUITE = os.path.join(REPO, 'tests/run.mjs')
 
 MUTATIONS = [
+    # --- the rail must not become a two-column grid ---------------------
+    # `flex-wrap: wrap` is inherited from the bar. In a column it wraps
+    # ACROSS once the children outgrow the viewport height, which is the
+    # bleed Omar reported.
+    ('the rail column starts wrapping again',
+     CSS, '\t\tflex-wrap: nowrap;\n\t}\n\t.cm-header--rail .cm-header__brand', '\t\tflex-wrap: wrap;\n\t}\n\t.cm-header--rail .cm-header__brand',
+     'the rail and its link list are both a single unwrapped column'),
+    ('the link list starts wrapping again',
+     CSS, '\t\tflex-wrap: nowrap;\n\t\t/* Vertical scroll only.', '\t\tflex-wrap: wrap;\n\t\t/* Vertical scroll only.',
+     'the rail and its link list are both a single unwrapped column'),
+    ('the link list shrink-wraps again',
+     CSS, '\t\talign-self: stretch;\n', '\t',
+     'the rail link list fills the rail instead of shrink-wrapping'),
+    ('the list loses its width backstop',
+     CSS, '\t\twidth: 100%;\n', '',
+     'the rail link list fills the rail instead of shrink-wrapping'),
+    ('the list can no longer scroll in a short window',
+     CSS, '\t\tgap: var(--space-0);\n\t\toverflow-y: auto;', '\t\tgap: var(--space-0);\n\t\toverflow-y: visible;',
+     'a short window scrolls the rail rather than hiding links'),
     # --- the section index must track the document ----------------------
     # The bug this pins: the nav listed `forms` last, the page rendered it
     # right after `lists`, so the rail highlighted `forms` while you were
@@ -96,12 +115,7 @@ MUTATIONS = [
      CSS, '\t\theight: 100vh;\n\t\toverflow: hidden;', '\t\theight: auto;\n\t\toverflow: hidden;',
      'the rail is a bounded column, so a long list scrolls instead of escaping'),
 
-    ('a long link list can no longer scroll inside the rail',
-     CSS, '\t\toverflow-y: auto;\n\t\tmin-height: 0;', '\t\toverflow-y: visible;\n\t\tmin-height: 0;',
-     'the rail is a bounded column, so a long list scrolls instead of escaping'),
-
-    # --- the token contract --------------------------------------------
-    ('the rail width becomes a hardcoded px literal',
+        ('the rail width becomes a hardcoded px literal',
      CSS, 'width: var(--rail-w);', 'width: 232px;',
      'the rail width is a token, not a literal'),
 

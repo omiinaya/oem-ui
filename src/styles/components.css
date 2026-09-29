@@ -1952,6 +1952,16 @@ html {
 		justify-content: flex-start;
 		align-items: stretch;
 		gap: var(--space-5);
+		/* `flex-wrap: wrap` is inherited from the bar's nav rule and it is
+		   actively wrong here. A COLUMN that wraps breaks the moment the
+		   four children no longer fit the viewport HEIGHT: at 1280x800 they
+		   stacked, at 1280x760 the controls hopped back up beside the
+		   brand, and at 1280x700 the list and controls landed on one row
+		   — the list ran to x=389 and the controls to x=493 inside a 231px
+		   rail, so `overflow: hidden` clipped the whole index away and
+		   left the brand alone. `nowrap` is what keeps the column a column
+		   at any height; the list scrolls instead. */
+		flex-wrap: nowrap;
 	}
 	.cm-header--rail .cm-header__brand {
 		padding: 0 var(--gutter);
@@ -1972,6 +1982,28 @@ html {
 		align-items: stretch;
 		gap: var(--space-0);
 		overflow-y: auto;
+		/* `align-self: stretch` is what stops the list shrink-wrapping.
+		   The nav sets `align-items: flex-start`, so without it the list
+		   shrink-wrapped to the width of its longest label — 133px against
+		   a 231px rail — and, worse, the nav's own start offset pushed it
+		   to x=158, so the whole index hung 59px PAST the rail's right edge
+		   and over the content. A short window is what exposed it: at
+		   1280x900 the rail has room and it looked fine.
+		   `width: 100%` is belt-and-braces for the same reason. */
+		align-self: stretch;
+		width: 100%;
+		/* The LIST has its own `flex-wrap: wrap` inherited from the same
+		   bar rule, and it produces the two-column grid Omar saw: at
+		   1280x500 the first seven links stacked at x=8 and links 8-14
+		   wrapped to a SECOND column at x=143, with a stray `|` between
+		   them. This is the one the rail's `overflow: hidden` could not
+		   hide, because both columns fit inside 231px — it just read as
+		   a broken index rather than an overflow. One column, always. */
+		flex-wrap: nowrap;
+		/* Vertical scroll only. A horizontal scrollbar here is a symptom of
+		   the shrink-wrap above, and hiding the symptom would leave the
+		   links unreachable off the right edge. */
+		overflow-x: hidden;
 		min-height: 0;
 		flex: 1 1 auto;
 	}

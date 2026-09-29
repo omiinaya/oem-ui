@@ -1681,6 +1681,53 @@ check('every class the showcase demonstrates is defined in the library', () => {
 	}
 });
 
+/* ================= the rail never wraps into columns ================= */
+
+check('the rail and its link list are both a single unwrapped column', () => {
+	// The bar's nav and link list are `flex-wrap: wrap` so a long bar
+	// wraps instead of forcing sideways page scroll. In the RAIL that
+	// inherited wrap is the defect: a COLUMN that wraps turns into a
+	// two-column grid once the children stop fitting the viewport HEIGHT,
+	// and the rail's own `overflow: hidden` then clips the second column
+	// away. Measured at 1280x500: links 1-7 at x=8, links 8-14 at x=143.
+	// Height is the variable, so every claim here is about `flex-wrap`,
+	// which cannot be checked by reading a screenshot.
+	// These selectors are each split across several additive rules, so the
+	// property that matters is the LAST declaration to win, not "present in
+	// every block". Assert the effective value.
+	for (const sel of ['.cm-header--rail .cm-header__nav', '.cm-header--rail .cm-header__links']) {
+		const rules = ruleBodies(comp, sel);
+		assert(rules.length >= 1, `${sel} has no rule in the library`);
+		const declared = rules
+			.flatMap((b) => [...b.matchAll(/flex-wrap:\s*([a-z]+)/g)].map((m) => m[1]));
+		assert(declared.length >= 1, `${sel} never declares flex-wrap, so it inherits the bar's wrap`);
+		assert(
+			declared[declared.length - 1] === 'nowrap',
+			`${sel} still wraps: the rail is a COLUMN and a wrapping column becomes a second column`,
+		);
+	}
+});
+
+check('the rail link list fills the rail instead of shrink-wrapping', () => {
+	// `align-items: flex-start` on the nav makes a flex child shrink to
+	// its content unless it opts out. Without `align-self: stretch` the
+	// list measured 133px inside a 231px rail, and at short heights it
+	// slid to x=158 — 59px past the rail, over the content.
+	const rules = ruleBodies(comp, '.cm-header--rail .cm-header__links');
+	const body = rules.join('\n');
+	assert(/align-self:\s*stretch/.test(body), 'the list shrink-wraps: it needs align-self: stretch');
+	assert(/width:\s*100%/.test(body), 'the list has no width: 100% to back up align-self');
+});
+
+check('a short window scrolls the rail rather than hiding links', () => {
+	// The point of `overflow-y: auto` is that a short window can still
+	// reach every destination. Assert the declaration is there; the
+	// geometry is proved by tests/verify-rail-short-window.py, which
+	// scrolls a real WebKit viewport and checks all 14 are reachable.
+	const body = ruleBodies(comp, '.cm-header--rail .cm-header__links').join('\n');
+	assert(/overflow-y:\s*auto/.test(body), 'the list cannot scroll, so a short window hides links');
+});
+
 /* ================= the showcase section index agrees with the document ================= */
 
 // One derived value for the "is this section reachable" checks below. The
@@ -1873,6 +1920,24 @@ const LAYOUT_CLASSES = ['cm-lede', 'cm-split', 'cm-split__aside', 'cm-back', 'cm
  * own. A selector containing a space needs an ANCESTOR, which means the
  * class is being styled conditionally rather than defined here.
  */
+/* Rule bodies for an exact selector. Selector LISTS are split, so
+   `a, b { … }` yields a body for `a` and a body for `b` separately — a
+   `[^}]*` scan over the raw text runs past a comma and reads the wrong
+   declaration. Comments are stripped first: a prose comment naming a
+   sibling selector reads as a selector to a naive scan, and an
+   assertion can then pass on a sentence that describes the property
+   instead of declaring it. That is how `height: 100vh` came to be
+   "asserted" by a comment quoting itself. */
+function ruleBodies(css, sel) {
+	const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+	const out = [];
+	for (const m of bare.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+		const selectors = m[1].split(',').map((x) => x.trim());
+		if (selectors.includes(sel)) out.push(m[2]);
+	}
+	return out;
+}
+
 function isDeclared(css, cls) {
 	const bare = new RegExp(`^\\.${cls}(?![\\w-])$`);
 	for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g)) {
