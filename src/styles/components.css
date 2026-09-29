@@ -2457,7 +2457,14 @@ html {
 .cm-auth--wide > * { max-width: 34rem; }
 
 .cm-card--auth { padding: var(--space-5); gap: var(--space-4); }
-.cm-card--auth .cm-card__head { padding: 0; border-bottom: 0; }
+/* The card carries the padding, so the head and the body must BOTH give
+   it up. Zeroing only the head left the title 16px left of the first
+   field - measured in WebKit at 390px and 1100px, in both cards. A
+   heading that does not line up with the form under it reads as a
+   rendering fault even when every other edge is correct. */
+.cm-card--auth .cm-card__head,
+.cm-card--auth .cm-card__body { padding: 0; }
+.cm-card--auth .cm-card__head { border-bottom: 0; }
 
 /* A one-time code is read digit by digit and typed digit by digit, so it
    must not look like prose. Centred and tracked out is the whole

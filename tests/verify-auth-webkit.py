@@ -72,6 +72,21 @@ PROBE = """
     const r = el.getBoundingClientRect();
     return r.width > 0 && (r.right > window.innerWidth + 1 || r.left < -1);
   }).map(el => el.className || el.tagName).slice(0, 6);
+
+  // The card owns the padding, so its head and body must BOTH give it
+  // up. Zeroing only the head left the title 16px left of the first
+  // field in both cards at both widths - a real defect the vision
+  // reviewer caught that reading the CSS did not.
+  out.headAlign = [];
+  for (const card of document.querySelectorAll('.cm-card--auth')) {
+    const head = card.querySelector('.cm-card__title');
+    const first = card.querySelector(
+      '.cm-field__label, .cm-alert, .cm-divider, input, button');
+    if (head && first) {
+      out.headAlign.push(+(first.getBoundingClientRect().left
+                           - head.getBoundingClientRect().left).toFixed(2));
+    }
+  }
   return out;
 }
 """
@@ -153,6 +168,12 @@ want("nothing in the auth section overflows the viewport",
 want("the light theme renders the same geometry",
      d_light["code"]["w"] == d["code"]["w"] and d_light["code"]["h"] == d["code"]["h"],
      f'{d_light["code"]["w"]}x{d_light["code"]["h"]}')
+want("every auth card's head and body share ONE left edge",
+     len(d["headAlign"]) >= 2 and all(abs(v) < 0.5 for v in d["headAlign"]),
+     f"outdents: {d['headAlign']} (0 = aligned)")
+want("both themes align the card head identically",
+     d_light["headAlign"] == d["headAlign"],
+     f'{d_light["headAlign"]} vs {d["headAlign"]}')
 
 want("at desktop the wide frame really is wider than the standard one",
      w["wide"]["w"] > w["narrow"]["w"] + 1, f'{w["wide"]["w"]} vs {w["narrow"]["w"]}')

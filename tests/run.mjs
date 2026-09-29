@@ -5700,6 +5700,49 @@ check('the bare icon button reaches the tap floor like every other control', () 
 const compNoComment = comp.replace(/\/\*[\s\S]*?\*\//g, '');
 const baseNoComment = base.replace(/\/\*[\s\S]*?\*\//g, '');
 
+check('the auth card head and body share one left edge', () => {
+	// The card carries the padding, so BOTH children must give it up.
+	// Zeroing only the head left the title 16px left of the first
+	// field - measured in WebKit at 390px and 1100px, in both cards. A
+	// heading that does not line up with the form under it reads as a
+	// rendering fault even when every other edge is right.
+	//
+	// The bug was invisible to a screenshot's caption and obvious to a
+	// measurement, which is the whole reason this is a check.
+	const body = (compNoComment.match(/\.cm-card--auth[^}]*\{([^}]*)\}/g) || []).join('\n');
+	assert(body !== '', '.cm-card--auth is missing from components.css');
+	assert(/\.cm-card--auth\s+\.cm-card__body\s*\{[^}]*padding:\s*0/.test(compNoComment),
+		'the auth card body must zero its own padding, or it sits 16px inside the head');
+	// The descendant form is load-bearing: a bare `.cm-card__head`
+	// would flatten the padding of EVERY card on the site. A PRESENCE
+	// check is worthless here - deleting the scoped rule leaves the
+	// unscoped one, and the scoped selector still appears in the
+	// `.cm-card--auth .cm-card__head,` line of the shared group.
+	//
+	// It must also be about the DECLARATION, not the selector: the
+	// base `.cm-card__head { ... }` is legitimate and must not trip
+	// this. So scan each rule body for the padding reset, and require
+	// the selector carrying it to be scoped.
+	const zeroed = [];
+	for (const m of compNoComment.matchAll(
+		/(^|\n)([^{}\n]*?)\s*\{([^}]*)\}/g)) {
+		if (!/\bpadding:\s*0\b/.test(m[3])) continue;
+		const sel = m[2].trim();
+		if (sel.includes('.cm-card__head') || sel.includes('.cm-card__body')) {
+			zeroed.push(sel);
+		}
+	}
+	for (const sel of zeroed) {
+		for (const part of ['.cm-card__head', '.cm-card__body']) {
+			if (sel.includes(part)) {
+				assert(sel.startsWith('.cm-card--auth'),
+					`${part} has padding:0 under an UNSCOPED selector (${sel}), which flattens every card on the site`);
+			}
+		}
+	}
+	assert(zeroed.length >= 1, 'no padding:0 reset found for the auth card parts at all');
+});
+
 check('the auth surface composes existing components instead of re-declaring them', () => {
 	// STRUCTURAL, not a list of names. The first version enumerated the
 	// seven names the first draft happened to use and matched them with

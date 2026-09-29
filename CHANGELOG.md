@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **The auth card's title sat 16px left of the form under it.** The card
+  carries the padding, and the first version zeroed it on the head only —
+  so `.cm-card__body` kept its own 16px and the heading looked outdented.
+  Measured in WebKit at 390px and 1100px, in both cards, both themes:
+  `headAlign` was `[16, 16]`, now `[0, 0]`. The vision reviewer caught
+  this one and reading the CSS did not. Three of its other four claims
+  (an off-centre card, a divider missing its rules, buttons touching)
+  measured as false, which is why it is measured rather than trusted.
 - **The login surface was a second implementation of the form system.**
   The first draft added 21 classes (`.cm-login__field`, `__label`,
   `__error`, `__submit`, `.cm-submit`, `.cm-totp`, `.cm-pass`, `.cm-user`
@@ -53,8 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tracked out) and `.cm-divider` (a rule with a word in it). A consumer
   writes no CSS: the frame owns the centring and the measure, on its
   CHILD so the frame's padding cannot fight a `max-width`. Demonstrated
-  in the `auth` section of the showcase, both frames, 7 contract tests,
-  10 mutations (10 caught, 0 no-ops), and 15 WebKit assertions at 390px
+  in the `auth` section of the showcase, both frames, 8 contract tests,
+  12 mutations (12 caught, 0 no-ops), and 17 WebKit assertions at 390px
   and 1200px in both themes.
 
 - **The desktop nav rail.** `Header` takes a `rail` prop; above 1000px the

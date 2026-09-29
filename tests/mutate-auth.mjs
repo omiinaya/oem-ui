@@ -22,6 +22,36 @@ const COMP = 'src/styles/components.css';
 const SHOW = 'src/pages/index.astro';
 
 const MUTATIONS = [
+	// ---- the head/body outdent comes back ---------------------------
+	{
+		// The defect the vision reviewer caught and reading the CSS
+		// missed: the card owns the padding, the head gave it up, and
+		// the body did not. Title sat 16px left of the first field, in
+		// BOTH cards at BOTH widths.
+		name: 'only the card head gives up its padding again',
+		file: COMP,
+		from: /\.cm-card--auth \.cm-card__head,\n\.cm-card--auth \.cm-card__body \{ padding: 0; \}/,
+		to: '.cm-card--auth .cm-card__head { padding: 0; }',
+		expectFail: 'body must zero its own padding',
+	},
+	{
+		// The scoped form is load-bearing: a bare `.cm-card__head`
+		// would flatten EVERY card on the site, not just an auth one.
+		// The body KEEPS its own reset here, so this mutant isolates the
+		// scoping question instead of also deleting the body's rule -
+		// otherwise both head mutations trip the same first assertion
+		// and neither proves anything the other does not.
+		//
+		// Note WHICH assertion fires when the group is deleted
+		// wholesale: the body check runs first, so a harness that names
+		// the scoping message reports MISSED on a mutant the suite
+		// actually caught. Name the message the mutant really trips.
+		name: 'the head reset is unscoped, so every card loses its head padding',
+		file: COMP,
+		from: /\.cm-card--auth \.cm-card__head,\n\.cm-card--auth \.cm-card__body \{ padding: 0; \}/,
+		to: '.cm-card__head { padding: 0; }\n.cm-card--auth .cm-card__body { padding: 0; }',
+		expectFail: 'UNSCOPED selector',
+	},
 	// ---- the parallel vocabulary comes back -------------------------
 	{
 		// The bug this cycle fixed. A first draft shipped a private
