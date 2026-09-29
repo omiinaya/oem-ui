@@ -1557,6 +1557,14 @@ html {
 	align-items: baseline;
 	gap: var(--space-1);
 }
+/* A component that sets `display` silently defeats the `hidden` attribute,
+   because the attribute is only ever a UA `display: none`. A consumer that
+   reveals this element by removing `hidden` is then correct, but one that
+   leaves it hidden in the markup gets a box with no message in it - and the
+   `::before` below still paints its "!" into the empty space, so the page
+   shows a bare exclamation mark at all times. Re-assert the attribute so an
+   error slot can be shipped hidden, which is the only useful default. */
+.cm-field__error[hidden] { display: none; }
 .cm-field__error::before { content: '!'; opacity: 0.7; }
 
 /* two fields side by side, collapsing to one column on a phone */
