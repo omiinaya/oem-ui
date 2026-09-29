@@ -756,6 +756,220 @@ check('the showcase demonstrates a wrapped kv pair beside a direct one', () => {
 		'the direct and the wrapped kv list must both live inside that one .cm-split');
 });
 
+/* ---------- the kv row that is the whole link ----------
+   Promoted from oem-portfolio, which had this in its own stylesheet
+   while the library owned the grid underneath it. The migration half of
+   the increment: the pattern now has one home, and the consumer's copy
+   is deleted rather than left to drift.
+
+   Every assertion here is mutation-checked in tests/mutate-kv-link.mjs.
+*/
+check('the whole-row kv link reaches the tap floor from the token', () => {
+	const comp = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+
+	// The rule has to exist as its own rule. A bare `.cm-kv--link`
+	// substring is satisfied by the comment above it and by the media
+	// query, so the anchor is the selector list.
+	const rule = /(^|[},])\s*\.cm-kv--link a\s*\{([^}]*)\}/m.exec(comp);
+	assert(rule, 'the library does not style the link inside a whole-row kv');
+	const body = rule[2];
+
+	// The floor comes from the token. A literal 44px measures the same
+	// and is a rebrand bug the moment a consumer retunes --tap.
+	assert(/min-height:\s*var\(--tap\)/.test(body),
+		'the whole-row kv link must reach the tap floor from var(--tap), not a literal');
+	assert(!/min-height:\s*\d/.test(body),
+		'a hardcoded min-height would survive a consumer retuning --tap');
+
+	// It must be a GRID, or it stops being a two-column list and the
+	// term and the value stack with no way back.
+	assert(/display:\s*grid/.test(body),
+		'the link owns the two columns itself - a block link collapses the kv grid');
+	assert(/grid-template-columns:\s*minmax\(/.test(body),
+		'the link must declare the term/value column split');
+
+	// The padding/margin cancellation. Both or neither: padding alone
+	// pushes the text away from the term above it, and a negative
+	// margin with no padding grows the hit area into the row above.
+	assert(/padding:\s*var\(--space-2\)/.test(body),
+		'the row needs padding to be a comfortable target');
+	assert(/margin:\s*calc\(var\(--space-2\)\s*\*\s*-1\)/.test(body),
+		'the padding must be cancelled by an equal negative margin, or the text drifts');
+});
+
+check('the whole-row kv link is not a second grid owner', () => {
+	const comp = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+
+	// The variant must neutralise the base grid, because the grid moves
+	// DOWN onto the link. Leaving `display:grid` on the <dl> makes the
+	// pair wrapper a grid item again - the exact bug the pair-wrapper
+	// rule above documents, reintroduced through the front door.
+	const block = /(^|[},])\s*\.cm-kv--link\s*\{([^}]*)\}/m.exec(comp);
+	assert(block, 'the library never neutralises .cm-kv for the whole-row variant');
+	assert(/display:\s*block/.test(block[2]),
+		'the whole-row variant must take the base kv grid out of the layout - the link owns the columns');
+
+	// Spacing between rows belongs to the pairs. `> div` and not a
+	// descendant: a descendant also matches a div nested inside a dd.
+	assert(!/\.cm-kv--link\s+div\b/.test(comp),
+		'row spacing must use a child selector, or a div inside a value gets a margin too');
+	assert(/\.cm-kv--link\s*>\s*div\s*\{/.test(comp),
+		'the whole-row variant has no child-combinator rule for its pairs');
+});
+
+check('the whole-row kv link keeps a term reading as a term', () => {
+	const comp = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+
+	// The link must not paint the whole row as one word. Without a
+	// per-part colour the term and the value become the same ink and the
+	// list stops scanning - this is the one case where the fix for the
+	// tap target can cost the thing the component is for.
+	assert(/\.cm-kv--link\s+dt\s*\{[^}]*color:/.test(comp),
+		'the term in a whole-row kv keeps its own colour, or the row reads as one word');
+	assert(/\.cm-kv--link\s+dd\s*\{[^}]*color:/.test(comp),
+		'the value in a whole-row kv keeps its own colour');
+
+	// The focus ring. The row is focusable - it is an <a> - so a keyboard
+	// user needs to see which row they are on. The first version of this
+	// check asserted only that a `:hover` selector exists, which the
+	// background rule satisfies on its own: deleting the entire
+	// focus-visible block left the suite green. This has to name the
+	// property, in a focus-visible rule, or it is decoration.
+	//
+	// EVERY focus-visible rule, not the first. There are two - the shared
+	// background and the outline - and a single non-global regex matches
+	// the first, which is the one with no outline in it. That is the
+	// ordering trap: the check was green against a rule that could never
+	// satisfy it. Same shape as the anchor-count bug below.
+	const focusRules = [...comp.matchAll(/\.cm-kv--link a:focus-visible\s*\{([^}]*)\}/g)].map((m) => m[1]);
+	assert(focusRules.length > 0, 'the whole-row kv link has no focus-visible rule, so a keyboard user cannot see the row they are on');
+	assert(focusRules.some((b) => /outline:/.test(b)),
+		'the focused whole-row kv row must paint a visible outline');
+	assert(focusRules.some((b) => /outline-offset:/.test(b)),
+		'a focus outline drawn outside the row is cut off by the row above it');
+
+	// And the hover state has to move BOTH parts, or hovering lights up
+	// half a row and the other half looks broken.
+	assert(/a:hover\s+dt/.test(comp),
+		'hovering a whole-row kv must also lift the term out of its faint colour');
+	assert(/a:hover\s+dd/.test(comp),
+		'hovering a whole-row kv must also lift the value');
+});
+
+check('the showcase demonstrates a whole-row kv link', () => {
+	// Presence is not demonstration, and neither is the wrong markup:
+	// the <a> has to WRAP the dt/dd, because the entire point is that
+	// the target is the row. A class on the dd, or an <a> inside the
+	// dd, builds, renders, and is exactly the bug this component fixes.
+	const show = read('src/pages/index.astro');
+	const start = show.indexOf('key-value, whole row is the link');
+	assert(start !== -1, 'the showcase has no section demonstrating a whole-row kv link');
+	const end = show.indexOf('<h3 class="cm-kicker', start + 10);
+	const block = show.slice(start, end === -1 ? show.length : end);
+
+	assert(/<dl class="cm-kv cm-kv--link">/.test(block),
+		'the specimen does not carry the variant class alongside the base');
+
+	// EVERY anchor, not just the first one. A block-level check for
+	// "some anchor wraps a dt" is satisfied by the two rows that were left
+	// alone while the third was rewritten into the bug - the first
+	// version of this check did exactly that and the mutation survived.
+	// So the anchors are counted against the rows and EACH one's content
+	// is inspected.
+	const anchors = block.match(/<a\b[^>]*>[\s\S]*?<\/a>/g) || [];
+	assert(anchors.length >= 2, 'the specimen demonstrates a single row, which proves nothing about a list');
+	const rows = (block.match(/<div>/g) || []).length;
+	assert(anchors.length === rows,
+		'every row in the whole-row kv specimen must be a link, or the untested ones are the ones that break');
+	for (const a of anchors) {
+		const inner = a.replace(/<a\b[^>]*>/, '').replace(/<\/a>$/, '');
+		assert(/^\s*<dt>/.test(inner),
+			'the link must wrap the dt, or the tap target is the term alone and 14px tall');
+		assert(/<dd>/.test(inner),
+			'the link must wrap the dt AND the dd, or only half the row is a target');
+	}
+	// A real href, not a placeholder: an <a> with no href is not focusable
+	// and not a target, so the specimen would demonstrate nothing.
+	assert(!/<a href="#"/.test(block), 'the kv link specimen has a placeholder href, which is not a link');
+});
+
+check('the whole-row kv link is not re-implemented in a consumer', () => {
+	// The whole point of promoting the pattern. oem-portfolio shipped it
+	// under its own names, and the audit found those names WEARING the
+	// library's reserved .cm- prefix from a consumer stylesheet - a
+	// cascade race waiting to happen, and invisible to every check the
+	// library can run about itself.
+	//
+	// Scoped to the consumer's OWN layer. The vendored library copy
+	// legitimately defines the class, so an unscoped scan would find the
+	// origin and pass forever. Same reason: scanning the consumer's
+	// `cli-mono/` directory would find the library's own definition.
+	const globalCss = '/root/projects/oem-portfolio/src/styles/global.css';
+	if (!exists(globalCss)) return; // consumer absent: nothing to claim
+	const css = read(globalCss);
+
+	assert(!/\.cm-kv--link/.test(css),
+		'oem-portfolio still ships its own copy of the whole-row kv link; it must use the library class');
+
+	// The reserved prefix. What makes a consumer .cm-* rule a DEFECT is
+	// not that it uses the prefix - restyling a library part
+	// (`.cm-footer__meta a`, which this file legitimately does) is an
+	// override and is allowed - it is that the consumer DEFINES a name
+	// the library does not own. Then the same .cm-* selector lives in
+	// two files and which one wins is a question of import order nobody
+	// wrote down.
+	//
+	// Comments are stripped first: the note above this section names the
+	// retired classes on purpose, and a check that matches its own
+	// documentation is the same failure as one that never fires. (It
+	// fired on exactly that during this cycle - the first version read
+	// the comment the migration left behind and reported the migration
+	// itself as a violation.)
+	//
+	// The names come from the LIBRARY's own rules, walked selector by
+	// selector: a `.cls {` substring search is satisfied by a compound
+	// selector and by the class name inside a comment.
+	const libCss = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	const owned = new Set();
+	for (const m of libCss.matchAll(/(^|[},])\s*([^{}@]+?)\s*\{/g)) {
+		for (const sel of m[2].split(',')) {
+			for (const c of sel.matchAll(/\.(cm-[\w-]+)/g)) owned.add(c[1]);
+		}
+	}
+	const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+	const intruders = new Set();
+	for (const m of cssNoComments.matchAll(/(^|[},])\s*([^{}@]+?)\s*\{/g)) {
+		for (const sel of m[2].split(',')) {
+			for (const c of sel.matchAll(/\.(cm-[\w-]+)/g)) {
+				if (!owned.has(c[1])) intruders.add(c[1]);
+			}
+		}
+	}
+	assert(intruders.size === 0,
+		`oem-portfolio defines .cm-* names the library does not own: ${[...intruders].join(', ')} - the .cm- prefix is reserved`);
+
+	// The MARKUP half, and this is the direction that actually bites.
+	// Deleting the consumer's rules left `.cm-kv__pair` in the page
+	// styling nothing: the build stayed green, every class string was
+	// still present in the HTML, and the list silently lost whatever
+	// those rules were doing. A class in markup whose rule is gone is
+	// the same defect as a rule whose class was renamed, one repo over.
+	//
+	// `class="..."` is parsed and split on whitespace, never matched
+	// with \b: `_` is a word character, so /\bcm-kv__pair\b/ cannot match
+	// inside a LONGER name and would silently pass.
+	const certs = '/root/projects/oem-portfolio/src/pages/certs.astro';
+	if (exists(certs)) {
+		const used = new Set();
+		for (const attr of read(certs).matchAll(/class="([^"]*)"/g)) {
+			for (const c of attr[1].split(/\s+/)) if (c) used.add(c);
+		}
+		const retired = [...used].filter((c) => /^cm-kv__/.test(c));
+		assert(retired.length === 0,
+			`oem-portfolio markup still uses ${retired.join(', ')} - the rules for those were removed, so the classes style nothing`);
+	}
+});
+
 check('nav separators sit BETWEEN items, never before the first', () => {
 	// border-left on every link put a dangling pipe at the page margin on
 	// each WRAPPED row, and the left padding pushed the first item 11px off

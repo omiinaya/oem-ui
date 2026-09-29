@@ -7,7 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`.cm-kv--link` — a key/value row whose whole row is the link.** Link
+  only the `<dt>` and the target is the term: measured **14px tall** in
+  WebKit at an iPhone viewport, a third of the 44px floor, because `<dt>`
+  is inline and `min-height` is ignored on an inline box. The `<a>` wraps
+  the row and owns the two columns, so the grid moves down one level onto
+  it. Padding is cancelled with an equal negative margin, so the target
+  grows without pushing the text away from the row above it. Stacks below
+  520px, the same breakpoint as the base `.cm-kv`. Measured in WebKit at
+  1280: 835.63×44, term and value 128px apart on the same row, and
+  `elementFromPoint` in the column gap resolves to the row rather than to
+  a hole.
+  Demonstrated in the `layout` section, covered by
+  `tests/mutate-kv-link.mjs` (15 mutations, 15 caught, 0 no-op) and
+  measured by `tests/verify-kv-link-webkit.py`.
+
 ### Fixed
+- **oem-portfolio defined four `cm-` classes from its own stylesheet.**
+  `.kv-links`, `.cm-kv__pair`, `.cm-kv__ref`, `.cm-kv__term` and
+  `.cm-kv__val` were a second implementation of the row link, written
+  under the library's **reserved prefix** — so the same `.cm-*` name lived
+  in two files and which one won was a question of import order nobody
+  wrote down. Worse, the whole block was **dead**: its rules were scoped to
+  a `.kv-links` wrapper that no page ever rendered, so `certs.astro` was
+  carrying three class names that styled nothing. Removed, replaced by the
+  library variant, and the page now leans on the `.cm-kv` pair wrapper
+  (`display: contents`) for its two columns. A check now walks the
+  consumer's own stylesheet and fails on any `.cm-*` name the library does
+  not own — distinguishing that from a legitimate override of a library
+  part, which `.cm-footer__meta a` is.
+
 - **The auth card's title sat 16px left of the form under it.** The card
   carries the padding, and the first version zeroed it on the head only —
   so `.cm-card__body` kept its own 16px and the heading looked outdented.

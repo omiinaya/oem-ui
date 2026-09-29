@@ -781,6 +781,23 @@ Four decisions that are easy to get wrong:
 </div>
 ```
 
+A key/value row that is **one big link** — `.cm-kv--link`. Link only the
+`<dt>` and the target is the term: measured **14px tall** in WebKit at an
+iPhone viewport, because `<dt>` is inline and `min-height` is ignored on an
+inline box. So the `<a>` wraps the row and owns the two columns, and the
+pair wrapper above it stays a plain `<div>`.
+
+```html
+<dl class="cm-kv cm-kv--link">
+  <div><a href="/work"><dt>role</dt><dd>engineer</dd></a></div>
+  <div><a href="/work"><dt>since</dt><dd>2014</dd></a></div>
+</dl>
+```
+
+The padding is cancelled with an equal negative margin, so the 44px target
+grows without pushing the text away from the row above it. Stacks to one
+column below 520px, the same breakpoint as the base `.cm-kv`.
+
 `.cm-lede` is wider and dimmer than body text, and `.cm-split` puts a
 metadata column beside a content block. Two decisions are baked in
 rather than left to the consumer:

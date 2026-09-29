@@ -1238,6 +1238,40 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 					</div>
 				</div>
 
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">key-value, whole row is the link</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-4)">
+					<code>.cm-kv--link</code> is the case above where the
+					per-row control is an <code>&lt;a&gt;</code>. Link only
+					the <code>dt</code> and the target is the term - measured
+					14px tall in WebKit at an iPhone viewport, a third of the
+					44px floor, because <code>dt</code> is inline and
+					<code>min-height</code> is ignored on an inline box. So
+					the link wraps the row and owns the two columns, and the
+					grid moves down one level onto it. <strong>Tap the
+					gap between the term and the value</strong> and the
+					row goes, not the term alone.
+				</p>
+				<dl class="cm-kv cm-kv--link">
+					<div>
+						<a href="#forms">
+							<dt>role</dt>
+							<dd>engineer</dd>
+						</a>
+					</div>
+					<div>
+						<a href="#forms">
+							<dt>since</dt>
+							<dd>2014</dd>
+						</a>
+					</div>
+					<div>
+						<a href="#forms">
+							<dt>based</dt>
+							<dd>remote</dd>
+						</a>
+					</div>
+				</dl>
+
 				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">split</h3>
 				<p class="cm-head__sub" style="margin-bottom:var(--space-4)">
 					The main block and the aside below are the same DOM at every

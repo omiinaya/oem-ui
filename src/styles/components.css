@@ -800,6 +800,79 @@ html {
 	.cm-kv dd code { font-size: 0.82rem; color: var(--ink); }
 }
 
+/* ---------- the kv row that is itself a link ----------
+   Promoted from oem-portfolio, which had this pattern in its own
+   stylesheet under its own name while the library grew the grid it was
+   built on. Two implementations of one pattern is the duplication this
+   library exists to end.
+
+   The problem it solves is a TAP TARGET, and the failure is worth being
+   precise about. A key/value row wants a link, and the obvious markup
+   links the <dt> only - the term is short, so the whole target is
+   short. Measured in WebKit at an iPhone viewport on a live consumer:
+   14px tall, against a 44px floor. The floor does not save you here,
+   because <dt> is inline and `min-height` is ignored on an inline box.
+   That is the same reason the library exempts prose links from the
+   floor, and the reason a kv row cannot claim that exemption: a
+   definition list is not a sentence.
+
+   The fix is structural. The link wraps the WHOLE row, so the target is
+   the row a thumb already aims at. That means the <a> must own the two
+   columns, which is why `.cm-kv` is neutralised to a block here: a
+   grid item's child cannot be handed the parent grid's template, so the
+   grid moves DOWN one level, onto the link itself.
+
+   The padding is CANCELLED with an equal negative margin. Growing the
+   box with `min-height` alone pushes the text away from the term above
+   it by the amount of the padding; the negative margin pulls it back
+   while the hit area stays grown.
+
+   `dt` keeps the faint term colour and `dd` the dim value, and both
+   step up on hover: the link must not paint the whole row as though it
+   were a single word, or a term stops reading as a term. */
+.cm-kv--link { display: block; }
+.cm-kv--link > div { margin-top: var(--space-2); }
+.cm-kv--link > div:first-child { margin-top: 0; }
+.cm-kv--link a {
+	display: grid;
+	grid-template-columns: minmax(7rem, max-content) 1fr;
+	gap: 0 var(--space-4);
+	/* The floor comes from the token, never from a literal, so a
+	   consumer that retunes --tap gets a row that follows it. */
+	min-height: var(--tap);
+	align-items: center;
+	padding: var(--space-2);
+	margin: calc(var(--space-2) * -1);
+	border-radius: var(--radius-sm);
+	text-decoration: none;
+	color: inherit;
+	transition: background var(--cm-t) var(--cm-ease);
+}
+.cm-kv--link a:hover,
+.cm-kv--link a:focus-visible { background: var(--panel); }
+.cm-kv--link a:focus-visible {
+	outline: 1px solid var(--ink-dim);
+	outline-offset: -1px;
+}
+.cm-kv--link dt { color: var(--ink-faint); }
+.cm-kv--link a:hover dt,
+.cm-kv--link a:focus-visible dt { color: var(--ink-dim); }
+.cm-kv--link dd { color: var(--ink-dim); }
+.cm-kv--link a:hover dd,
+.cm-kv--link a:focus-visible dd { color: var(--ink); }
+
+/* On a narrow phone the two columns leave the detail too cramped, so
+   the row stacks with the term above the value. Same breakpoint as the
+   base `.cm-kv`, deliberately: one list that changes shape at 520px
+   and another at 480px is a list the reader has to re-learn. */
+@media (max-width: 520px) {
+	.cm-kv--link a {
+		grid-template-columns: 1fr;
+		gap: var(--space-0);
+		padding: var(--space-3) var(--space-2);
+	}
+}
+
 /* ---------- state: empty, loading, error ----------
    A system without these forces every consumer to invent them, and they get
    invented badly: usually in colour, or as a spinner with no reduced-motion
