@@ -4257,9 +4257,37 @@ check('the page cannot scroll sideways on a phone, and the tip is capped', () =>
 	// be. It is an enhancement over the CSS floor, never a replacement:
 	// `verify-no-sideways-scroll.py` asserts 0 sideways scroll with
 	// java_script_enabled=False, which is the no-JS contract.
+	// A COMMENTS-STRIPPED read, and the call site has to be inside `init`.
+	// Reading the raw source satisfied this with a passing mention in a
+	// comment: the clamp was deleted and the suite stayed green, which is
+	// the same prefix/comment trap that has bitten this file repeatedly.
+	const runtime = read('src/js/cli-mono.js').replace(/\/\*[\s\S]*?\*\//g, '');
 	assert(
-		/initTooltipClamp/.test(read('src/js/cli-mono.js')),
+		/\n\s*initTooltipClamp\(root\);/.test(runtime),
 		'the runtime no longer clamps a tip to the room its trigger leaves, so a tip near an edge can run off the viewport',
+	);
+	assert(
+		/function initTooltipClamp\(/.test(runtime),
+		'the tooltip clamp function is gone; tips near an edge will run off the viewport',
+	);
+	// The clamp must compare against a REMEMBERED natural width. Comparing
+	// the tip's current width oscillates: writing the cap shrinks the tip,
+	// which fires the ResizeObserver, which re-runs, now finds the tip
+	// already narrow enough, and removes the cap again — leaving it one
+	// frame too wide. This is the only thing that stops that, so it is
+	// asserted rather than trusted.
+	// Anchored to the READ, not to the identifier: `__cmNaturalW` also
+	// appears on the reset branch, so a bare existence check passes with
+	// the cache removed from the read.
+	assert(
+		/tip\.__cmNaturalW\s*\|\|\s*\(tip\.__cmNaturalW\s*=/.test(runtime),
+		'the clamp compares the tip CURRENT width, so writing the cap re-triggers it and the cap is removed again',
+	);
+	// It must only ever TIGHTEN the CSS floor, never loosen it, or the
+	// no-JS reader gets a wider tip than a JS reader.
+	assert(
+		/Math\.min\(parseFloat\(cs\.maxWidth\)/.test(runtime),
+		'the clamp is not bounded by the CSS cap, so a tip can be WIDER with JS than without it',
 	);
 	assert(/transform:\s*translateX\(-50%\)/.test(tip), 'a centred tip needs its centring transform');
 });

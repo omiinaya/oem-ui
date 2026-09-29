@@ -30,9 +30,23 @@ CSS = os.path.join(REPO, 'src/styles/components.css')
 HDR = os.path.join(REPO, 'src/astro/Header.astro')
 TOK = os.path.join(REPO, 'src/styles/tokens.css')
 PAGE = os.path.join(REPO, 'src/pages/index.astro')
+JS = os.path.join(REPO, 'src/js/cli-mono.js')
 SUITE = os.path.join(REPO, 'tests/run.mjs')
 
 MUTATIONS = [
+    # --- the tooltip clamp must keep tips on screen ---------------------
+    # A fix with no test is a comment. These break the runtime clamp and
+    # the CSS floor; the contract test has to notice.
+    ('the tip cap falls back to a bare px value',
+     CSS, 'max-width: min(18rem, 50vw);', 'max-width: 288px;',
+     'the page cannot scroll sideways on a phone, and the tip is capped'),
+    ('the runtime stops clamping a tip to its trigger room',
+     JS, 'initTooltipClamp(root);', '/* removed */;',
+     'the page cannot scroll sideways on a phone, and the tip is capped'),
+    ('the clamp stops remembering the tip natural width',
+     JS, 'var natural = tip.__cmNaturalW || (tip.__cmNaturalW = tip.scrollWidth);',
+     'var natural = tip.scrollWidth;',
+     'the page cannot scroll sideways on a phone, and the tip is capped'),
     # --- the rail must not become a two-column grid ---------------------
     # `flex-wrap: wrap` is inherited from the bar. In a column it wraps
     # ACROSS once the children outgrow the viewport height, which is the
@@ -166,7 +180,7 @@ def main():
         sys.exit(1)
 
     orig = {}
-    for f in (CSS, HDR, TOK, PAGE):
+    for f in (CSS, HDR, TOK, PAGE, JS):
         orig[f] = open(f).read()
 
     base_code, base_out = run_suite()
