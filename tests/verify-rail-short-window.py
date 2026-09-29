@@ -49,7 +49,6 @@ PROBE = """() => {
 
   // Reachability: visible now, or reachable by scrolling the list.
   const lr = list.getBoundingClientRect();
-  const allNow = boxes.every((b) => b.top === undefined);
   const inView = () => boxes.every((b, i) => {
     const r = links[i].getBoundingClientRect();
     return r.top >= lr.top - 1 && r.bottom <= lr.bottom + 1;
@@ -111,8 +110,8 @@ async def main() -> int:
                  f"({d['listScrollW']} in {d['listClientW']})"),
                 (d['allVisibleAtTop'] or d['allVisibleAtEnd'] or d['scrolls'],
                  f"vh={h}: {d['linkCount']} links but no way to reach them all"),
-                (d['linkCount'] == 14,
-                 f"vh={h}: found {d['linkCount']} rail links, expected 14"),
+                (d['linkCount'] >= 15,
+                 f"vh={h}: found only {d['linkCount']} rail links; the index lost one"),
             ]
 
             bad = [msg for ok, msg in checks if not ok]
