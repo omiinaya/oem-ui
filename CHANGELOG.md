@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The desktop nav rail.** `Header` takes a `rail` prop; above 1000px the
+  header becomes a fixed column down the leading edge instead of a
+  horizontal bar. Opt-in, because three consumers share `cm-header`.
+  The showcase opts in and wraps its content in `cm-shell--rail`.
+  Pinned by `tests/mutate-rail.py`.
+
 ### Fixed
 - **`.cm-kv` no longer loses its two columns when a `dt`/`dd` pair is
   wrapped in a `div`.** A `<div>` between a `<dl>` and its own `<dt>`/`<dd>`

@@ -1885,14 +1885,12 @@ html {
    viewport, which is what the cap does. */
 .cm-tooltip__tip {
 	width: max-content;
+
 	/* A centred tip hangs half its width either side of its trigger, so
-	   half a tip has to fit between the trigger and the screen edge. The
-	   honest statement of that is the gutter, not a fraction of the
-	   trigger: capping at the trigger's own width (tried, measured) made
-	   the tip 93px wide and wrapped it to 5-6 lines, which is worse than
-	   the overflow it fixed. The viewport cap keeps a tip one or two
-	   lines tall at every width measured, and the alignment variants
-	   below are what actually keep it on screen near an edge. */
+	   half a tip has to fit between the trigger and the screen edge. The cap
+	   is derived from the VIEWPORT, not from the trigger: capping at the
+	   trigger's own width (tried, measured) made the tip 93px wide and
+	   wrapped it to 5-6 lines, which is worse than the overflow it fixed. */
 	max-width: min(18rem, calc(100vw - 2 * var(--gutter)));
 
 	/* Without this transform `left:50%` put the trigger's MIDDLE at the
@@ -1903,6 +1901,162 @@ html {
 .cm-tooltip--start .cm-tooltip__tip { left: 0; transform: none; }
 .cm-tooltip--end .cm-tooltip__tip { left: auto; right: 0; transform: none; }
 .cm-tooltip--below .cm-tooltip__tip { bottom: auto; top: calc(100% + var(--space-2)); }
+
+/* ============================================================
+   The desktop nav rail
+
+   A horizontal bar is the right shape for five links and the wrong shape
+   for twenty. Measured at 1280px, the showcase's 20 links wrapped across
+   7 rows and pushed the first section 256px down the page - a quarter of
+   a phone screen spent on navigation before any content. So above
+   --bp-rail the nav leaves the bar entirely and becomes a fixed rail down
+   the leading edge, and `main` is offset to clear it.
+
+   WHY A RAIL AND NOT A WIDER BAR: the links are a table of contents for a
+   one-pager. A reader scrolls, and what they need to see while scrolling is
+   where they are in the document. A bar only shows that when you are near
+   the top; a rail shows it at every scroll position, which is the whole
+   reason the scroll-spy marks `is-active` on it at all.
+
+   Mobile is untouched: below --bp-rail the header is still a bar and the
+   links are still behind the burger. This block is additive, so the three
+   consumers that vendor this file keep their current layout until they opt
+   in with `rail`. */
+@media (min-width: 1000px) {
+	/* The rail only exists once the header opts in, so a consumer that
+	   does not want it is unaffected. */
+	.cm-header--rail { padding: 0; }
+
+	.cm-header--rail,
+	.cm-header--rail .cm-header__nav {
+		max-width: none;
+		/* The rail is a COLUMN of viewport height, so `height: 100vh` is what
+		   makes the link list a bounded flex child. Without a bound the 20
+		   links stacked to 3655px and ran off the bottom of the rail:
+		   measured, the last link sat at y=3640 with the rail ending at
+		   900. `overflow: hidden` on the rail stops a tall column from
+		   painting outside its own edge. */
+		height: 100vh;
+		overflow: hidden;
+	}
+	.cm-header--rail .cm-header__nav {
+		align-items: flex-start;
+		padding: var(--gutter) 0;
+	}
+	/* Rail geometry. The nav row becomes a column: brand on top, links
+	   beneath it, controls last. `justify-content: flex-start` replaces
+	   the bar's space-between, which in a column would fling the groups to
+	   the far ends of the height. */
+	.cm-header--rail .cm-header__nav {
+		flex-direction: column;
+		justify-content: flex-start;
+		align-items: stretch;
+		gap: var(--space-5);
+	}
+	.cm-header--rail .cm-header__brand {
+		padding: 0 var(--gutter);
+		font-size: 1.05rem;
+	}
+	/* The burger is a phone control. With the links permanently visible it
+	   would be a button that opens something already open, so it is removed
+	   from the tree at this width - `display: none` is right here because
+	   the rail is unconditional, not JS-gated: no script, no cookie and no
+	   failed fetch can make these links disappear. */
+	.cm-header--rail .cm-nav-toggle { display: none; }
+
+	/* The link list stops being a wrapping row and becomes the rail's
+	   body: a single column, its own scroll if it ever outgrows the
+	   viewport, so a short window can still reach every destination. */
+	.cm-header--rail .cm-header__links {
+		flex-direction: column;
+		align-items: stretch;
+		gap: var(--space-0);
+		overflow-y: auto;
+		min-height: 0;
+		flex: 1 1 auto;
+	}
+	/* Each link is a full-width row with the tap floor, so the rail obeys
+	   the same 44px rule the phone drawer does. A rail of 20 links at 44px
+	   is 880px, so the column scrolls rather than overflowing off-screen. */
+		/* `>` is load-bearing. The showcase demonstrates the link style with
+	   bare `.cm-header__link` elements inside its `nav` section, and a
+	   descendant selector restyled those SPECIMENS as rail rows: measured,
+	   7 demo links were being laid out as 44px navigation rows at y=2622
+	   and y=3551, three thousand pixels down the page. Only the direct
+	   children of the link list are navigation. */
+	.cm-header--rail .cm-header__links > .cm-header__link {
+		display: flex;
+		align-items: center;
+		min-height: var(--tap);
+		padding: 0 var(--gutter);
+		border-left: 2px solid transparent;
+		/* The active marker is a `border-left` on a full-bleed row, so
+		   without an inset it drew at x=0 and the viewport edge shaved it.
+		   Insetting the row keeps the 2px tick inside the rail, and the
+		   radius stops the row reading as a chip glued to the edge. */
+		margin-inline: var(--space-2);
+		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+	}
+	/* The active marker moves to the leading edge, where a vertical rail
+	   has room for it. `border-left` is used rather than a background so it
+	   cannot shift the link's text when it appears. */
+	.cm-header--rail .cm-header__links > .cm-header__link.is-active,
+	.cm-header--rail .cm-header__links > .cm-header__link[aria-current='page'] {
+		border-left-color: var(--accent);
+		padding-left: calc(var(--gutter) - 2px);
+	}
+	/* Controls drop to the foot of the rail. */
+	.cm-header--rail .cm-header__controls {
+		justify-content: flex-start;
+		padding: 0 var(--gutter);
+	}
+
+	/* `main` and the page shell move clear of the rail.
+
+	   The offset is the rail width plus a gutter of air, and it must be
+	   PADDING on a full-width box. `margin: 0 auto` has to be undone as
+	   well: base.css centres `main` with `margin: 0 auto; width: var(--maxw)`,
+	   so padding alone left the content centred on the VIEWPORT rather than
+	   on the space beside the rail, and at 1440px the rail overlapped the
+	   first section by 58px. `margin-inline: 0` re-anchors the box to the
+	   padding edge; the max-width still bounds the measure. */
+	.cm-shell--rail {
+		padding-left: calc(var(--rail-w) + var(--gutter));
+		margin-inline: 0;
+	}
+	/* ...and the measure is then centred inside the space BESIDE the rail,
+	   not inside the viewport. `main` keeps `width: var(--maxw)` with
+	   `margin-inline: 0`, which pinned the content to the rail's padding
+	   edge and left a ~400px void on the right at 1280. The max-width has
+	   to be RELAXED to the space that is actually left, and the inner
+	   measure re-imposed at the old width, so the column centres in the
+	   column the reader has. */
+	.cm-shell--rail {
+		width: auto;
+		max-width: none;
+	}
+	.cm-shell--rail > * {
+		max-width: var(--maxw);
+		margin-inline: auto;
+	}
+	/* The header itself must stop spanning the full width, or it would draw
+	   a bar over the top of the rail's column. It keeps the rail's own
+	   column, so `position: sticky` is dropped in favour of a fixed rail:
+	   a sticky column that is as tall as the viewport never actually
+	   scrolls, and `fixed` says what is meant. */
+	.cm-header--rail {
+		position: fixed;
+		inset-block: 0;
+		inset-inline-start: 0;
+		width: var(--rail-w);
+		border-bottom: 0;
+		border-right: 1px solid var(--line);
+		z-index: 100;
+	}
+	/* Scroll anchoring: with a fixed rail the in-page anchors must clear it,
+	   and `--header-h` is the token the scroll-padding already reads. */
+	:root:has(.cm-header--rail) { --header-h: 0px; }
+}
 
 /* ============================================================
    Records: stat tiles and a dated timeline

@@ -30,6 +30,19 @@ interface Props {
 	homeHref?: string;
 	showThemeToggle?: boolean;
 	extraLinks?: Link[]; // rendered right of the theme toggle (e.g. GitHub)
+	/**
+	 * Renders the nav as a fixed rail down the leading edge above 1000px,
+	 * instead of a horizontal bar. Opt-in, because it is a layout decision
+	 * a site has to make, not a default: a five-link marketing header looks
+	 * wrong as a rail, and a documentation header with twenty sections
+	 * cannot live in a bar. Below 1000px nothing changes - it is still a
+	 * bar behind the burger, so `rail` costs a small screen nothing.
+	 *
+	 * Pair it with `<div class="cm-shell cm-shell--rail">` around the page
+	 * content, or set `rail` on the shell yourself, so the content clears
+	 * the rail. The class is `cm-header--rail`; nothing else is implied.
+	 */
+	rail?: boolean;
 }
 
 const {
@@ -38,6 +51,7 @@ const {
 	homeHref = '/',
 	showThemeToggle = true,
 	extraLinks = [],
+	rail = false,
 } = Astro.props;
 
 /* A link can be current in two ways, and conflating them is a real bug.
@@ -62,7 +76,7 @@ const anySpy = navLinks.some((l) => l.spyId);
 // places would also double-write the attribute.
 ---
 
-<header class="cm-header" data-cm-header>
+<header class:list={['cm-header', rail && 'cm-header--rail']} data-cm-header>
 	<nav class="cm-header__nav">
 		{/* First in the row and first in the tab order: a menu button that
 		    leads the header is what a thumb expects. It lives OUTSIDE
@@ -148,7 +162,7 @@ const anySpy = navLinks.some((l) => l.spyId);
 	/* Between the stack breakpoint and here, five links plus the brand do not
 	   quite fit on one line and a single link strands on its own row. Tighten
 	   the metrics so they stay together instead of orphaning one. */
-	@media (min-width: 641px) and (max-width: 900px) {
+	@media (min-width: 641px) and (max-width: 999px) {
 		.cm-header__link { padding: 0 0.45rem; font-size: 0.76rem; }
 		.cm-header__nav { gap: 0.6rem; }
 	}

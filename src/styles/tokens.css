@@ -17,6 +17,11 @@
 	   --head-top / --head-h1 are the single source for the top-of-page
 	   head block so every route starts its content at the same y. */
 	--maxw: 860px;
+	/* Desktop nav rail. A reference doc with 20 destinations cannot live in
+	   a horizontal bar: measured, 7 links wrapped across 7 rows and pushed
+	   the content 256px down. The rail is 232px, wide enough for the longest
+	   label at --min-font, and it only exists above --bp-rail. */
+	--rail-w: 232px;
 	--gutter: 1.25rem;
 	--head-top: 3rem;
 	--head-h1: 2rem;

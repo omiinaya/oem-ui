@@ -846,6 +846,59 @@ explicit width won on one axis and the result measured **32×44** — tall
 enough to pass a height-only check, still 12px too narrow to hit. The
 class already pins both, so naming it is the whole fix.
 
+## The desktop nav rail
+
+A reference document with twenty sections in its nav is not a website menu,
+it is an index. At 1280px the horizontal bar wrapped into **seven rows**, and
+six of those rows were a continuation of the same line of links. So the
+header becomes a **rail**: a fixed column down the leading edge, above
+`1000px`.
+
+The rail is **opt-in**, and deliberately so. `links`, `oem-portfolio` and
+`dev-blog` all consume `cm-header` and none of them asked for a rail — a
+default change would break all three on deploy.
+
+```astro
+---
+import { Header } from 'oem-ui/astro';
+import SITE from 'oem-ui/config';
+---
+<Header brand={SITE.title} homeHref="/" links={links} rail />
+<main class="cm-shell cm-shell--rail">
+  ...
+</main>
+```
+
+`rail` adds exactly one class, `cm-header--rail`. Nothing else is implied.
+Pair it with `cm-shell--rail` around the content, or set the class yourself.
+
+Three things this cost to get right, each of them measured:
+
+- **`main` kept `margin: 0 auto` and slid under the rail.** Centring on the
+  VIEWPORT is wrong once a rail owns the left edge: the first section
+  overlapped it by 58px at 1440. The offset is `padding-left` on a
+  full-width box, and the `--maxw` measure is re-imposed on the inner
+  children so the column centres in the space the reader actually has
+  (104px left / 84px right of air at 1280).
+- **`>` in the link rule is load-bearing.** `.cm-header__link` also appears
+  in the showcase as a *specimen*. A descendant selector restyled those
+  seven demo links as rail rows, which is how the last link measured at
+  `y=3640` inside a 900px rail.
+- **The active tick drew at `x=0`** and the viewport edge shaved it, so the
+  current section was invisible. The row is now inset by `--space-2`.
+
+The rail is bounded (`height: 100vh`, `overflow: hidden`) and the link list
+scrolls (`overflow-y: auto`, `min-height: 0`). Twenty links at the 44px tap
+floor is 880px, which does not fit a 900px rail once the brand is in it, so
+the list scrolls rather than painting outside the column.
+
+Below `1000px` nothing changes: the burger and its drawer are exactly as
+they were, and the burger is hidden in rail mode because the links it opens
+are already permanently on screen.
+
+The contract is pinned by `tests/mutate-rail.py` (17 mutations, 0
+survived).
+
 ## Mobile nav
 
 Under 640px the header nav collapses behind a burger. Nothing to wire up:

@@ -1666,12 +1666,123 @@ check('every class the showcase demonstrates is defined in the library', () => {
 	const page = read('src/pages/index.astro');
 	const demoed = new Set([...page.matchAll(/class="(cm-[a-z0-9_ -]+)"/g)]
 		.flatMap(m => m[1].split(/\s+/)));
-	const all = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	// BOTH layers, not just components.css. A class is part of the library
+	// whether it is a component or a base utility, and reading one file
+	// meant every base-layer class had to be excepted by name - which is
+	// how `cm-sr-only` was already special-cased here. The rail added a
+	// second one (`cm-shell`) and the honest fix was to read both layers
+	// rather than to grow the exception list.
+	const all = ['src/styles/components.css', 'src/styles/base.css']
+		.map(f => read(f).replace(/\/\*[\s\S]*?\*\//g, ''))
+		.join('\n');
 	for (const c of demoed) {
-		if (c === 'cm-sr-only') continue; // utility, lives in base.css
 		assert(new RegExp(`\\.${c}(?![a-z0-9_-])`).test(all),
-			`the showcase demos .${c} but components.css never defines it`);
+			`the showcase demos .${c} but neither components.css nor base.css defines it`);
 	}
+});
+
+/* ================= the desktop nav rail ================= */
+console.log('\ndesktop nav rail');
+const RAIL_CSS = read('src/styles/components.css');
+const RAIL_START = RAIL_CSS.indexOf('/* ============================================================\n   The desktop nav rail');
+const RAIL_END = RAIL_CSS.indexOf('/* ============================================================\n   Records: stat tiles');
+const RAIL = RAIL_START > -1 ? RAIL_CSS.slice(RAIL_START, RAIL_END) : '';
+const RAIL_HDR = read('src/astro/Header.astro');
+const TOK = read('src/styles/tokens.css');
+
+check('the rail ships as a block scoped above the rail breakpoint', () => {
+	assert(RAIL !== '', 'the rail block is missing from components.css');
+	// Below the breakpoint the header must still be a bar. A rail rule
+	// outside the query would take the phone layout with it.
+	assert(/@media \(min-width: 1000px\)/.test(RAIL),
+		'the rail rules are not inside a min-width query, so they apply on a phone');
+});
+
+check('the rail is opt-in, so a consumer that did not ask for it is unaffected', () => {
+	assert(/\.cm-header--rail/.test(RAIL),
+		'the rail is not keyed off a modifier class');
+	// No bare .cm-header rule may be altered by the rail block: a consumer
+	// that never sets the modifier has to keep the bar.
+	const bare = RAIL.match(/^\s*\.cm-header\s*\{/m);
+	assert(!bare, 'the rail block styles .cm-header itself, which every consumer gets');
+});
+
+check('the rail width is a token, not a literal', () => {
+	assert(/--rail-w:/.test(TOK), '--rail-w is not declared in tokens.css');
+	assert(/width: var\(--rail-w\)/.test(RAIL),
+		'the rail hardcodes a width instead of reading --rail-w');
+	assert(!/width: 2\d\dpx/.test(RAIL), 'a raw px width crept into the rail');
+});
+
+check('the rail link rules are scoped to direct children of the list', () => {
+	// The showcase demonstrates the link style with bare .cm-header__link
+	// elements. A descendant selector restyled those specimens as rail rows.
+	assert(/\.cm-header--rail \.cm-header__links > \.cm-header__link\s*\{/.test(RAIL),
+		'the rail link rule is not scoped to `>` children, so demo links are rail rows');
+	assert(!/\.cm-header--rail \.cm-header__link\s*\{/.test(RAIL),
+		'a descendant .cm-header__link rule will style the showcase specimens');
+});
+
+check('a rail link keeps the tap floor', () => {
+	const m = RAIL.match(/\.cm-header--rail \.cm-header__links > \.cm-header__link\s*\{([^}]*)\}/);
+	assert(m, 'the rail link rule is missing');
+	// Declaration-anchored: the rail block explains the 44px floor in a
+	// comment, so a bare `min-height: var(--tap)` search was satisfied by
+	// the prose describing it.
+	assert(/^[ \t]*min-height:\s*var\(--tap\);/m.test(m[1]),
+		'a rail link drops the 44px tap floor');
+});
+
+check('the rail is a bounded column, so a long list scrolls instead of escaping', () => {
+	// Must match a DECLARATION. The rail block explains `height: 100vh` in a
+	// comment, so a bare regex was satisfied by the prose explaining it.
+	assert(/^[ \t]*height:\s*100vh;/m.test(RAIL),
+		'the rail is not bounded to the viewport height');
+	// Must be inside the rail's OWN link list rule. The mobile drawer already
+	// had `overflow-y: auto` and an unscoped regex was satisfied by it.
+	const lm = RAIL.match(/\.cm-header--rail \.cm-header__links\s*\{([^}]*)\}/);
+	assert(lm, 'the rail link list rule is missing');
+	assert(/overflow-y:\s*auto/.test(lm[1]),
+		'the link list cannot scroll, so a long nav runs off the bottom');
+	assert(/min-height:\s*0/.test(lm[1]),
+		'the list is a flex child without min-height: 0, so it will not shrink to scroll');
+});
+
+check('the rail clears the content, and the measure stays centred beside it', () => {
+	assert(/\.cm-shell--rail/.test(RAIL), 'nothing offsets the content clear of the rail');
+	assert(/padding-left:\s*calc\(var\(--rail-w\)/.test(RAIL),
+		'the shell offset is not derived from --rail-w');
+	// `margin: 0 auto` in base.css centres main on the VIEWPORT. Left
+	// alone, the rail overlapped the first section by 58px at 1440.
+	assert(/\.cm-shell--rail\s*\{[^}]*margin-inline:\s*0/.test(RAIL),
+		'main keeps margin: 0 auto and re-centres on the viewport, overlapping the rail');
+	assert(/\.cm-shell--rail > \*/.test(RAIL),
+		'the measure is not re-imposed inside the space beside the rail');
+});
+
+check('the header opts in through a documented rail prop', () => {
+	assert(/^\trail\?: boolean;$/m.test(RAIL_HDR),
+		'Header.astro does not declare a rail prop');
+	assert(/rail = false/.test(RAIL_HDR), 'the rail prop does not default to off');
+	assert(/class:list=\{\['cm-header', rail && 'cm-header--rail'\]\}/.test(RAIL_HDR),
+		'the rail modifier class is not applied conditionally');
+});
+
+check('the showcase opts in, and a mobile reader still gets the burger', () => {
+	const page = read('src/pages/index.astro');
+	// `/rail/` was satisfied by a sentence of prose about a rail being drawn
+	// on an item. The opt-in is the PROP on the <Header> call, so anchor
+	// there: a bare `rail` line inside the tag's attribute block.
+	// The prop sits at the END of a long `links` array, so the window has to
+	// span that whole attribute block. A tight window silently passed.
+	assert(/<Header[\s\S]{0,4000}?\n\s*rail\b[\s\S]{0,400}?\/>/.test(page),
+		'the showcase never sets the rail prop on its <Header>');
+	assert(/<main class="cm-shell cm-shell--rail">/.test(page),
+		'the showcase does not offset its own content');
+	// The burger is a phone control. In rail mode the links are permanent,
+	// so the button would open something already open.
+	assert(/\.cm-header--rail \.cm-nav-toggle\s*\{\s*display:\s*none/.test(RAIL),
+		'the burger is still rendered beside a permanently-visible rail');
 });
 
 /* ================= page-shape layout ================= */
