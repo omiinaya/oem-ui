@@ -2423,3 +2423,104 @@ html {
 /* Muted fill for the domain a reader is least likely to care about,
    so the shape of the bar carries meaning too, not just its length. */
 .cm-meter--faint .cm-meter__fill { background: var(--line); }
+
+/* ---------------------------------------------------------- login forms
+   Authentication UI is a form like any other, so it uses the system's
+   vocabulary rather than a private one. The card is the same surface as
+   every other panel, which is what stops the sign-in page from reading
+   as a different product from the console it hands off to. */
+
+.cm-login {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-4);
+	width: 100%;
+	max-width: 26rem;
+	margin: var(--space-6) auto;
+	padding: var(--space-5);
+	border: 1px solid var(--line);
+	background: var(--bg-2);
+	box-shadow: var(--shadow-card);
+}
+.cm-login--wide { max-width: 34rem; }
+
+.cm-login__title {
+	margin: 0;
+	font-size: 1.1rem;
+	font-weight: 600;
+	letter-spacing: 0.01em;
+	color: var(--ink);
+}
+.cm-login__sub {
+	margin: 0;
+	font-size: 0.82rem;
+	color: var(--ink-dim);
+}
+
+.cm-login__form {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+}
+
+.cm-login__field,
+.cm-login__totp,
+.cm-totp,
+.cm-totp-wrap,
+.cm-pass,
+.cm-user {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+.cm-login__label,
+.cm-totp-label {
+	font-size: 0.8rem;
+	color: var(--ink-dim);
+}
+
+.cm-login__input {
+	/* Match the tap floor so a phone user is not fighting a 32px field. */
+	min-height: var(--tap);
+	padding: 0.5em 0.7em;
+	border: 1px solid var(--line);
+	border-radius: 0;
+	background: var(--bg);
+	color: var(--ink);
+	font-family: var(--font-mono);
+	font-size: 0.9rem;
+}
+.cm-login__input:focus {
+	outline: 2px solid var(--accent);
+	outline-offset: 1px;
+}
+/* One digit per slot is only useful if they do not look like a sentence,
+   so the code field is centred and tracked out. */
+.cm-login__input--code {
+	text-align: center;
+	letter-spacing: 0.4em;
+	text-indent: 0.4em;
+	font-size: 1.1rem;
+}
+
+.cm-login__hint {
+	font-size: 0.76rem;
+	color: var(--ink-faint);
+}
+
+.cm-login__error {
+	padding: var(--space-2) var(--space-3);
+	border: 1px solid var(--accent);
+	background: var(--bg-3);
+	color: var(--ink);
+	font-size: 0.82rem;
+}
+
+.cm-login__actions {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+.cm-login__submit,
+.cm-submit { align-self: flex-start; }
