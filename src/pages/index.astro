@@ -20,6 +20,26 @@ import Card from '../astro/Card.astro';
 import Meter from '../astro/Meter.astro';
 import CodeBlock from '../astro/CodeBlock.astro';
 import HeaderLink from '../astro/HeaderLink.astro';
+
+/**
+ * The showcase's section index, in DOCUMENT order.
+ *
+ * The rail is a scroll-spy, and a scroll-spy is only as good as the order
+ * it is given. This was hand-written next to a hand-written list of nav
+ * links, and the two drifted: the nav said `lists -> states -> ... ->
+ * layout -> forms` while the DOM had `forms` sitting right after `lists`,
+ * so scrolling lit up `forms` early and then jumped BACK UP to `states`.
+ *
+ * One array, read in both places. The contract test asserts that every
+ * `id` in this list is a `<section>` in the markup AND that the order
+ * matches the order they appear in the file, so a section added in the
+ * wrong place fails the suite instead of quietly breaking the spy.
+ */
+const SECTION_ORDER = [
+	'foundation', 'buttons', 'nav', 'lists', 'states', 'surface',
+	'code', 'overlays', 'records', 'cards', 'prose', 'layout',
+	'forms', 'readme',
+] as const;
 import { SITE } from '../astro/config';
 ---
 
@@ -41,21 +61,7 @@ import { SITE } from '../astro/config';
 		<Header
 			brand={SITE.title}
 			homeHref="/"
-			links={[
-				{ href: '#foundation', label: 'foundation' },
-				{ href: '#buttons', label: 'buttons' },
-				{ href: '#nav', label: 'nav' },
-				{ href: '#lists', label: 'lists' },
-				{ href: '#states', label: 'states' },
-				{ href: '#overlays', label: 'overlays' },
-				{ href: '#records', label: 'records' },
-				{ href: '#cards', label: 'cards' },
-				{ href: '#code', label: 'code' },
-				{ href: '#prose', label: 'prose' },
-				{ href: '#layout', label: 'layout' },
-				{ href: '#forms', label: 'forms' },
-				{ href: '#readme', label: 'readme' },
-			]}
+			links={SECTION_ORDER.map((id) => ({ href: `#${id}`, label: id }))}
 		extraLinks={[{ href: 'https://github.com/omiinaya/oem-ui', label: 'github' }]}
 		rail
 	/>
@@ -386,59 +392,6 @@ import { SITE } from '../astro/config';
 					<PostRow href="#3" index={1} title="Ship as a library" description="dark default, FOUC-safe theme toggle." date={new Date('2025-09-24')} />
 				</ul>
 				<div class="cm-list-more"><a href="#">$ cat all →</a></div>
-			</section>
-
-			<section id="forms" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
-				<h2>forms</h2>
-				<p class="cm-head__sub">
-					inputs are element defaults, so a bare <code>&lt;input&gt;</code> is already
-					on-brand. <code>.cm-field</code> and friends are the layout around them.
-				</p>
-				<form class="cm-form" onsubmit="return false">
-					<div class="cm-field-row">
-						<div class="cm-field">
-							<label class="cm-field__label" for="f-name">handle <span class="cm-field__req">*</span></label>
-							<input id="f-name" type="text" placeholder="omiinaya" required />
-							<span class="cm-field__help">lowercase, no spaces.</span>
-						</div>
-						<div class="cm-field">
-							<label class="cm-field__label" for="f-kind">kind</label>
-							<select id="f-kind">
-								<option>site</option>
-								<option>repo</option>
-								<option>service</option>
-							</select>
-						</div>
-					</div>
-
-					<div class="cm-field">
-						<label class="cm-field__label" for="f-url">url <span class="cm-field__req">*</span></label>
-						<input id="f-url" type="url" placeholder="https://" aria-invalid="true" />
-						<span class="cm-field__error">must include the scheme.</span>
-					</div>
-
-					<div class="cm-field">
-						<label class="cm-field__label" for="f-notes">notes</label>
-						<textarea id="f-notes" rows="3" placeholder="what is it for?"></textarea>
-					</div>
-
-					<fieldset class="cm-field">
-						<legend>visibility</legend>
-						<label><input type="checkbox" checked /> listed in nav</label>
-						<label><input type="checkbox" /> pinned</label>
-					</fieldset>
-
-					<fieldset class="cm-field">
-						<legend>access</legend>
-						<label><input type="radio" name="f-access" checked /> public</label>
-						<label><input type="radio" name="f-access" /> unlisted</label>
-					</fieldset>
-
-					<div class="cm-form__actions">
-						<button type="reset" class="cm-btn">cancel</button>
-						<button type="submit" class="cm-btn cm-btn--primary">save</button>
-					</div>
-				</form>
 			</section>
 
 			<!-- ==================================================== states
@@ -1318,6 +1271,59 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 						</a>
 					</aside>
 				</div>
+			</section>
+
+			<section id="forms" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
+				<h2>forms</h2>
+				<p class="cm-head__sub">
+					inputs are element defaults, so a bare <code>&lt;input&gt;</code> is already
+					on-brand. <code>.cm-field</code> and friends are the layout around them.
+				</p>
+				<form class="cm-form" onsubmit="return false">
+					<div class="cm-field-row">
+						<div class="cm-field">
+							<label class="cm-field__label" for="f-name">handle <span class="cm-field__req">*</span></label>
+							<input id="f-name" type="text" placeholder="omiinaya" required />
+							<span class="cm-field__help">lowercase, no spaces.</span>
+						</div>
+						<div class="cm-field">
+							<label class="cm-field__label" for="f-kind">kind</label>
+							<select id="f-kind">
+								<option>site</option>
+								<option>repo</option>
+								<option>service</option>
+							</select>
+						</div>
+					</div>
+
+					<div class="cm-field">
+						<label class="cm-field__label" for="f-url">url <span class="cm-field__req">*</span></label>
+						<input id="f-url" type="url" placeholder="https://" aria-invalid="true" />
+						<span class="cm-field__error">must include the scheme.</span>
+					</div>
+
+					<div class="cm-field">
+						<label class="cm-field__label" for="f-notes">notes</label>
+						<textarea id="f-notes" rows="3" placeholder="what is it for?"></textarea>
+					</div>
+
+					<fieldset class="cm-field">
+						<legend>visibility</legend>
+						<label><input type="checkbox" checked /> listed in nav</label>
+						<label><input type="checkbox" /> pinned</label>
+					</fieldset>
+
+					<fieldset class="cm-field">
+						<legend>access</legend>
+						<label><input type="radio" name="f-access" checked /> public</label>
+						<label><input type="radio" name="f-access" /> unlisted</label>
+					</fieldset>
+
+					<div class="cm-form__actions">
+						<button type="reset" class="cm-btn">cancel</button>
+						<button type="submit" class="cm-btn cm-btn--primary">save</button>
+					</div>
+				</form>
 			</section>
 
 			<section id="readme" class="cm-section cm-section--pad">

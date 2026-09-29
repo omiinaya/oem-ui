@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **The rail's scroll-spy highlighted sections in the wrong order.** The
+  nav said `lists -> states -> ... -> layout -> forms` while the page
+  rendered `forms` directly after `lists`, so scrolling lit up `forms`
+  early and then jumped BACK UP to `states`. The nav is now built from one
+  `SECTION_ORDER` array, and three contract tests assert that the index and
+  the document agree position by position. `surface` also had no nav link
+  at all, so the spy skipped it silently; it is in the index now.
+
 ### Added
 
 - **The desktop nav rail.** `Header` takes a `rail` prop; above 1000px the

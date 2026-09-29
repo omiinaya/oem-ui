@@ -33,6 +33,30 @@ PAGE = os.path.join(REPO, 'src/pages/index.astro')
 SUITE = os.path.join(REPO, 'tests/run.mjs')
 
 MUTATIONS = [
+    # --- the section index must track the document ----------------------
+    # The bug this pins: the nav listed `forms` last, the page rendered it
+    # right after `lists`, so the rail highlighted `forms` while you were
+    # near the top and then jumped back up to `states`.
+    ('a section is reordered out of the index order',
+     PAGE, "'states', 'surface',", "'surface', 'states',",
+     'the section index is in the order the sections actually appear'),
+
+    ('a section is dropped from the index',
+     PAGE, "'states', 'surface',\n", "'surface',\n",
+     'the section index is in the order the sections actually appear'),
+
+    ('a section is dropped from the page but stays in the index',
+     PAGE, '<section id="surface" class="cm-section cm-section--pad"',
+     '<section id="renamed-surface" class="cm-section cm-section--pad"',
+     'every id in the section index is a real section in the markup'),
+
+    ('the nav stops deriving from the index',
+     PAGE, 'links={SECTION_ORDER.map', "links={[{'href': '#foundation', label: 'foundation'}]}",
+     'the showcase declares one section index, and the nav is built from it'),
+
+    ('the section index is inlined back into the nav',
+     PAGE, "const SECTION_ORDER = [", "const LEGACY_ORDER = [",
+     'the showcase declares one section index, and the nav is built from it'),
     # --- the rail must stay opt-in -------------------------------------
     ('a consumer without the modifier gets the rail anyway',
      CSS, '.cm-header--rail { padding: 0; }', '.cm-header { padding: 0; }',

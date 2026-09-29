@@ -1681,6 +1681,80 @@ check('every class the showcase demonstrates is defined in the library', () => {
 	}
 });
 
+/* ================= the showcase section index agrees with the document ================= */
+
+// One derived value for the "is this section reachable" checks below. The
+// nav is built from SECTION_ORDER rather than a restated list of `href`s,
+// so a check that greps for a literal `href: '#x'` reports a section as
+// unreachable when it is exactly as reachable as before.
+const showcaseIndex = (() => {
+	const m = read('src/pages/index.astro').match(/const SECTION_ORDER = \[([\s\S]*?)\]/);
+	if (!m) return [];
+	return m[1].split(',').map((x) => x.trim().replace(/^['"]|['"].*$/g, '')).filter(Boolean);
+})();
+
+
+
+// The rail is a scroll-spy: it highlights whichever section you are in, so
+// the nav order and the DOM order are the SAME list stated twice. Shipped
+// broken once already — the nav said `lists -> ... -> layout -> forms`
+// while the page had `forms` directly after `lists`, so scrolling lit up
+// `forms` early and then jumped back up to `states`. A section that exists
+// with no nav link (`surface`) is the same bug wearing a quieter hat: the
+// spy skips it entirely, so no rail row is ever highlighted while you are
+// reading it.
+//
+// One array, SECTION_ORDER, feeds both. These checks are what keep it true.
+
+check('the showcase declares one section index, and the nav is built from it', () => {
+	const page = read('src/pages/index.astro');
+	const decl = page.match(/const SECTION_ORDER = \[([\s\S]*?)\]/);
+	if (!decl) throw new Error('SECTION_ORDER is gone; the nav must derive from it, not restate it');
+	assert(/links=\{SECTION_ORDER\.map/.test(page),
+		'the nav is not built from SECTION_ORDER, so the two can drift again');
+	assert(/extraLinks/.test(page), 'the external links were dropped from the nav');
+});
+
+check('every id in the section index is a real section in the markup', () => {
+	const page = read('src/pages/index.astro');
+	const order = [...page.matchAll(/const SECTION_ORDER = \[([\s\S]*?)\]/g)][0][1]
+		.split(',')
+		.map((x) => x.trim().replace(/^['"]|['"].*$/g, ''))
+		.filter(Boolean);
+	assert(order.length >= 10, `only ${order.length} sections in the index`);
+	const sections = [...page.matchAll(/<section id="([\w-]+)"/g)].map((m) => m[1]);
+	// A duplicated id is a real HTML bug and it also breaks anchor jumps.
+	assert(new Set(sections).size === sections.length,
+		`duplicate section id in the markup: ${sections.length} sections, ${new Set(sections).size} unique`);
+	const missing = order.filter((id) => !sections.includes(id));
+	assert(missing.length === 0,
+		`the index names sections the page does not render: ${missing.join(', ')}`);
+	// The inverse: a section nobody can navigate to.
+	const unlinked = sections.filter((id) => !order.includes(id));
+	assert(unlinked.length === 0,
+		`the page renders sections with no nav link, so the scroll-spy skips them: ${unlinked.join(', ')}`);
+});
+
+check('the section index is in the order the sections actually appear', () => {
+	const page = read('src/pages/index.astro');
+	const order = [...page.matchAll(/const SECTION_ORDER = \[([\s\S]*?)\]/g)][0][1]
+		.split(',')
+		.map((x) => x.trim().replace(/^['"]|['"].*$/g, ''))
+		.filter(Boolean);
+	const sections = [...page.matchAll(/<section id="([\w-]+)"/g)].map((m) => m[1]);
+	// This is the check the bug needed. Comparing the two lists directly
+	// names the first place they disagree, so the failure says WHICH pair
+	// is out of order instead of just "not equal".
+	for (let i = 0; i < order.length; i++) {
+		if (order[i] === sections[i]) continue;
+		throw new Error(
+			`the index and the document disagree at position ${i + 1}: ` +
+			`the nav says "${order[i]}" but the page has "${sections[i]}" there. ` +
+			`The rail is a scroll-spy, so it highlights in the wrong order.`,
+		);
+	}
+});
+
 /* ================= the desktop nav rail ================= */
 console.log('\ndesktop nav rail');
 const RAIL_CSS = read('src/styles/components.css');
@@ -3396,7 +3470,7 @@ check('the five new components are documented, and the docs are real', () => {
 check('the new components are reachable from the showcase nav', () => {
 	// A section that exists but is not linked is a section nobody
 	// scrolls to, and a component that is not demoed is dead CSS.
-	assert(/href:\s*['"]#overlays['"]/.test(showcase), 'the overlays section is not in the nav');
+	assert(showcaseIndex.includes('overlays'), 'the overlays section is not in the section index the nav is built from');
 	assert(/id="overlays"/.test(showcase), 'the nav points at a section that does not exist');
 });
 
@@ -3682,7 +3756,7 @@ check('the record components are documented, and the docs are real', () => {
 check('the record components are reachable from the showcase nav', () => {
 	// A section that exists but is not linked is a section nobody scrolls
 	// to, and a component that is not demoed is dead CSS.
-	assert(/href:\s*['"]#records['"]/.test(showcase), 'the records section is not in the nav');
+	assert(showcaseIndex.includes('records'), 'the records section is not in the section index the nav is built from');
 	assert(/id="records"/.test(showcase), 'the nav points at a section that does not exist');
 });
 
@@ -3968,7 +4042,7 @@ check('the card and meter components are documented with real markup', () => {
 });
 
 check('the card and meter components are reachable from the showcase', () => {
-	assert(/href:\s*['"]#cards['"]/.test(showcase), 'the cards section is not in the showcase nav');
+	assert(showcaseIndex.includes('cards'), 'the cards section is not in the section index the nav is built from');
 	assert(/id="cards"/.test(showcase), 'the nav points at a cards section that does not exist');
 	// Both wrappers must be imported, or the showcase shows hand-rolled
 	// markup that drifts from the shipped component.
