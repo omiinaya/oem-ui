@@ -2424,111 +2424,92 @@ html {
    so the shape of the bar carries meaning too, not just its length. */
 .cm-meter--faint .cm-meter__fill { background: var(--line); }
 
-/* ---------------------------------------------------------- login forms
-   Authentication UI is a form like any other, so it uses the system's
-   vocabulary rather than a private one. The card is the same surface as
-   every other panel, which is what stops the sign-in page from reading
-   as a different product from the console it hands off to. */
+/* ------------------------------------------------------- auth surfaces
+   A sign-in screen is a form, a card and an alert that happen to be about
+   credentials. It is assembled here from the vocabulary the library
+   ALREADY owns rather than a second, private one:
 
-/* The full-viewport surface, so a sign-in page does not have to centre
-   itself in the consumer. Centring belongs with the component: every
-   consumer that wants a login page would otherwise write it again. */
-.cm-login {
+     card    .cm-card / .cm-card__title / .cm-card__sub
+     field   .cm-field / .cm-field__label / .cm-field__help
+     error   .cm-alert .cm-alert--err
+     submit  .cm-btn .cm-btn--primary .cm-btn--block
+
+   An earlier draft of this block invented .cm-login__field, __label,
+   __error, __submit, .cm-submit, .cm-totp, .cm-pass and .cm-user
+   alongside the originals. That is the duplication trap the migration
+   rules describe: a second implementation of surface the library owns
+   silently keeps every bug the library has since fixed, and a fix made
+   in one place never reaches the other. So the only genuinely new
+   surface here is the small amount that credentials alone need.
+
+   NEW: the centred page frame (.cm-auth) and the code field
+   (.cm-code-input), which is a one-time-passcode control rather than a
+   text field - it must be legible as a code, centred, tracked out and
+   sized for a thumb. Everything else composes existing components. */
+
+.cm-auth {
 	min-height: 100dvh;
 	display: grid;
 	place-items: center;
 	padding: var(--space-4);
 }
-.cm-login__card {
-	display: flex;
-	flex-direction: column;
-	gap: var(--space-4);
-	width: 100%;
-	max-width: 26rem;
-	padding: var(--space-5);
-	border: 1px solid var(--line);
-	background: var(--bg-2);
-	box-shadow: var(--shadow-card);
-}
-.cm-login__card--wide { max-width: 34rem; }
+.cm-auth > * { width: 100%; max-width: 26rem; }
+.cm-auth--wide > * { max-width: 34rem; }
 
-.cm-login__title {
-	margin: 0;
-	font-size: 1.1rem;
-	font-weight: 600;
-	letter-spacing: 0.01em;
-	color: var(--ink);
-}
-.cm-login__sub {
-	margin: 0;
-	font-size: 0.82rem;
-	color: var(--ink-dim);
-}
+.cm-card--auth { padding: var(--space-5); gap: var(--space-4); }
+.cm-card--auth .cm-card__head { padding: 0; border-bottom: 0; }
 
-.cm-login__form {
-	display: flex;
-	flex-direction: column;
-	gap: var(--space-3);
-}
+/* A one-time code is read digit by digit and typed digit by digit, so it
+   must not look like prose. Centred and tracked out is the whole
+   treatment.
 
-.cm-login__field,
-.cm-login__totp,
-.cm-totp,
-.cm-totp-wrap,
-.cm-pass,
-.cm-user {
-	display: flex;
-	flex-direction: column;
-	gap: var(--space-2);
-}
+   It deliberately declares almost NOTHING. The base input rule is
+     input:not([type=checkbox]):not([type=radio]):not([type=range])
+   which is (0,3,1) because :not() counts its argument, so this (0,1,0)
+   class loses the cascade on every property it restates. Verified in
+   WebKit at 390px: with all of font-family, font-size, color,
+   background, border, border-radius, padding, width, line-height and
+   min-height deleted from this rule, every computed value is
+   byte-identical and the box is still 201.63x44. The element default
+   already owns all of them; restating them here was ten declarations
+   that could only ever drift from the thing they duplicate.
 
-.cm-login__label,
-.cm-totp-label {
-	font-size: 0.8rem;
-	color: var(--ink-dim);
-}
-
-.cm-login__input {
-	/* Match the tap floor so a phone user is not fighting a 32px field. */
+   So this rule states only what DIFFERS from a prose field. */
+.cm-code-input {
 	min-height: var(--tap);
-	padding: 0.5em 0.7em;
-	border: 1px solid var(--line);
-	border-radius: 0;
-	background: var(--bg);
-	color: var(--ink);
-	font-family: var(--font-mono);
-	font-size: 0.9rem;
+	text-align: center;
+	letter-spacing: 0.4em;
+	/* Letter-spacing adds a trailing gap after the last glyph, which
+	   pushes a centred string visibly left of centre. */
+	text-indent: 0.4em;
 }
-.cm-login__input:focus {
+.cm-code-input:focus {
 	outline: 2px solid var(--accent);
 	outline-offset: 1px;
 }
-/* One digit per slot is only useful if they do not look like a sentence,
-   so the code field is centred and tracked out. */
-.cm-login__input--code {
-	text-align: center;
-	letter-spacing: 0.4em;
-	text-indent: 0.4em;
-	font-size: 1.1rem;
+.cm-code-input::-webkit-outer-spin-button,
+.cm-code-input::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
 }
 
-.cm-login__hint {
-	font-size: 0.76rem;
-	color: var(--ink-faint);
-}
-
-.cm-login__error {
-	padding: var(--space-2) var(--space-3);
-	border: 1px solid var(--accent);
-	background: var(--bg-3);
-	color: var(--ink);
-	font-size: 0.82rem;
-}
-
-.cm-login__actions {
+/* The alternative-sign-in divider: a rule with a word in the middle. It
+   is a flex row with the label as the middle child and two rules that
+   grow, because `border-top` on the label itself leaves a gap that no
+   amount of padding closes. */
+.cm-divider {
 	display: flex;
-	flex-direction: column;
-	gap: var(--space-2);
+	align-items: center;
+	gap: var(--space-3);
+	color: var(--ink-faint);
+	font-size: max(var(--min-font), 0.72rem);
+	text-transform: uppercase;
+	letter-spacing: 0.12em;
 }
-.cm-login__submit,
-.cm-submit { align-self: flex-start; }
+.cm-divider::before,
+.cm-divider::after {
+	content: '';
+	flex: 1 1 auto;
+	height: 1px;
+	background: var(--line);
+}

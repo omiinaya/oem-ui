@@ -38,7 +38,7 @@ import HeaderLink from '../astro/HeaderLink.astro';
 const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'lists', 'states', 'surface',
 	'code', 'overlays', 'records', 'cards', 'prose', 'layout',
-	'forms', 'readme',
+	'forms', 'auth', 'readme',
 ] as const;
 import { SITE } from '../astro/config';
 ---
@@ -1324,6 +1324,113 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 						<button type="submit" class="cm-btn cm-btn--primary">save</button>
 					</div>
 				</form>
+			</section>
+
+			<!-- ====================================================== auth
+			     Sign-in is not its own design language. It is the card,
+			     the field, the alert and the button this page already
+			     demonstrates, arranged for credentials - so the only NEW
+			     surface is the centred frame and the code field, and
+			     everything else is composition. The frame is shown
+			     scaled into a frame rather than at 100dvh, because a
+			     100dvh specimen inside a scrolling page pushes every
+			     other section a full screen down. -->
+			<section id="auth" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+				<h2>auth</h2>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
+					Every class below except <code>.cm-auth</code>,
+					<code>.cm-card--auth</code>, <code>.cm-code-input</code>
+					and <code>.cm-divider</code> was already in this
+					system. A sign-in screen is the card, the field, the
+					alert and the button you have just seen, arranged
+					for credentials.
+				</p>
+
+				<div class="cm-spec">
+					<div class="cm-auth" style="min-height:420px;background:var(--bg-2)">
+						<div class="cm-card cm-card--auth">
+							<div class="cm-card__head">
+								<h3 class="cm-card__title">sign in</h3>
+								<p class="cm-card__sub">use your oem account.</p>
+							</div>
+							<div class="cm-card__body">
+								<form class="cm-form" onsubmit="return false">
+									<div class="cm-field">
+										<label class="cm-field__label" for="a-email">email</label>
+										<input id="a-email" type="email" autocomplete="username" placeholder="you@mrx.sh" />
+									</div>
+									<div class="cm-field">
+										<label class="cm-field__label" for="a-pass">password</label>
+										<input id="a-pass" type="password" autocomplete="current-password" placeholder="••••••••" />
+										<span class="cm-field__help">at least 12 characters.</span>
+									</div>
+									<div class="cm-alert cm-alert--err">
+										<span class="cm-alert__mark"></span>
+										<div class="cm-alert__body">
+											<p class="cm-alert__text">that password was not recognised.</p>
+										</div>
+									</div>
+									<div class="cm-field">
+										<label class="cm-field__label" for="a-code">authenticator code</label>
+										<input id="a-code" class="cm-code-input" type="text" inputmode="numeric"
+											maxlength="6" autocomplete="one-time-code" placeholder="000000" />
+										<span class="cm-field__help">6 digits, from your authenticator app.</span>
+									</div>
+									<div class="cm-divider">or continue with</div>
+									<button type="button" class="cm-btn cm-btn--block">sign in with passkey</button>
+									<button type="submit" class="cm-btn cm-btn--primary cm-btn--block">sign in</button>
+								</form>
+							</div>
+						</div>
+					</div>
+					<p class="cm-head__sub" style="padding:var(--space-3) var(--space-4)">
+						<code>.cm-auth</code> is the centred page frame and owns the
+						measure (<code>max-width</code> on its child, not on itself,
+						so the card can never be wider than the padding allows).
+						<code>.cm-code-input</code> is the only genuinely new
+						control: a code must not read as prose, so it is centred
+						and tracked out. <code>.cm-divider</code> is a flex row
+						with two growing rules - a <code>border-top</code> on the
+						label leaves a gap no padding closes.
+					</p>
+				</div>
+
+				<h3 style="margin-top:var(--space-5)">a wider frame</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+					<code>.cm-auth--wide</code> is the same frame at a larger
+					measure, for a page that has to fit more than a
+					credential pair - a register form, or a sign-in with
+					side-by-side providers. It is <em>wider</em>, not
+					<em>looser</em>: the field gap and the label size are
+					unchanged, so it is the same screen at a different
+					amount of it.
+				</p>
+				<div class="cm-spec">
+					<div class="cm-auth cm-auth--wide" style="min-height:280px;background:var(--bg-2)">
+						<div class="cm-card cm-card--auth">
+							<div class="cm-card__head">
+								<h3 class="cm-card__title">create an account</h3>
+								<p class="cm-card__sub">one step, no email confirmation.</p>
+							</div>
+							<div class="cm-card__body">
+								<form class="cm-form" onsubmit="return false">
+									<div class="cm-field-row">
+										<div class="cm-field">
+											<label class="cm-field__label" for="b-handle">handle</label>
+											<input id="b-handle" type="text" placeholder="omiinaya" />
+										</div>
+										<div class="cm-field">
+											<label class="cm-field__label" for="b-team">team</label>
+											<input id="b-team" type="text" placeholder="mrxlab" />
+										</div>
+									</div>
+									<div class="cm-divider">or</div>
+									<button type="submit" class="cm-btn cm-btn--primary cm-btn--block">create account</button>
+								</form>
+							</div>
+						</div>
+					</div>
+				</div>
 			</section>
 
 			<section id="readme" class="cm-section cm-section--pad">

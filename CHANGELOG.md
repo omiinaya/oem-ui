@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **The login surface was a second implementation of the form system.**
+  The first draft added 21 classes (`.cm-login__field`, `__label`,
+  `__error`, `__submit`, `.cm-submit`, `.cm-totp`, `.cm-pass`, `.cm-user`
+  …) alongside components the library already owns. A field is
+  `.cm-field`, an error is `.cm-alert--err`, a submit is
+  `.cm-btn--primary`, a title is `.cm-card__title`. The duplication is
+  the failure mode the migration rules describe: a fix made in one place
+  never reaches the other. They were also **never demonstrated** - no
+  showcase section, no test, no README entry - so the suite was red on
+  arrival. 17 classes removed, 4 kept (below).
+- **`.cm-code-input` declared ten properties that could never apply.**
+  The base input rule is
+  `input:not([type=checkbox]):not([type=radio]):not([type=range])`,
+  which is (0,3,1) because `:not()` counts its argument - so a (0,1,0)
+  class rule loses on every property it restates. Verified in WebKit at
+  390px: with `font-family`, `font-size`, `color`, `background`,
+  `border`, `border-radius`, `padding`, `width`, `min-height` and
+  `line-height` all deleted, every computed value is byte-identical and
+  the box is still 201.63x44. The rule now states only the three
+  properties that genuinely differ from a prose field.
 - **The rail's scroll-spy highlighted sections in the wrong order.** The
   nav said `lists -> states -> ... -> layout -> forms` while the page
   rendered `forms` directly after `lists`, so scrolling lit up `forms`
@@ -26,6 +46,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   6 new contract tests, 26 mutations, 0 survivors.
 
 ### Added
+
+- **Auth surfaces, composed from the form system rather than beside it.**
+  `.cm-auth` (centred full-viewport frame), `.cm-auth--wide`,
+  `.cm-card--auth`, `.cm-code-input` (a one-time code, centred and
+  tracked out) and `.cm-divider` (a rule with a word in it). A consumer
+  writes no CSS: the frame owns the centring and the measure, on its
+  CHILD so the frame's padding cannot fight a `max-width`. Demonstrated
+  in the `auth` section of the showcase, both frames, 7 contract tests,
+  10 mutations (10 caught, 0 no-ops), and 15 WebKit assertions at 390px
+  and 1200px in both themes.
 
 - **The desktop nav rail.** `Header` takes a `rail` prop; above 1000px the
   header becomes a fixed column down the leading edge instead of a

@@ -5684,6 +5684,201 @@ check('the bare icon button reaches the tap floor like every other control', () 
 		'cm-icon-btn--bare is interactive and must be in the INTERACTIVE list the tap sweep checks');
 });
 
+/* ================= auth surfaces =================
+   A sign-in screen is the card, the field, the alert and the button the
+   showcase already demonstrates, arranged for credentials. The first
+   draft of this surface invented a parallel vocabulary alongside all of
+   them (.cm-login__field, __label, __error, __submit, .cm-submit,
+   .cm-totp, .cm-pass, .cm-user) - the exact duplication the migration
+   rules warn about, where a fix in one place never reaches the other.
+   These checks make the composition structural rather than advisory. */
+
+// Comment-stripped source, because every assertion below is a claim about
+// a DECLARATION and prose in this file discusses those declarations by
+// name. A check that can be satisfied by a comment is a check that
+// reports green forever.
+const compNoComment = comp.replace(/\/\*[\s\S]*?\*\//g, '');
+const baseNoComment = base.replace(/\/\*[\s\S]*?\*\//g, '');
+
+check('the auth surface composes existing components instead of re-declaring them', () => {
+	// STRUCTURAL, not a list of names. The first version enumerated the
+	// seven names the first draft happened to use and matched them with
+	// /\.cm-login[\s{,]/ - which cannot match `cm-login__field` at all,
+	// because `_` is a word character and the character after `cm-login`
+	// is an underscore, not a space. Three mutations sailed straight
+	// through it, including a differently-NAMED private class.
+	//
+	// The real invariant: the auth block may define a class ONLY if it
+	// is one of the new auth surface, or if that class is also defined
+	// elsewhere in the layer (i.e. it is a deliberate override of an
+	// existing component, not a new private name). A new block family
+	// introduced here is a second vocabulary by definition, whatever it
+	// is called.
+	const ALLOWED_NEW = new Set([
+		'cm-auth', 'cm-auth--wide', 'cm-card--auth', 'cm-code-input', 'cm-divider',
+	]);
+	const block = compNoComment.slice(compNoComment.indexOf('.cm-auth {'));
+	assert(block !== '', 'the auth block is missing from components.css');
+	// Everything after the block, for "is this class defined elsewhere".
+	const rest = compNoComment.slice(0, compNoComment.indexOf('.cm-auth {'));
+	const definedIn = (cls, src) =>
+		new RegExp(`\\.${cls.replace(/[-]/g, '\\-')}[\\s,{:]`).test(src)
+		|| new RegExp(`\\.${cls.replace(/[-]/g, '\\-')}\\s*:`).test(src);
+
+	const privateNames = new Set();
+	for (const m of block.matchAll(/\.(cm-[a-z0-9_-]+)/g)) {
+		const c = m[1];
+		// A class this block DEFINES (selector position, followed by a
+		// combinator or brace) and does not also define elsewhere. The
+		// allowlist must cover the VARIANT too: `cm-auth--wide` is a
+		// sibling of `cm-auth`, and a regex that matched only the base
+		// name reported the new surface as a private vocabulary.
+		if (!/^cm-(auth|code-input|divider)(--[a-z0-9-]+)?$/.test(c)
+			&& c !== 'cm-card--auth'
+			&& !definedIn(c, rest) && !definedIn(c, block.slice(0, m.index))) {
+			privateNames.add(c);
+		}
+	}
+	assert(privateNames.size === 0,
+		`the auth block defines a private vocabulary instead of composing the system: ${[...privateNames].join(', ')}`);
+
+	// And the same claim about the showcase: a section may only use
+	// classes the layer actually defines. `cm-submit` is gone from the
+	// CSS, so a button still carrying it is a consumer of a dead name.
+	const section = showcase.slice(showcase.indexOf('id="auth"'), showcase.indexOf('id="readme"'));
+	assert(section !== '', 'the auth section is missing from the showcase');
+	for (const m of section.matchAll(/class="([^"]*)"/g)) {
+		for (const tok of m[1].split(/\s+/)) {
+			if (!/^cm-[a-z0-9]+(?:[-_]{1,2}[a-z0-9]+)*$/.test(tok)) continue;
+			assert(definedIn(tok, compNoComment) || tok === 'cm-js',
+				`the auth section uses .${tok}, which components.css does not define - it is a dead or private name`);
+		}
+	}
+});
+
+check('the code field cannot re-break the 16px form-text floor', () => {
+	// iOS zooms the viewport on focus for any form text under 16px, and
+	// the whole page is unreadable at that zoom. The base input rule is
+	// max(var(--min-font), 1rem) = 16px.
+	//
+	// Note the shape of the claim. The first version asserted that
+	// .cm-code-input DECLARES that font-size, which is the opposite of
+	// the truth: it is (0,1,0) and LOSES to the base rule's (0,3,1), so
+	// any font-size it declares is dead code. Verified in WebKit at
+	// 390px - deleting all ten restated properties left every computed
+	// value byte-identical and the box still 201.63x44. So the invariant
+	// is the opposite one: the class must NOT declare a font-size at
+	// all, and must inherit the floor from the element default.
+	const body = (compNoComment.match(/\.cm-code-input\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(body !== '', '.cm-code-input is not defined in components.css');
+	assert(!/font-size/.test(body),
+		'cm-code-input declares a font-size; it is (0,1,0) and loses to the base (0,3,1) input rule, so it is dead');
+	// And the floor it inherits must still be the 16px form one.
+	const base = baseNoComment.match(/input:not\(\[type='checkbox'\]\):not\(\[type='radio'\]\):not\(\[type='range'\]\)\s*,\s*textarea\s*,\s*select\s*\{([^}]*)\}/);
+	assert(base, 'the base input selector was not found; this test is watching the wrong rule');
+	assert(/font-size:\s*max\(var\(--min-font\),\s*1rem\)/.test(base[1]),
+		'the base input rule no longer carries the 16px form-text floor the code field inherits');
+});
+
+check('the code field states only what differs, and nothing it cannot win', () => {
+	// A restated property here is not merely redundant - it is DEAD,
+	// because this (0,1,0) class loses to the base input rule's (0,3,1)
+	// (:not() counts its argument). Ten of them shipped in the first
+	// draft. Any property that is not a real difference from a prose
+	// field is a copy of the element default that can only drift.
+	const body = (compNoComment.match(/\.cm-code-input\s*\{([^}]*)\}/) || [, ''])[1];
+	for (const prop of ['font-family', 'color:', 'background', 'border',
+		'border-radius', 'padding', 'width:', 'line-height', 'font-size']) {
+		assert(!body.includes(prop),
+			`cm-code-input restates ${prop}; the base input default owns it and a (0,1,0) class cannot win the cascade`);
+	}
+	// The three that genuinely differ from a prose field, and the tap
+	// floor. These are what the class is FOR.
+	for (const [prop, why] of [
+		['min-height: var(--tap)', 'the code field is a primary target, typed with a thumb'],
+		['text-align: center', 'a code read digit by digit must not read as a sentence'],
+		['letter-spacing', 'the digits need to be separable at a glance'],
+	]) {
+		assert(body.includes(prop.replace(' var(--tap)', '')),
+			`cm-code-input must keep ${prop} - ${why}`);
+	}
+	assert(/min-height:\s*var\(--tap\)/.test(body),
+		'the code field must reach the tap floor from the token, not a literal');
+});
+
+check('the auth frame owns the measure on its child, not on itself', () => {
+	// A max-width on the FRAME fights the padding: with `width: 100%`
+	// plus padding and a max-width, the box overflows its own padding
+	// by exactly the difference. Putting the measure on the child means
+	// the frame can only ever hand out a card that fits inside it.
+	const frame = (compNoComment.match(/\.cm-auth\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(!/max-width/.test(frame),
+		'.cm-auth declares max-width; the measure belongs on its child so the padding cannot be fought');
+	const child = (compNoComment.match(/\.cm-auth > \*\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(/max-width:\s*26rem/.test(child),
+		'the auth child must carry the standard measure');
+	assert(/\.cm-auth--wide > \*\s*\{\s*max-width:\s*34rem/.test(compNoComment),
+		'the wide variant must widen the CHILD, not the frame');
+});
+
+check('the divider rules are flex-grown, not a border on the label', () => {
+	// A border-top on the label itself leaves the label's own box above
+	// the line, so the rule is flush with the text top and reads as a
+	// strike-through. Two flex children that grow put the line on the
+	// optical centre of the row.
+	const body = (compNoComment.match(/\.cm-divider\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(/display:\s*flex/.test(body), '.cm-divider must be a flex row to centre the label');
+	assert(/align-items:\s*center/.test(body), '.cm-divider must centre the label on the rule');
+	assert(!/border-top/.test(body),
+		'.cm-divider uses border-top; that leaves a gap beside the label no padding closes');
+	const bef = (compNoComment.match(/\.cm-divider::before,\s*\n\.cm-divider::after\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(/flex:\s*1 1 auto/.test(bef),
+		'the two rules must grow to fill the row, or the divider stops spanning it');
+});
+
+check('the showcase demonstrates both auth frames', () => {
+	// A variant nobody can see is not a variant. The standard frame and
+	// the wide one are both rendered, and the section is in the nav index
+	// so the scroll-spy reaches it.
+	for (const c of ['cm-auth', 'cm-auth--wide', 'cm-card--auth', 'cm-code-input', 'cm-divider']) {
+		assert(renderedClasses.has(c), `the showcase never renders .${c}`);
+	}
+	const section = showcase.slice(showcase.indexOf('id="auth"'), showcase.indexOf('id="readme"'));
+	assert(section !== '' && section !== showcase.slice(showcase.indexOf('id="auth"')),
+		'the auth section is missing or empty');
+	assert(/class="cm-auth cm-auth--wide"/.test(showcase),
+		'the wide auth frame is not demonstrated as a sibling of the standard one');
+});
+
+check('the auth section composes the system components, not private ones', () => {
+	// The specimen must BE the composition it claims, or the section is
+	// prose with a card in it. Each of these is a component the library
+	// already demonstrated earlier on the page.
+	const section = showcase.slice(showcase.indexOf('id="auth"'), showcase.indexOf('id="readme"'));
+	for (const [cls, what] of [
+		['cm-card', 'the card surface'],
+		['cm-field', 'the field layout'],
+		['cm-alert--err', 'the error state'],
+		['cm-btn--primary', 'the submit button'],
+		['cm-btn--block', 'the full-width action'],
+	]) {
+		assert(new RegExp(`class="[^"]*${cls}`).test(section),
+			`the auth section does not compose ${what} (.${cls})`);
+	}
+});
+
+check('the auth frame is centered without a consumer stylesheet', () => {
+	// The point of the frame: a consumer writes no CSS. The centring
+	// must be a grid + place-items in the component layer, and it must
+	// be a DYNAMIC viewport unit so a mobile browser's collapsing URL
+	// bar does not cut the card off.
+	const frame = (compNoComment.match(/\.cm-auth\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(/display:\s*grid/.test(frame) && /place-items:\s*center/.test(frame),
+		'.cm-auth must center its own card; a consumer should write no CSS for it');
+	assert(/min-height:\s*100dvh/.test(frame),
+		'.cm-auth must use 100dvh; 100vh is cut off by a mobile URL bar');
+});
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {

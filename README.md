@@ -700,6 +700,73 @@ The success state is a **non-hue cue on purpose**: this system has no
 chroma, so `--ink` on `--bg-3` has to carry it, and it has to read in
 greyscale.
 
+### Auth surfaces
+
+A sign-in screen is not its own design language. It is the card, the
+field, the alert and the button above, arranged for credentials — so
+only four classes are new here.
+
+```html
+<div class="cm-auth">
+  <div class="cm-card cm-card--auth">
+    <div class="cm-card__head">
+      <h1 class="cm-card__title">sign in</h1>
+      <p class="cm-card__sub">use your oem account.</p>
+    </div>
+    <div class="cm-card__body">
+      <form class="cm-form">
+        <div class="cm-field">
+          <label class="cm-field__label" for="email">email</label>
+          <input id="email" type="email" autocomplete="username" />
+        </div>
+        <div class="cm-alert cm-alert--err">
+          <span class="cm-alert__mark"></span>
+          <div class="cm-alert__body">
+            <p class="cm-alert__text">that password was not recognised.</p>
+          </div>
+        </div>
+        <div class="cm-field">
+          <label class="cm-field__label" for="code">authenticator code</label>
+          <input id="code" class="cm-code-input" type="text"
+                 inputmode="numeric" maxlength="6"
+                 autocomplete="one-time-code" />
+        </div>
+        <div class="cm-divider">or continue with</div>
+        <button class="cm-btn cm-btn--block">passkey</button>
+        <button class="cm-btn cm-btn--primary cm-btn--block">sign in</button>
+      </form>
+    </div>
+  </div>
+</div>
+```
+
+| class | what it is |
+|---|---|
+| `.cm-auth` | the full-viewport centred frame — the consumer writes no CSS |
+| `.cm-auth--wide` | the same frame at a larger measure (register, providers) |
+| `.cm-card--auth` | card padding, and a head that is not separated by a rule |
+| `.cm-code-input` | a one-time code: centred and tracked out |
+| `.cm-divider` | a horizontal rule with a word in the middle |
+
+Four decisions that are easy to get wrong:
+
+- **The measure is on the child, not on the frame.** `max-width` on a
+  box that also has padding and `width: 100%` overflows by exactly the
+  difference; on the child, the frame can only ever hand out a card
+  that fits inside it.
+- **`100dvh`, not `100vh`.** A mobile URL bar cuts the bottom of a
+  `100vh` page, and on a sign-in screen that is the submit button.
+- **`.cm-code-input` declares three properties and no more.** The base
+  input rule is `input:not([type=checkbox]):not([type=radio]):not([type=range])`,
+  which is (0,3,1) because `:not()` counts its argument — so a (0,1,0)
+  class rule **loses** on every property it restates. Measured in WebKit
+  at 390px: deleting all ten restated properties leaves every computed
+  value byte-identical and the box still 201.63×44. Restating them was
+  ten declarations that could only ever drift from the thing they copy.
+- **`text-indent` cancels `letter-spacing`.** Tracking pushes a centred
+  string visibly left of centre, because the trailing gap after the last
+  glyph has no counterpart at the start. Measured: 6.4px each way.
+
 ### Page shapes
 
 ```html
