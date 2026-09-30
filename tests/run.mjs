@@ -2310,6 +2310,35 @@ function ruleBodies(css, sel) {
 	return out;
 }
 
+// EVERY body of an at-rule, in source order. `ruleBodies` cannot reach
+// inside one: its regex matches the INNER rule as the BODY of the outer
+// at-rule match, so the inner selector never appears in `m[1]` and a rule
+// that only exists on a coarse pointer reads as undefined - a silent
+// wrong answer, not a failing one. (Same reason an indexed [0] into the
+// result was wrong: there are many `(pointer: coarse)` blocks and the one
+// that matters is not the first.) Returns the bodies CONCATENATED so a
+// caller can assert a rule lives somewhere in the at-rule, not in a
+// particular one.
+function allAtRuleBodies(css, prelude) {
+	const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+	const out = [];
+	const needle = prelude + ' {';
+	let at = bare.indexOf(needle);
+	while (at >= 0) {
+		const open = bare.indexOf('{', at);
+		let depth = 0;
+		for (let i = open; i < bare.length; i++) {
+			if (bare[i] === '{') depth++;
+			else if (bare[i] === '}') {
+				depth--;
+				if (depth === 0) { out.push(bare.slice(open + 1, i)); break; }
+			}
+		}
+		at = bare.indexOf(needle, at + 1);
+	}
+	return out.join('\n');
+}
+
 function isDeclared(css, cls) {
 	const bare = new RegExp(`^\\.${cls}(?![\\w-])$`);
 	for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g)) {
@@ -7667,14 +7696,61 @@ check('the sort direction is drawn from aria-sort, never from a colour class', (
 // An invalid field is marked with the ink, not a red border: the page
 // already prints the message, and red is the one hue that does not
 // survive a dark theme, a greyscale print, or red-green colour blindness.
-{
-  const lib = read('src/styles/components.css');
-  const m = lib.match(/\.cm-code\[aria-invalid='true'\]\s*\{([^}]*)\}/);
-  if (!m) fail('no .cm-code[aria-invalid] rule');
-  if (!/border-color:\s*var\(--ink\)/.test(m[1])) fail('invalid field does not mark with ink');
-  if (!/box-shadow:\s*inset/.test(m[1])) fail('invalid field has no underline mark');
-  if (/red|#f00|rgb\(2\d\d/.test(m[1])) fail('invalid field carries a hue');
-}
+check('an invalid .cm-code field is marked with the ink, never a hue', () => {
+	const m = /\.cm-code\[aria-invalid='true'\]\s*\{([^}]*)\}/.exec(compSrc);
+	assert(m, 'no .cm-code[aria-invalid="true"] rule');
+	assert(/border-color:\s*var\(--ink\)/.test(m[1]),
+		'the invalid field does not mark with ink');
+	assert(/box-shadow:\s*inset/.test(m[1]),
+		'the invalid field has no underline mark, so it differs from the ' +
+		'rest field by border colour alone');
+	assert(!/red|#f00|rgb\(2\d\d/.test(m[1]),
+		'the invalid field carries a hue; the palette is grey by design');
+});
+
+// An affordance that acts ON a control (a reveal toggle, a clear button)
+// belongs inside that control's box. `.cm-field-row` is the grid for two
+// FIELDS side by side, so a button dropped into it wraps to a second row
+// and stops lining up with the value it acts on - which is exactly what
+// the sign-in page was doing before this existed.
+check('.cm-field__control keeps its affordance on the control, not a new row', () => {
+	const ctl = ruleBodies(compSrc, '.cm-field__control')[0];
+	assert(ctl && /position:\s*relative/.test(ctl),
+		'.cm-field__control is not a positioning context, so its affordance ' +
+		'cannot sit on the control it belongs to');
+	const btn = ruleBodies(compSrc, '.cm-field__control > .cm-icon-btn')[0];
+	assert(btn && /position:\s*absolute/.test(btn) && /right:\s*0/.test(btn),
+		'the affordance is not pinned to the control\'s right edge');
+	assert(btn && /top:\s*50%/.test(btn) && /translateY\(-50%\)/.test(btn),
+		'the affordance is not centred on the control, so it drifts when the ' +
+		'control is taller than one line');
+	// the control itself must not lose width to the overlay
+	const inp = ruleBodies(compSrc, '.cm-field__control > input')[0];
+	assert(inp && /flex:\s*1 1 auto/.test(inp) && /min-width:\s*0/.test(inp),
+		'the control does not absorb the overlay, so text runs under it');
+	// and the tap target stays a full square - an absolutely positioned
+	// button defaults to shrink-to-fit, which is how a 44px rule quietly
+	// becomes a 20px one.
+	// The tap size lives INSIDE `@media (pointer: coarse)` and under the
+	// VARIANT, not the base class - so it has to be read out of the at-rule
+	// body, and it has to name `--bare`. Two ways this silently rots: the
+	// floor moves to the base class only (a desktop box, and a consumer
+	// that hand-rolls its own width gets 32x44), or it stays on the base
+	// class (a consumer that swaps the base class out loses the square).
+	// Assert it where it is declared, on the class as rendered.
+	const coarse = allAtRuleBodies(compSrc, '@media (pointer: coarse)');
+	assert(/\.cm-icon-btn--bare\s*\{[^}]*width:\s*var\(--tap\)/.test(coarse),
+		'the bare icon button is not sized to the tap floor on a coarse pointer');
+	assert(/\.cm-icon-btn--bare\s*\{[^}]*height:\s*var\(--tap\)/.test(coarse),
+		'the bare icon button is sized in width but not height, so its target ' +
+		'is a letterbox rather than a square');
+	// the overlay must not be what makes it small: absolutely positioned
+	// buttons shrink to fit their glyph unless something pins the box.
+	assert(/\.cm-field__control > \.cm-icon-btn/.test(compSrc),
+		'the affordance inside .cm-field__control is not the class that ' +
+		'carries the tap floor');
+});
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {

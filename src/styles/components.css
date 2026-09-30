@@ -1924,6 +1924,22 @@ button.cm-row:hover { background: var(--bg-2); }
 	grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
 	gap: 0 var(--gutter);
 }
+
+/* ONE control, with its own affordance on the right edge - a reveal
+   toggle, a clear button, a unit suffix. Not `.cm-field-row`: that is the
+   grid for two FIELDS side by side, so dropping a button in it makes the
+   button wrap to a second row and stop lining up with the value it acts
+   on. The affordance overlaps the field's padding and owns the right
+   `var(--tap)` of the box, so the target is a full tap square without
+   the control losing width. */
+.cm-field__control { position: relative; display: flex; }
+.cm-field__control > input { flex: 1 1 auto; min-width: 0; }
+.cm-field__control > .cm-icon-btn {
+	position: absolute;
+	top: 50%;
+	right: 0;
+	transform: translateY(-50%);
+}
 .cm-form { display: flex; flex-direction: column; }
 /* actions sit apart from the last field and align to the right */
 .cm-form__actions {
