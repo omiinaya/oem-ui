@@ -7322,6 +7322,28 @@ check('the sticky header resolves against a scrollport that scrolls', () => {
 		'scroll visibly through the header as they pass under it');
 });
 
+check('a numeric column outranks the cell rule to align on the digit', () => {
+	const comp = read('src/styles/components.css');
+	// A bare `.cm-table__num` is specificity 0,1,0 and `.cm-table td` is
+	// 0,1,1, so the cell rule wins and every duration renders
+	// left-aligned with a ragged right edge. That shipped green: the
+	// source READS correct, only the computed value disagreed.
+	const num = /([^{}\n]*cm-table__num[^{}\n]*\{[^}]*\})/.exec(comp);
+	assert(num, 'no .cm-table__num rule, so a numeric column cannot align');
+	const sel = num[1].slice(0, num[1].indexOf('{'));
+	assert(/\btd\b|\bth\b/.test(sel),
+		`the numeric rule is scoped "${sel.trim()}" with no element, so ` +
+		"`.cm-table td` (specificity 0,1,1) beats it and the column is " +
+		'left-aligned with a ragged right edge');
+	assert(/text-align:\s*right/.test(num[1]),
+		'the numeric column does not align right, so durations of different ' +
+		'lengths cannot be compared without reading each one');
+	// The header must match the cells, or the column reads as misaligned
+	// even when the values line up.
+	assert(/th[^{}\n]*cm-table__num/.test(sel) || /cm-table__num[^{}\n]*th/.test(sel),
+		'the numeric rule covers the cells but not their column header');
+});
+
 check('the log specimen is long enough to scroll inside its own cap', () => {
 	const page = read('src/pages/index.astro');
 	const spec = /id="table"[\s\S]*?<\/section>/.exec(page);

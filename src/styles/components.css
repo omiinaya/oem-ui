@@ -1163,8 +1163,18 @@ button.cm-row:hover { background: var(--bg-2); }
 /* A numeric column aligns on the digit, which is the only way a column of
    durations or sizes can be compared without reading each one. The
    `__num` form matches the BEM of the rest of the block; `.num` above is
-   kept for the older markup. */
-.cm-table__num { text-align: right; font-variant-numeric: tabular-nums; }
+   kept for the older markup.
+
+   These selectors carry the element, and that is load-bearing, not
+   decoration: `.cm-table td` is specificity 0,1,1 and a bare
+   `.cm-table__num` is 0,1,0, so the cell rule WINS and every duration
+   rendered left-aligned with a ragged right edge - measured, and it read
+   correctly in the source the whole time. */
+.cm-table td.cm-table__num,
+.cm-table th.cm-table__num {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
 /* A long host or path must not set the column width for the whole
    column - 40 hosts of wildly different lengths otherwise makes every
    row as wide as the worst one. Truncate with an ellipsis so the value
