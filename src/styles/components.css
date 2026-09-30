@@ -1122,6 +1122,22 @@ button.cm-row:hover { background: var(--bg-2); }
 	margin-top: var(--space-5);
 	display: flex; gap: var(--space-2); justify-content: center; flex-wrap: wrap;
 }
+/* The action inside an empty state is the ONLY way out of it, so on a touch
+   viewport it is a primary action and takes the tap floor even when the
+   author wrote `.cm-btn--sm`.
+
+   `.cm-btn--sm` opts out of --tap on purpose - it is for a dense row like a
+   toolbar, where 27px next to its neighbours is the point. An empty state is
+   the opposite of a dense row: it is usually the only control on screen, and
+   it is the one a thumb has to find. Measured on a 390px coarse pointer: a
+   lone `.cm-btn--sm` in a `.cm-state` was a 27px target against --tap: 44px,
+   with no other control anywhere in the specimen to carry the action.
+
+   Scoped to `.cm-state__actions` rather than to `.cm-btn--sm`, so the dense
+   rows that earn the small size keep it. */
+@media (pointer: coarse) {
+	.cm-state__actions .cm-btn { min-height: var(--tap); }
+}
 
 /* A skeleton is a placeholder, never a spinner. It is aria-hidden because
    "loading" is announced once by the region, not once per bar. */

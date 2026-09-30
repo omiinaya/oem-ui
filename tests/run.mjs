@@ -8452,6 +8452,42 @@ for (const [name, fn] of pending.splice(0)) {
 	});
 }
 
+/* ================= a thumb can hit the action ================= */
+{
+	// `.cm-btn--sm` sets min-height: 0 ON PURPOSE - it is for a dense row. But
+	// the action inside an EMPTY STATE is the only way out of it, and measured
+	// on a 390px coarse pointer it was a 27px target against --tap: 44px, as
+	// the only control in its specimen.
+	const css = read("src/styles/components.css");
+
+	check("the empty-state action takes the tap floor on a touch viewport", () => {
+		const rule = /@media\s*\(pointer:\s*coarse\)\s*\{[\s\S]*?\.cm-state__actions\s+\.cm-btn\s*\{[^}]*min-height:\s*var\(--tap\)/.exec(css);
+		if (!rule)
+			throw new Error("no (pointer: coarse) rule giving .cm-state__actions .cm-btn min-height: var(--tap)");
+	});
+
+	check("the tap floor rule is scoped to the empty state, not to every small button", () => {
+		// Scoping it to .cm-btn--sm would resize every dense toolbar row on a
+		// phone, which is the exact thing .cm-btn--sm exists to avoid.
+		const block = /@media\s*\(pointer:\s*coarse\)\s*\{([\s\S]*?)\n\}/.exec(css);
+		const body = block ? block[1] : "";
+		if (/\.cm-btn--sm\s*\{[^}]*min-height/.test(body))
+			throw new Error("the coarse-pointer floor leaks onto .cm-btn--sm itself");
+	});
+
+	check("the tap floor is a token, not a literal", () => {
+		if (!/min-height:\s*var\(--tap\)/.test(css))
+			throw new Error("the coarse-pointer floor does not use var(--tap)");
+	});
+
+	check("the small variant still documents that it steps below the floor", () => {
+		// If this ever silently becomes 44px everywhere the dense-row decision
+		// is gone and nobody will notice, because the page still looks fine.
+		if (!/\.cm-btn--sm\s*\{[^}]*min-height:\s*0/.test(css))
+			throw new Error(".cm-btn--sm no longer steps below the tap floor");
+	});
+}
+
 /* ================= result ================= */
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length) {
