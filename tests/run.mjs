@@ -1233,7 +1233,7 @@ check('no layer hardcodes a raw rem/px spacing value', () => {
 	for (const f of ['src/styles/base.css', 'src/styles/components.css']) {
 		const css = read(f).replace(/\/\*[\s\S]*?\*\//g, '');
 		for (const m of css.matchAll(dec)) {
-			assert.fail(`${f}: ${m[1]}${m[2]}: ${m[3]}${m[4]} is a raw spacing value; use var(--space-*)`);
+			assert(false, `${f}: ${m[1]}${m[2]}: ${m[3]}${m[4]} is a raw spacing value; use var(--space-*)`);
 		}
 	}
 });
@@ -6394,6 +6394,44 @@ check('the code field states only what differs, and nothing it cannot win', () =
 	}
 	assert(/min-height:\s*var\(--tap\)/.test(body),
 		'the code field must reach the tap floor from the token, not a literal');
+});
+
+check('the inline-edit display half is an affordance, not a box', () => {
+	// The claim: a value you can change in place announces itself with a
+	// dotted underline and a text cursor, NOT with a border and padding on
+	// every cell. A box per cell turns a table into a form, and the editing
+	// affordance disappears into the chrome. Each mutation below deletes one
+	// of the three parts that make that true.
+	const disp = (compSrc.match(/\.cm-inline\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(disp, '.cm-inline is not defined');
+	assert(/border-bottom:\s*1px dotted/.test(disp),
+		'the display half must carry the dotted underline; without it the value reads as static text');
+	assert(/cursor:\s*text/.test(disp),
+		'the display half must set a text cursor, or it does not advertise that it is editable');
+	// `max-width: none` still contains the substring "max-width", so a
+	// presence check passes on the very value that removes the bound. The
+	// claim is that it is BOUNDED, which means a length, not a keyword.
+	assert(/text-overflow:\s*ellipsis/.test(disp), 'the display half must ellipsize');
+	assert(/max-width:\s*[\d.]+rem/.test(disp),
+		'the display half must be bounded by a LENGTH; max-width: none is not a bound, and a long value then pushes the row wider than the viewport');
+	// The wide measure is for a hostname; the default is for a label.
+	const wide = (compSrc.match(/\.cm-inline--wide\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(wide && /max-width:\s*32rem/.test(wide),
+		'the wide variant must be wider than the default measure');
+});
+
+check('the editing half inherits the field treatment', () => {
+	// The input REPLACES the span in place. If it does not carry a box, a
+	// border and the ink, the value changes size and contrast the instant
+	// you click it - the row jumps under the pointer mid-edit.
+	const inp = (compSrc.match(/\.cm-inline__input\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(inp, '.cm-inline__input is not defined');
+	assert(/border:\s*1px solid/.test(inp),
+		'the editing half needs a box; a bare field on a bare cell is not clickable');
+	assert(/max-width:\s*inherit/.test(inp),
+		'the editing half must inherit the display half\'s measure, or the value changes width on edit');
+	assert(/font:\s*inherit/.test(inp),
+		'the editing half must inherit the font, or the row changes height mid-edit');
 });
 
 check('a selected row is a left rule and a tint, not an outline', () => {

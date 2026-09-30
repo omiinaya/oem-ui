@@ -812,6 +812,18 @@ import { SITE } from '../astro/config';
 				</div>
 			</section>
 
+				<h3 class="cm-kicker" style="margin-top:var(--space-6)">inline edit</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+					A data surface is mostly values you want to change in place.
+					The display half is a <strong>dotted underline</strong>, not a
+					box: a box on every cell turns a table into a form.
+				</p>
+				<div style="display:flex;gap:var(--space-5);align-items:baseline;flex-wrap:wrap">
+					<span class="cm-inline" tabindex="0">app.example.com</span>
+					<span class="cm-inline cm-inline--wide" tabindex="0">a-very-long-forward-hostname.example.com</span>
+					<input class="cm-inline__input" style="max-width:14rem" value="editing" aria-label="editing state">
+				</div>
+
 
 			<!-- ==================================================== code
 			     The one surface the runtime had and the library never

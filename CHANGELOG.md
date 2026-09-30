@@ -68,6 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Selection and state marks** (`.cm-section--on`, `.cm-dot`, `.cm-dot--on`): a data surface needs a selected row and a live/off indicator, and twelve consumers each invented one - in hue. A selected row is a left rule and a tint, not an outline, so a column of them scans as a column; on is a FILLED dot and off is a HOLLOW one, so the distinction survives greyscale.
 
+- **Inline edit** (`.cm-inline`, `.cm-inline--wide`, `.cm-inline__input`): a data surface is mostly values you want to change in place, and every consumer rewrote the same double-click-to-edit span with its own padding and ring. The display half is a DOTTED UNDERLINE and a text cursor, not a box - a box on every cell turns a table into a form. The editing half inherits the font and the measure, so the value does not change size the instant you click it.
+
 ### Fixed
 - **The inline row no longer starves its own excerpt.** The title column
   was `flex: 0 0 42ch` with `flex-shrink: 0`, so it held 404px and never

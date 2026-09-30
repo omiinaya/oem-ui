@@ -2800,6 +2800,56 @@ html {
 	border-color: var(--ink);
 }
 
+/* ---------- inline edit: a value that becomes a field ----------
+   A data surface is mostly values you want to change in place, and every
+   consumer reinvented it: a span that becomes an input on double-click,
+   with its own padding, border and focus ring written out again each time.
+
+   The DISPLAY half is a span with a dotted underline, not a box - a box on
+   every cell turns a table into a form, and the affordance disappears into
+   the chrome. The hover/focus underline is what says "this is editable".
+
+   `cm-inline` is display + affordance, `cm-inline--wide` the wider measure a
+   domain or URL needs, and `cm-inline__input` the editing half. The input
+   inherits the field treatment so it does not change size when it appears. */
+.cm-inline {
+	cursor: text;
+	border-bottom: 1px dotted var(--line);
+	padding-bottom: var(--space-1);
+	max-width: 22rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	display: inline-block;
+	vertical-align: bottom;
+}
+.cm-inline:hover,
+.cm-inline:focus-visible {
+	border-bottom-color: var(--ink-dim);
+}
+/* Keyboard users get the same affordance as the mouse. */
+.cm-inline:focus-visible {
+	outline: 2px solid var(--ink);
+	outline-offset: 2px;
+}
+.cm-inline--wide { max-width: 32rem; }
+
+.cm-inline__input {
+	display: inline-block;
+	width: 100%;
+	max-width: inherit;
+	font: inherit;
+	color: var(--ink);
+	background: var(--bg);
+	border: 1px solid var(--ink-dim);
+	border-radius: var(--radius-sm);
+	padding: 0 var(--space-1);
+}
+.cm-inline__input:focus-visible {
+	outline: 2px solid var(--ink);
+	outline-offset: 1px;
+}
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;
