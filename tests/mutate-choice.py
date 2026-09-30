@@ -717,6 +717,52 @@ MUTANTS += [
      '.cm-chip > svg'),
 ]
 
+
+MUTANTS += [
+    # --- the sort header is a control, not a decorated th ---
+    ('sortcol-not-a-button',
+     'button.cm-table__sort {',
+     '.cm-table__sort {',
+     'a sorted column is a button in a th, not a clickable th',
+     'button.cm-table__sort {'),
+    ('sortcol-no-th',
+     'th.cm-table__sortcol {',
+     'th.cm-table__sortcol-disabled {',
+     'a sorted column is a button in a th, not a clickable th',
+     'th.cm-table__sortcol {'),
+    ('sortcol-narrow-target',
+     '\twidth: 100%;',
+     '\twidth: auto;',
+     'a sorted column is a button in a th, not a clickable th',
+     'button.cm-table__sort {'),
+    ('sortcol-sub-tap',
+     '\tmin-height: var(--tap);',
+     '\tmin-height: 24px;',
+     'a sorted column is a button in a th, not a clickable th',
+     'button.cm-table__sort {'),
+    ('sortcol-no-pointer',
+     '\tcursor: pointer;',
+     '\tcursor: default;',
+     'a sorted column is a button in a th, not a clickable th',
+     'button.cm-table__sort {'),
+    ('sortcol-no-focus',
+     'button.cm-table__sort:focus-visible {',
+     'button.cm-table__sort:focus {',
+     'a sorted column is a button in a th, not a clickable th',
+     'button.cm-table__sort:focus-visible {'),
+    # --- the direction mark must be drawn from the announced state ---
+    ('sortcol-mark-not-from-ariasort',
+     "button.cm-table__sort[aria-sort='descending']::after {",
+     "button.cm-table__sort[data-dir='descending']::after {",
+     'the sort direction is drawn from aria-sort, never from a colour class',
+     "button.cm-table__sort[aria-sort='descending']::after {"),
+    ('sortcol-idle-marked',
+     '\tbackground: transparent;',
+     '\tbackground: var(--ink-faint);',
+     'the sort direction is drawn from aria-sort, never from a colour class',
+     'button.cm-table__sort::after {'),
+]
+
 if __name__ == '__main__':
 
     sys.exit(main())

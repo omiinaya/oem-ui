@@ -2948,6 +2948,69 @@ button.cm-row:hover { background: var(--bg-2); }
 	color: var(--ink-dim);
 }
 
+/* ---------- a sortable column header ----------
+   A `<th onClick>` is not a control: it is not focusable, Enter and
+   Space do nothing, and a screen reader never announces it as
+   actionable. The button goes INSIDE the th - that is what
+   `<th scope="col"><button aria-sort-…>` is for - and the button is
+   stretched across the whole cell so the whole header is the target,
+   not the four pixels of text. A 6px dot marks the live column: the
+   direction is a glyph, not a colour, because a sorted column and an
+   unsorted one differ in exactly one way a reader must not have to
+   infer from tint. */
+th.cm-table__sortcol {
+	padding: 0;
+	text-align: left;
+}
+th.cm-table__sortcol.right {
+	text-align: right;
+}
+button.cm-table__sort {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	width: 100%;
+	min-height: var(--tap);
+	padding: var(--space-2) var(--space-3);
+	border: 0;
+	background: none;
+	font: inherit;
+	color: inherit;
+	text-align: inherit;
+	cursor: pointer;
+	transition: color var(--cm-t) var(--cm-ease);
+}
+th.cm-table__sortcol.right button.cm-table__sort {
+	justify-content: flex-end;
+}
+button.cm-table__sort:hover {
+	color: var(--ink);
+}
+button.cm-table__sort:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: -2px;
+}
+button.cm-table__sort::after {
+	content: '';
+	width: 6px;
+	height: 6px;
+	flex: 0 0 auto;
+	border-radius: 50%;
+	background: transparent;
+}
+button.cm-table__sort[aria-sort='ascending']::after,
+button.cm-table__sort[aria-sort='descending']::after {
+	background: var(--ink-dim);
+}
+button.cm-table__sort[aria-sort='ascending']::after {
+	border-radius: 50% 50% 0 50%;
+	transform: rotate(45deg);
+}
+button.cm-table__sort[aria-sort='descending']::after {
+	border-radius: 50% 50% 50% 0;
+	transform: rotate(45deg);
+}
+
 /* ---------- icon sizing, decided by the container ----------
    An icon set (lucide, feather, whatever) ships every glyph at a 24x24
    viewBox and no intrinsic size, so an <svg> with no width and no
@@ -2977,7 +3040,6 @@ button.cm-row > span > svg {
 	width: 1em;
 	height: 1em;
 }
-.cm-chip > svg,
 .cm-stat__label > svg,
 .cm-meter__label > svg,
 .cm-tag > svg {
@@ -2985,7 +3047,12 @@ button.cm-row > span > svg {
 	width: 1em;
 	height: 1em;
 }
+/* A chip is set smaller than a label, so its glyph is 0.9em. Stated here
+   rather than as an override of a rule this selector is also listed in:
+   two rules naming one selector means the second silently wins and no
+   reader can tell which of them is the real one. */
 .cm-chip > svg {
+	flex: 0 0 auto;
 	width: 0.9em;
 	height: 0.9em;
 }

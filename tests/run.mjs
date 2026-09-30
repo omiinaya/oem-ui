@@ -7556,7 +7556,11 @@ check('the inline navigation word is a real control', () => {
 	const link = declsFor(src, 'button.cm-link');
 	assert(/display:\s*inline(?!-)/.test(link),
 		'the inline link is not display:inline, so it breaks the prose line box');
-	assert(/padding:\s*0/.test(link) && /border:\s*0/.test(link),
+	// `padding: 0` must be checked as the VALUE 0, not as the string "0".
+	// `/padding:\s*0/` also matches `padding: 0.5em 1em`, which boxes the
+	// link and breaks the prose line - the exact defect this rule exists
+	// to prevent, and it survived a mutation run because of it.
+	assert(/padding:\s*0\s*;/.test(link) && /border:\s*0\s*;/.test(link),
 		'the inline link still carries a button box, so it breaks the prose');
 	// The focus ring is a SEPARATE `button.cm-link:focus-visible` rule, so
 	// it is deliberately not in `link`. Asking `link` for it would fail
@@ -7608,6 +7612,56 @@ check('a chip sizes its own icon, slightly tighter than a button', () => {
 	assert(chip && /width:\s*0\.9em/.test(chip),
 		'the chip icon is not sized, so a chip with a glyph and a chip ' +
 		'without one have different visual weights');
+});
+
+/* ---------- a sortable column header is a real control ---------- */
+
+check('a sorted column is a button in a th, not a clickable th', () => {
+	const comp = read('src/styles/components.css');
+	// The button has to exist as its own element, not as a `th:hover`
+	// rule: a `<th onClick>` is not focusable and Enter does nothing.
+	assert(/button\.cm-table__sort\s*\{/.test(comp),
+		'there is no button.cm-table__sort rule, so a sortable column has ' +
+		'to be a th with a click handler - not focusable, no Enter, no ' +
+		'role, and nothing for a screen reader to announce');
+	// ...and the th must be able to drop its own padding, or the button
+	// cannot be stretched across the cell.
+	assert(/th\.cm-table__sortcol\s*\{/.test(comp),
+		'no th.cm-table__sortcol rule, so the cell keeps its padding and ' +
+		'only the text itself is clickable');
+	const btn = /button\.cm-table__sort\s*\{([^}]*)\}/.exec(comp);
+	assert(/width:\s*100%/.test(btn[1]),
+		'the sort button does not fill its cell, so the target is the few ' +
+		'pixels of the label rather than the whole header');
+	assert(/min-height:\s*var\(--tap\)/.test(btn[1]),
+		'the sort button can drop below the tap floor, so on a phone the ' +
+		'only way to re-sort is to hit a sub-44px target');
+	assert(/cursor:\s*pointer/.test(btn[1]),
+		'the sort button does not say it is clickable');
+	assert(/button\.cm-table__sort:focus-visible\s*\{/.test(comp),
+		'the sort button has no focus ring, so a keyboard user sorting a ' +
+		'column cannot see where they are');
+});
+
+check('the sort direction is drawn from aria-sort, never from a colour class', () => {
+	const comp = read('src/styles/components.css');
+	// The visible mark and the announced state must be one source. If
+	// the dot were its own class the two could drift: a header that
+	// announces "ascending" and draws nothing.
+	assert(/button\.cm-table__sort\[aria-sort='descending'\]::after\s*\{/.test(comp),
+		'the sort mark is not drawn from aria-sort, so the direction a ' +
+		'screen reader announces and the direction a reader sees can ' +
+		'disagree');
+	const dot = /button\.cm-table__sort\[aria-sort='descending'\]::after\s*\{([^}]*)\}/.exec(comp);
+	assert(/background:\s*var\(--ink-dim\)/.test(dot[1]),
+		'the active sort mark uses a hardcoded or absent colour, so it is ' +
+		'tinted rather than drawn from the palette');
+	// An unsorted column must be visibly unsorted, or the reader cannot
+	// tell which column the table is currently ordered by.
+	const idle = /button\.cm-table__sort::after\s*\{([^}]*)\}/.exec(comp);
+	assert(idle && /background:\s*transparent/.test(idle[1]),
+		'an unsorted header draws the same mark as a sorted one, so the ' +
+		'table never says which column it is ordered by');
 });
 
 /* ================= async checks (installer) ================= */
