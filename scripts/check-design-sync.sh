@@ -227,6 +227,48 @@ for t in "${targets[@]}"; do
 					;;
 			esac
 
+			# Importing components.css is not the same as USING it. The
+			# check above is satisfied by the string "components.css"
+			# appearing anywhere in the source, and that is a statement
+			# about a FILENAME. It said nothing about whether any page
+			# emits a single class the file defines.
+			#
+			# The gap is not hypothetical. dev-blog imports all three
+			# layers, so it passed the file-level reachability check, and
+			# its Header.astro was built from its own un-prefixed classes
+			# -- brand, internal-links, controls, a bare <header> -- so no
+			# page emitted .cm-header at all. The library header was
+			# styled, shipped and never rendered. A change to .cm-header
+			# could not be verified against that site, because that site
+			# does not have one.
+			#
+			# Reported as a note, not a failure, because a consumer may
+			# legitimately adopt the design system with its own header --
+			# that is a design choice, not drift. But it must be VISIBLE,
+			# because "in sync" reads as "adopted", and here the two had
+			# come apart for a week. A note costs one line; a false
+			# failure here would train the reader to ignore the checker.
+			# The class is matched as a WORD, not as ".cm-header": a
+			# consumer emits `class="cm-header"`, and the selector form
+			# misses every one of them. That made this note fire on a
+			# correct consumer, which is the crying-wolf failure this
+			# script is written to avoid.
+			#
+			# `cm-header__nav` and `cm-header__link` count too: a page
+			# that renders the list without the wrapper is still using
+			# the library header's classes, and the point of the note is
+			# "is this site's nav the library's", not "is the exact root
+			# element present".
+			case "$blob" in
+			*cm-header*) ;;
+			*)
+				echo "  note: $t imports components.css, which defines .cm-header,"
+				echo "        but no source file emits that class -- this site has no"
+				echo "        library header. Fine if it uses its own; unreadable as"
+				echo "        adoption, and a .cm-header change cannot be verified here."
+				;;
+			esac
+
 			# The FOUC guard is NOT optional the way the runtime is. A
 			# project can legitimately adopt the design system and not
 			# want a theme toggle, but a vendored guard that no <head>

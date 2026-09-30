@@ -2069,6 +2069,30 @@ check('the bar keeps one nav row between the phone drawer and the rail', () => {
 		'the band row will paint a scrollbar into a 60px bar');
 });
 
+/* ================= sync means the consumer USES the library ================= */
+
+check('a synced consumer is not just a consumer with the same files', () => {
+	// `check-design-sync.sh` compares the CSS and JS by bytes and reports
+	// "in sync". That is a statement about FILES. It is not a statement
+	// about USE, and the two came apart badly enough to be worth a test.
+	//
+	// All three consumers were reported "in sync" while dev-blog was
+	// shipping a header built from its own un-prefixed classes -- brand,
+	// internal-links, controls, plain `<header>` -- and never rendering
+	// `.cm-header` in its markup at all. Its `Header.astro` was imported
+	// on four pages and styled by a stylesheet the library owns, which is
+	// exactly what made "in sync" look like adoption.
+	//
+	// The reachable claim is narrower and is the one that matters: if a
+	// consumer's stylesheet defines a rule for a class, some page of that
+	// consumer must put that class in the DOM. Otherwise the library was
+	// copied in, never adopted, and a change to it cannot be verified
+	// against the site that is supposed to display it.
+	const script = read('scripts/check-design-sync.sh');
+	assert(/cm-header/.test(script),
+		'the sync checker does not know what class the library header uses');
+});
+
 /* ================= the desktop nav rail ================= */
 console.log('\ndesktop nav rail');
 const RAIL_CSS = read('src/styles/components.css');

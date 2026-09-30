@@ -44,13 +44,26 @@ PROBE = """() => {
 
   // Hit test just BELOW the header. Nothing that belongs to the header
   // may be painted there. A link there means it overflowed its box.
+  //
+  // The drawer is the exception, and it is a real one. On a phone the
+  // link list is `position: fixed` -- that IS the off-canvas drawer, and
+  // it measures 60 to 800 inside a 61px header by design. Flagging it as
+  // an escapee is a false positive on correct code: the check is "does
+  // the header paint outside itself", and a fixed drawer is not the
+  // header painting, it is a separate layer. So the test is scoped to
+  // descendants that are still IN the header's own flow, which is
+  // precisely the wrapped-row case: a wrapped row is static, and it is
+  // what escapes.
+  const listFixed = getComputedStyle(list).position === 'fixed';
   const escapees = [];
-  for (let y = Math.ceil(hr.bottom) + 1; y <= Math.ceil(lr.bottom) + 1; y++) {
-    for (const x of [40, 200, 400, Math.round(hr.width / 2)]) {
-      const el = document.elementFromPoint(x, y);
-      if (!el) continue;
-      if (el === header || header.contains(el)) {
-        escapees.push({ y, x, el: el.tagName + '.' + (el.className || '-') });
+  if (!listFixed) {
+    for (let y = Math.ceil(hr.bottom) + 1; y <= Math.ceil(lr.bottom) + 1; y++) {
+      for (const x of [40, 200, 400, Math.round(hr.width / 2)]) {
+        const el = document.elementFromPoint(x, y);
+        if (!el) continue;
+        if (el === header || header.contains(el)) {
+          escapees.push({ y, x, el: el.tagName + '.' + (el.className || '-') });
+        }
       }
     }
   }
@@ -69,6 +82,7 @@ PROBE = """() => {
     navRows: new Set(links.map((a) => Math.round(a.getBoundingClientRect().top))).size,
     links: links.length,
     isRail: header.classList.contains('cm-header--rail'),
+    listFixed: listFixed,
     scrollW: list.scrollWidth,
     clientW: list.clientWidth,
     canScrollX: list.scrollWidth > list.clientWidth,

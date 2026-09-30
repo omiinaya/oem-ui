@@ -5,6 +5,14 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- `check-design-sync.sh` now distinguishes syncing a file from ADOPTING it.
+  Importing `components.css` is a claim about a filename; it says nothing
+  about whether a page emits a class the file defines. `dev-blog` imported
+  all three layers and rendered no `.cm-header` at all -- its header is
+  built from its own un-prefixed classes. It is now reported as a note,
+  because using your own header is a design choice, but the gap between
+  "in sync" and "adopted" is no longer silent.
+
 ## Fixed
 - The header bar no longer paints outside its own box. Between the phone
   drawer (640px) and the rail (1000px) the bar's nav was `flex-wrap: wrap`
