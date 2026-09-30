@@ -38,6 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `cm-header__group` / `cm-header__group-label`: grouped rail nav. An
+  application rail has labelled groups, and the flat `.cm-header__links`
+  could not express one without faking the label out of a link - which
+  inherits the 44px tap floor onto a heading that is not a target. The
+  label declares `min-height: 0` for exactly that reason. Six contract
+  checks added, mutation-verified (6/6).
 - **`--measure-title`, and a specimen that reports its own live state.** The
   inline list row now gives its title column a named measure, so a list
   reads as a table instead of a ragged stack of lines. It ships with a

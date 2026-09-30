@@ -5364,6 +5364,43 @@ function isClassDefined(css, cls) {
 	return false;
 }
 
+/* ---------- grouped rail nav ----------
+   rpm's sidebar is grouped (Hosting / Security / Monitoring). The library
+   had no element for a group, so the consumer would have had to fake one
+   out of a `.cm-header__link`. That inherits the tap floor onto a heading
+   that is not a target, which is both a dead 44px box for a screen reader
+   and a false positive for the reachability audit. */
+check('the grouped rail nav has its own wrapper and label', () => {
+	for (const cls of ['cm-header__group', 'cm-header__group-label']) {
+		assert(isClassDefined(comp, cls), `.${cls} is not defined as a selector of its own`);
+	}
+});
+
+check('a group label is not a target: it must not inherit the tap floor', () => {
+	const bodies = ruleBodies(comp, '.cm-header__group-label');
+	assert(bodies.length > 0, '.cm-header__group-label has no rule body to read');
+	const all = bodies.join('\n');
+	assert(/min-height:\s*0/.test(all),
+		'.cm-header__group-label must declare min-height: 0 so a heading is not a 44px dead target');
+});
+
+check('the group wrapper is a flex column of its own full width', () => {
+	const bodies = ruleBodies(comp, '.cm-header__group');
+	assert(bodies.length > 0, '.cm-header__group has no rule body to read');
+	const all = bodies.join('\n');
+	assert(/flex-direction:\s*column/.test(all), '.cm-header__group must stack label over links');
+	assert(/align-self:\s*stretch/.test(all),
+		'.cm-header__group must align-self: stretch, or it shrink-wraps and drifts off the rail edge');
+	assert(/width:\s*100%/.test(all), '.cm-header__group must take the full rail width');
+});
+
+check('groups are separated by a token step, not a raw rem', () => {
+	const bodies = ruleBodies(comp, '.cm-header__group + .cm-header__group');
+	assert(bodies.length > 0, 'there is no rule separating adjacent groups');
+	assert(/margin-top:\s*var\(--space-/.test(bodies.join('\n')),
+		'group separation must come from the spacing scale, not a raw rem');
+});
+
 check('the copy surface is defined as classes of its own', () => {
 	for (const cls of ['cm-copy', 'cm-copy__state', 'cm-codebar', 'cm-codebar__bar', 'cm-codebar__lang']) {
 		assert(isClassDefined(comp, cls), `.${cls} is not defined as a selector of its own`);
@@ -6248,7 +6285,6 @@ check('the auth surface composes existing components instead of re-declaring the
 	]);
 	const block = compNoComment.slice(compNoComment.indexOf('.cm-auth {'));
 	assert(block !== '', 'the auth block is missing from components.css');
-	// Everything after the block, for "is this class defined elsewhere".
 	const rest = compNoComment.slice(0, compNoComment.indexOf('.cm-auth {'));
 	const definedIn = (cls, src) =>
 		new RegExp(`\\.${cls.replace(/[-]/g, '\\-')}[\\s,{:]`).test(src)

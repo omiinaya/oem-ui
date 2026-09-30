@@ -2660,6 +2660,46 @@ html {
    so the shape of the bar carries meaning too, not just its length. */
 .cm-meter--faint .cm-meter__fill { background: var(--line); }
 
+/* ---------- grouped rail nav ----------
+   An application rail has labelled groups (Hosting, Security, Monitoring).
+   The base `.cm-header__links` is a flat list of destinations, and a
+   consumer faking groups with a heading row inside it gets two defects
+   that no source check sees:
+     1. the heading inherits `min-height: var(--tap)` and the flex row
+        layout, so a label sits in a 44px target that is not one; and
+     2. `> .cm-header__link` matches nothing for the heading, so the
+        heading paints unstyled while every sibling link is styled -
+        the group label is the only visible oddity on the rail.
+   So the group owns its own element rather than borrowing a link's.
+
+   `.cm-header__group` is a WRAPPER: the heading must not be a grid or
+   flex item that takes its own track, and it must not be a
+   `.cm-header__link`. The list inside resets the tap floor's spacing so
+   grouped and ungrouped rails have identical link geometry. */
+.cm-header__group {
+	display: flex;
+	flex-direction: column;
+	align-self: stretch;
+	width: 100%;
+}
+.cm-header__group + .cm-header__group { margin-top: var(--space-4); }
+.cm-header__group-label {
+	display: block;
+	padding: 0 var(--gutter);
+	margin-bottom: var(--space-1);
+	color: var(--ink-faint);
+	font-size: var(--min-font);
+	line-height: 1.6;
+	text-transform: uppercase;
+	letter-spacing: 0.14em;
+	/* A heading is not a target. It must never inherit --tap, or a
+	   screen reader and a thumb both see a 44px interactive box that
+	   does nothing when pressed. */
+	min-height: 0;
+	font-weight: 400;
+}
+.cm-header__group .cm-header__links { gap: 0; }
+
 /* ------------------------------------------------------- auth surfaces
    A sign-in screen is a form, a card and an alert that happen to be about
    credentials. It is assembled here from the vocabulary the library

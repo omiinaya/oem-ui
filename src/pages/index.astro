@@ -270,6 +270,34 @@ import { SITE } from '../astro/config';
 					</div>
 				</div>
 
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">grouped rail</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+					An application rail has labelled groups. The label is its own element,
+					not a link: a heading wearing a link's class inherits the 44px tap floor
+					and becomes a dead target for a screen reader.
+				</p>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>group</code></span>
+						<span class="cm-spec__sample" style="display:flex;flex-direction:column;gap:var(--space-2);min-width:15rem">
+							<div class="cm-header__group">
+								<span class="cm-header__group-label">hosting</span>
+								<div class="cm-header__links">
+									<a href="#nav" class="cm-header__link is-active">proxy hosts</a>
+									<a href="#nav" class="cm-header__link">streams</a>
+								</div>
+							</div>
+							<div class="cm-header__group">
+								<span class="cm-header__group-label">security</span>
+								<div class="cm-header__links">
+									<a href="#nav" class="cm-header__link">access lists</a>
+								</div>
+							</div>
+						</span>
+						<span class="cm-spec__val"><code>cm-header__group</code></span>
+					</div>
+				</div>
+
 				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">mobile disclosure</h3>
 				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
 					Twelve links do not fit a phone, so under 640px the nav collapses
