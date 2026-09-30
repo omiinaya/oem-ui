@@ -53,6 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`.cm-switch`** - an on/off control for "this whole behaviour is on or off", as distinct from `cm-check`'s "include this row". The knob's position carries the state, and the on-state track fills with the ink token, so nothing is signalled by hue. The `<input type=checkbox>` stays on top at zero opacity and is the real control: tap target, focus target, form value. Replaces the two-div-with-a-translate toggle in Templates, which had no role, no name and no keyboard path. Knob geometry derives from `--track-h` via `--knob-d`, so both ends stay flush when the track changes.
+
+- **Switch geometry tokens** (`--track-w`, `--track-h`, `--knob-d`, `--knob-inset`).
+
+### Added
+
 - **`.cm-dialog--sheet`** - a side sheet built on the same native `<dialog>` as the confirm modal, anchored to the right edge instead of the centre. Only the frame changes, so the focus trap, Escape, the top layer and the inertness of the page behind it stay the platform's job. Full-width and flush below 640px, with a sticky head. Replaces the hand-rolled `fixed inset-0` overlay that had none of those.
 
 ### Added

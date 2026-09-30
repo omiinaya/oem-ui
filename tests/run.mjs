@@ -7141,6 +7141,57 @@ check('the sheet goes full-bleed on a phone', () => {
 		'panel is centred in a 390px screen with backdrop showing either side');
 });
 
+/* ---------- the switch is a real control, not a painted div ---------- */
+
+check('the switch keeps a real checkbox as its control', () => {
+	const comp = read('src/styles/components.css');
+	// A div with a click handler has no role, no name, no form value and no
+	// keyboard path. The input must exist and must cover the control.
+	const rule = [...comp.matchAll(/([^{}\n]*\.cm-switch > input\[type='checkbox'\][^{}\n]*\{[^}]*\})/g)][0];
+	assert(rule, 'the switch has no styled checkbox: it is a div, not a control');
+	assert(/position:\s*absolute/.test(rule[1]) && /inset:\s*0/.test(rule[1]),
+		'the real checkbox is not laid over the control, so the visible track ' +
+		'is what gets clicked and the input is only reachable by keyboard');
+	assert(/opacity:\s*0/.test(rule[1]),
+		'the real checkbox is not transparent, so it draws a second box on ' +
+		'top of the track instead of the track being the whole control');
+});
+
+check('the switch knob lands flush at both ends of its track', () => {
+	const comp = read('src/styles/components.css');
+	const tok = read('src/styles/tokens.css');
+	// The on-state transform is computed from the token, not typed in. If
+	// someone hardcodes a distance the knob drifts when the track changes.
+	const on = [...comp.matchAll(/([^{}\n]*\.cm-switch > input:checked[^{}\n]*\{[^}]*\})/g)]
+		.map(m => m[1]).join('\n');
+	assert(/translateX\(calc\(/.test(on),
+		'the on-state knob position is a literal, so it drifts out of the ' +
+		'track the moment the track token changes');
+	assert(/var\(--track-w\)/.test(on) && /var\(--knob-d\)/.test(on) && /var\(--knob-inset\)/.test(on),
+		'the on-state knob position does not derive from the track and knob ' +
+		'tokens, so the two ends cannot both be flush');
+	// And the knob must be smaller than the track, or there is no travel.
+	const d = /--knob-d:\s*calc\(([^)]*)\)/.exec(tok);
+	assert(d, '--knob-d is a literal, not a calc, so the knob and the track are two independent numbers that can disagree');
+	assert(/--track-h/.test(d[1]),
+		'--knob-d is not derived from --track-h, so the knob and the track ' +
+		'are two independent numbers that can disagree');
+});
+
+check('the switch state is drawn by position and weight, not by hue', () => {
+	const comp = read('src/styles/components.css');
+	const knob = /([^{}\n]*\.cm-switch__knob\s*\{[^}]*\})/.exec(comp);
+	assert(knob, 'no .cm-switch__knob rule');
+	assert(!/#[0-9a-f]{3,8}\b/.test(knob[1]),
+		'the knob hardcodes a colour, so the switch is signalling by hue');
+	// On means "filled": the track takes the ink token. Off stays neutral.
+	const on = [...comp.matchAll(/([^{}\n]*\.cm-switch > input:checked ~ \.cm-switch__track\s*\{[^}]*\})/g)][0];
+	assert(on, 'the on-state track colour is never declared');
+	assert(/var\(--ink\)/.test(on[1]),
+		'the on-state track does not fill with the ink token, so "on" is not ' +
+		'carried by weight');
+});
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {

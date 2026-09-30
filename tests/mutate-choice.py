@@ -208,6 +208,43 @@ MUTANTS = [
         '@media (max-width: 640px) {\n\t.cm-dialog--sheet',
     ),
 
+    (
+        'the switch stops being a control',
+        "position: absolute;\n\tinset: 0;\n\tmargin: 0;\n\topacity: 0;",
+        "position: absolute;\n\tinset: 0;\n\tmargin: 0;",
+        'the real checkbox is not transparent, so it draws a second box on top of the track instead of the track being the whole control',
+        ".cm-switch > input[type='checkbox']",
+    ),
+    (
+        'the switch input shrinks to a corner',
+        "position: absolute;\n\tinset: 0;\n\tmargin: 0;\n\topacity: 0;",
+        "position: static;\n\tmargin: 0;\n\topacity: 0;",
+        'the real checkbox is not laid over the control, so the visible track is what gets clicked and the input is only reachable by keyboard',
+        ".cm-switch > input[type='checkbox']",
+    ),
+    (
+        'the switch knob is dragged to a hardcoded stop',
+        'transform: translateY(-50%) translateX(calc(var(--track-w) - var(--knob-d) - (2 * var(--knob-inset)) - 1px));',
+        'transform: translateY(-50%) translateX(18px);',
+        'the on-state knob position is a literal, so it drifts out of the track the moment the track token changes',
+        '.cm-switch > input:checked ~ .cm-switch__track .cm-switch__knob',
+    ),
+    (
+        'the switch knob stops deriving from the track',
+        '--knob-d: calc(var(--track-h) - 0.25rem);',
+        '--knob-d: 1rem;',
+        '--knob-d is a literal, not a calc, so the knob and the track are two independent numbers that can disagree',
+        '--knob-d: calc(var(--track-h) - 0.25rem);',
+        'src/styles/tokens.css',
+    ),
+    (
+        'the switch stops signalling by weight',
+        '.cm-switch > input:checked ~ .cm-switch__track { background: var(--ink); }',
+        '.cm-switch > input:checked ~ .cm-switch__track { background: var(--ink-dim); }',
+        'the on-state track does not fill with the ink token, so "on" is not carried by weight',
+        '.cm-switch > input:checked ~ .cm-switch__track',
+    ),
+
 ]
 
 def src_of(d, rel=None):
@@ -337,10 +374,11 @@ def main():
         scope = rest[0] if rest else None
 
         rel = rest[1] if len(rest) > 1 else CSS
-
-        if rel != CSS:
-
-            original = src_of(LIB, rel)
+        target_path = rel
+        if target_path.startswith('tokens.css') or target_path == 'src/styles/tokens.css':
+            target_path = 'src/styles/tokens.css'
+            rel = 'src/styles/tokens.css'
+        original = src_of(LIB, target_path)
 
         mutated = apply(original, anchor, repl, scope)
 

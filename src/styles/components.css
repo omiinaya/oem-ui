@@ -2987,6 +2987,69 @@ html {
    and a 17px box next to 15px text sits on the wrong optical line. */
 .cm-check > input[type='checkbox'] { align-self: center; }
 
+/* ---------- switch: the on/off row that is not a checkbox ----------
+   `cm-check` covers "yes, include this row". A switch answers "this whole
+   behaviour is on or off" and reads as a different kind of thing, so it
+   gets its own control rather than a checkbox wearing a different shape.
+
+   The state is carried by the knob's position, not by hue, and the track
+   fills with the ink token on a neutral --ink-dim otherwise. The input
+   stays in the DOM, on top, at zero opacity: it is the focus target, the
+   tap target and the form value, so a person using a keyboard or a screen
+   reader reaches the real control and not a div with a click handler.
+
+   Templates hand-rolled this as two absolutely-positioned divs with a
+   translate on a colour change, which meant the control was a div, had
+   no role, no name, and no keyboard path at all. */
+.cm-switch {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	flex: none;
+	cursor: pointer;
+}
+.cm-switch > input[type='checkbox'] {
+	position: absolute;
+	inset: 0;
+	margin: 0;
+	opacity: 0;
+	cursor: pointer;
+}
+.cm-switch__track {
+	position: relative;
+	display: block;
+	width: var(--track-w);
+	height: var(--track-h);
+	border-radius: 999px;
+	background: var(--ink-dim);
+	transition: background var(--cm-t) var(--cm-ease);
+}
+/* The knob is a hair shorter than the track, so the 1px ring around it
+   reads as a gap rather than as a shadow when the switch is off. */
+.cm-switch__knob {
+	position: absolute;
+	top: 50%;
+	left: var(--knob-inset);
+	width: var(--knob-d);
+	height: var(--knob-d);
+	transform: translateY(-50%);
+	border-radius: 999px;
+	background: var(--bg);
+	border: 1px solid var(--ink-dim);
+	transition: transform var(--cm-t) var(--cm-ease);
+}
+.cm-switch > input:checked ~ .cm-switch__track { background: var(--ink); }
+.cm-switch > input:checked ~ .cm-switch__track .cm-switch__knob {
+	transform: translateY(-50%) translateX(calc(var(--track-w) - var(--knob-d) - (2 * var(--knob-inset)) - 1px));
+	border-color: var(--ink);
+}
+/* Focus lives on the real input, so it is drawn on the track - otherwise a
+   keyboard user has no idea which row they are on. */
+.cm-switch > input:focus-visible ~ .cm-switch__track {
+	outline: 2px solid var(--ink);
+	outline-offset: 2px;
+}
+
 /* ---------- page head badge: the square glyph on a title row ----------
    Seven pages each drew a gradient square beside the page title, in seven
    different gradients. The library forbids gradients - glyph + weight is

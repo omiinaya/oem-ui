@@ -105,6 +105,16 @@
 	--tap: 44px;
 	--min-font: 12px;
 
+	/* ---- switch geometry ----
+	   A 2:1 track, and a knob inset by half the gap it leaves. Deriving the
+	   knob from the track height means the off position and the on position
+	   are the same expression with a sign, so neither needs a magic number
+	   per theme, and the knob lands flush at both ends. */
+	--track-w: 2.25rem;
+	--track-h: 1.25rem;
+	--knob-d: calc(var(--track-h) - 0.25rem);
+	--knob-inset: 0.1875rem;
+
 	/* ---- scrollbar (dark default) ------------------------------
 	   width:thin + always-visible gutter so short pages reserve the same
 	   12px a scrolling page uses. Without this the content box differs by

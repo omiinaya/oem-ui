@@ -37,7 +37,7 @@ import HeaderLink from '../astro/HeaderLink.astro';
  */
 const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'lists', 'states', 'surface',
-  'selection', 'stack', 'badge', 'sheet', 'choice',
+  'selection', 'stack', 'badge', 'switch', 'sheet', 'choice',
 	'code', 'overlays', 'records', 'cards', 'prose', 'layout',
 	'forms', 'auth', 'readme',
 ] as const;
@@ -919,6 +919,51 @@ import { SITE } from '../astro/config';
 									<div class="cm-head__sub">404 catch-all domains</div>
 								</div>
 								<button class="cm-btn cm-btn--sm cm-btn--primary cm-head-row__action">Add Dead Host</button>
+							</div>
+						</section>
+						<section id="switch" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+							<h2>switch</h2>
+							<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
+								For "this whole behaviour is on or off" - as distinct
+								from <code>cm-check</code>, which is "include this
+								row". The knob's position carries the state, not its
+								colour. The <code>&lt;input&gt;</code> is the control,
+								transparent and on top: it is the tap target, the
+								focus target and the form value, so a keyboard or
+								screen reader reaches a real checkbox rather than a
+								<code>&lt;div&gt;</code> with a click handler.
+							</p>
+							<div class="cm-card" style="max-width:26rem">
+								<div class="cm-card__body cm-stack">
+									<label class="cm-check">
+										<input type="checkbox" checked />
+										HTTP/2 to the upstream
+									</label>
+									<div class="cm-row" style="justify-content:space-between">
+										<div class="cm-row__title">
+											WebSocket upgrade
+											<div class="cm-row__meta">rewrite the Host header</div>
+										</div>
+										<label class="cm-switch">
+											<input type="checkbox" checked />
+											<span class="cm-switch__track">
+												<span class="cm-switch__knob"></span>
+											</span>
+										</label>
+									</div>
+									<div class="cm-row" style="justify-content:space-between">
+										<div class="cm-row__title">
+											Force a trailing slash
+											<div class="cm-row__meta">off by default</div>
+										</div>
+										<label class="cm-switch">
+											<input type="checkbox" />
+											<span class="cm-switch__track">
+												<span class="cm-switch__knob"></span>
+											</span>
+										</label>
+									</div>
+								</div>
 							</div>
 						</section>
 						<section id="sheet" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
