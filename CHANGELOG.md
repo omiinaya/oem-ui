@@ -37,6 +37,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- A rail control placed in `.cm-header__controls` (a sign-out button) was
+  aligned and padded but never given the `--tap` floor its sibling links get
+  from the rail rule, so it measured 31px against a 44px target.
+- **Brace balance is now a contract check.** This suite was 326 passed / 0
+  failed while `components.css` carried an unbalanced `}` that made every
+  consumer's bundler refuse the file. No existing check parsed the file for
+  balance, which is why they all stayed green. A CSS file that does not
+  parse is the one defect a consumer cannot work around.
+
 ### Added
 - `cm-header__group` / `cm-header__group-label`: grouped rail nav. An
   application rail has labelled groups, and the flat `.cm-header__links`

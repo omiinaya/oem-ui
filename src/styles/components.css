@@ -2277,6 +2277,20 @@ html {
 	.cm-header--rail .cm-header__controls {
 		justify-content: flex-start;
 		padding: 0 var(--gutter);
+		/* Every OTHER control in the rail is a `.cm-header__link`, which the
+		   rail rule gives a full-width row and `--tap` of height. A control
+		   placed in `__controls` instead - a sign-out button, say - was
+		   aligned and padded but kept its inline height, so it measured
+		   31px against the same 44px floor as its siblings. A target that
+		   is smaller than the floor is still a target, so the floor has to
+		   follow the control into its own slot. */
+		align-items: stretch;
+	}
+	.cm-header--rail .cm-header__controls > .cm-btn,
+	.cm-header--rail .cm-header__controls > a {
+		display: flex;
+		align-items: center;
+		min-height: var(--tap);
 	}
 
 	/* `main` and the page shell move clear of the rail.
@@ -2676,14 +2690,39 @@ html {
    flex item that takes its own track, and it must not be a
    `.cm-header__link`. The list inside resets the tap floor's spacing so
    grouped and ungrouped rails have identical link geometry. */
-.cm-header__group {
+/* The COLUMN is a rail-only claim. On a phone the rail collapses into the
+   horizontal disclosure, where `.cm-header__links` is a wrapping row; a
+   column group there is 319px wide inside a 390px viewport and pushes the
+   whole page into sideways scroll (measured in WebKit at 390px: scrollWidth
+   431 against clientWidth 390, 24 elements past the edge). So the grouping
+   lives at RAIL width and dissolves into the row above it below that. */
+.cm-header--rail .cm-header__group {
 	display: flex;
 	flex-direction: column;
 	align-self: stretch;
-	width: 100%;
+	/* `width: 100%` on a flex ITEM resolves against the PARENT, so a group
+	   inside the phone's horizontal scroller became 319px wide - exactly
+	   the rail's width - while the page behind it was 390px with the nav
+	   already scrolled to 319px, and the group dragged the DOCUMENT into
+	   sideways scroll (WebKit, 390px: scrollWidth 431 vs clientWidth 390).
+	   `flex: 0 1 auto` + `max-width: 100%` lets a group be its content's
+	   width and never wider than the box it sits in. */
+	flex: 0 1 auto;
+	min-width: 0;
+	max-width: 100%;
 }
-.cm-header__group + .cm-header__group { margin-top: var(--space-4); }
-.cm-header__group-label {
+/* A grouped rail keeps its COLUMN at every width, and the phone scrolls the
+   NAV, not the page. `.cm-header__links` is the scroll container, so it is
+   the element that must be bounded: without `width: 100%` + `min-width: 0`
+   a flex child resolves its width from its CONTENT, the row becomes 553px
+   at a 390px viewport, and the document (not the nav) scrolls sideways. */
+.cm-header__links:has(> .cm-header__group) {
+	width: 100%;
+	min-width: 0;
+	max-width: 100%;
+}
+.cm-header--rail .cm-header__group + .cm-header__group { margin-top: var(--space-4); }
+.cm-header--rail .cm-header__group-label {
 	display: block;
 	padding: 0 var(--gutter);
 	margin-bottom: var(--space-1);
@@ -2698,7 +2737,7 @@ html {
 	min-height: 0;
 	font-weight: 400;
 }
-.cm-header__group .cm-header__links { gap: 0; }
+.cm-header--rail .cm-header__group .cm-header__links { gap: 0; }
 
 /* ------------------------------------------------------- auth surfaces
    A sign-in screen is a form, a card and an alert that happen to be about

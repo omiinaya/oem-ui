@@ -5371,13 +5371,18 @@ function isClassDefined(css, cls) {
    that is not a target, which is both a dead 44px box for a screen reader
    and a false positive for the reachability audit. */
 check('the grouped rail nav has its own wrapper and label', () => {
-	for (const cls of ['cm-header__group', 'cm-header__group-label']) {
-		assert(isClassDefined(comp, cls), `.${cls} is not defined as a selector of its own`);
+	// CONDITIONALLY defined, not bare: the column layout is a rail-width
+	// claim (measured in WebKit at 390px, where an unscoped column group
+	// overflowed the viewport by 41px). So the class is defined under
+	// `.cm-header--rail` and must stay there.
+	for (const sel of ['.cm-header--rail .cm-header__group',
+	                   '.cm-header--rail .cm-header__group-label']) {
+		assert(ruleBodies(comp, sel).length > 0, `${sel} is not defined as a selector of its own`);
 	}
 });
 
 check('a group label is not a target: it must not inherit the tap floor', () => {
-	const bodies = ruleBodies(comp, '.cm-header__group-label');
+	const bodies = ruleBodies(comp, '.cm-header--rail .cm-header__group-label');
 	assert(bodies.length > 0, '.cm-header__group-label has no rule body to read');
 	const all = bodies.join('\n');
 	assert(/min-height:\s*0/.test(all),
@@ -5385,7 +5390,7 @@ check('a group label is not a target: it must not inherit the tap floor', () => 
 });
 
 check('the group wrapper is a flex column of its own full width', () => {
-	const bodies = ruleBodies(comp, '.cm-header__group');
+	const bodies = ruleBodies(comp, '.cm-header--rail .cm-header__group');
 	assert(bodies.length > 0, '.cm-header__group has no rule body to read');
 	const all = bodies.join('\n');
 	assert(/flex-direction:\s*column/.test(all), '.cm-header__group must stack label over links');
@@ -5395,10 +5400,30 @@ check('the group wrapper is a flex column of its own full width', () => {
 });
 
 check('groups are separated by a token step, not a raw rem', () => {
-	const bodies = ruleBodies(comp, '.cm-header__group + .cm-header__group');
+	const bodies = ruleBodies(comp, '.cm-header--rail .cm-header__group + .cm-header__group');
 	assert(bodies.length > 0, 'there is no rule separating adjacent groups');
 	assert(/margin-top:\s*var\(--space-/.test(bodies.join('\n')),
 		'group separation must come from the spacing scale, not a raw rem');
+});
+
+/* A brace-balanced file is the one property a CSS consumer cannot recover
+   from. oem-ui shipped an unbalanced `}` for a full commit: this suite was
+   326 passed / 0 failed, every check green, and the consumer's bundler
+   refused the file outright ("postcss-import: Unexpected }"), so the whole
+   app failed to build. Nothing here parses the file for BALANCE - every
+   other check asks a question that a malformed file can still answer,
+   which is precisely why they all stayed green. */
+check('every stylesheet has balanced braces', () => {
+	for (const [name, src] of [['tokens.css', tokens], ['base.css', base], ['components.css', comp]]) {
+		const bare = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(['"])(?:\\.|(?!\1)[^\\\n])*\1/g, '""');
+		let d = 0;
+		for (const ch of bare) {
+			if (ch === '{') d++;
+			else if (ch === '}') d--;
+			assert(d >= 0, `${name} closes a brace that was never opened (depth went negative)`);
+		}
+		assert(d === 0, `${name} is unbalanced: ${d} unclosed brace(s) at end of file`);
+	}
 });
 
 check('the copy surface is defined as classes of its own', () => {
