@@ -7192,6 +7192,37 @@ check('the switch state is drawn by position and weight, not by hue', () => {
 		'carried by weight');
 });
 
+/* ---------- a selected row signals with an inset rule, not a tint ---------- */
+
+check('a selected row is marked with an inset rule, never a colour', () => {
+	const comp = read('src/styles/components.css');
+	const rule = /([^{}\n]*\.cm-row--on\s*\{[^}]*\})/.exec(comp);
+	assert(rule, 'no .cm-row--on rule: a selected row has no treatment at all');
+	// Same claim as cm-section--on, which is the treatment being reused. The
+	// whole point is that a tinted row vanishes in greyscale print.
+	assert(/box-shadow:\s*inset/.test(rule[1]),
+		'a selected row is not marked with an inset rule, so the only thing ' +
+		'distinguishing it is a background tint that disappears in greyscale print');
+	assert(!/#[0-9a-f]{3,8}\b/.test(rule[1]),
+		'the selected row hardcodes a colour instead of using the ink token');
+});
+
+check('a row that is itself a control keeps the row geometry', () => {
+	const comp = read('src/styles/components.css');
+	const rule = /([^{}\n]*button\.cm-row\s*\{[^}]*\})/.exec(comp);
+	assert(rule, 'no button.cm-row rule: every consumer hand-writes background, ' +
+		'border and padding in a style prop, which is what a stylesheet is for');
+	assert(/width:\s*100%/.test(rule[1]),
+		'a clickable row does not fill its container, so it is narrower than the ' +
+		'list it sits in and the tap target stops at the text');
+	assert(/background:\s*transparent/.test(rule[1]),
+		'a clickable row does not clear the UA button background, so it renders ' +
+		'as a raised grey box in the middle of the list');
+	assert(/border:\s*0/.test(rule[1]),
+		'a clickable row keeps the UA button border, so it draws a second edge ' +
+		'beside the row divider');
+});
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {

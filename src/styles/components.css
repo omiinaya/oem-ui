@@ -544,6 +544,32 @@ html {
 	align-items: baseline;
 	gap: var(--space-2);
 }
+.cm-row--on {
+	/* The same selected treatment as `cm-section--on`, for a selected row
+	   inside a list. Glyph and weight, never hue: a tinted row is the one
+	   signal that vanishes in greyscale print, and a selected row is
+	   information the reader has to be able to see. */
+	background: var(--bg-2);
+	box-shadow: inset 3px 0 0 var(--ink);
+}
+
+/* A row that is itself the control. Templates lists are navigated by
+   clicking the row, and `cm-row` is an <a> in every other surface, so the
+   button version needs the row's geometry with the button's own resets
+   applied - otherwise every consumer hand-writes background/border/padding
+   in a style prop, which is the thing a stylesheet exists to prevent. */
+button.cm-row {
+	width: 100%;
+	text-align: left;
+	background: transparent;
+	border: 0;
+	border-bottom: 1px solid var(--line);
+	font: inherit;
+	color: inherit;
+	cursor: pointer;
+}
+button.cm-row:hover { background: var(--bg-2); }
+
 .cm-row__title {
 	font-weight: 700;
 	color: var(--ink);

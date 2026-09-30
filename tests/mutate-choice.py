@@ -245,6 +245,35 @@ MUTANTS = [
         '.cm-switch > input:checked ~ .cm-switch__track',
     ),
 
+    (
+        'the selected row falls back to a tint',
+        'background: var(--bg-2);\n\tbox-shadow: inset 3px 0 0 var(--ink);',
+        'background: var(--bg-3);',
+        'a selected row is not marked with an inset rule, so the only thing distinguishing it is a background tint that disappears in greyscale print',
+        '.cm-row--on',
+    ),
+    (
+        'a clickable row stops filling its container',
+        'width: 100%;',
+        'width: auto;',
+        'a clickable row does not fill its container, so it is narrower than the list it sits in and the tap target stops at the text',
+        'button.cm-row',
+    ),
+    (
+        'a clickable row keeps the UA background',
+        'background: transparent;',
+        'background: var(--bg-3);',
+        'a clickable row does not clear the UA button background, so it renders as a raised grey box in the middle of the list',
+        'button.cm-row',
+    ),
+    (
+        'a clickable row keeps the UA border',
+        'border: 0;\n\tborder-bottom: 1px solid var(--line);',
+        'border: 1px solid var(--ink-dim);',
+        'a clickable row keeps the UA button border, so it draws a second edge beside the row divider',
+        'button.cm-row',
+    ),
+
 ]
 
 def src_of(d, rel=None):

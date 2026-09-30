@@ -53,6 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`.cm-row--on`** - the list-row form of the selected treatment, the same inset rule `cm-section--on` uses. A tinted row is the one signal that disappears in greyscale print, and a selected row is information the reader has to see.
+
+- **`button.cm-row`** - a row that is itself the control. It keeps the row geometry and clears the UA button chrome, so a navigable list does not have to hand-write `background`, `border` and `padding` in a style prop at every call site.
+
+### Added
+
 - **`.cm-switch`** - an on/off control for "this whole behaviour is on or off", as distinct from `cm-check`'s "include this row". The knob's position carries the state, and the on-state track fills with the ink token, so nothing is signalled by hue. The `<input type=checkbox>` stays on top at zero opacity and is the real control: tap target, focus target, form value. Replaces the two-div-with-a-translate toggle in Templates, which had no role, no name and no keyboard path. Knob geometry derives from `--track-h` via `--knob-d`, so both ends stay flush when the track changes.
 
 - **Switch geometry tokens** (`--track-w`, `--track-h`, `--knob-d`, `--knob-inset`).
