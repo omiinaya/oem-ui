@@ -2820,6 +2820,36 @@ button.cm-row:hover { background: var(--bg-2); }
 /* Muted fill for the domain a reader is least likely to care about,
    so the shape of the bar carries meaning too, not just its length. */
 .cm-meter--faint .cm-meter__fill { background: var(--line); }
+/* The row form: label, track and value on ONE line, for a ranked list -
+   "top paths", "referrers", a distribution - where a stack of the
+   default form spends a third of the screen on labels before the first
+   bar appears. The default form puts the value ABOVE the bar, which is
+   right for a standalone meter in a card and wrong in a ranked list: the
+   value has to stay in a column you can scan down.
+   The track is the only element allowed to grow (`flex: 1`), so the two
+   text columns keep their intrinsic width and the bars all start at the
+   same x. If the track were `flex: 0 1 auto` the bars would start
+   wherever the longest label happened to end, and the reader could no
+   longer compare two lengths by their left edge - which is the only
+   thing a bar chart is for. */
+.cm-meter--row {
+	flex-direction: row;
+	align-items: center;
+	gap: var(--space-2);
+}
+.cm-meter--row .cm-meter__label {
+	flex: 1 1 auto;
+	order: 2;
+	text-align: right;
+}
+.cm-meter--row .cm-meter__track {
+	flex: 1 1 0;
+	min-width: 4rem;
+	order: 1;
+}
+.cm-meter--row .cm-meter__val {
+	order: 3;
+}
 
 /* ---------- grouped rail nav ----------
    An application rail has labelled groups (Hosting, Security, Monitoring).

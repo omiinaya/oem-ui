@@ -548,6 +548,29 @@ MUTANTS += [
 ]
 
 
+MUTANTS += [
+    # --- the ranked meter: bars that stop sharing a left edge ---
+    ('meter-row-track-literal',
+     '\tflex: 1 1 0;', '\tflex: 0 1 auto;',
+     'the row meter grows its TRACK, not its label',
+     '.cm-meter--row .cm-meter__track {'),
+    ('meter-row-label-grows',
+     '\tflex: 1 1 auto;', '\tflex: 1 1 0;',
+     'the row meter grows its TRACK, not its label',
+     '.cm-meter--row .cm-meter__label {'),
+
+    # --- --row that is not a row, or has no order ---
+    ('meter-row-not-a-row',
+     '\tflex-direction: row;', '\tflex-direction: column;',
+     'the row meter is a row',
+     '.cm-meter--row {'),
+    ('meter-row-no-order',
+     '\torder: 3;', '\t/* order dropped */',
+     'the row meter is a row',
+     '.cm-meter--row .cm-meter__val {'),
+]
+
+
 if __name__ == '__main__':
 
     sys.exit(main())

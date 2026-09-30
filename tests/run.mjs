@@ -7359,6 +7359,41 @@ check('the log specimen is long enough to scroll inside its own cap', () => {
 		'30rem cap, so the sticky header is never exercised in the showcase');
 });
 
+/* ---------- a ranked meter row: the bars must share a left edge ---------- */
+
+check('the row meter grows its TRACK, not its label', () => {
+	const comp = read('src/styles/components.css');
+	const track = /([^{}\n]*\.cm-meter--row \.cm-meter__track\s*\{[^}]*\})/.exec(comp);
+	assert(track, 'no .cm-meter--row .cm-meter__track rule');
+	assert(/flex:\s*1 1 0\b/.test(track[1]),
+		'the track does not take the free space, so in a ranked list the ' +
+		'bars start wherever the longest label happened to end and two ' +
+		'lengths can no longer be compared by their left edge');
+	const label = /([^{}\n]*\.cm-meter--row \.cm-meter__label\s*\{[^}]*\})/.exec(comp);
+	assert(label, 'no .cm-meter--row .cm-meter__label rule');
+	// The label must not also grow: if it did, the track would only get
+	// what is left over and the bars would be ragged again.
+	assert(!/flex:\s*1 1 0\b/.test(label[1]),
+		'the label grows too, so the track gets only the leftover space and ' +
+		'the bars are a different length for a different reason');
+});
+
+check('the row meter is a row', () => {
+	const comp = read('src/styles/components.css');
+	const row = /([^{}\n]*\.cm-meter--row\s*\{[^}]*\})/.exec(comp);
+	assert(row, 'no .cm-meter--row rule');
+	assert(/flex-direction:\s*row/.test(row[1]),
+		'--row does not set flex-direction: row, so the meter stacks into ' +
+		'the default column form and the bar gains a screen of labels');
+	// Explicit ordering: without it, DOM order decides, and a consumer
+	// writing track-first markup (which is what this showcase does) gets
+	// the value before the bar.
+	const orders = [...comp.matchAll(/\.cm-meter--row \.cm-meter__(label|track|val)\s*\{[^}]*order:\s*(\d)/g)];
+	assert(orders.length === 3,
+		'--row does not order all three parts, so the row renders in DOM ' +
+		'order and the same markup lays out differently per consumer');
+});
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {

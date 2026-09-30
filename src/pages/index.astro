@@ -1494,6 +1494,34 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 							<Meter label="Virtualization and cloud" value="11%" pct={11} variant="faint" />
 							<Meter label="Troubleshooting" value="28%" pct={28} />
 						</div>
+
+						<p class="cm-head__sub" style="margin-top:var(--space-5)">
+							<code>--row</code> is the same meter on one line, for a
+							ranked list. The track is the only element allowed to
+							grow, so every bar starts at the same x and two
+							lengths can be compared by their left edge - which
+							is the only thing a bar chart is for. The value stays
+							in a column you can scan down.
+						</p>
+						<div class="cm-meters">
+							{[
+								['/api/health', 100, '4.2k'],
+								['/assets/app.js', 44, '1.9k'],
+								['/library/sections', 15, '640'],
+								['/old/path', 2, '92'],
+							].map(([label, pct, value]) => (
+								<div class="cm-meter cm-meter--row">
+									<div class="cm-meter__track" aria-hidden="true">
+										<span
+											class="cm-meter__fill"
+											style={`--cm-meter-fill: ${pct}%`}
+										/>
+									</div>
+									<span class="cm-meter__label">{label}</span>
+									<span class="cm-meter__val">{value}</span>
+								</div>
+							))}
+						</div>
 						<Fragment slot="foot">
 							<a class="cm-card__link" href="https://example.com/a-plus">exam objectives →</a>
 						</Fragment>
