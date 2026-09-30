@@ -16,7 +16,12 @@ import sys
 from pathlib import Path
 
 CSS = Path("/root/projects/oem-ui/src/styles/components.css")
-BAK = Path("/root/.hermes/cache/scratch/components.css.bak")
+# The focus-ring mutants live in base.css, so the backup/restore has to
+# cover BOTH files or a run leaves a mutant behind in a file it never
+# snapshotted - and a green suite over a dirty tree proves nothing.
+SRC = Path("/root/projects/oem-ui/src/styles")
+FILES = ["components.css", "base.css"]
+BAKS = {f: Path("/root/.hermes/cache/scratch/%s.bak" % f) for f in FILES}
 
 # (label, anchor, replacement, claim substring the check must print, scope)
 MUTANTS = [
@@ -179,14 +184,16 @@ MUTANTS.extend(_mfr.MUTANTS)
 
 
 def restore():
-    shutil.copy2(BAK, CSS)
+    for f, b in BAKS.items():
+        shutil.copy2(b, SRC / f)
 
 
 def main():
-    if not CSS.exists():
-        sys.exit("components.css is missing; refusing to run")
-    shutil.copy2(CSS, BAK)
-    original = CSS.read_bytes()
+    for f in FILES:
+        if not (SRC / f).exists():
+            sys.exit(f + " is missing; refusing to run")
+        shutil.copy2(SRC / f, BAKS[f])
+    original = {f: (SRC / f).read_bytes() for f in FILES}
 
     # Non-empty baseline or abort - an empty run would report "survived"
     # for every mutant and that is indistinguishable from a broken suite.
@@ -204,12 +211,19 @@ def main():
     try:
         for label, anchor, repl, claim, _scope in MUTANTS:
             restore()
-            src = CSS.read_text()
-            if src.count(anchor) != 1:
-                aborted.append((label, f"anchor count {src.count(anchor)}"))
-                print(f"ABORT  {label}: anchor matched {src.count(anchor)} times")
+            # The anchor decides which file is being mutated - a blind
+            # write to components.css would report ANCHOR-MISSING for every
+            # base.css mutant and quietly prove nothing.
+            target = next((f for f in FILES if anchor in (SRC / f).read_text()), None)
+            if target is None:
+                counts = {f: (SRC / f).read_text().count(anchor) for f in FILES}
+                aborted.append((label, f"anchor not unique: {counts}"))
+                print(f"ABORT  {label}: anchor matched {counts}")
                 continue
-            CSS.write_text(src.replace(anchor, repl))
+            path = SRC / target
+            src = path.read_text()
+            assert src.count(anchor) == 1, (label, target, src.count(anchor))
+            path.write_text(src.replace(anchor, repl))
             run = subprocess.run(
                 ["node", "tests/run.mjs"], cwd="/root/projects/oem-ui",
                 capture_output=True, text=True,
@@ -228,9 +242,11 @@ def main():
                 print(f"ABORT  {label:42} failed on something else")
     finally:
         restore()
-        if CSS.read_bytes() != original:
-            sys.exit("RESTORE FAILED - the working tree is not the original")
-        print("restore verified byte-exact")
+        for f in FILES:
+            if (SRC / f).read_bytes() != original[f]:
+                sys.exit("RESTORE FAILED on " + f
+                         + " - the working tree is not the original")
+        print("restore verified byte-exact on %d files" % len(FILES))
 
     print(f"\n{killed} killed, {len(survived)} survived, {len(aborted)} aborted "
           f"of {len(MUTANTS)}")

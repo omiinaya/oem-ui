@@ -183,10 +183,30 @@ th { background: var(--bg-3); color: var(--ink); }
 
 /* Visible keyboard focus everywhere. The house style: a 1px dim
    outline that brightens on interaction. Never remove it without
-   replacing it. */
+   replacing it.
+
+   The width is a coarse-pointer override and nothing else. 1px is the
+   desktop house style and stays exactly as it was: at a desk, next to a
+   1px border, at reading distance, a dim outline that brightens is the
+   established idiom and changing it would be a design decision, not a
+   bug fix. On a phone the same 1px is 1px - the reader is holding the
+   device at arm's length, the ring sits outside a border of identical
+   weight, and there is no cursor to imply "something is focused here".
+   Measured in WebKit at 390px: the focused field painted `1px solid` at
+   offset 2, which reads as a second border rather than a ring - and on
+   the sign-in card that looked like an error state, not a focus state.
+
+   So: same colour, same idiom, more weight where the reading distance
+   demands it. */
 :focus-visible {
 	outline: 1px solid var(--accent-dim);
 	outline-offset: 2px;
+}
+@media (pointer: coarse) {
+	:focus-visible {
+		outline: 2px solid var(--accent-dim);
+		outline-offset: 2px;
+	}
 }
 a:focus-visible,
 button:focus-visible,

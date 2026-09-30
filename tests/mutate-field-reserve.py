@@ -55,4 +55,49 @@ MUTANTS = [
         "reserves no room for its affordance",
         None,
     ),
+    (
+        # The desktop house style must survive the coarse override. This
+        # is the mutation that would turn a legitimate phone fix into an
+        # unrequested restyle of every consumer.
+        "focus-desktop-house-style-changed",
+        ":focus-visible {\n\toutline: 1px solid var(--accent-dim);\n"
+        "\toutline-offset: 2px;\n}",
+        ":focus-visible {\n\toutline: 3px solid var(--accent-dim);\n"
+        "\toutline-offset: 2px;\n}",
+        "the desktop focus ring was changed",
+        None,
+    ),
+    (
+        "focus-coarse-still-thin",
+        "@media (pointer: coarse) {\n\t:focus-visible {\n"
+        "\t\toutline: 2px solid var(--accent-dim);\n\t\toutline-offset: 2px;\n"
+        "\t}\n}",
+        "@media (pointer: coarse) {\n\t:focus-visible {\n"
+        "\t\toutline: 1px solid var(--accent-dim);\n\t\toutline-offset: 2px;\n"
+        "\t}\n}",
+        "coarse-pointer focus ring is 1px",
+        None,
+    ),
+    (
+        "focus-coarse-block-deleted",
+        "@media (pointer: coarse) {\n\t:focus-visible {\n"
+        "\t\toutline: 2px solid var(--accent-dim);\n\t\toutline-offset: 2px;\n"
+        "\t}\n}",
+        "@media (pointer: coarse) {\n\t.cm-unrelated {\n"
+        "\t\toutline: 2px solid var(--accent-dim);\n\t\toutline-offset: 2px;\n"
+        "\t}\n}",
+        "no coarse-pointer focus rule",
+        None,
+    ),
+    (
+        "focus-coarse-loses-offset",
+        "@media (pointer: coarse) {\n\t:focus-visible {\n"
+        "\t\toutline: 2px solid var(--accent-dim);\n\t\toutline-offset: 2px;\n"
+        "\t}\n}",
+        "@media (pointer: coarse) {\n\t:focus-visible {\n"
+        "\t\toutline: 2px solid var(--accent-dim);\n\t\toutline-offset: 0;\n"
+        "\t}\n}",
+        "the coarse-pointer focus ring is not offset from the control",
+        None,
+    ),
 ]

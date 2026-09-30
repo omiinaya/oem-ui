@@ -4858,8 +4858,13 @@ for (const sel of INTERACTIVE) {
 	// a green suite while the tab sits at 20px. (Proven: that exact
 	// mutation is in tests/mutate-chip.mjs.) So the element has to be NAMED
 	// in the prelude, and then its own declaration read.
-	const coarseBlock = (read('src/styles/base.css').replace(/\/\*[\s\S]*?\*\//g, '')
-		.match(/@media \(pointer: coarse\) \{([\s\S]*?)\n\}/)?.[1] || '');
+	// ALL coarse-pointer blocks, not the first. The focus ring adds one,
+	// and `.match(...)?.[1]` reads whichever block comes FIRST in the
+	// file - so adding an at-rule silently reassigns what an existing
+	// check believes about the tab's element floor. Same defect class as
+	// ruleBodies() not seeing inside an at-rule; same fix, read them all.
+	const coarseBlock = allAtRuleBodies(read('src/styles/base.css'),
+		'@media (pointer: coarse)');
 	const elementFloor = (() => {
 		for (const m of coarseBlock.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
 			const pre = m[1].trim();
@@ -7713,6 +7718,49 @@ check('an invalid .cm-code field is marked with the ink, never a hue', () => {
 	assert(/box-shadow:\s*inset/.test(m[1]),
 		'the invalid field has no underline mark, so it differs from the ' +
 		'rest field by border colour alone');
+});
+
+// A focus ring that is technically present but 1px is not a visible
+// indicator on a phone: at arm's length, against a 1px border of similar
+// weight, with no cursor to imply "something is focused here", the reader
+// is looking for a change and cannot find one. The existing checks assert
+// the outline is not `none`; none of them assert it is HEAVY enough to
+// see, which is why 1px has been the value all along without anyone
+// deciding it.
+//
+// The DESKTOP value stays 1px - that is the house style and changing it
+// would be a design decision, not a fix. So this asserts the coarse
+// pointer only, and reads it out of the at-rule: the base declaration is
+// still 1px and a naive grep would score that as the answer.
+check('the focus ring is heavy enough to see on a coarse pointer', () => {
+	const base = baseSrc.replace(/\/\*[\s\S]*?\*\//g, '');
+	const fv = /:focus-visible\s*\{([^}]*)\}/.exec(base);
+	assert(fv, 'no :focus-visible rule to measure');
+	const coarse = allAtRuleBodies(baseSrc, '@media (pointer: coarse)');
+	const cf = /:focus-visible\s*\{([^}]*)\}/.exec(coarse);
+	assert(cf,
+		'no coarse-pointer focus rule: 1px is the desktop house style and '
+		+ 'stays, but a phone held at arm\'s length needs a heavier ring');
+	const w = /outline(?:-width)?:\s*([\d.]+)px/.exec(cf[1]);
+	assert(w, `cannot read the coarse focus outline width from: ${cf[1].trim()}`);
+	// The OFFSET is asserted on the COARSE body, not the base: the base
+	// keeps its own offset, so a check reading the base stays green while
+	// the phone loses the gap - and a ring drawn flush against the control
+	// reads as a second border, which is the failure this whole rule is
+	// about. Proven: `focus-coarse-loses-offset` survived reading the base body instead.
+	assert(/outline-offset:\s*([\d.]+)px/.test(cf[1]),
+		'the coarse-pointer focus ring is not offset from the control, so it '
+		+ 'reads as a second border rather than a ring around it');
+	assert(Number(w[1]) >= 2,
+		`the coarse-pointer focus ring is ${w[1]}px - the same weight as the `
+		+ '1px border it sits outside, so a reader looking for a change '
+		+ 'cannot see one');
+	// and the desktop idiom must NOT have been quietly rewritten, since
+	// that was the thing being preserved
+	const dw = /outline(?:-width)?:\s*([\d.]+)px/.exec(fv[1]);
+	assert(dw && Number(dw[1]) < 2,
+		'the desktop focus ring was changed; it is the house style and only '
+		+ 'the coarse pointer was in scope');
 });
 
 // An affordance that acts ON a control (a reveal toggle, a clear button)
