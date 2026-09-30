@@ -186,6 +186,28 @@ MUTANTS = [
         '.cm-head h1,',
     ),
 
+    (
+        'the side sheet falls back to centred',
+        '\tmargin: 0 0 0 auto;',
+        '\tmargin: auto;',
+        'the sheet is not anchored to the right edge, so it renders centred instead of beside the page it describes',
+        '.cm-dialog--sheet {',
+    ),
+    (
+        'the side sheet stops running the full edge',
+        '\theight: 100%;\n\tmax-height: 100%;',
+        '\theight: 60%;\n\tmax-height: 60%;',
+        'the sheet is not full height, so it floats in the middle of the backdrop instead of running the full edge',
+        '.cm-dialog--sheet {',
+    ),
+    (
+        'the side sheet keeps a side border on a phone',
+        '.cm-dialog--sheet {\n\t\twidth: 100%;\n\t\tborder-left-width: 0;\n\t}',
+        '.cm-dialog--sheet {\n\t\twidth: min(30rem, 100%);\n\t}',
+        'the sheet never goes full width on a narrow viewport, so a 30rem panel is centred in a 390px screen with backdrop showing either side',
+        '@media (max-width: 640px) {\n\t.cm-dialog--sheet',
+    ),
+
 ]
 
 def src_of(d, rel=None):

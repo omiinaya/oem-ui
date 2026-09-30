@@ -7107,6 +7107,40 @@ check('a page title is styled inside the row container, not only the head', () =
 });
 
 
+/* ---------- the side sheet is a modifier, not a second component ---------- */
+
+check('the side sheet is a modifier on the native dialog, not its own element', () => {
+	const comp = read('src/styles/components.css');
+	const rule = [...comp.matchAll(/([^{}\n]*\.cm-dialog--sheet\s*\{[^}]*\})/g)][0];
+	assert(rule, '.cm-dialog--sheet must have its own rule body');
+	// Anchored to the right edge. Without this the sheet renders as a
+	// centred modal, which is a different interaction dressed as the same.
+	assert(/margin:\s*0 0 0 auto/.test(rule[1]),
+		'the sheet is not anchored to the right edge, so it renders centred ' +
+		'instead of beside the page it describes');
+	assert(/height:\s*100%/.test(rule[1]),
+		'the sheet is not full height, so it floats in the middle of the ' +
+		'backdrop instead of running the full edge');
+});
+
+check('the sheet goes full-bleed on a phone', () => {
+	const comp = read('src/styles/components.css');
+	// Same trap as the coarse-pointer checks: there are several max-width
+	// blocks. Match the one that mentions the sheet.
+	// Start at the MEDIA OPENER, not at the rule: the 100% lives inside a
+	// nested block and a slice to the first '\n}' stops short of it.
+	// There are three @media (max-width: 640px) blocks in this file, so a
+	// plain indexOf finds a block 15k characters AWAY that happens to carry
+	// the same selector. Anchor on the adaptation itself, not on the query.
+	const blocks = [...comp.matchAll(/@media \(max-width: 640px\) \{([\s\S]*?)\n\}\n/g)]
+		.map(m => m[1]);
+	const block = blocks.find(b => /\.cm-dialog--sheet\s*\{[\s\S]*?width:\s*100%/.test(b));
+	assert(block, 'the sheet never goes full width on a narrow viewport, so a 30rem panel is centred in a 390px screen with backdrop showing either side');
+	assert(/\.cm-dialog--sheet/.test(block) && /width:\s*100%/.test(block),
+		'the sheet never goes full width on a narrow viewport, so a 30rem ' +
+		'panel is centred in a 390px screen with backdrop showing either side');
+});
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {

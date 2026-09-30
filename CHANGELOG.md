@@ -53,6 +53,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`.cm-dialog--sheet`** - a side sheet built on the same native `<dialog>` as the confirm modal, anchored to the right edge instead of the centre. Only the frame changes, so the focus trap, Escape, the top layer and the inertness of the page behind it stay the platform's job. Full-width and flush below 640px, with a sticky head. Replaces the hand-rolled `fixed inset-0` overlay that had none of those.
+
+### Added
+
 - **`.cm-head-row`** (`__text`, `__action`) - the page title ROW: badge,
   name + sub, and the page's own action on one line. `.cm-head` is the
   document-head variant, a vertical stack with `--head-top` above it, so
