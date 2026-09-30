@@ -5,6 +5,66 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **oem-ngo-brand is a consumer, and adopting the library fixed a
+  contrast failure in both of its themes.** It is the first `--flat`
+  consumer: plain HTML at the project root, no `src/` tree. Both of its
+  pages hand-declared the token set, and the copy they carried failed
+  WCAG AA for body text in dark AND light -- `--ink-faint` at `#555555`
+  on `#0a0a0a` is 2.66:1, and `#8a8a8a` on `#fafafa` is 3.31:1. The
+  library's own values are 5.81:1 and 4.96:1. The migration deletes
+  those declarations rather than moving them, so the pages now inherit
+  the contrast the library already fixed and no longer have a copy to
+  go stale.
+
+  Their hand-rolled theme write is gone too, replaced by the library's
+  canonical FOUC guard loaded verbatim as the first node in `<head>`.
+  The old one ran a single line of script and read no storage key at
+  all, so a visitor who had chosen the light theme got exactly the
+  dark flash the guard exists to prevent -- the bug the guard's own
+  header records for this project by name.
+
+  Migrating it required fixing `check-design-sync.sh` first: it had two
+  defects that made every `--flat` consumer report "in sync". See the
+  entry below.
+
+- **The drift checker could not see the `--flat` layout it documents.**
+  `install.sh --flat` is the documented install for a project with no
+  `src/` tree, and two defects made every such consumer report the same
+  comfortable lie.
+
+  `js_dir_for` stripped the project root with `${d#"$t"/}`, which
+  returns its input UNCHANGED when there is nothing to strip -- and in
+  a flat install the vendored JS directory IS the project root. Every
+  lookup became `$t/$JD/cli-mono.js` = `/a/b//a/b/cli-mono.js`. Measured:
+  both JS files of a byte-identical flat install reported MISSING,
+  alongside a recommendation to re-run `install.sh`, which would have
+  written a second, unserved copy under `src/js/` and left the served
+  one just as invisible.
+
+  The reachability scan -- the pass added because dev-blog vendored the
+  whole library and loaded none of it -- walked `$t/src` for
+  astro/ts/js/css/mjs. A static project has none of those: its pages
+  are plain `.html` at the root, so the source set came back empty and
+  the entire pass was skipped. A flat consumer could vendor the
+  library, load none of it, and pass every run: the dev-blog bug again,
+  in the one layout the checker could not see, silent for the whole
+  life of the flag. Scanning `$t` needs `-prune`, or the sweep walks
+  `node_modules` and times out at 180s; it now runs in 76s.
+
+  Two more defects surfaced with it. A guard INLINED verbatim -- which
+  is what the guard's own header recommends, and what spacetime-rpm
+  ships -- puts no filename on the page, so a name-only match called a
+  shipped, wired guard UNREACHABLE; it is now matched by a signature
+  generated FROM the guard source, so it cannot rot out of agreement
+  with its own file. And naming the guard in a COMMENT is not loading
+  it, so HTML comments are stripped from the blob before the check asks
+  what a page actually wires up.
+
+  394 tests (was 393). The mutation harness reports 13 killed, 0
+  missed, 0 no-op -- including six new mutants, and two pre-existing
+  ones that had gone NO-OP against this cycle's edits and would
+  otherwise have read as passes.
+
 - **A consumer the drift checker could not see was serving a runtime 175
   lines behind the library.** `oem-cdn` compiles its admin assets into the
   binary with `include_str!`, keeps the vendored layers at `web/oem-ui/`
