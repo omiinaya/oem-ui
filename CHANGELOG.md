@@ -5,6 +5,56 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **oem-log's header is the library's, and it was 58px too tall.** The
+  rows migration left ONE second implementation of the design system
+  standing in that project: 170 lines of scoped CSS in a single
+  component, re-implementing the sticky bar, the brand, the
+  pipe-separated nav, the theme toggle, the GitHub link and three
+  breakpoints. Two of its rules were measurable defects at 390x844 in
+  WebKit --
+
+    the header was 121px tall, because the nav WRAPPED onto a second
+    row below the brand and nothing stopped the wrap. 63px after.
+
+    the theme toggle measured 32x44 -- a pill. `base.css` gives every
+    button `min-height: var(--tap)` on a coarse pointer, and the
+    hand-rolled toggle declared only width and height, so half its box
+    came from the floor and half from the glyph box. That is precisely
+    the failure `.cm-icon-btn--bare` exists for, in a site that had
+    never adopted it.
+
+  It also decided "which link am I on" by hand, in a `.nav-active`
+  class this library cannot see. `<HeaderLink>` owns that decision and
+  normalises the trailing slash, the query, the hash and the site base
+  before comparing, so `/blog` stays current on `/blog/` and on
+  `/blog/a-post`.
+
+  Three of the WebKit checks that guard this were wrong before they
+  were right, and all three failed the same way -- by reporting a
+  phantom defect -- so they are worth naming:
+
+  * Counting a WRAPPED header by the distinct top edges of its children
+    returned 2 on a correct one-row header, because a closed drawer
+    keeps its links in the DOM at height 0 and every one of them
+    reports `top: 0`. That is a phantom row. Filter to children with
+    height > 0 and the count means rows a reader can actually see.
+  * "the current link is underlined" failed on the base rule's `none`,
+    read from a 0x0 element inside a closed drawer. Computed style on a
+    hidden element describes nothing. That claim is asserted at desktop
+    width, where the nav is a row and it is true.
+  * "the header stays pinned" passed on a page that had not scrolled.
+    `scrollTo` clamps, so a 353px document asked for 600 lands at 0 and
+    the header is never given a chance to move. Assert the document
+    ACTUALLY MOVED before asserting the header stayed put.
+
+  The mutation harness shipped the same disease and is fixed the same
+  way: it printed `KILLED` without incrementing the counter, so six real
+  kills reported as "0 killed", and it filed a mutation that broke the
+  build as a NO-OP because the preview stopped answering. A compile
+  failure is the strongest kill available and is now recorded as one.
+  Final count: 15 contract tests, 124 WebKit checks, 9 mutants killed,
+  0 missed, 0 no-op.
+
 - **oem-ngo-brand is a consumer, and adopting the library fixed a
   contrast failure in both of its themes.** It is the first `--flat`
   consumer: plain HTML at the project root, no `src/` tree. Both of its
