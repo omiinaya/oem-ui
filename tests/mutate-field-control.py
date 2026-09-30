@@ -167,6 +167,16 @@ MUTANTS = [
     ),
 ]
 
+# The specificity mutants live in a sibling file because their selectors
+# contain doubled classes and quoting them inline was itself a syntax
+# error. They are appended here so ONE run proves the whole rule.
+import importlib.util as _ilu
+_spec = _ilu.spec_from_file_location(
+    'mfr', str(Path(__file__).parent / 'mutate-field-reserve.py'))
+_mfr = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_mfr)
+MUTANTS.extend(_mfr.MUTANTS)
+
 
 def restore():
     shutil.copy2(BAK, CSS)

@@ -7735,6 +7735,59 @@ check('.cm-field__control keeps its affordance on the control, not a new row', (
 	const inp = ruleBodies(compSrc, '.cm-field__control > input')[0];
 	assert(inp && /flex:\s*1 1 auto/.test(inp) && /min-width:\s*0/.test(inp),
 		'the control does not absorb the overlay, so text runs under it');
+	// ...and it must not only absorb the overlay but RESERVE room for it:
+	// the base input padding is 0.7rem and the overlay is a full --tap
+	// square, so a long value scrolls under the glyph and its last
+	// characters are unreadable.
+	//
+	// The assertion is SPECIFICITY, not the presence of the string. A plain
+	// grep for `padding-right: calc(var(--tap)` is satisfied by a rule that
+	// loses the cascade: the doubled class is what carries it past the base
+	// `input:not()x3` selector, and dropping that class still leaves the
+	// declaration sitting in the file looking correct. Measured in WebKit:
+	// the one-class version parses, `:has()` is supported, the suite is
+	// green, and the computed padding-right is still 11.2px. Proven by the
+	// `reserve-loses-specificity` mutant, which survived the string check.
+	const baseSel = "input:not([type='checkbox']):not([type='radio'])"
+		+ ":not([type='range'])";
+	// Specificity as this library already counts it - `:not()` contributes
+	// its ARGUMENT - PLUS the class selectors that argument-counting alone
+	// misses. Counting only :not() and [] scores the reserve rule 0 and the
+	// base rule 6, which INVERTS the real comparison: the doubled class is
+	// exactly what carries this declaration past the base. `:has()`
+	// contributes its most specific argument, so its inner class counts here
+	// as it does in a browser. Verified against a real WebKit cascade.
+	const spec = (sel) => {
+		const flat = sel.replace(/:not\(([^)]*)\)/g, '$1');
+		const hasInner = (sel.match(/:has\(([^)]*)\)/g) || [])
+			.map((h) => h.slice(5, -1));
+		const count = (t) => (t.match(/\.[\w-]+/g) || []).length
+			+ (t.match(/\[[^\]]+\]/g) || []).length
+			+ (t.match(/:not\(/g) || []).length;
+		return count(flat) + hasInner.reduce((n, inner) => n + count(inner), 0);
+	};
+	const reserveSel = /(\.cm-field__control[^\n{]*:has\([^)]*\)[^\n{]*)>\s*input\s*\{/.exec(compSrc);
+	assert(reserveSel,
+		'the control reserves no room for its affordance: base padding is '
+		+ '0.7rem and the overlay is var(--tap) wide, so the end of a long '
+		+ 'value runs under the glyph');
+	const rSel = reserveSel[1].trim();
+	assert(spec(rSel) > spec(baseSel),
+		`the reserve rule (${rSel}) has specificity ${spec(rSel)}, which does `
+		+ `not outrank the base input rule (${spec(baseSel)}): the `
+		+ 'declaration is present but never applies. Pad :not() counts its '
+		+ 'argument, so the base scores three attribute selectors.');
+
+	// and the reserve must cover the overlay PLUS a gap, or the last
+	// character clears the box but touches the glyph. Scoped to the
+	// reserve rule's OWN body: grepping compSrc finds some other rule's
+	// perfectly good declaration and reports a pass.
+	const reserveBody = /\.cm-field__control\.cm-field__control[^\n{]*>\s*input\s*\{([^}]*)\}/.exec(compSrc);
+	const pr = reserveBody
+		&& /padding-right:\s*calc\(var\(--tap\) \+ ([^)]+)\)/.exec(reserveBody[1]);
+	assert(pr,
+		'the reserve does not leave a gap beside the glyph: it must be the '
+		+ 'overlay width PLUS a gap, read from the reserve rule itself');
 	// and the tap target stays a full square - an absolutely positioned
 	// button defaults to shrink-to-fit, which is how a 44px rule quietly
 	// becomes a 20px one.

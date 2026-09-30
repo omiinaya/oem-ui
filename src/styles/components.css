@@ -1934,6 +1934,23 @@ button.cm-row:hover { background: var(--bg-2); }
    the control losing width. */
 .cm-field__control { position: relative; display: flex; }
 .cm-field__control > input { flex: 1 1 auto; min-width: 0; }
+/* The overlay is `var(--tap)` wide but the base input padding is only
+   0.7rem, so without this the value scrolls straight under the glyph -
+   the last few characters are simply hidden. Measured in WebKit at 390px
+   with a 28-character value: 11.2px of padding-right and a 2.3px gap.
+
+   The class is written TWICE on purpose. The base rule is
+   `input:not([type='checkbox']):not([type='radio']):not([type='range'])`
+   and, by the rule this library already uses to police specificity,
+   `:not()` contributes its ARGUMENT - three attribute selectors, so the
+   base lands at (0,6,1). A single `.cm-field__control:has(...)` only
+   reaches (0,3,1) and loses, no matter that components.css loads later.
+   Measured: the rule parsed, `:has()` was supported, and the computed
+   padding-right was still 11.2px. Source order cannot fix specificity;
+   the selector has to actually outrank the thing it is overriding. */
+.cm-field__control.cm-field__control:has(> .cm-icon-btn) > input {
+	padding-right: calc(var(--tap) + var(--space-2));
+}
 .cm-field__control > .cm-icon-btn {
 	position: absolute;
 	top: 50%;
