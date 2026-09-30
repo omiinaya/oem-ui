@@ -130,6 +130,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+
+- **`.cm-head__title` is styled inside `.cm-head-row`, not only inside
+  `.cm-head`.** The selector was a descendant, so a title in the row variant
+  fell back to the UA default size and the row measured 119px instead of one
+  line. The showcase rendered fine only because its specimen sat inside a
+  `.cm-head` ancestor.
+
 - **The drift checker could not see a consumer whose layers are not at the
   repo root.** `spacetime-rpm` serves its admin console from `web/`, so it
   keeps them at `web/src/styles/cli-mono/`, and every comparison hardcoded

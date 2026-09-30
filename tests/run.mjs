@@ -7083,6 +7083,30 @@ check('a narrow title row wraps instead of squeezing the title', () => {
 		'full-word button all compete for one line');
 });
 
+/* ---------- the title is styled in BOTH containers ----------
+   `.cm-head .cm-head__title` is a DESCENDANT selector. A title inside
+   `.cm-head-row` matched nothing, fell back to the UA default, and the row
+   measured 119px instead of one line - while the showcase rendered fine
+   because its specimen happened to sit inside a `.cm-head`. A green
+   rendering test would not have caught it; only measuring the row did. */
+check('a page title is styled inside the row container, not only the head', () => {
+	const comp = read('src/styles/components.css');
+	// Find the rule that actually DECLARES the size, and require it to
+	// carry the row selector. A bare presence test for the selector is
+	// vacuous: a margin-only rule mentioning it satisfies that while the
+	// size is still unset, and the mutant then dies on a different
+	// assertion with the wrong claim.
+	const sized = [...comp.matchAll(/([^{}\n]*\.cm-head__title[^{}\n]*)\{([^}]*)\}/g)]
+		.filter(m => /font-size/.test(m[2]));
+	assert(sized.length, '.cm-head__title has no rule that declares a font-size');
+	assert(sized.some(m => /\.cm-head-row/.test(m[1])),
+		'.cm-head__title is only styled as a descendant of .cm-head, so a ' +
+		'title inside .cm-head-row inherits the UA default size');
+	assert(sized.some(m => /font-size:\s*var\(--head-h1\)/.test(m[2])),
+		'the row-scoped title rule does not carry the same --head-h1 as the head');
+});
+
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {

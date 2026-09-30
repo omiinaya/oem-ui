@@ -53,7 +53,8 @@
 .cm-head { padding: var(--head-top) 0 2rem; }
 .cm-head .cm-kicker { margin-bottom: var(--space-3); }
 .cm-head h1,
-.cm-head .cm-head__title {
+.cm-head .cm-head__title,
+.cm-head-row .cm-head__title {
 	font-size: var(--head-h1);
 	line-height: 1.15;
 	margin: 0 0 0.6rem;
@@ -65,6 +66,10 @@
 	font-size: 0.8rem;
 	margin: 0;
 }
+/* In a row the title's bottom margin would open a gap between the title
+   and its own sub, so the row variant carries none of it. */
+.cm-head-row .cm-head__title,
+.cm-head-row .cm-head__sub { margin: 0; }
 
 /* The page title ROW: badge, name+sub, and the page's own action, on one
    line. .cm-head above is the document-head variant - a vertical stack with

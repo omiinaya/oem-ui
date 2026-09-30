@@ -178,6 +178,14 @@ MUTANTS = [
         '.cm-head-row { flex-wrap: wrap; }',
     ),
 
+    (
+        'the row-scoped title rule loses the shared size',
+        '.cm-head h1,\n.cm-head .cm-head__title,\n.cm-head-row .cm-head__title {',
+        '.cm-head h1,\n.cm-head .cm-head__title {',
+        '.cm-head__title is only styled as a descendant of .cm-head, so a title inside .cm-head-row inherits the UA default size',
+        '.cm-head h1,',
+    ),
+
 ]
 
 def src_of(d, rel=None):
