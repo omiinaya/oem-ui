@@ -23,6 +23,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `build_type` is now `workflow`, and `tests/verify-live-deploy.py` asserts
   the deployed bytes rather than trusting a green run.
 
+- The mobile drawer is ONE column at every viewport height. `.cm-header__links`
+  is `flex-direction: column` but inherited `flex-wrap: wrap` from the bar
+  rule, and on a column that wrap runs ACROSS. When the 16 rows stopped fitting
+  the panel's height they broke into a second column at x=179, and the panel is
+  only `min(86vw, 320px)` wide, so `layout`, `forms`, `auth` and `readme` landed
+  outside it -- unreachable, and `scrollHeight == clientHeight` meant the drawer
+  could not scroll to them either. Measured at 402x667: 12 rows in column one,
+  4 stranded. The trigger is HEIGHT, not width: the list needs 869px of panel,
+  so any viewport under about 800px tall wrapped, which is most phones once
+  Safari's chrome is counted. `flex-wrap: nowrap` makes the single column
+  `overflow-y` scroll, which the panel already allowed.
+  `tests/verify-drawer-column.py` drives WebKit over 5 widths x 10 heights and
+  reads the number of distinct left edges from the DOM, so a wrapped column is
+  measured rather than eyeballed.
 ## Fixed
 - The header bar no longer paints outside its own box. Between the phone
   drawer (640px) and the rail (1000px) the bar's nav was `flex-wrap: wrap`

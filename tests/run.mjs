@@ -10,7 +10,7 @@
  * checks execute the actual cli-mono.js runtime against a minimal fake DOM so a
  * regression in the theme logic fails the build.
  */
-import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, statSync, rmSync, readdirSync, renameSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, appendFileSync, statSync, rmSync, readdirSync, renameSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -2129,6 +2129,49 @@ check('the CNAME matches the domain the build publishes', () => {
 	assert(/SITE_URL:\s*https:\/\/ui\.mrx\.sh/.test(workflow),
 		'the build publishes a different origin than the CNAME claims');
 });
+
+/* ================= the mobile drawer is one column ================= */
+console.log('\nmobile drawer');
+{
+	const css = read('src/styles/components.css');
+	// The drawer block is the one that is `position: fixed` and
+	// `flex-direction: column`. `ruleBodies` strips comments, so a
+	// match on the comment that explains the fix cannot satisfy this.
+	// `.cm-header__links` is used by THREE rules: the bar row, the
+	// drawer, and the 641-999px band. Taking the last one in source
+	// order reads the BAND's `nowrap`, so the test passed with the
+	// drawer's own `nowrap` deleted -- it was asserting a sibling.
+	// The drawer is the rule that is `position: fixed`, so scope to
+	// that body and read the winner inside it.
+	const drawerBody = ruleBodies(css, '.cm-header__links')
+		.find((b) => /position:\s*fixed/.test(b));
+	const decl = (prop) => {
+		if (!drawerBody) return null;
+		const m = new RegExp('(?:^|;)\\s*' + prop + '\\s*:\\s*([^;}]+)')
+			.exec(drawerBody);
+		return m ? m[1].trim() : null;
+	};
+
+	check('the drawer is a column, so its wrap runs across', () => {
+		assert(/column/.test(decl('flex-direction') || ''),
+			'the drawer is no longer a flex column');
+	});
+
+	check('the drawer does not wrap into a second column', () => {
+		const w = decl('flex-wrap');
+		assert(w === 'nowrap',
+			`the drawer's effective flex-wrap is '${w}', not nowrap. A ` +
+			'column with wrap breaks into a SECOND COLUMN when the rows ' +
+			'stop fitting the panel height, and the panel is 320px wide, ' +
+			'so the wrapped links land outside it and cannot be reached: ' +
+			'at 402x667, layout/forms/auth/readme stranded at x=179.');
+	});
+
+	check('the drawer is allowed to scroll instead', () => {
+		assert(/auto|scroll/.test(decl('overflow-y') || ''),
+			'the drawer cannot scroll, so a short window strands the last links');
+	});
+}
 
 /* ================= the desktop nav rail ================= */
 console.log('\ndesktop nav rail');
@@ -6582,6 +6625,120 @@ check('the auth frame is centered without a consumer stylesheet', () => {
 	assert(/min-height:\s*100dvh/.test(frame),
 		'.cm-auth must use 100dvh; 100vh is cut off by a mobile URL bar');
 });
+
+/* ================= the consumer's install root is DISCOVERED ==========
+   The checker hardcoded `src/styles/cli-mono/`. spacetime-rpm serves its
+   admin console from web/, so it keeps the layers at
+   web/src/styles/cli-mono/ and the bare scan never saw it at all - the
+   audit listed rpm as "NOT on oem-ui" while rpm was, in fact, a consumer
+   carrying four .cm-* rules the library did not own.
+
+   So both halves are proven, because a check that cries wolf is the same
+   failure as one that never fires:
+     1. a nested, byte-identical consumer -> in sync, exit 0
+     2. the same consumer with one file broken -> exit 1, naming the REAL
+        nested path rather than the assumed src/ one                */
+{
+	const mk = (nested) => {
+		const dir = mkdtempSync(join(tmpdir(), 'cm-prefix-'));
+		const p = nested ? join(dir, 'web/src') : join(dir, 'src');
+		mkdirSync(join(p, 'styles/cli-mono'), { recursive: true });
+		mkdirSync(join(p, 'js'), { recursive: true });
+		for (const f of ['tokens.css', 'base.css', 'components.css']) {
+			writeFileSync(join(p, 'styles/cli-mono', f), readFileSync(join(root, 'src/styles', f)));
+		}
+		for (const f of ['cli-mono.js', 'cli-mono-theme-guard.js']) {
+			writeFileSync(join(p, 'js', f), readFileSync(join(root, 'src/js', f)));
+		}
+		// A source file that LOADS the layers, so reachability is satisfied
+		// and this test measures the prefix question and nothing else.
+		mkdirSync(join(dir, 'src'), { recursive: true });
+		writeFileSync(join(dir, 'src/app.tsx'), [
+			"import './" + (nested ? 'web/src/' : 'src/') + "styles/cli-mono/tokens.css';",
+			"import './" + (nested ? 'web/src/' : 'src/') + "styles/cli-mono/base.css';",
+			"import './" + (nested ? 'web/src/' : 'src/') + "styles/cli-mono/components.css';",
+			"import './" + (nested ? 'web/src/' : 'src/') + "js/cli-mono.js';",
+			"import './" + (nested ? 'web/src/' : 'src/') + "js/cli-mono-theme-guard.js';",
+		].join('\n'));
+		return dir;
+	};
+	const run = (dir) => spawnSync('bash', [join(root, 'scripts/check-design-sync.sh'), dir], {
+		encoding: 'utf8', env: { ...process.env, OEM_UI_SRC: root },
+	});
+	for (const nested of [false, true]) {
+		const label = nested ? 'nested (web/src)' : 'canonical (src)';
+		const dir = mk(nested);
+		try {
+			const ok = run(dir);
+			assert(ok.status === 0,
+				`${label}: a byte-identical consumer must report in sync, got ${ok.status}: ${ok.stdout.trim()}`);
+			assert(/in sync/.test(ok.stdout), `${label}: expected "in sync", got: ${ok.stdout.trim()}`);
+
+			// Break one file and prove the SAME nested path is named.
+			const cssPath = nested
+				? join(dir, 'web/src/styles/cli-mono/base.css')
+				: join(dir, 'src/styles/cli-mono/base.css');
+			writeFileSync(cssPath, '/* drift */\n');
+			const bad = run(dir);
+			assert(bad.status === 1, `${label}: expected exit 1 on drift, got ${bad.status}`);
+			assert(/STALE/.test(bad.stdout), `${label}: expected STALE, got: ${bad.stdout.trim()}`);
+			assert(!/\bMISSING\b/.test(bad.stdout),
+				`${label}: no file is missing, so MISSING would be a false alarm: ${bad.stdout.trim()}`);
+			assert(!/ORPHAN/.test(bad.stdout),
+				`${label}: the vendored copies ARE compared, so ORPHAN would be a false alarm: ${bad.stdout.trim()}`);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	}
+}
+
+/* ================= surface built INSIDE a vendored layer ==============
+   rpm carried cm-check, cm-toolbar and cm-toolbar__count inside its
+   vendored components.css - .cm-* names the library does not own, in the
+   one file no consumer imports. Nothing on the fleet could use them and no
+   library fix could reach them. `cmp` reported the copy as merely "ahead",
+   which names neither the fact nor the classes.
+
+   Both directions again, because the false positive is the expensive one:
+     1. a .cm-* rule the library does NOT own -> RESERVED, naming it
+     2. a consumer OVERRIDING a library part   -> silent, which is legal  */
+{
+	const dir = mkdtempSync(join(tmpdir(), 'cm-reserved-'));
+	try {
+		for (const f of ['tokens.css', 'base.css', 'components.css']) {
+			mkdirSync(join(dir, 'src/styles/cli-mono'), { recursive: true });
+			writeFileSync(join(dir, 'src/styles/cli-mono', f), readFileSync(join(root, 'src/styles', f)));
+		}
+		for (const f of ['cli-mono.js', 'cli-mono-theme-guard.js']) {
+			mkdirSync(join(dir, 'src/js'), { recursive: true });
+			writeFileSync(join(dir, 'src/js', f), readFileSync(join(root, 'src/js', f)));
+		}
+		mkdirSync(join(dir, 'src'), { recursive: true });
+		const rel = './src/styles/cli-mono/';
+		writeFileSync(join(dir, 'src/app.tsx'),
+			[`import '${rel}tokens.css';`, `import '${rel}base.css';`,
+			 `import '${rel}components.css';`, "import './src/js/cli-mono.js';",
+			 "import './src/js/cli-mono-theme-guard.js';"].join('\n'));
+		const run = () => spawnSync('bash', [join(root, 'scripts/check-design-sync.sh'), dir], {
+			encoding: 'utf8', env: { ...process.env, OEM_UI_SRC: root },
+		});
+
+		const base = run();
+		assert(base.status === 0, `a clean consumer must be silent, got ${base.status}: ${base.stdout.trim()}`);
+
+		// (1) a library-prefixed class the library does not own.
+		appendFileSync(join(dir, 'src/styles/cli-mono/components.css'),
+			'\n.cm-not-in-the-library {\n\tcolor: var(--ink);\n}\n');
+		const rogue = run();
+		assert(rogue.status === 1, `expected exit 1 on a reserved-prefix class, got ${rogue.status}`);
+		assert(/RESERVED/.test(rogue.stdout),
+			`expected RESERVED, got: ${rogue.stdout.trim()}`);
+		assert(/cm-not-in-the-library/.test(rogue.stdout),
+			`the offending class must be NAMED, got: ${rogue.stdout.trim()}`);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+}
 
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
