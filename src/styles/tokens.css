@@ -31,17 +31,23 @@
 	/* ---- measure (line length) ----------------------------------
 	   A width in `ch` against the monospace font, so a line's character
 	   count is the thing being decided rather than an accident of the
-	   container. Two widths are genuinely different jobs, and both
-	   existed as raw numbers in a consumer:
-	     --measure       a reading column, the one prose sits in
-	     --measure-narrow a single compact block (a status line, a
-	                      definition body) that must not be re-wrapped
+	   container. Three widths are genuinely different jobs, and every
+	   one of them existed as a raw number somewhere:
+	     --measure        a reading column, the one prose sits in
+	     --measure-narrow  a single compact block (a status line, a
+	                       definition body) that must not be re-wrapped,
+	                       and the excerpt column of a list row
+	     --measure-title  the title column of a list row, so the
+	                       excerpts line up instead of every row
+	                       starting its text at a different offset
 	   Declared here rather than per component because a measure is a
 	   property of TYPE, not of a component: a consumer that invents its
 	   own is how oem-portfolio ended up with 34ch, 58ch and 68ch
-	   literals in one file, none of them named. */
+	   literals in one file, none of them named. A `ch` literal
+	   anywhere but this file is a rebrand bug, and a test enforces it. */
 	--measure: 68ch;
 	--measure-narrow: 34ch;
+	--measure-title: 42ch;
 
 	/* Widest colour swatch: the chip (1.4em) + its gap + the longest token
 	   name in the system at --min-font. Sized once, from the tokens. */

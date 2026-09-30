@@ -2036,10 +2036,21 @@ check('the bar keeps one nav row between the phone drawer and the rail', () => {
 	);
 	// `nowrap` on the nav is what stops the wrap; `nowrap` on the LIST is
 	// what stops the list wrapping inside the row.
+	// The rail anchor must match the RAIL rule, not any query that opens
+	// with the same width: a bare indexOf('@media (min-width: 1000px)')
+	// also found the inline-row handoff added next to it, and reported
+	// the band rule as "out of order" against a rule 700 lines away. A
+	// check anchored on a string another rule can satisfy is worthless.
+	// Anchored on the rail's own selector, which nothing else carries --
+	// and not on the brace right after the query, which a comment sits
+	// between.
 	const bandAt = comp.indexOf('@media (min-width: 641px) and (max-width: 999px)');
 	const railAt = comp.indexOf('@media (min-width: 1000px)');
-	assert(bandAt > -1 && railAt > bandAt, 'the band rule and the rail rule are out of order');
-	const slice = comp.slice(bandAt, railAt);
+	const railRuleAt = comp.indexOf('.cm-header--rail {', railAt);
+	assert(bandAt > -1 && railAt > -1 && railRuleAt > -1,
+		`could not locate both rules: band=${bandAt} rail=${railAt} rule=${railRuleAt}`);
+	assert(railRuleAt > bandAt, 'the band rule and the rail rule are out of order');
+	const slice = comp.slice(bandAt, railRuleAt);
 	assert(/\.cm-header__nav\s*\{[^}]*flex-wrap:\s*nowrap/.test(slice),
 		'the bar nav still wraps in the band, so a second row can paint below the header');
 	assert(/\.cm-header__links\s*\{[^}]*flex-wrap:\s*nowrap/.test(slice),
@@ -2362,7 +2373,7 @@ check('the emphasis colour is legible on the surfaces it renders on', () => {
 });
 
 check('the measure tokens are declared once, in :root, and theme-independent', () => {
-	for (const name of ['--measure', '--measure-narrow']) {
+	for (const name of ['--measure', '--measure-narrow', '--measure-title']) {
 		const all = [...tokenSrc.matchAll(new RegExp(`${name}\\s*:`, 'g'))];
 		assert(all.length === 1, `${name} is declared ${all.length} times; it must exist once in :root`);
 	}
@@ -2390,6 +2401,55 @@ check('a page-shape width comes from a measure token, not a typed ch literal', (
 	const demoLiterals = [...block.matchAll(/\b(max|min)-width:\s*([\d.]+)ch\b/g)];
 	assert(demoLiterals.length === 0,
 		`the layout specimen hardcodes a measure (${demoLiterals.map(m => m[0]).join(', ')})`);
+});
+
+// The inline row gives its title and excerpt a FIXED column each, so a
+// list reads as a table rather than a ragged stack of lines. Two things
+// have to hold, and the second is the one that shipped broken.
+//
+// 1. Both columns name a measure TOKEN. A `ch` literal here is a
+//    rebrand bug (the check above rejects those in components.css).
+// 2. There is a width at which the row cannot afford both, and at that
+//    width the excerpt is HANDED OFF, not squeezed. With a fixed basis
+//    and no handoff the title never gives ground, the excerpt absorbs
+//    the entire deficit, and it collapses: measured in WebKit at 700px
+//    it rendered 5.11px wide -- present, non-zero, unreadable, and a
+//    false pass for any check that only asks whether the column
+//    collapsed. A non-zero box is not a readable box.
+check('the inline row names both of its columns with measure tokens', () => {
+	const inline = comp.match(/^\.cm-rows--inline \.cm-row__title\s*\{[^}]*\}/m);
+	assert(inline, 'no .cm-rows--inline .cm-row__title rule found');
+	// ORDERING: the shrink check comes FIRST on purpose. `flex: 0 1` is
+	// both a shrink AND a wrong basis, so an exact-match assertion above
+	// would fire first and the specific claim below would be unreachable
+	// — a test that can never fail. Asserting the shrink property BEFORE
+	// the exact string means the mutation trips the assertion that
+	// explains WHY, which is the one worth reading when it goes red.
+	assert(!/flex:\s*0\s+1\s/.test(inline[0]),
+		'the inline title must not shrink; it is the primary label and never truncates');
+	assert(/flex:\s*0 0 var\(--measure-title\)/.test(inline[0]),
+		`the inline title must be flex: 0 0 var(--measure-title), got: ${inline[0]}`);
+	assert(/max-width:\s*var\(--measure-title\)/.test(inline[0]),
+		'the inline title cap must come from --measure-title');
+});
+
+check('the inline row hands the excerpt off instead of starving it', () => {
+	// Both starve bands, measured at 5px steps in WebKit with the
+	// queries neutralized: 845px and below (5.11px at 700px), and
+	// 1000-1055px where --rail-w takes 232px out of the content column
+	// (93.11px at 1000px). It RECOVERS at 1060px and at 995px, so a
+	// bare min-width: 1000px would hide an excerpt that measures
+	// 205.11px at 1440px -- correct-looking CSS, wrong at both ends.
+	const rules = [...comp.matchAll(
+		/@media\s*([^{]+)\{\s*\.cm-rows--inline \.cm-row__desc\s*\{\s*display:\s*none/g)]
+	assert(rules.length >= 2,
+		`expected both starve bands guarded, found ${rules.length}` +
+		` (a single query is wrong in at least one direction)`);
+	const conds = rules.map((m) => m[1].replace(/\s+/g, ' ').trim());
+	assert(conds.some((c) => /max-width:\s*84\d/.test(c)),
+		`no lower handoff near the measured 844px edge: ${JSON.stringify(conds)}`);
+	assert(conds.some((c) => /min-width:\s*1000px/.test(c) && /max-width:\s*10\d\d/.test(c)),
+		`the rail band needs BOTH edges -- it recovers at 1060px: ${JSON.stringify(conds)}`);
 });
 
 check('the split stacks below its breakpoint, on purpose', () => {

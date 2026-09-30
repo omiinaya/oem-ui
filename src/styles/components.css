@@ -509,24 +509,64 @@ html {
 .cm-row__title {
 	font-weight: 700;
 	color: var(--ink);
-	/* The title is the primary label: it NEVER ellipsizes. It keeps its
-	   full width and pushes the description instead, so the reader never
-	   loses the thing they're scanning for. The max-width is a safety
-	   valve for pathologically long titles, which are the only case
-	   allowed to truncate. */
+	/* The title is the primary label: it NEVER ellipsizes in the inline row. It
+	   keeps its full width and pushes the description instead, so the reader
+	   never loses the thing they're scanning for. A row whose title and
+	   description cannot both fit is a signal to use cm-rows--column, not to
+	   quietly cut the label. The max-width is a safety valve for pathologically
+	   long titles, which are the only case allowed to truncate. */
 	flex: 0 0 auto;
 	max-width: 70%;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
+
+/*
+  The inline row: a FIXED title column and a FIXED excerpt column.
+
+  The cap is what makes the excerpt column READ as a column. Left to
+  share the leftover space, every row got a different width, so the text
+  started at a different offset on every line and the index looked ragged
+  even though each row was individually correct.
+
+  Both columns name their measure as a TOKEN. A `ch` literal here is a
+  rebrand bug: the reading width would be a number in a rule instead of
+  a named decision in the scale, which is the mistake that put 34ch/58ch/
+  68ch literals in a consumer's stylesheet.
+
+  `flex: 0 0 var(--measure-title)` keeps shrink at 0 ON PURPOSE. The
+  title carries `overflow: hidden`, which zeroes its automatic minimum
+  size, so any shrink factor lets it ellipsize — measured, `flex: 0 1`
+  clipped titles across 681-780px, trading a starved excerpt for a
+  truncated primary label. That is the wrong trade: the title is the
+  thing a reader is scanning for.
+
+  So the title holds its measure, the excerpt holds its own, and the
+  width at which the two stop both being readable is handled by the
+  media query below — not by letting flex silently eat the difference.
+  42ch is 404px and never gives any back, which is precisely why the
+  681-1024px band needed a measured breakpoint rather than a flex
+  tweak: the excerpt, the only child free to absorb the deficit,
+  rendered at 5.11px at 700px — present, non-zero, unreadable, and
+  invisible to a check for a collapsed column.
+*/
+.cm-rows--inline .cm-row__title {
+	flex: 0 0 var(--measure-title);
+	max-width: var(--measure-title);
+}
 .cm-row__desc {
 	color: var(--ink-faint);
 	font-size: 0.8rem;
 	/* The description is the one that truncates. min-width:0 is what lets
-	   a flex child ellipsize instead of forcing the row wider. */
-	flex: 0 1 auto;
+	   a flex child ellipsize instead of forcing the row wider.
+	   `max-width` here is a CAP, not a guarantee: it only says how wide
+	   the column may GET. Whether the row can afford it is a separate
+	   question, and at some widths the answer is no. That is what the
+	   media query below is for. */
+	flex: 0 1 var(--measure-narrow);
 	min-width: 0;
+	max-width: var(--measure-narrow);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -670,6 +710,39 @@ html {
 	.cm-prose h2 { font-size: 1.15rem; line-height: 1.3; }
 	.cm-prose h3 { font-size: 1.05rem; }
 	.cm-prose { line-height: 1.8; }
+}
+
+/* The inline row only works while BOTH columns can be read, and "the
+   width" is not the viewport: above 1000px the 232px `--rail-w` comes
+   OUT of the content column, so the row has 232px less to fit both
+   measures inside. Two bands starve the excerpt, they have different
+   causes, and — measured at 5px steps with the queries neutralized —
+   neither is a guess:
+
+     845px and below   body 417.69px at 700px against a 308.25px natural
+                       title; the excerpt falls to 5.11px at 700px and
+                       145.11px at 840px. A column that is present,
+                       non-zero, and unreadable.
+     1000-1055px       the rail band. Body 505.69px at 1000px, 550.69px
+                       at 1045px, so the excerpt drops to 93.11px. It
+                       RECOVERS on both sides — 153.11px at 1060px and
+                       205.11px at 995px — because `--maxw` caps the
+                       content column, so a wider viewport buys the row
+                       nothing and a narrower one loses the rail. A
+                       `min-width: 1000px` query is therefore wrong in
+                       both directions: it hides the excerpt at 1440px
+                       where it measures 205.11px.
+
+   The title is the primary label and is NEVER the thing that truncates,
+   so the excerpt is what goes: hidden, not squeezed, which is the same
+   handoff the 680px query above makes one step further down. A media
+   query cannot read a custom property, so the widths are literals by
+   necessity. */
+@media (max-width: 844px) {
+	.cm-rows--inline .cm-row__desc { display: none; }
+}
+@media (min-width: 1000px) and (max-width: 1055px) {
+	.cm-rows--inline .cm-row__desc { display: none; }
 }
 
 /* ---------- media frame ---------- */

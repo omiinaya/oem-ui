@@ -35,7 +35,9 @@ WIDTHS = (375, 390, 641, 700, 768, 900, 999, 1000, 1280)
 
 PROBE = """() => {
   const header = document.querySelector('.cm-header');
-  const list = document.querySelector('.cm-header__links');
+  if (!header) return { skipped: 'no .cm-header on this page' };
+  const list = header.querySelector('.cm-header__links');
+  if (!list) return { skipped: 'this .cm-header has no nav link list' };
   const links = [...list.querySelectorAll(':scope > .cm-header__link')];
   const hr = header.getBoundingClientRect();
   const lr = list.getBoundingClientRect();
@@ -66,6 +68,9 @@ PROBE = """() => {
     listBottom: Math.round(lr.bottom),
     navRows: new Set(links.map((a) => Math.round(a.getBoundingClientRect().top))).size,
     links: links.length,
+    isRail: header.classList.contains('cm-header--rail'),
+    scrollW: list.scrollWidth,
+    clientW: list.clientWidth,
     canScrollX: list.scrollWidth > list.clientWidth,
     lastReachable: last.right <= vw + 1 && last.left >= -1,
     escapees: escapees.slice(0, 4),
@@ -75,6 +80,7 @@ PROBE = """() => {
 
 async def main():
     fails = []
+    skipped = 0
     async with async_playwright() as pw:
         br = await pw.webkit.launch()
         try:
@@ -85,6 +91,16 @@ async def main():
                     d = await pg.evaluate(PROBE)
                 finally:
                     await pg.close()
+
+                # A consumer may not use this header at all -- `links`
+                # renders `.cm-head`, not `.cm-header`. Skipping is the
+                # honest answer; crashing on `null.querySelectorAll`
+                # is a test that cannot be pointed at anything but the
+                # showcase.
+                if d.get("skipped"):
+                    print(f"skip w={w:<5} {d['skipped']}")
+                    skipped += 1
+                    continue
 
                 rail = w >= 1000
                 band = 641 <= w < 1000
@@ -102,22 +118,34 @@ async def main():
                 if not d["links"]:
                     fails.append(f"{tag} {w}: no nav links rendered")
 
-                # Shape expectations per band.
+                # Shape expectations per band -- but ONLY for a header that
+                # opts into the bar/rail at all, and only where the links
+                # genuinely exceed the width. `oem-portfolio` ships 3 nav
+                # links: they fit in one row at every width, so "must scroll"
+                # is a false requirement, and it does not pass `rail`, so
+                # "must be a single column" is a false requirement too.
+                # Reachability above is the invariant that holds universally;
+                # these two are conditional on the header being under pressure.
                 if band:
                     if d["navRows"] != 1:
                         fails.append(
                             f"{tag} {w}: nav occupies {d['navRows']} rows; it must be one"
                         )
-                    if not d["canScrollX"]:
+                    # A row only NEEDS to scroll if it overflows. Assert the
+                    # overflow itself, not the mechanism.
+                    overflowing = d["scrollW"] > d["clientW"] + 1
+                    if overflowing and not d["canScrollX"]:
                         fails.append(
-                            f"{tag} {w}: the row does not scroll sideways, so a link "
-                            "that does not fit is unreachable"
+                            f"{tag} {w}: the row overflows "
+                            f"({d['scrollW']}>{d['clientW']}) but cannot scroll, "
+                            "so a link that does not fit is unreachable"
                         )
-                if rail and d["navRows"] < d["links"]:
-                    fails.append(
-                        f"{tag} {w}: the rail is not a single column "
-                        f"({d['navRows']} rows for {d['links']} links)"
-                    )
+                if rail and d["isRail"]:
+                    if d["navRows"] < d["links"]:
+                        fails.append(
+                            f"{tag} {w}: the rail is not a single column "
+                            f"({d['navRows']} rows for {d['links']} links)"
+                        )
 
                 print(
                     f"{'ok  ' if not fails else ''}{tag:5} w={w:<5} header={d['headerH']:>4}px "
@@ -132,8 +160,19 @@ async def main():
         for f in fails:
             print("FAIL " + f)
         sys.exit(1)
+    checked = len(WIDTHS) - skipped
+    if checked == 0:
+        # Every width skipped means the page under test has no such header.
+        # Printing PASS would be a green that asserts nothing, which is the
+        # worst possible output for a check whose entire job is proving a
+        # rendering bug is gone.
+        print(
+            "FAIL  every width skipped: this page has no .cm-header link list, "
+            "so nothing was verified. Point BASE_URL at a page that uses the header."
+        )
+        sys.exit(1)
     print(
-        f"PASS  {len(WIDTHS)} widths: nothing paints outside the header box, "
+        f"PASS  {checked} widths: nothing paints outside the header box, "
         "every nav link reachable,"
     )
     print("      one row in the 641-999 band, one column in the rail.")
