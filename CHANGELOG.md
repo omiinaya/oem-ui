@@ -52,6 +52,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **The drift checker could not see a consumer whose layers are not at the
+  repo root.** `spacetime-rpm` serves its admin console from `web/`, so it
+  keeps them at `web/src/styles/cli-mono/`, and every comparison hardcoded
+  `src/`. The result was the worst of both: rpm was reported MISSING on all
+  five files and ORPHAN on the two it did compare, i.e. a *correct*
+  consumer reported as broken - the crying-wolf end state - while the bare
+  scan skipped it entirely, so `oem-ui-deep-audit.sh` listed rpm as "NOT on
+  oem-ui" when rpm was one. It cost days: rpm carried `cm-check`,
+  `cm-toolbar` and `cm-toolbar__count` - `.cm-*` names the library did not
+  own, in the one file no consumer imports - and nothing ever named them.
+  A target's install root is now DISCOVERED from the layer's content rather
+  than assumed from its path.
+- **Surface built inside a vendored layer is now named.** A vendored
+  `components.css` that is ahead of the library reported only "N lines
+  differ", which does not say that the extra lines are `.cm-*` names
+  nothing else owns. `RESERVED` lists them. An override of a library part
+  stays silent, because that is legal; defining a library-prefixed name is
+  the defect.
+
+### Fixed
 - A rail control placed in `.cm-header__controls` (a sign-out button) was
   aligned and padded but never given the `--tap` floor its sibling links get
   from the rail rule, so it measured 31px against a 44px target.
