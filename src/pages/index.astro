@@ -37,7 +37,7 @@ import HeaderLink from '../astro/HeaderLink.astro';
  */
 const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'lists', 'states', 'surface',
-  'selection', 'stack', 'badge', 'rowon', 'switch', 'sheet', 'choice',
+  'selection', 'stack', 'badge', 'json', 'rowon', 'switch', 'sheet', 'choice',
 	'code', 'overlays', 'records', 'cards', 'prose', 'layout',
 	'forms', 'auth', 'readme',
 ] as const;
@@ -919,6 +919,32 @@ import { SITE } from '../astro/config';
 									<div class="cm-head__sub">404 catch-all domains</div>
 								</div>
 								<button class="cm-btn cm-btn--sm cm-btn--primary cm-head-row__action">Add Dead Host</button>
+							</div>
+						</section>
+						<section id="json" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+							<h2>code: json</h2>
+							<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
+								The monospace surface for structured text, in the two
+								forms it is always used: a block you read and a
+								block you edit. Same type, same frame, so switching
+								between them does not move the text. Not to be
+								confused with <code>cm-code-input</code>, which is
+								the centred one-time-code field.
+							</p>
+							<div class="cm-row" style="border:1px solid var(--line);border-radius:var(--radius-sm)">
+								<details class="cm-disclosure cm-disclosure--flush" open>
+									<summary class="cm-disclosure__summary">
+										<span class="cm-disclosure__mark" aria-hidden="true">&#9662;</span>
+										<span class="cm-disclosure__title">meta</span>
+										<span class="cm-row__meta">(42 chars)</span>
+									</summary>
+									<div class="cm-disclosure__body cm-stack">
+										<pre class="cm-code">&#123;
+  "forward_port": 8096
+&#125;</pre>
+										<button class="cm-btn cm-btn--sm cm-btn--ghost" style="align-self:flex-start">Edit</button>
+									</div>
+								</details>
 							</div>
 						</section>
 						<section id="rowon" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">

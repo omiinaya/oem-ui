@@ -3220,6 +3220,71 @@ button.cm-row:hover { background: var(--bg-2); }
 	padding: 0 var(--space-4) var(--space-4);
 	border-top: 1px solid var(--line);
 }
+/* A disclosure that belongs to the inside of something else rather than
+   standing on its own. `cm-disclosure` is a bordered box with its own
+   panel background, which is right when it is a section of its own and
+   wrong when it is the bottom half of a record row: there it has to be
+   flush, unboxed, and share the row's bottom edge, or every record card
+   ends in a second frame.
+
+/* ---------- code: a monospace block for JSON, config, and output ----------
+   `cm-code-input` is NOT this: it is the centred, letter-spaced field for
+   a one-time code, and applying it to a JSON textarea centres the text and
+   spaces every character apart. Same "code" in the name, unrelated job.
+
+   This is the read/write surface for structured text. Every record in
+   Streams, ProxyHosts, Certificates and Access Lists can carry a meta
+   JSON blob, and all four were hand-rolling the same textarea and the
+   same <pre> beside it, each with its own height and its own border
+   colour. The one thing they must agree on is that the two are the same
+   object: a block you read and a block you edit, in the same type and
+   the same frame, so switching between them does not move the text. */
+.cm-code {
+	width: 100%;
+	font-family: var(--font-mono);
+	font-size: max(var(--min-font), 0.82rem);
+	line-height: 1.5;
+	color: var(--ink-dim);
+	background: var(--bg);
+	border: 1px solid var(--ink-dim);
+	border-radius: var(--radius-sm);
+	padding: var(--space-2);
+	min-width: 0;
+}
+textarea.cm-code {
+	resize: vertical;
+	/* A textarea is its own scroll box; the browser's default resize grip
+	   sits in the padding and catches the click. */
+	min-height: var(--tap);
+}
+.cm-code:focus-visible {
+	outline: 2px solid var(--ink);
+	outline-offset: 1px;
+}
+
+/* ---------- the flush disclosure ----------
+   A disclosure that belongs to the inside of something else rather than
+   standing on its own. `cm-disclosure` is a bordered box with its own
+   panel background, which is right when it is a section of its own and
+   wrong when it is the bottom half of a record row: there it has to be
+   flush, unboxed, and share the row's bottom edge, or every record card
+   ends in a second frame.
+
+   The summary keeps the tap floor in both forms - a disclosure row is
+   the control, and the summary is only its label. */
+.cm-disclosure--flush {
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+}
+.cm-disclosure--flush .cm-disclosure__summary {
+	padding: var(--space-2) var(--space-3);
+}
+.cm-disclosure--flush .cm-disclosure__body {
+	padding: 0 var(--space-3) var(--space-3);
+	border-top: 0;
+}
+
 /* `hidden` is the mechanism, and any author `display` outranks the UA
    sheet - so say it, or a panel that was open at paint stays visible
    after it is closed. */
