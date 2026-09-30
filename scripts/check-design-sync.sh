@@ -128,6 +128,30 @@ css_leaf() {
 	printf '%s' "$rel"
 }
 
+# Make $d relative to the project root $t. NOT `${d#"$t"/}`: when $d IS
+# $t that expansion has nothing to match and bash returns the string
+# UNCHANGED, so the caller gets an ABSOLUTE path where it expected a
+# relative one.
+#
+# That is not a theoretical shape. `install.sh --flat` is documented for
+# exactly the project that has no src/ tree - a plain web/index.html or a
+# static page served from the project root - and it writes the runtime to
+# <target>/cli-mono.js, i.e. the vendored JS directory IS the project root.
+# js_dir_for then returned "$t" verbatim, and every caller built
+# "$t/$JD/cli-mono.js" = "/a/b//a/b/cli-mono.js", a path that exists
+# nowhere. Measured: the checker printed MISSING for BOTH JS files of a
+# flat install whose copies were BYTE-IDENTICAL, then advised running
+# install.sh again - which would have added a second, unserved copy under
+# src/js/. The install the checker told the reader to re-run was correct;
+# the checker could not see the layout it had produced.
+#
+# '.' stands for the root. It is not empty, because an empty CD/JD means
+# "not discovered" to the callers below, and this one WAS discovered.
+rel_to_t() {
+	if [ "$1" = "$t" ]; then printf '.'; return 0; fi
+	printf '%s' "${1#"$t"/}"
+}
+
 similar_to() {
 	python3 - "$1" "$2" 2>/dev/null <<'PY' || printf '0\n'
 import sys
@@ -175,7 +199,7 @@ css_dir_for() {
 		[ "$d/components.css" = "$SRC/src/styles/components.css" ] && continue
 		if [ "$(similar_to "$SRC/src/styles/components.css" "$d/components.css")" \
 			-ge "$COPY_PCT" ]; then
-			printf '%s' "${d#"$t"/}"
+			rel_to_t "$d"
 			return 0
 		fi
 	done
@@ -244,14 +268,14 @@ js_dir_for() {
 		# the absolute path made every comparison a tie at the
 		# same offset, so the first match always won.
 		d="${f%/*}"
-		rel="${d#"$t"/}"
+		rel="$(rel_to_t "$d")"
 		dep="${rel//[^\/]/}"
 		if [ -z "$best" ] || [ "${#dep}" -lt "${#bestdep}" ]; then
 			best="$d"; bestdep="$dep"
 		fi
 	done
 	[ -n "$best" ] || return 1
-	printf '%s' "${best#"$t"/}"
+	rel_to_t "$best"
 }
 
 targets=()
@@ -499,13 +523,55 @@ for t in "${targets[@]}"; do
 	# which load the library.
 	if [ -z "${OEM_UI_SKIP_REACHABILITY:-}" ]; then
 		# Every .astro/.ts/.js/.css file outside the vendored dir itself.
-		sources=$(find "$t/src" -type f \
-			\( -name '*.astro' -o -name '*.ts' -o -name '*.js' -o -name '*.css' -o -name '*.mjs' \) \
-			! -path "*/styles/cli-mono/*" ! -name 'cli-mono.js' \
-			! -name 'cli-mono-theme-guard.js' 2>/dev/null)
+		#
+		# `$t` and NOT `$t/src`. `install.sh --flat` exists for a project
+		# with no src/ tree at all - plain index.html files served from
+		# the project root, which is exactly what oem-ngo-brand is -
+		# so scanning `$t/src` found nothing there and the whole
+		# reachability pass was skipped: a flat consumer that vendored
+		# the library and imported NONE of it reported "in sync" on
+		# every run. That is the dev-blog bug again, in the one layout
+		# the checker could not see, and it was silent for the whole
+		# life of the --flat flag.
+		#
+		# Scanning $t instead is safe: the vendored copies themselves are
+		# excluded by name and by the cli-mono/ path, so they can never
+		# vouch for their own reachability. The `$CD` exclusion is
+		# widened to the discovered vendored dir so a consumer whose
+		# tree is named something else (oem-cdn's web/oem-ui/) is equally
+		# unable to grade its own homework.
+		#
+		# *.html is in the set, and it is the ONLY member that matters
+		# for a flat consumer. A static site has no .astro and no .ts:
+		# its pages are plain HTML at the project root, which is what
+		# --flat was written for. Without it the scan found nothing at
+		# all, `sources` came back empty, and the entire reachability
+		# pass - the one added because dev-blog imported none of what it
+		# vendored - was skipped outright for this layout.
+		sources=$(find "$t" \
+			\( -type d \( -name node_modules -o -name .git -o -name dist \
+				-o -name build -o -name target -o -name .astro \
+				-o -name .next -o -name vendor \) -prune \) -o \
+			\( -type f \
+			\( -name '*.astro' -o -name '*.ts' -o -name '*.js' -o -name '*.css' -o -name '*.mjs' -o -name '*.html' \) \
+			! -path "*/styles/cli-mono/*" ! -path "$t/$CD/*" \
+			! -name 'cli-mono.js' \
+			! -name 'cli-mono-theme-guard.js' -print \) 2>/dev/null)
 		if [ -n "$sources" ]; then
 			# grep the whole source set once, not per file.
 			blob=$(cat $sources 2>/dev/null || true)
+			# Comments are NOT references. A page that says
+			# "<!-- we inline cli-mono-theme-guard.js here -->" and then
+			# does not load it has no guard, and a check satisfied by a
+			# filename in a sentence is the dev-blog trap wearing a
+			# different hat. So strip comments before asking what the
+			# project actually wires up. Only HTML comments: a consumer
+			# may legitimately document the library in a .md-adjacent
+			# comment inside CSS, but CSS comments cannot contain the
+			# tag-bearing markup these checks look for, so stripping
+			# them buys nothing and risks eating a real @import line
+			# that a stylesheet legitimately hides behind a comment.
+			blob=$(printf '%s' "$blob" | perl -0pe 's/<!--.*?-->//gs')
 			# The three CSS layers are all-or-nothing: a project that styles
 			# with .cm-* is loading them, and if it does not, none of the
 			# library reached the page.
@@ -593,8 +659,29 @@ for t in "${targets[@]}"; do
 			# load it by a `?raw` import or by <script src>, and both are
 			# real. Requiring the literal path flagged a correct consumer
 			# in this repo's own history.
+			#
+			# And match the BODY, because inlining it verbatim is the
+			# shape the guard's own header recommends and the shape
+			# spacetime-rpm actually ships: the whole file pasted into a
+			# <script> element in web/index.html. No filename appears
+			# anywhere in that page, so a name-only match calls a wired
+			# guard UNREACHABLE - the exact false positive that trains
+			# people to ignore this line. The signature below is from the
+			# guard's executable body, not its comments, so it cannot be
+			# satisfied by the file merely being quoted in prose.
+			#
+			# Generated from the guard source rather than hand-copied: a
+			# literal here would rot the moment the guard changes, and a
+			# signature that no longer matches its own guard is a check
+			# that has quietly stopped checking.
+			guard_sig() {
+				sed -n '/^(function () {/,/^})();/p' \
+					"$SRC/src/js/cli-mono-theme-guard.js" |
+					grep -o "s === 'light' || s === 'dark'" | head -1
+			}
 			case "$blob" in
 			*"cli-mono-theme-guard.js"*) ;;
+			*"$(guard_sig)"*) ;;
 			*)
 				# A renamed guard counts as loaded under its own name.
 				# oem-cdn serves `theme-guard.js` and its <head> loads

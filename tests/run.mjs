@@ -2937,6 +2937,195 @@ check('the drift checker fails on a vendored-but-never-imported layer', () => {
 	}
 });
 
+check('the drift checker can see a flat, src-less consumer at all', async () => {
+	// `--flat` is the installer's documented layout for a project with no
+	// src/ tree at all - a plain index.html served from the project root,
+	// which is exactly what oem-ngo-brand is. Two defects hid there, and
+	// both reported the same comfortable lie: "in sync".
+	//
+	// DEFECT 1 (js_dir_for). `${d#"$t"/}` returns its input UNCHANGED when
+	// there is nothing to strip. In a flat install the vendored JS
+	// directory IS the project root, so js_dir_for handed the caller an
+	// ABSOLUTE path and every lookup became "$t/$JD/cli-mono.js" =
+	// "/a/b//a/b/cli-mono.js", which exists nowhere. Measured: BOTH JS
+	// files of a byte-identical flat install reported MISSING, with a
+	// recommendation to re-run install.sh - which would have written a
+	// second, unserved copy under src/js/ and left the served one just as
+	// invisible.
+	//
+	// DEFECT 2 (reachability). The scan walked `$t/src` and read only
+	// .astro/.ts/.js/.css/.mjs. A static consumer has no src/ and no
+	// .astro: its pages are plain .html at the root. `sources` came back
+	// empty, so the whole reachability pass - the one added because
+	// dev-blog imported none of what it vendored - never ran. A flat
+	// consumer could vendor the entire library, load NONE of it, and pass
+	// every run.
+	//
+	// Both halves are proven, because a fix for one leaves the other
+	// lying: repairing js_dir_for alone still reports "in sync" for an
+	// unwired consumer, and teaching the scan about .html alone still
+	// reports MISSING for a wired one.
+	const dir = mkdtempSync(join(tmpdir(), 'cm-flat-'));
+	try {
+		const run = (d = dir) => spawnSync('bash', [join(root, 'scripts/check-design-sync.sh'), d], {
+			encoding: 'utf8', env: { ...process.env, OEM_UI_SRC: root },
+		});
+
+		const inst = spawnSync('bash', [join(root, 'scripts/install.sh'), dir, '--flat'], {
+			encoding: 'utf8',
+		});
+		assert(inst.status === 0, `installer --flat exited ${inst.status}: ${inst.stderr}`);
+
+		// The layout the flag documents, proven by assertion rather than
+		// assumed: JS at the root, CSS in cli-mono/, and NO src/ dir.
+		// If this stops holding the test is measuring a different shape
+		// than the one it claims to cover.
+		assert(!existsSync(join(dir, 'src')),
+			'a --flat install must not create a src/ tree, or this test is not covering the flat case');
+		for (const f of ['cli-mono.js', 'cli-mono-theme-guard.js', 'cli-mono/tokens.css',
+			'cli-mono/base.css', 'cli-mono/components.css']) {
+			assert(existsSync(join(dir, f)), `--flat install did not produce ${f}`);
+		}
+
+		// Half 1: a flat install with no pages at all is not a drifted
+		// consumer, it is an unbuilt one. This is the false positive that
+		// would make the check cry wolf, so it is pinned first.
+		const unbuilt = run();
+		assert(unbuilt.status === 0,
+			`an installed-but-unbuilt flat project must not fail, got ${unbuilt.status}: ${unbuilt.stdout.trim()}`);
+		assert(/in sync/.test(unbuilt.stdout),
+			`expected in sync for an unbuilt flat project, got: ${unbuilt.stdout.trim()}`);
+
+		// Half 2: give it a real page that imports NONE of the library.
+		// This is the dev-blog state in flat clothing, and it is the one
+		// the reachability pass exists to catch.
+		writeFileSync(join(dir, 'index.html'),
+			'<!doctype html><html><head><title>flat</title></head><body><h1>hi</h1></body></html>\n');
+		const orphan = run();
+		assert(orphan.status === 1,
+			`a flat consumer that vendors the library and imports none of it must fail, got ${orphan.status}: ${orphan.stdout.trim()}`);
+		for (const f of ['tokens\\.css', 'base\\.css', 'components\\.css', 'cli-mono-theme-guard\\.js']) {
+			assert(new RegExp(`UNREACHABLE\\s+${f}\\b`).test(orphan.stdout),
+				`${f} should be named unreachable for a flat consumer; output was:\n${orphan.stdout}`);
+		}
+
+		// Half 2b: and the three CSS layers must FAIL ON THEIR OWN. The
+		// guard reports unreachable too, so in half 2 the exit status
+		// could be carried entirely by the guard's own stale=1 and the
+		// CSS loop could report forever without ever failing anything -
+		// which is exactly what a mutation that deletes the CSS stale=1
+		// does, and exactly what this half exists to kill. A page that
+		// loads the guard but no stylesheet is the only shape that
+		// separates the two, so it is the shape used here.
+		const cssOnly = mkdtempSync(join(tmpdir(), 'cm-flat-css-'));
+		try {
+			spawnSync('bash', [join(root, 'scripts/install.sh'), cssOnly, '--flat'], { encoding: 'utf8' });
+			writeFileSync(join(cssOnly, 'index.html'), [
+				'<!doctype html><html><head>',
+				'<script src="/cli-mono-theme-guard.js"></script>',
+				'</head><body><h1>guarded, unstyled</h1></body></html>',
+			].join('\n') + '\n');
+			const r = run(cssOnly);
+			assert(r.status === 1,
+				`three unreachable CSS layers must fail on their own, got ${r.status}: ${r.stdout.trim()}`);
+			assert(!/UNREACHABLE\s+cli-mono-theme-guard/.test(r.stdout),
+				`the guard IS wired here, so it must not be reported: ${r.stdout.trim()}`);
+			for (const f of ['tokens\\.css', 'base\\.css', 'components\\.css']) {
+				assert(new RegExp(`UNREACHABLE\\s+${f}\\b`).test(r.stdout),
+					`${f} should be named unreachable; output was:\n${r.stdout}`);
+			}
+		} finally {
+			rmSync(cssOnly, { recursive: true, force: true });
+		}
+
+		// Half 3: wire it the way a flat consumer actually wires it - a
+		// plain <link> per layer and the guard as a blocking script src
+		// ahead of them, exactly as install.sh --flat documents. If this
+		// does not pass, the fix is wrong in the direction that matters:
+		// it would make every static consumer unshippable.
+		writeFileSync(join(dir, 'index.html'), [
+			'<!doctype html><html><head>',
+			'<script src="/cli-mono-theme-guard.js"></script>',
+			'<link rel="stylesheet" href="/cli-mono/tokens.css" />',
+			'<link rel="stylesheet" href="/cli-mono/base.css" />',
+			'<link rel="stylesheet" href="/cli-mono/components.css" />',
+			'<script src="/cli-mono.js"></script>',
+			'</head><body><header class="cm-header"></header></body></html>',
+		].join('\n') + '\n');
+		const wired = run();
+		assert(wired.status === 0,
+			`a wired flat consumer must pass, got ${wired.status}: ${wired.stdout.trim()}`);
+		assert(/in sync/.test(wired.stdout), `expected in sync, got: ${wired.stdout.trim()}`);
+
+		// Half 4: AND the check must still FIRE on a flat consumer. A fix
+		// that made the script quiet rather than correct would pass
+		// halves 1-3, which is the failure mode of every "just relax the
+		// assertion" edit.
+		writeFileSync(join(dir, 'cli-mono/base.css'), '/* drift */\n');
+		const drifted = run();
+		assert(drifted.status === 1, `real drift in a flat consumer must fail, got ${drifted.status}`);
+		assert(/STALE/.test(drifted.stdout),
+			`expected STALE for drifted flat CSS, got: ${drifted.stdout.trim()}`);
+
+		// Half 5: the guard INLINED verbatim counts as loaded. This is not
+		// a shape I invented for this test: spacetime-rpm pastes the whole
+		// file into a <script> element in web/index.html, so no filename
+		// appears anywhere in its page. A name-only match called that
+		// shipped, wired guard UNREACHABLE - and that false positive is
+		// worse than the bug it was reporting, because it is the thing
+		// that teaches a reader to ignore the line.
+		const inlined = mkdtempSync(join(tmpdir(), 'cm-flat-guard-'));
+		try {
+			spawnSync('bash', [join(root, 'scripts/install.sh'), inlined, '--flat'], { encoding: 'utf8' });
+			const guard = readFileSync(join(root, 'src/js/cli-mono-theme-guard.js'), 'utf8');
+			writeFileSync(join(inlined, 'index.html'), [
+				'<!doctype html><html><head>',
+				'<script>' + guard + '</script>',
+				'<link rel="stylesheet" href="/cli-mono/tokens.css" />',
+				'<link rel="stylesheet" href="/cli-mono/base.css" />',
+				'<link rel="stylesheet" href="/cli-mono/components.css" />',
+				'<script src="/cli-mono.js"></script>',
+				'</head><body><header class="cm-header"></header></body></html>',
+			].join('\n') + '\n');
+			const r = run(inlined);
+			assert(r.status === 0,
+				`a consumer that inlines the guard verbatim must pass, got ${r.status}: ${r.stdout.trim()}`);
+			assert(!/UNREACHABLE\s+cli-mono-theme-guard/.test(r.stdout),
+				`a verbatim-inlined guard was called unreachable: ${r.stdout.trim()}`);
+		} finally {
+			rmSync(inlined, { recursive: true, force: true });
+		}
+
+		// Half 6: and a guard that is merely QUOTED in prose is still
+		// unreachable. Matching the body must not degrade into matching
+		// the word - the previous line of that page is a comment naming
+		// the file, and a check satisfied by a filename in a sentence is
+		// the dev-blog trap wearing a different hat.
+		const quoted = mkdtempSync(join(tmpdir(), 'cm-flat-quoted-'));
+		try {
+			spawnSync('bash', [join(root, 'scripts/install.sh'), quoted, '--flat'], { encoding: 'utf8' });
+			writeFileSync(join(quoted, 'index.html'), [
+				'<!doctype html><html><head>',
+				'<!-- this page used to inline cli-mono-theme-guard.js -->',
+				'<link rel="stylesheet" href="/cli-mono/tokens.css" />',
+				'<link rel="stylesheet" href="/cli-mono/base.css" />',
+				'<link rel="stylesheet" href="/cli-mono/components.css" />',
+				'<script src="/cli-mono.js"></script>',
+				'</head><body><header class="cm-header"></header></body></html>',
+			].join('\n') + '\n');
+			const r = run(quoted);
+			assert(r.status === 1,
+				`a guard named only in a comment is not wired; must fail, got ${r.status}: ${r.stdout.trim()}`);
+			assert(/UNREACHABLE\s+cli-mono-theme-guard\.js/.test(r.stdout),
+				`the unwired guard must be named, got: ${r.stdout.trim()}`);
+		} finally {
+			rmSync(quoted, { recursive: true, force: true });
+		}
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
 check('the drift checker catches a shadow copy of the runtime on an unchecked path', async () => {
 	// THE GAP THIS EXISTS FOR.
 	//
