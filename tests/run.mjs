@@ -6638,7 +6638,7 @@ check('the auth frame is centered without a consumer stylesheet', () => {
      1. a nested, byte-identical consumer -> in sync, exit 0
      2. the same consumer with one file broken -> exit 1, naming the REAL
         nested path rather than the assumed src/ one                */
-{
+check('the drift checker discovers a consumer\'s install root, not just src/', () => {
 	const mk = (nested) => {
 		const dir = mkdtempSync(join(tmpdir(), 'cm-prefix-'));
 		const p = nested ? join(dir, 'web/src') : join(dir, 'src');
@@ -6690,7 +6690,7 @@ check('the auth frame is centered without a consumer stylesheet', () => {
 			rmSync(dir, { recursive: true, force: true });
 		}
 	}
-}
+});
 
 /* ================= surface built INSIDE a vendored layer ==============
    rpm carried cm-check, cm-toolbar and cm-toolbar__count inside its
@@ -6702,7 +6702,7 @@ check('the auth frame is centered without a consumer stylesheet', () => {
    Both directions again, because the false positive is the expensive one:
      1. a .cm-* rule the library does NOT own -> RESERVED, naming it
      2. a consumer OVERRIDING a library part   -> silent, which is legal  */
-{
+check('the drift checker names surface built inside a vendored layer', () => {
 	const dir = mkdtempSync(join(tmpdir(), 'cm-reserved-'));
 	try {
 		for (const f of ['tokens.css', 'base.css', 'components.css']) {
@@ -6738,7 +6738,7 @@ check('the auth frame is centered without a consumer stylesheet', () => {
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
-}
+});
 
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {

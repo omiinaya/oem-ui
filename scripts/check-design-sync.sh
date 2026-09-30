@@ -68,11 +68,61 @@ strip_slash() {
 	printf '%s' "$p"
 }
 
+# A consumer does NOT have to keep the layers at src/styles/cli-mono/.
+# spacetime-rpm serves its admin console from web/, so it holds them at
+# web/src/styles/cli-mono/ - and MAP hardcodes the src/ prefix, so this
+# check reported it MISSING on every file and ORPHAN on the two it got
+# right. That is the crying-wolf end state: a CORRECT consumer reported as
+# broken, which trains you to ignore the section.
+#
+# It also hid the actual defect. rpm carried FOUR .cm-* rules the library
+# does not define (cm-check, cm-toolbar, cm-toolbar__count) INSIDE its
+# vendored components.css, for days, because no drift check ever named the
+# project.
+#
+# So a target's stylesheet prefix is DISCOVERED, not assumed: the directory
+# that holds a tokens.css which is byte-identical to (or close to) the
+# library's. Resolved once per target, then used everywhere a MAP
+# destination was previously hardcoded.
+#
+# It stays scoped on purpose. Finding any file NAMED components.css would
+# adopt a project's own stylesheet as if it were the library's, and report
+# the whole thing as drift - which is the same false alarm, one level up.
+# The identity that matters is the CONTENT: a vendored library layer.
+prefix_for() {
+	local t="$1" d
+	# The canonical layout first, so an unchanged project keeps the
+	# paths it has always reported.
+	[ -f "$t/src/styles/cli-mono/components.css" ] && { printf 'src'; return 0; }
+	for d in $(find "$t" -type d -name cli-mono -path '*styles*' \
+		! -path '*/node_modules/*' ! -path '*/.git/*' ! -path '*/dist/*' \
+		! -path '*/target/*' 2>/dev/null | sort); do
+		[ -f "$d/components.css" ] || continue
+		# Identity check: a vendored copy IS (nearly) the library's
+		# file. A same-named project stylesheet is not, and adopting it
+		# would report the project as drifted against itself.
+		if cmp -s "$SRC/src/styles/components.css" "$d/components.css" \
+			|| [ "$(diff "$SRC/src/styles/components.css" "$d/components.css" 2>/dev/null | grep -c '^[<>]')" -gt 0 ]; then
+			# The prefix is everything BEFORE the trailing /styles/cli-mono,
+			# relative to the project root: `web/src/styles/cli-mono` yields
+			# `web/src`, because the caller re-appends /styles itself.
+			# Returning the whole path made the caller append /styles twice,
+			# and the check reported MISSING on files that exist.
+			printf '%s' "${d%/cli-mono}" | sed "s|^$t/*||; s|/*\$||; s|/styles\$||"
+			return 0
+		fi
+	done
+	return 1
+}
+
 targets=()
 for t0 in "$@"; do targets+=("$(strip_slash "$t0")"); done
 if [ ${#targets[@]} -eq 0 ]; then
+	# Bare invocation: scan for the layers ANYWHERE, at any depth. The
+	# old test was `[ -d "$d/src/styles/cli-mono" ]`, which can only ever
+	# find a project whose install root is the repo root.
 	for d in "$CONSUMER_ROOT"/*/; do
-		[ -d "$d/src/styles/cli-mono" ] && targets+=("$(strip_slash "$d")")
+		prefix_for "$(strip_slash "$d")" >/dev/null 2>&1 && targets+=("$(strip_slash "$d")")
 	done
 fi
 
@@ -84,15 +134,34 @@ fi
 stale=0
 for t in "${targets[@]}"; do
 	out=""
+	# Discovered, not assumed - see prefix_for. Empty means "no vendored
+	# layer anywhere in this project", which is reported rather than
+	# silently skipped, because an undetectable consumer is precisely the
+	# rpm failure this fixes.
+	CP="$(prefix_for "$t" || true)"
+	if [ -n "$CP" ]; then
+		# The js half sits under the SAME root as the styles. `CP` is the
+		# root's src (e.g. `web/src`), and the runtime lives in `CP/js` -
+		# NOT `CP/src/js`, which is what a naive `${CP}/src/js` produced
+		# and which reported MISSING on files that exist.
+		JP="$CP/js"
+	else
+		JP="src/js"
+	fi
 	for pair in "${MAP[@]}"; do
 		s="$SRC/${pair%%:*}"
-		d="$t/${pair##*:}"
+		dest="${pair##*:}"
+		case "$dest" in
+			src/styles/*) d="$t/${CP:-src}/styles/${dest#src/styles/}" ;;
+			src/js/*)     d="$t/$JP/${dest#src/js/}" ;;
+			*)            d="$t/$dest" ;;
+		esac
 		if [ ! -f "$d" ]; then
-			out+="  MISSING  ${pair##*:}"$'\n'
+			out+="  MISSING  ${d#$t/}"$'\n'
 			stale=1
 		elif ! cmp -s "$s" "$d"; then
 			n=$(diff "$s" "$d" | grep -c '^[<>]' || true)
-			out+="  STALE    ${pair##*:} ($n lines differ)"$'\n'
+			out+="  STALE    ${d#$t/} ($n lines differ)"$'\n'
 			stale=1
 		fi
 	done
@@ -103,11 +172,15 @@ for t in "${targets[@]}"; do
 	# one would make this check cry wolf on every such consumer.
 	for pair in "${ALT[@]}"; do
 		s="$SRC/${pair%%:*}"
-		d="$t/${pair##*:}"
+		dest="${pair##*:}"
+		case "$dest" in
+			src/js/*) d="$t/$JP/${dest#src/js/}" ;;
+			*)        d="$t/$dest" ;;
+		esac
 		[ -f "$d" ] || continue
 		if ! cmp -s "$s" "$d"; then
 			n=$(diff "$s" "$d" | grep -c '^[<>]' || true)
-			out+="  STALE    ${pair##*:} ($n lines differ)"$'\n'
+			out+="  STALE    ${d#$t/} ($n lines differ)"$'\n'
 			stale=1
 		fi
 	done
@@ -153,7 +226,13 @@ for t in "${targets[@]}"; do
 		esac
 		already=0
 		for pair in "${MAP[@]}" "${ALT[@]}"; do
-			[ "$f" = "$t/${pair##*:}" ] && already=1 && break
+			pdest="${pair##*:}"
+			case "$pdest" in
+				src/styles/*) owned="$t/${CP:-src}/styles/${pdest#src/styles/}" ;;
+				src/js/*)     owned="$t/$JP/${pdest#src/js/}" ;;
+				*)            owned="$t/$pdest" ;;
+			esac
+			[ "$f" = "$owned" ] && already=1 && break
 		done
 		[ "$already" -eq 1 ] && continue
 		# Which origin does this name correspond to?
@@ -286,6 +365,55 @@ for t in "${targets[@]}"; do
 					stale=1
 					;;
 			esac
+		fi
+	fi
+
+	# ---- reserved prefix: .cm-* the LIBRARY does not own ---------------
+	# A vendored copy that is byte-identical is in sync; one that is AHEAD
+	# is drift the STALE line already names. Neither names WHAT the extra
+	# lines are, and that is the part that matters: spacetime-rpm carried
+	# four .cm-* rules the library did not define (cm-check, cm-toolbar,
+	# cm-toolbar__count) inside its vendored components.css, in the file
+	# nobody reads, for days. No library fix could ever reach them and no
+	# consumer could use them - surface built in the one place that cannot
+	# ship.
+	#
+	# So when the vendored components.css is AHEAD of the library, list the
+	# class selectors it defines that the library's own file does not. An
+	# override of a library part is allowed; DEFINING a library-prefixed
+	# name the library does not own is the defect, so the comparison is
+	# against the library's own rule selectors rather than a bare `.cm-`
+	# match.
+	if [ -n "$CP" ] && [ -f "$t/$CP/styles/cli-mono/components.css" ]; then
+		extra=$(python3 - "$SRC/src/styles/components.css" "$t/$CP/styles/cli-mono/components.css" <<'PY' 2>/dev/null
+import re, sys
+lib, con = sys.argv[1], sys.argv[2]
+def owned(p):
+    css = re.sub(r'/\*.*?\*/', '', open(p).read(), flags=re.S)
+    names = set()
+    for sel in re.findall(r'([^{}@]+)\{', css):
+        # split a selector list, then take each compound's own classes.
+        # A class inside a DESCENDANT selector is styled conditionally,
+        # so it is not the same as being defined here - but for this
+        # check either way counts as "the library mentions it".
+        for part in sel.split(','):
+            names.update(re.findall(r'\.(cm-[A-Za-z0-9_-]+)', part))
+    return names
+lib_names = owned(lib)
+con_names = owned(con)
+rogue = sorted(n for n in con_names - lib_names)
+print(' '.join(rogue))
+PY
+		)
+		if [ -n "$extra" ]; then
+			# shellcheck disable=SC2086
+			set -- $extra
+			out+="  RESERVED  $CP/styles/cli-mono/components.css defines $# .cm-* class(es) the library does not:"
+			out+=$'\n'"            $*"
+			out+=$'\n'"            the prefix is reserved for the library. Surface added here reaches"
+			out+=$'\n'"            no consumer, and no library fix ever lands on it."
+			out+=$'\n'
+			stale=1
 		fi
 	fi
 
