@@ -7664,6 +7664,17 @@ check('the sort direction is drawn from aria-sort, never from a colour class', (
 		'table never says which column it is ordered by');
 });
 
+// An invalid field is marked with the ink, not a red border: the page
+// already prints the message, and red is the one hue that does not
+// survive a dark theme, a greyscale print, or red-green colour blindness.
+{
+  const lib = read('src/styles/components.css');
+  const m = lib.match(/\.cm-code\[aria-invalid='true'\]\s*\{([^}]*)\}/);
+  if (!m) fail('no .cm-code[aria-invalid] rule');
+  if (!/border-color:\s*var\(--ink\)/.test(m[1])) fail('invalid field does not mark with ink');
+  if (!/box-shadow:\s*inset/.test(m[1])) fail('invalid field has no underline mark');
+  if (/red|#f00|rgb\(2\d\d/.test(m[1])) fail('invalid field carries a hue');
+}
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {

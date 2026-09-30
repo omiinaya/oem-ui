@@ -3656,6 +3656,21 @@ textarea.cm-code {
 	outline: 2px solid var(--ink);
 	outline-offset: 1px;
 }
+/* An invalid field is marked by the ink, not by a red border. The page
+   already prints the message through `.cm-field__error` right below the
+   control, so the border is a SECOND signal for a fact already on screen -
+   and a red one is the single hue that does not survive a dark theme, a
+   greyscale print, or the ~8% of men with a red-green colour deficiency.
+   What the reader needs is to know WHICH control to look at, so it is
+   marked with a heavier ink rule under the same box. */
+.cm-code[aria-invalid='true'] {
+	border-color: var(--ink);
+	box-shadow: inset 0 -2px 0 var(--ink);
+}
+.cm-code[aria-invalid='true']:focus-visible {
+	outline: 2px solid var(--ink);
+	outline-offset: 1px;
+}
 
 /* ---------- status code: a glyph, never a hue ----------
    An HTTP status is the clearest case in the app for "glyph + weight,
@@ -3741,6 +3756,19 @@ textarea.cm-code {
 .cm-auth--wide > * { max-width: 34rem; }
 
 .cm-card--auth { padding: var(--space-5); gap: var(--space-4); }
+
+/* An icon inside a card or a title sizes ITSELF from the type it sits
+   beside. The sign-in page was passing `style={{ width: 22, height: 22 }}`
+   per icon, which is layout in the markup and means a glyph that is 22px
+   on one page and 16px on the next. The container decides. */
+.cm-card--auth > svg,
+.cm-head__title > svg {
+	width: 1.15em;
+	height: 1.15em;
+	flex: 0 0 auto;
+	vertical-align: -0.18em;
+	margin-right: 0.35em;
+}
 /* The card carries the padding, so the head and the body must BOTH give
    it up. Zeroing only the head left the title 16px left of the first
    field - measured in WebKit at 390px and 1100px, in both cards. A
