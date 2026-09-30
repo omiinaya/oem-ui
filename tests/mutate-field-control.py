@@ -146,23 +146,23 @@ MUTANTS = [
     ),
     (
         "code-invalid-loses-ink",
-'.cm-code[aria-invalid=\'true\'] {\n\tborder-color: var(--ink);\n\tbox-shadow: inset 0 -2px 0 var(--ink);\n}'
+        ".cm-code[aria-invalid='true'] {\n\tborder-color: var(--ink);\n\tbox-shadow: inset 0 -2px 0 var(--ink);\n}",
         ".cm-code[aria-invalid='true'] {\n\tborder-color: var(--ink-dim);\n\tbox-shadow: inset 0 -2px 0 var(--ink);\n}",
         "does not mark with ink",
         None,
     ),
     (
         "code-invalid-loses-underline",
-'.cm-code[aria-invalid=\'true\'] {\n\tborder-color: var(--ink);\n\tbox-shadow: inset 0 -2px 0 var(--ink);\n}'
+        ".cm-code[aria-invalid='true'] {\n\tborder-color: var(--ink);\n\tbox-shadow: inset 0 -2px 0 var(--ink);\n}",
         ".cm-code[aria-invalid='true'] {\n\tborder-color: var(--ink);\n\tbox-shadow: none;\n}",
         "no underline mark",
         None,
     ),
     (
         "code-invalid-grows-a-hue",
-'.cm-code[aria-invalid=\'true\'] {\n\tborder-color: var(--ink);\n\tbox-shadow: inset 0 -2px 0 var(--ink);\n}'
+        ".cm-code[aria-invalid='true'] {\n\tborder-color: var(--ink);\n\tbox-shadow: inset 0 -2px 0 var(--ink);\n}",
         ".cm-code[aria-invalid='true'] {\n\tborder-color: #f00;\n\tbox-shadow: inset 0 -2px 0 var(--ink);\n}",
-        "carries a hue",
+        "literal colour, not a palette token",
         None,
     ),
 ]

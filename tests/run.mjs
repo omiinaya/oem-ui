@@ -7699,13 +7699,20 @@ check('the sort direction is drawn from aria-sort, never from a colour class', (
 check('an invalid .cm-code field is marked with the ink, never a hue', () => {
 	const m = /\.cm-code\[aria-invalid='true'\]\s*\{([^}]*)\}/.exec(compSrc);
 	assert(m, 'no .cm-code[aria-invalid="true"] rule');
+	// The hue check must run FIRST, or a replacement that breaks the ink
+	// token will fire the ink assert and this guard never executes - a
+	// classic dead code defect in the test itself.
+	const decls = m[1].split(';').map((d) => d.trim()).filter(Boolean);
+	const hue = decls.filter((d) => /(red|#[0-9a-f]{3,8}\b|rgb\(|hsl\()/i.test(d)
+		&& !/var\(--/.test(d));
+	assert(hue.length === 0,
+		'the invalid field carries a literal colour, not a palette token: '
+		+ hue.join('; '));
 	assert(/border-color:\s*var\(--ink\)/.test(m[1]),
 		'the invalid field does not mark with ink');
 	assert(/box-shadow:\s*inset/.test(m[1]),
 		'the invalid field has no underline mark, so it differs from the ' +
 		'rest field by border colour alone');
-	assert(!/red|#f00|rgb\(2\d\d/.test(m[1]),
-		'the invalid field carries a hue; the palette is grey by design');
 });
 
 // An affordance that acts ON a control (a reveal toggle, a clear button)
