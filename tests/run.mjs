@@ -8291,6 +8291,59 @@ for (const [name, fn] of pending.splice(0)) {
 	}
 }
 
+/* ================= the header must stay pinned ================= */
+{
+	// The runtime test tests/verify-sticky-scroll.py drives this with a REAL
+	// wheel gesture. These are the source-level invariants it depends on, so
+	// a regression is caught by the contract suite too, not only by WebKit.
+	const css = read("src/styles/components.css");
+	const base = ruleBodies(css, ".cm-header").join("\n");
+	check("the header is sticky, not static", () => {
+		if (!/position:\s*sticky/.test(base)) throw new Error("no position: sticky on .cm-header");
+	});
+	check("the header is pinned to the top of the viewport", () => {
+		if (!/top:\s*0/.test(base)) throw new Error("no top: 0 on .cm-header");
+	});
+	check("the header is painted above the page, so content scrolls under it", () => {
+		const z = base.match(/z-index:\s*(-?\d+)/);
+		if (!z) throw new Error("no z-index on .cm-header");
+		if (Number(z[1]) < 1) throw new Error("header z-index " + z[1] + " is not above the page");
+	});
+	check("the rail variant is fixed, so it is pinned independently of sticky", () => {
+		// Sticky inside a horizontally scrolling ancestor, or a rail whose
+		// containing block moves, both silently unpin it. `fixed` cannot.
+		if (!/\.cm-header--rail[^{]*\{[^}]*position:\s*fixed/.test(css))
+			throw new Error("the rail is not position: fixed");
+	});
+	check("nothing above the header creates a containing block or scroll box", () => {
+		// transform / filter / overflow on an ANCESTOR breaks sticky, and the
+		// header must be the first thing painted in <body> for the sticky bar
+		// to sit against the viewport edge. Check the SOURCE for the
+		// structural intent and the SHIPPED HEADER for the real constraint.
+		//
+		// Not the <body> regex: in an Astro page the first tag inside <body>
+		// is the <Header COMPONENT call, not a literal <header>, so a source
+		// regex reads "the header is not first" on a perfectly correct page.
+		const page = read("src/pages/index.astro");
+		const body = page.match(/<body[^>]*>\s*\n?\s*<(\w+)/);
+		if (!body) throw new Error("cannot find <body> in the showcase");
+		if (body[1] !== "Header")
+			throw new Error("<body> starts with <" + body[1] + ">, not <Header>");
+		// The sticky header itself must not create a scroll container: the
+		// root clip is what keeps the tooltip from widening the document, and
+		// `hidden` there would unpin this bar. See base.css.
+		// Strip block comments PROPERLY: these comments open at column 0
+		// with `/* ===`, so a line filter looking for a leading `*` strips
+		// nothing and the prose `overflow-x: hidden` - the sentence that
+		// explains why hidden is wrong - matches as if it were the rule.
+		const base = read("src/styles/base.css").replace(/\/\*[\s\S]*?\*\//g, "");
+		if (/overflow-x:\s*hidden/.test(base))
+			throw new Error("the root uses overflow-x: hidden, which silently breaks position: sticky");
+		if (!/overflow-x:\s*clip/.test(base))
+			throw new Error("the root no longer uses overflow-x: clip");
+	});
+}
+
 /* ================= result ================= */
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length) {

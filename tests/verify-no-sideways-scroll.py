@@ -86,8 +86,16 @@ def run(engine, width, mobile):
     d = pg.evaluate(PROBE)
     d["jsErrors"] = errs
     if width == 390:
-        # DSF 3 on an ~11000px page exceeds WebKit's 32767px limit
-        pg.screenshot(path=f"{SCRATCH}/final-390.png", full_page=True, scale="css")
+        # full_page is NOT safe here: the showcase is ~33000px tall and even
+        # with scale="css" WebKit refuses any capture over 32767px on one
+        # dimension, which RAISES - taking the results with it, so the run
+        # reports a traceback instead of a verdict. Clip to the viewport,
+        # which is what this test is about anyway: sideways scroll is a
+        # viewport-width question, and the evidence shot only needs the top.
+        try:
+            pg.screenshot(path=f"{SCRATCH}/final-390.png", scale="css")
+        except Exception as exc:  # evidence is best-effort, never fatal
+            print(f"  (evidence shot skipped: {type(exc).__name__})")
     ctx.close()
     b.close()
     return d
