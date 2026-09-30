@@ -34,6 +34,23 @@ JS = os.path.join(REPO, 'src/js/cli-mono.js')
 SUITE = os.path.join(REPO, 'tests/run.mjs')
 
 MUTATIONS = [
+    # --- the bar must never paint outside its own box --------------------
+    # A wrapped nav row in the 641-999px band painted BELOW the 60px
+    # header and over the page content. Every mutation here must be
+    # caught by the band regression check.
+    ('the bar nav wraps again in the band',
+     CSS, '\t.cm-header__nav { flex-wrap: nowrap; }', '\t.cm-header__nav { flex-wrap: wrap; }',
+     'the bar keeps one nav row between the phone drawer and the rail'),
+    ('the link list wraps again in the band',
+     CSS, '\t\tflex-wrap: nowrap;\n\t\toverflow-x: auto;', '\t\tflex-wrap: wrap;\n\t\toverflow-x: auto;',
+     'the bar keeps one nav row between the phone drawer and the rail'),
+    ('the band row cannot scroll sideways',
+     CSS, '\t\toverflow-x: auto;\n\t\toverscroll-behavior-x: contain;', '\t\toverflow-x: visible;\n\t\toverscroll-behavior-x: contain;',
+     'the bar keeps one nav row between the phone drawer and the rail'),
+    ('the band row paints a scrollbar into the bar',
+     CSS, '\t\tscrollbar-width: none;', '\t\tscrollbar-width: auto;',
+     'the bar keeps one nav row between the phone drawer and the rail'),
+
     # --- the tooltip clamp must keep tips on screen ---------------------
     # A fix with no test is a comment. These break the runtime clamp and
     # the CSS floor; the contract test has to notice.

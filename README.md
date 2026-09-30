@@ -983,6 +983,18 @@ are already permanently on screen.
 The contract is pinned by `tests/mutate-rail.py` (17 mutations, 0
 survived).
 
+## The bar between the drawer and the rail
+
+Between the phone drawer (640px) and the rail (1000px) the header is still a
+horizontal bar, but it has more links than the width can hold in one row. The
+row does not wrap: a wrapped row would render below the bar's fixed height and
+over the page, because the bar and the list are `overflow: visible`. Instead the
+row scrolls sideways with the scrollbar suppressed, and the brand and theme
+toggle are pinned so the row is what gives way. Every link stays reachable.
+
+Above 1000px the rail takes over. `tests/verify-bar-containment.py` checks all
+three bands by hit-testing the region under the header.
+
 ## Mobile nav
 
 Under 640px the header nav collapses behind a burger. Nothing to wire up:

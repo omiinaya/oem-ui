@@ -2045,6 +2045,37 @@ html {
    links are still behind the burger. This block is additive, so the three
    consumers that vendor this file keep their current layout until they opt
    in with `rail`. */
+/* Between the phone drawer and the rail there is a band where the bar has
+   every link but too little width for one row. The bar's nav is
+   `flex-wrap: wrap` with a fixed 60px height, so the wrapped second row
+   painted OUTSIDE the header: measured at 700px the list ran y=35 to
+   y=77 inside a header that ended at y=61, and `elementFromPoint(200, 70)`
+   returned a `cm-header__link` — the link was sitting on top of the page
+   content, not clipped by it. `overflow: visible` on both the list and
+   the header is what let it escape.
+
+   The fix is to stop wrapping and let the row scroll sideways instead, so
+   the bar keeps its one-row, one-height shape at every width. The phone
+   drawer below 640px is unaffected: it is `position: fixed` and vertical. */
+@media (min-width: 641px) and (max-width: 999px) {
+	.cm-header__nav { flex-wrap: nowrap; }
+	.cm-header__links {
+		flex-wrap: nowrap;
+		overflow-x: auto;
+		overscroll-behavior-x: contain;
+		/* A scroll container needs the scrollbar gone, or the bar grows a
+		   second line of its own. `scrollbar-width: none` is the standard
+		   way; the webkit pseudo is the fallback WebKit honours. */
+		scrollbar-width: none;
+		-ms-overflow-style: none;
+	}
+	.cm-header__links::-webkit-scrollbar { display: none; }
+	/* The row is a scroller, so it may shrink; the brand and the theme
+	   toggle may not, or the bar collapses instead of the links. */
+	.cm-header__brand,
+	.cm-header__controls { flex: 0 0 auto; }
+}
+
 @media (min-width: 1000px) {
 	/* The rail only exists once the header opts in, so a consumer that
 	   does not want it is unaffected. */

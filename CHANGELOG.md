@@ -5,6 +5,18 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Fixed
+- The header bar no longer paints outside its own box. Between the phone
+  drawer (640px) and the rail (1000px) the bar's nav was `flex-wrap: wrap`
+  with a fixed 60px height and `overflow: visible`, so a wrapped second row
+  rendered BELOW the header and on top of the page content. Measured at
+  700px: the link list ran y=35 to y=77 inside a header ending at y=61, and
+  `elementFromPoint(200, 70)` returned a `.cm-header__link`. The band now
+  keeps one row that scrolls sideways, with the scrollbar suppressed, and
+  the brand and theme toggle are pinned so the row is what shrinks.
+  `tests/verify-bar-containment.py` hit-tests the region under the header at
+  nine widths.
+
 ## [Unreleased]
 
 ### Fixed

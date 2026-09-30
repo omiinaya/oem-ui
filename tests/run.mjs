@@ -2016,6 +2016,48 @@ check('the section index is in the order the sections actually appear', () => {
 	}
 });
 
+/* ================= the bar never paints outside its own box ================= */
+
+check('the bar keeps one nav row between the phone drawer and the rail', () => {
+	// A wrapped nav row is not "tidy", it is a rendering bug. The bar's
+	// nav is `flex-wrap: wrap` with a FIXED 60px height, and both the list
+	// and the header are `overflow: visible`, so a second row painted
+	// below the header box and over the page content. Measured at 700px:
+	// the list ran y=35 to y=77 inside a header ending at y=61, and
+	// `elementFromPoint(200, 70)` returned a `.cm-header__link`.
+	// Height is what exposes it, so no screenshot of a tall window shows
+	// the defect; a hit-test at a y inside the header must always return
+	// the header, and the nav must never be a scroller in the rail.
+	// The band rule has to exist, and it has to be BETWEEN the drawer
+	// breakpoint and the rail breakpoint, not inside the rail query.
+	assert(
+		/@media \(min-width: 641px\) and \(max-width: 999px\)/.test(comp),
+		'the band between the phone drawer and the rail is not handled: a wrapped nav row paints outside the header',
+	);
+	// `nowrap` on the nav is what stops the wrap; `nowrap` on the LIST is
+	// what stops the list wrapping inside the row.
+	const bandAt = comp.indexOf('@media (min-width: 641px) and (max-width: 999px)');
+	const railAt = comp.indexOf('@media (min-width: 1000px)');
+	assert(bandAt > -1 && railAt > bandAt, 'the band rule and the rail rule are out of order');
+	const slice = comp.slice(bandAt, railAt);
+	assert(/\.cm-header__nav\s*\{[^}]*flex-wrap:\s*nowrap/.test(slice),
+		'the bar nav still wraps in the band, so a second row can paint below the header');
+	assert(/\.cm-header__links\s*\{[^}]*flex-wrap:\s*nowrap/.test(slice),
+		'the link list still wraps in the band');
+	// A horizontal scroller is the intended fallback, and it must not
+	// paint a scrollbar into the bar.
+	assert(/overflow-x:\s*auto/.test(slice),
+		'the band row cannot scroll sideways, so a link that does not fit is unreachable');
+	// Comments are stripped first. A prose comment that names the
+	// declaration reads as the declaration to a naive regex, which is how
+	// this assertion passed while the property was set to `auto` — the
+	// same trap as the tooltip cap and the ResizeObserver check in this
+	// file. Match the DECLARATION, anchored to the start of a line.
+	const sliceBare = slice.replace(/\/\*[\s\S]*?\*\//g, '');
+	assert(/^\s*scrollbar-width:\s*none\s*;/m.test(sliceBare),
+		'the band row will paint a scrollbar into a 60px bar');
+});
+
 /* ================= the desktop nav rail ================= */
 console.log('\ndesktop nav rail');
 const RAIL_CSS = read('src/styles/components.css');
