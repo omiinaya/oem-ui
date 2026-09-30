@@ -38,7 +38,7 @@ import HeaderLink from '../astro/HeaderLink.astro';
 const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'lists', 'states', 'surface',
   'selection', 'stack', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'choice',
-	'code', 'overlays', 'records', 'cards', 'prose', 'layout',
+	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'layout',
 	'forms', 'auth', 'readme',
 ] as const;
 
@@ -1647,6 +1647,53 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 			     contract test now checks markup against selectors,
 			     but demonstrating the component is what proves the
 			     rule renders the way it reads. -->
+
+			<section id="tiles">
+				<h2>Tiles &amp; inline navigation</h2>
+				<p class="lede">
+					A tile is a bucket count with its bound under it. The tier is a
+					<b>glyph</b>, not a tint, and it is a modifier that defaults to
+					<i>unmarked</i> &mdash; a bucket with nothing in it has no mark at all,
+					which is what keeps a healthy system from looking like a sick one.
+				</p>
+
+				<div class="cm-cards">
+					<div class="cm-tile">
+						<div class="cm-tile__label">Healthy</div>
+						<div class="cm-tile__val">4</div>
+						<div class="cm-tile__note">&gt;30 days</div>
+					</div>
+					<div class="cm-tile cm-tile--warn">
+						<div class="cm-tile__label">Expiring Soon</div>
+						<div class="cm-tile__val">2</div>
+						<div class="cm-tile__note">&lt;30 days</div>
+					</div>
+					<div class="cm-tile cm-tile--err">
+						<div class="cm-tile__label">Expired</div>
+						<div class="cm-tile__val">1</div>
+					</div>
+					<div class="cm-tile cm-tile--empty">
+						<div class="cm-tile__label">Revoked</div>
+						<div class="cm-tile__val">0</div>
+					</div>
+				</div>
+				<p class="cm-kicker">
+					All four are the same element. The only difference between "2
+					expiring" and "0 revoked" is which class is on it &mdash; and the
+					one with nothing in it is the quietest of the four.
+				</p>
+
+				<div class="cm-block">
+					<p class="lede">
+						Renew immediately on the
+						<button class="cm-link" type="button">Certificates</button>
+						page. As a <code>&#123;&lt;span onclick&#125;&#125;</code> that word has no role,
+						no tab stop and never appears in a screen reader's list of
+						controls; as a button it is one.
+					</p>
+				</div>
+			</section>
+
 			<section id="prose" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
 				<h2>prose</h2>
 				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">

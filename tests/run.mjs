@@ -7480,6 +7480,136 @@ check('the meter note is a fixed-width column, not loose text', () => {
 		'column of percentages are all a different width');
 });
 
+/* ---------- the count tile and the inline navigation word ---------- */
+
+/* ---------- the count tile and the inline navigation word ---------- */
+
+// Every declaration block that mentions this selector, wherever it is in
+// the file. The library groups related selectors into one rule, so a
+// helper that returns only the first match silently misses the half that
+// carries the claim.
+function declsFor(src, selector) {
+	const out = [];
+	let at = -1;
+	while ((at = src.indexOf(selector, at + 1)) > -1) {
+		// Skip a hit that is only a substring of a longer class name:
+		// `.cm-tile__val` must not match a search for `.cm-tile`.
+		const after = src[at + selector.length];
+		if (after && /[\w-]/.test(after)) continue;
+		const before = src[at - 1];
+		if (before && /[\w-]/.test(before)) continue;
+		const brace = src.indexOf('{', at);
+		if (brace === -1) continue;
+		// The selector list ends at the `{`, so everything from the start
+		// of the line-ish back to the previous `}` is the full selector.
+		const selStart = Math.max(src.lastIndexOf('}', brace), src.lastIndexOf('{', brace)) + 1;
+		const close = src.indexOf('}', brace);
+		out.push(src.slice(selStart, brace).trim() + ' {' + src.slice(brace + 1, close) + '}');
+	}
+	return out.join('\n');
+}
+
+check('the count tile is centred', () => {
+	const src = read('src/styles/components.css');
+	assert(/align-items:\s*center/.test(declsFor(src, '.cm-tile')),
+		'the tile is not centred, so a column of bucket counts does not ' +
+		'read as a column and the reader must read each one on its own');
+});
+check('the tile value is tabular, so a column of them lines up', () => {
+	const src = read('src/styles/components.css');
+	assert(/font-variant-numeric:\s*tabular-nums/
+		.test(declsFor(src, '.cm-tile__val')),
+		'the tile number is not tabular, so stacked counts have ragged widths');
+});
+// The claim is that an EMPTY bucket is quiet. Checking only that the tier
+// glyphs exist would be satisfied by a page where every bucket is amber,
+// so this asserts the absence of the underline too: without it a tile at
+// zero still wears the err mark and reads as a failure.
+check('an empty tile is quieter than a marked one', () => {
+	const src = read('src/styles/components.css');
+	const empty = declsFor(src, '.cm-tile--empty');
+	assert(/background:\s*transparent/.test(empty),
+		'the empty tile is still filled, so a bucket with nothing in it ' +
+		'looks occupied');
+	assert(/text-decoration:\s*none/.test(empty),
+		'the empty tile keeps the tier underline, so a zero still reads ' +
+		'as a fault');
+	assert(/color:\s*var\(--ink-faint\)/.test(empty),
+		'the empty tile does not recede, so a healthy system still draws ' +
+		'the eye');
+});
+check('a tile tier is a glyph, never a tint', () => {
+	const src = read('src/styles/components.css');
+	// This system has no colour token for "warning" at all - cm-alert and
+	// cm-chip both mark a warning with a filled triangle in --ink-dim. A
+	// tint here would mean a hue literal, which the contract forbids.
+	assert(/content:\s*'\\25b2/.test(declsFor(src, '.cm-tile--warn .cm-tile__label::before')),
+		'the warning tile has no glyph, so its tier is carried by nothing');
+	assert(/content:\s*'\\2716/.test(declsFor(src, '.cm-tile--err .cm-tile__label::before')),
+		'the error tile has no glyph, so its tier is carried by nothing');
+});
+// An inline navigation word rendered as a <span onClick> has no role and
+// no tab stop. These three are what make it a control at all; drop any one
+// and it is decorative text that happens to answer a mouse.
+check('the inline navigation word is a real control', () => {
+	const src = read('src/styles/components.css');
+	const link = declsFor(src, 'button.cm-link');
+	assert(/display:\s*inline(?!-)/.test(link),
+		'the inline link is not display:inline, so it breaks the prose line box');
+	assert(/padding:\s*0/.test(link) && /border:\s*0/.test(link),
+		'the inline link still carries a button box, so it breaks the prose');
+	// The focus ring is a SEPARATE `button.cm-link:focus-visible` rule, so
+	// it is deliberately not in `link`. Asking `link` for it would fail
+	// forever and be "fixed" by deleting the check; the honest read is the
+	// pseudo-class rule, matched on its own.
+	assert(/outline:\s*\d/.test(declsFor(src, 'button.cm-link:focus-visible')),
+		'the inline link has no focus ring, so a keyboard user cannot see ' +
+		'where they are');
+});
+
+/* ---------- the container decides the icon size ---------- */
+
+// An icon set ships every glyph at a 24x24 viewBox and no intrinsic size,
+// so an <svg> with no width and no height renders at the replaced-element
+// default. The first consumer of this system fought that by putting a
+// utility class on all 179 of its icons, which is the tell that the size
+// belongs to the container.
+//
+// `1em` not a rem: the point is that the glyph tracks the TEXT beside it,
+// so it inherits the control's font size rather than being pinned to a
+// step on the type scale. A check for `1em` is a check for that claim.
+check('a button sizes the icon inside it, so the markup need not', () => {
+	const src = read('src/styles/components.css');
+	const btn = declsFor(src, '.cm-btn > svg');
+	assert(btn, 'no .cm-btn > svg rule, so a bare lucide icon in a button ' +
+		'renders at the replaced-element default instead of at the text size');
+	assert(/width:\s*1em/.test(btn) && /height:\s*1em/.test(btn),
+		'the button icon is not sized in em, so it is pinned to a scale ' +
+		'step instead of tracking the label beside it');
+	// flex-shrink, or a long label squeezes the glyph to nothing while
+	// the text wraps. The glyph is the fixed thing; the label is not.
+	assert(/flex:\s*0 0 auto/.test(btn),
+		'the button icon can shrink, so a long label squashes the glyph ' +
+		'instead of the text wrapping');
+});
+// The rule has to reach the icon THROUGH the row, because the row button
+// puts its glyph inside a span next to the title. Missing that span is a
+// rule that reads correct and renders nothing.
+check('the row button reaches its icon through the title span', () => {
+	const src = read('src/styles/components.css');
+	const row = declsFor(src, 'button.cm-row > span > svg');
+	assert(row, 'no button.cm-row > span > svg rule; the row button nests ' +
+		'its glyph inside a span beside the title, so the direct-child ' +
+		'selector alone matches nothing and the icon renders unsized');
+});
+check('a chip sizes its own icon, slightly tighter than a button', () => {
+	const src = read('src/styles/components.css');
+	const chip = declsFor(src, '.cm-chip > svg');
+	assert(chip && /width:\s*0\.9em/.test(chip),
+		'the chip icon is not sized, so a chip with a glyph and a chip ' +
+		'without one have different visual weights');
+});
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {

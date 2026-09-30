@@ -635,6 +635,88 @@ MUTANTS += [
 ]
 
 
+
+MUTANTS += [
+    # --- the tile is a column, not a list of unrelated labels ---
+    ('tile-left-aligned',
+     'align-items: center;',
+     'align-items: flex-start;',
+     'the count tile is centred',
+     '.cm-tile {'),
+    ('tile-number-proportional',
+     'font-variant-numeric: tabular-nums;',
+     'font-variant-numeric: proportional-nums;',
+     'the tile value is tabular, so a column of them lines up',
+     '.cm-tile__val {'),
+    # --- an empty bucket must read as empty ---
+    ('tile-empty-still-filled',
+     'background: transparent;',
+     'background: var(--bg-2);',
+     'an empty tile is quieter than a marked one',
+     '.cm-tile--empty {'),
+    ('tile-empty-underline',
+     'text-decoration: none;',
+     'text-decoration: underline;',
+     'an empty tile is quieter than a marked one',
+     '.cm-tile--empty .cm-tile__label,'),
+    ('tile-empty-full-ink',
+     'color: var(--ink-faint);',
+     'color: var(--ink);',
+     'an empty tile is quieter than a marked one',
+     '.cm-tile--empty .cm-tile__label,'),
+    # --- the tier is a glyph, not a tint ---
+    ('tile-warn-no-glyph',
+     "content: '\\25b2\\00a0';",
+     "content: '\\00a0';",
+     'a tile tier is a glyph, never a tint',
+     '.cm-tile--warn .cm-tile__label::before'),
+    ('tile-err-no-glyph',
+     "content: '\\2716\\00a0';",
+     "content: '\\00a0';",
+     'a tile tier is a glyph, never a tint',
+     '.cm-tile--err .cm-tile__label::before'),
+    # --- an inline word that is a control, not decoration ---
+    ('cm-link-block',
+     'display: inline;',
+     'display: inline-block;',
+     'the inline navigation word is a real control',
+     'button.cm-link {'),
+    ('cm-link-boxed',
+     'padding: 0;',
+     'padding: 0.5em 1em;',
+     'the inline navigation word is a real control',
+     'button.cm-link {'),
+    ('cm-link-no-focus',
+     'outline: 2px solid var(--accent);',
+     'outline: none;',
+     'the inline navigation word is a real control',
+     'button.cm-link:focus-visible'),
+]
+
+
+MUTANTS += [
+    # --- the icon size belongs to the container ---
+    ('btn-icon-unsized',
+     'width: 1em;',
+     'width: 24px;',
+     'a button sizes the icon inside it, so the markup need not',
+     '.cm-btn > svg,'),
+    ('btn-icon-shrinks',
+     'flex: 0 0 auto;',
+     'flex: 1 1 auto;',
+     'a button sizes the icon inside it, so the markup need not',
+     '.cm-btn > svg,'),
+    ('row-icon-through-span-gone',
+     'button.cm-row > span > svg {',
+     'button.cm-row > span > i {',
+     'the row button reaches its icon through the title span'),
+    ('chip-icon-unsized',
+     'width: 0.9em;',
+     'width: 1.6em;',
+     'a chip sizes its own icon, slightly tighter than a button',
+     '.cm-chip > svg'),
+]
+
 if __name__ == '__main__':
 
     sys.exit(main())

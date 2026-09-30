@@ -2948,6 +2948,165 @@ button.cm-row:hover { background: var(--bg-2); }
 	color: var(--ink-dim);
 }
 
+/* ---------- icon sizing, decided by the container ----------
+   An icon set (lucide, feather, whatever) ships every glyph at a 24x24
+   viewBox and no intrinsic size, so an <svg> with no width and no
+   height renders at the CSS default replaced-element size of 300x150
+   unless something says otherwise.
+
+   That is why a consumer is tempted to write a utility class on every
+   single icon - "h-3.5 w-3.5" on 179 of them in this design system's
+   first real application. The repetition is the symptom: the size of
+   an icon is not a property of the icon, it is a property of the thing
+   holding it. A glyph in a button is one size, in a chip another, in a
+   44px row a third, and those are facts about the containers, not about
+   the glyphs.
+
+   So the containers decide, here, once, and the markup stops carrying a
+   size at all. An explicit inline width still wins, so a consumer that
+   genuinely needs a different size is not fighting this.
+
+   `1em` rather than a rem: an icon should track the text beside it, so
+   it inherits the control's own font size instead of being pinned to a
+   step on the type scale. */
+.cm-btn > svg,
+.cm-btn > .cm-spinner + svg,
+button.cm-row > svg,
+button.cm-row > span > svg {
+	flex: 0 0 auto;
+	width: 1em;
+	height: 1em;
+}
+.cm-chip > svg,
+.cm-stat__label > svg,
+.cm-meter__label > svg,
+.cm-tag > svg {
+	flex: 0 0 auto;
+	width: 1em;
+	height: 1em;
+}
+.cm-chip > svg {
+	width: 0.9em;
+	height: 0.9em;
+}
+/* The label is a flex row so the glyph and the word sit on one baseline;
+   without this the icon is an inline replaced element with a descender
+   gap under it, and the pair looks like it is not quite aligned. */
+.cm-stat__label,
+.cm-meter__label {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+/* ---------- the count tile ----------
+   A small centred tile carrying one number and, under it, the bound
+   that gives the number meaning (">30 days"). `.cm-stat` is the same
+   idea left-aligned in a grid; a tile is centred and takes a note,
+   because a bucket count sitting beside the buckets it splits into
+   is read as a column, not as prose.
+
+   The buckets in this pattern (healthy / expiring / expired) are a
+   severity scale, so the tier is a MODIFIER that defaults to
+   unmarked: a bucket with something in it gets the mark, a bucket
+   with nothing does not. That is the whole point - a healthy system
+   should show no severity marking anywhere on the page. */
+.cm-tile {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--space-1);
+	padding: var(--space-3);
+	background: var(--bg-2);
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	text-align: center;
+}
+.cm-tile__label {
+	font-size: max(var(--min-font), 0.66rem);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--ink-dim);
+}
+.cm-tile__val {
+	font-size: max(var(--min-font), 1.35rem);
+	font-weight: 700;
+	line-height: 1.1;
+	font-variant-numeric: tabular-nums;
+}
+.cm-tile__note {
+	font-size: max(var(--min-font), 0.62rem);
+	color: var(--ink-faint);
+}
+/* The severity tiers, exactly as cm-alert and cm-chip do them: a
+   glyph, not a tint. The label already names the bucket, so colour
+   would be a redundant second channel carrying less information than
+   the word does. `--ink` for err because err has no colour token in
+   this system - the weight of the rule IS the signal. */
+.cm-tile--warn .cm-tile__label::before {
+	content: '\25b2\00a0';
+}
+.cm-tile--err .cm-tile__label::before {
+	content: '\2716\00a0';
+	/* The one glyph difference between the two tiers. Both are drawn in
+	   --ink by the label rule, so warning and error are told apart by
+	   their SHAPE, which survives a greyscale print and a colour-vision
+	   difference; a difference of hue would not. */
+}
+/* No font-size on the glyph: the label is already at the 0.66rem floor
+   and a fractional em scales it under the 12px minimum, which the
+   tap-floor contract test rejects. The glyph inherits the floor. */
+.cm-tile--warn .cm-tile__label::before,
+.cm-tile--err .cm-tile__label::before {
+	margin-right: 0.3em;
+}
+.cm-tile--warn .cm-tile__val,
+.cm-tile--err .cm-tile__val {
+	text-decoration: underline;
+	text-underline-offset: 0.18em;
+	text-decoration-thickness: 2px;
+}
+/* An empty bucket reads as empty, not as a problem. Without this the
+   tile takes its tier from the BUCKET rather than its contents and a
+   perfectly healthy system is a wall of amber and red. */
+.cm-tile--empty {
+	background: transparent;
+	border-color: var(--line-soft);
+}
+.cm-tile--empty .cm-tile__label,
+.cm-tile--empty .cm-tile__val {
+	color: var(--ink-faint);
+	text-decoration: none;
+}
+
+/* ---------- the inline navigation affordance ----------
+   "Renew immediately on the Certificates page", where the page name
+   jumps to that page. As a bare <span onClick> it is invisible to a
+   keyboard and missing from a screen reader's list of controls: no
+   role, no tab stop, no announcement. The fix is not to style the
+   span harder, it is to make it a <button> - this app navigates in
+   client state and there is no href to be had.
+
+   `display: inline` rather than inline-block so it keeps the prose's
+   baseline and line-breaking, which is the reason it exists. */
+button.cm-link {
+	display: inline;
+	padding: 0;
+	border: 0;
+	background: none;
+	font: inherit;
+	color: var(--accent);
+	text-decoration: underline;
+	text-underline-offset: 0.15em;
+	cursor: pointer;
+}
+button.cm-link:hover { color: var(--accent-bright); }
+button.cm-link:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
 /* ---------- grouped rail nav ----------
    An application rail has labelled groups (Hosting, Security, Monitoring).
    The base `.cm-header__links` is a flat list of destinations, and a
