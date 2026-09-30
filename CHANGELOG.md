@@ -19,7 +19,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`--measure-title`, and a specimen that reports its own live state.** The
+  inline list row now gives its title column a named measure, so a list
+  reads as a table instead of a ragged stack of lines. It ships with a
+  foundation specimen rendered *from* the token (`max-width:var(--measure-title)`,
+  which resolves to 404.578125px) and a runtime readout that reports the
+  live excerpt width, or `excerpt handed off` when the column is out of
+  play. The readout MEASURES the row rather than restating the media
+  query breakpoints, so it cannot disagree with the stylesheet it
+  documents; it reuses its node on re-init because `init()` runs again on
+  every Astro page-load. With scripting off the specimen still renders
+  from the token and the readout is simply absent.
+
 ### Fixed
+- **The inline row no longer starves its own excerpt.** The title column
+  was `flex: 0 0 42ch` with `flex-shrink: 0`, so it held 404px and never
+  gave any back; the excerpt, the only shrinkable child, absorbed the
+  entire deficit and collapsed. Measured in WebKit at 700px it rendered
+  **5.11px** wide — present, non-zero, unreadable, and a false pass for
+  any check that only asks whether the column collapsed. The band spanned
+  681-1024px and no media query covered it. Both columns now name measure
+  tokens, and the widths at which the row cannot afford both are measured
+  rather than guessed: 5px-step sweeps with the queries neutralized put
+  the starve bands at **≤844px** and **1000-1055px**. The rail band
+  *recovers* on both sides (153.11px at 1060px, 205.11px at 995px) because
+  `--maxw` caps the content column, so the obvious `min-width: 1000px`
+  would hide an excerpt measuring 205.11px at 1440px. The title keeps
+  `flex-shrink: 0` deliberately: it carries `overflow: hidden`, which
+  zeroes its automatic minimum, so `flex: 0 1` clipped titles across
+  681-780px — trading a squeezed excerpt for a truncated primary label.
 - **A tooltip near a screen edge no longer scrolls the whole page sideways.**
   A tip is `width: max-content`, and whether it fits depends on where its
   TRIGGER sits, which CSS cannot read. The cap was `100vw - 2*gutter`, which

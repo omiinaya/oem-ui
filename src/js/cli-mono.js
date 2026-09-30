@@ -357,6 +357,52 @@
 		});
 	}
 
+	/* ---------- measure specimen readout ----------
+	   A token specimen that reports its own live state, so the width
+	   band a column is in play for is visible rather than asserted in
+	   prose. It MEASURES the real row instead of restating the media
+	   query breakpoints: a second copy of those numbers is exactly how
+	   the showcase and the stylesheet drift apart, and a readout that
+	   says "in play" while the row has handed the excerpt off is worse
+	   than no readout. */
+	function initMeasureReadout() {
+		var spec = document.querySelector('[data-spec="measure-title"]');
+		if (!spec) return;
+		var list = document.querySelector('.cm-rows--inline');
+		if (!list) return;
+		var val = spec.querySelector('.cm-spec__val');
+		if (!val) return;
+
+		function update() {
+			var desc = list.querySelector('.cm-row__desc');
+			if (!desc) return;
+			var live = getComputedStyle(desc).display !== 'none';
+			var w = Math.round(desc.getBoundingClientRect().width);
+			// init() runs again on every Astro page-load, so the node is
+			// REUSED rather than appended. Appending would stack one
+			// readout per navigation, and the cell would grow a line at a
+			// time for a reader who never reloaded.
+			var out = val.querySelector('.cm-spec__state');
+			if (!out) {
+				out = document.createElement('span');
+				out.className = 'cm-spec__state';
+				val.appendChild(out);
+			}
+			out.setAttribute('data-state', live ? 'live' : 'handoff');
+			// The number is the live excerpt width, not the token: the
+			// token is already printed above it.
+			out.textContent = live
+				? 'excerpt ' + w + 'px'
+				: 'excerpt handed off';
+		}
+		update();
+		var t;
+		window.addEventListener('resize', function () {
+			clearTimeout(t);
+			t = setTimeout(update, 120);
+		});
+	}
+
 	/* ---------- copy to clipboard ---------- */
 	function copyText(text) {
 		if (navigator.clipboard && window.isSecureContext) {
@@ -773,6 +819,7 @@
 		initToasts(root);
 		initTooltipClamp(root);
 		initYears();
+		initMeasureReadout();
 		if (!root || root === document) initExternalLinks();
 	}
 

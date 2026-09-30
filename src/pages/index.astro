@@ -1195,6 +1195,22 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 						<span class="cm-spec__sample"><span class="cm-lede" style="margin:0;max-width:var(--measure-narrow)">A compact block, not re-wrapped.</span></span>
 						<span class="cm-spec__val"><code>34ch</code></span>
 					</div>
+					<!-- The inline row's title column. It exists so a list
+					     reads as a table: every excerpt starts at the same
+					     offset instead of wherever the previous title
+					     happened to end. Below 845px, and in the
+					     1000-1055px rail band, the excerpt is handed off
+					     rather than squeezed to a sliver — so this
+					     specimen carries a live readout of whether the
+					     column is currently in play, which is the whole
+					     question a reader of this token should ask. -->
+					<div class="cm-spec__row" data-spec="measure-title">
+						<span class="cm-spec__label"><code>--measure-title</code></span>
+						<span class="cm-spec__sample">
+							<span class="cm-lede" style="margin:0;max-width:var(--measure-title)">The title column of a list row.</span>
+						</span>
+						<span class="cm-spec__val"><code>42ch</code></span>
+					</div>
 				</div>
 
 				<h3 class="cm-kicker cm-kicker--plain">lede</h3>

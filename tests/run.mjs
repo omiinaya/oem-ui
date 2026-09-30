@@ -2452,6 +2452,46 @@ check('the inline row hands the excerpt off instead of starving it', () => {
 		`the rail band needs BOTH edges -- it recovers at 1060px: ${JSON.stringify(conds)}`);
 });
 
+// The --measure-title specimen is the showcase's half of the increment.
+// Two things it must not be, both of which render fine and read as
+// documentation: a value TYPED beside its token (it is rendered from
+// `var(--measure-title)`, so retuning the token retunes the specimen),
+// and a readout that restates the media queries (it measures the live
+// row, because a second copy of the breakpoints is how a showcase and a
+// stylesheet drift apart).
+check('the --measure-title specimen is rendered from the token, not typed', () => {
+	const row = showcase.match(/<div class="cm-spec__row" data-spec="measure-title">[\s\S]*?<\/div>\s*<\/div>/);
+	assert(row, 'no [data-spec="measure-title"] specimen in the showcase');
+	assert(/max-width:\s*var\(--measure-title\)/.test(row[0]),
+		`the specimen must paint with var(--measure-title), got: ${row[0]}`);
+	// A `ch` literal in the specimen is the "typed beside it" failure.
+	assert(!/\d+ch/.test(row[0].replace(/<code>[^<]*<\/code>/g, '')),
+		'the specimen hardcodes a ch literal instead of using the token');
+});
+
+check('the measure readout measures the row instead of restating the breakpoints', () => {
+	// Scope to the readout's own body. A blanket ban on matchMedia is
+	// wrong -- the burger and the rail both use it legitimately -- and the
+	// first version of this check failed for that reason, which is a
+	// check that can only ever be red.
+	const body = runtimeSrc.match(
+		/function initMeasureReadout\(\)\s*\{[\s\S]*?\n	\}/);
+	assert(body, 'no initMeasureReadout function in the runtime');
+	assert(!/matchMedia/.test(body[0]),
+		'the readout must not use matchMedia - it measures the row, ' +
+		'otherwise it restates the breakpoints and can disagree with them');
+	assert(/getComputedStyle\(desc\)\.display\s*!==\s*'none'/.test(body[0]),
+		'the readout must read the real computed display of the excerpt');
+	// Idempotence is NOT asserted on the source shape here. A regex
+	// spanning createElement..appendChild matches inside the `if (!out)`
+	// guard, so the first version fired on correct code. The real proof
+	// is behavioural and lives in tests/verify-measure-title-webkit.py,
+	// which re-inits and COUNTS the readouts in the cell -- a stronger
+	// claim than any source pattern, because it observes the stack.
+	assert(/initMeasureReadout\(\);/.test(runtimeSrc),
+		'initMeasureReadout is never called from init(), so it never runs');
+});
+
 check('the split stacks below its breakpoint, on purpose', () => {
 	// Two columns of text on a phone is two unreadable columns, so the
 	// single-column rule is the default and the two-column rule lives
@@ -5650,8 +5690,28 @@ check('every class the library defines is rendered somewhere on the page', () =>
 	assert(defined.size > 150, `only ${defined.size} classes parsed from components.css; the regex is wrong`);
 	// cm-js and cm-nav-scrim are injected by the runtime onto <html> and
 	// are correct only with JS on, so they cannot be in the served HTML.
-	const runtimeOnly = new Set(['cm-js', 'cm-nav-scrim']);
-	const dead = [...defined].filter(c => !renderedClasses.has(c) && !runtimeOnly.has(c));
+	// cm-spec__state is the same case: the runtime creates the readout
+	// element, because a specimen that reports its own live width has to
+	// be written after layout. Each name is PROVEN here rather than
+	// trusted, so the list cannot grow into a place where dead CSS hides.
+	// The proof names the CLASS and the CREATION together: a bare
+	// /createElement\('span'\)/ is satisfied by any span in the file, so
+	// renaming the readout to cm-spec__nope left the suite green with the
+	// class now dead -- caught by the mutation 'cm-spec__state is left
+	// defined but no longer created'.
+	const runtimeOnly = new Map([
+		['cm-js', /classList\.add\(\s*'cm-js'\s*\)/],
+		['cm-nav-scrim', /cm-nav-scrim/],
+		['cm-spec__state', /createElement\('span'\)\s*;?\s*\n\s*out\.className = 'cm-spec__state'/],
+	]);
+	for (const [cls, proof] of runtimeOnly) {
+		assert(proof.test(runtimeSrc),
+			`${cls} is allowlisted as runtime-built, but the runtime no ` +
+			`longer creates it - drop it from the list rather than letting ` +
+			`real dead CSS pass as an exception`);
+	}
+	const dead = [...defined].filter(
+		(c) => !renderedClasses.has(c) && !runtimeOnly.has(c));
 	assert(dead.length === 0,
 		`${dead.length} class(es) are defined but never rendered on the built page: ${dead.join(', ')}`);
 

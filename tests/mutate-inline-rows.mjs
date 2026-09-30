@@ -22,14 +22,20 @@ import { readFileSync, writeFileSync } from 'node:fs';
 
 const CSS = 'src/styles/components.css';
 const TOK = 'src/styles/tokens.css';
+const JS = 'src/js/cli-mono.js';
+const SHOW = 'src/pages/index.astro';
 const original = {
 	css: readFileSync(CSS, 'utf8'),
 	tok: readFileSync(TOK, 'utf8'),
+	js: readFileSync(JS, 'utf8'),
+	show: readFileSync(SHOW, 'utf8'),
 };
 
 function restore() {
 	writeFileSync(CSS, original.css);
 	writeFileSync(TOK, original.tok);
+	writeFileSync(JS, original.js);
+	writeFileSync(SHOW, original.show);
 }
 
 function runSuite() {
@@ -93,8 +99,53 @@ function mutate({ name, file = CSS, find, replace, expectFail }) {
 }
 
 const MUTATIONS = [
+	// --- the showcase specimen ---
 	{
-		name: 'inline title hardcodes a ch literal instead of the token',
+		name: 'the specimen types the value instead of using the token',
+		file: SHOW,
+		find: 'style="margin:0;max-width:var(--measure-title)"',
+		replace: 'style="margin:0;max-width:42ch"',
+		expectFail: 'the specimen must paint with var(--measure-title)',
+	},
+	{
+		name: 'the specimen is deleted from the showcase',
+		file: SHOW,
+		find: /<div class="cm-spec__row" data-spec="measure-title">[\s\S]*?<\/div>\s*<\/div>\n/,
+		replace: '',
+		expectFail: 'no [data-spec="measure-title"] specimen in the showcase',
+	},
+	// --- the runtime readout ---
+	{
+		name: 'the readout is never called from init()',
+		file: JS,
+		find: '		initYears();\n		initMeasureReadout();',
+		replace: '		initYears();',
+		expectFail: 'initMeasureReadout is never called from init()',
+	},
+	{
+		name: 'the readout restates the band with matchMedia',
+		file: JS,
+		find: "var live = getComputedStyle(desc).display !== 'none';",
+		replace:
+			"var live = !window.matchMedia('(max-width: 844px)').matches;",
+		expectFail: 'the readout must not use matchMedia',
+	},
+	{
+		name: 'the readout reads the wrong element for its state',
+		file: JS,
+		find: "var live = getComputedStyle(desc).display !== 'none';",
+		replace: "var live = true;",
+		expectFail: 'the readout must read the real computed display of the excerpt',
+	},
+	{
+		name: 'cm-spec__state is left defined but no longer created (dead CSS)',
+		file: JS,
+		find: "out.className = 'cm-spec__state';",
+		replace: "out.className = 'cm-spec__nope';",
+		expectFail: 'is allowlisted as runtime-built',
+	},
+	{
+		name: 'the inline title hardcodes a ch literal instead of the token',
 		find: 'max-width: var(--measure-title);',
 		replace: 'max-width: 42ch;',
 		expectFail: 'a page-shape width comes from a measure token',
@@ -140,28 +191,28 @@ const MUTATIONS = [
 	},
 	{
 		name: 'both bands collapse into one guessed query',
-		find: /@media \(max-width: 844px\) \{\n\t\.cm-rows--inline \.cm-row__desc \{ display: none; \}\n\}\n@media \(min-width: 1000px\) and \(max-width: 1055px\) \{\n\t\.cm-rows--inline \.cm-row__desc \{ display: none; \}\n\}\n/,
+		find: /@media \(max-width: 844px\) \{\n	\.cm-rows--inline \.cm-row__desc \{ display: none; \}\n\}\n@media \(min-width: 1000px\) and \(max-width: 1055px\) \{\n	\.cm-rows--inline \.cm-row__desc \{ display: none; \}\n\}\n/,
 		replace:
-			'@media (max-width: 1055px) {\n\t.cm-rows--inline .cm-row__desc { display: none; }\n}\n',
+			'@media (max-width: 1055px) {\n	.cm-rows--inline .cm-row__desc { display: none; }\n}\n',
 		expectFail: 'expected both starve bands guarded',
 	},
 	{
 		name: 'the excerpt stops naming its measure token',
-		find: 'max-width: var(--measure-narrow);\n\twhite-space: nowrap;',
-		replace: 'max-width: 34ch;\n\twhite-space: nowrap;',
+		find: 'max-width: var(--measure-narrow);\n	white-space: nowrap;',
+		replace: 'max-width: 34ch;\n	white-space: nowrap;',
 		expectFail: 'a page-shape width comes from a measure token',
 	},
 	{
 		name: '--measure-title is declared twice (two owners for one measure)',
 		file: TOK,
 		find: '--measure-title: 42ch;',
-		replace: '--measure-title: 42ch;\n\t--measure-title: 50ch;',
+		replace: '--measure-title: 42ch;\n	--measure-title: 50ch;',
 		expectFail: '--measure-title is declared 2 times',
 	},
 	{
 		name: '--measure-title is moved into a theme block',
 		file: TOK,
-		find: /\t--measure-title: 42ch;\n/,
+		find: /	--measure-title: 42ch;\n/,
 		replace: '',
 		expectFail: 'the measure tokens are declared once',
 	},

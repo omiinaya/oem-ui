@@ -323,10 +323,29 @@ The workhorse. One row shape for notes, docs, jobs, or anything enumerated.
 Add `.cm-rows--stacked` for the tall variant (title over description over
 date), used on index pages.
 
+Add `.cm-rows--inline` for the compact variant, where the title and the
+excerpt are FIXED columns so every excerpt starts at the same offset
+instead of wherever the previous title happened to end. The two measures
+are tokens — `--measure-title` and `--measure-narrow` — so retuning the
+column is a token change, not a search for a `ch` literal.
+
+Both columns have to be readable at once, and there are two widths where
+they are not: at **844px and below** there is no rail and the row body
+runs out, and in the **1000-1055px rail band** `--rail-w` takes 232px out
+of the content column. Below either edge the excerpt is *hidden*, not
+squeezed. That distinction is the whole point: a fixed basis with
+`flex-shrink: 0` means the excerpt is the only child that can absorb a
+deficit, so it collapses to a 5px sliver — present, non-zero, and
+unreadable, which reads as "fine" to any check that only asks whether the
+column collapsed.
+
 **The truncation rule:** the title is the primary label and never
 ellipsizes — it pushes the description instead. Only pathologically long
 titles (over 70% of the row) truncate. Do not "fix" this by truncating the
-title; a reader scanning for a title must never lose it.
+title; a reader scanning for a title must never lose it. This is also why
+the inline title keeps `flex-shrink: 0`: it carries `overflow: hidden`,
+which zeroes its automatic minimum, so any shrink factor lets it
+ellipsize.
 
 ### Page head
 
