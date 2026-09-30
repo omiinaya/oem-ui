@@ -7720,6 +7720,22 @@ check('an invalid .cm-code field is marked with the ink, never a hue', () => {
 		'rest field by border colour alone');
 });
 
+// A spinning GLYPH needs the animation to actually be there, and to be
+// the same keyframes .cm-spinner uses - a second keyframe would drift out
+// of step with the ring beside it.
+check('cm-glyph-spin reuses the library keyframes', () => {
+	const g = /\.cm-glyph-spin\s*\{([^}]*)\}/.exec(compSrc);
+	assert(g, 'no .cm-glyph-spin rule');
+	const a = /animation:\s*([^;]+);/.exec(g[1]);
+	assert(a, '.cm-glyph-spin declares no animation');
+	assert(/cm-spin\b/.test(a[1]) && /infinite/.test(a[1]),
+		`.cm-glyph-spin must reuse the cm-spin keyframes and loop forever, `
+		+ `got: ${a[1].trim()}`);
+	// the keyframes it names must exist
+	assert(/@keyframes cm-spin\b/.test(compSrc),
+		'cm-glyph-spin names cm-spin but that keyframe is not defined');
+});
+
 // A focus ring that is technically present but 1px is not a visible
 // indicator on a phone: at arm's length, against a 1px border of similar
 // weight, with no cursor to imply "something is focused here", the reader

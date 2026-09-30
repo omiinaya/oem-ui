@@ -223,6 +223,7 @@
 	   failure rather than a nit. */
 	.cm-cursor,
 	.cm-spec__chip--motion,
+	.cm-glyph-spin,
 	.cm-skeleton__line,
 	.cm-skeleton__block,
 	.cm-spinner,
@@ -1100,6 +1101,25 @@ button.cm-row:hover { background: var(--bg-2); }
 }
 .cm-spinner--lg { width: 1.6rem; height: 1.6rem; }
 @keyframes cm-spin { to { transform: rotate(360deg); } }
+
+/* The same animation, for a GLYPH that is already the right shape - a
+   refresh arrow, a sync mark. `.cm-spinner` draws its own ring with a
+   border, which is the right answer for a surface that has nothing to
+   show yet, but the wrong one inside a button that already says "refresh
+   while loading" and already owns an icon.
+
+   rpm reached for Tailwind's `animate-spin` here, and that class is not
+   in the built stylesheet at all: the "loading" indicator stopped
+   animating the day the bundle lost its utilities, and nothing failed.
+   Same trap as `.animate-pulse` in the skeleton tests - a class name that
+   looks like it does something and defines nothing.
+
+   Reduced motion is silenced by the library's ONE reduced-motion block,
+   alongside .cm-spinner - not by a guard of its own. That block is
+   deliberately singular and a check asserts it stays that way: slicing to
+   the end of the file would let any later mention of a selector satisfy
+   the guard, which is how a real accessibility gap stays green. */
+.cm-glyph-spin { animation: cm-spin 0.9s linear infinite; }
 .cm-spinner-row {
 	display: flex; align-items: center; gap: var(--space-2);
 	color: var(--ink-dim); font-size: var(--min-font);

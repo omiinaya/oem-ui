@@ -100,4 +100,36 @@ MUTANTS = [
         "the coarse-pointer focus ring is not offset from the control",
         None,
     ),
+    (
+        "glyph-spin-no-animation",
+        ".cm-glyph-spin { animation: cm-spin 0.9s linear infinite; }",
+        ".cm-glyph-spin { color: var(--ink-dim); }",
+        ".cm-glyph-spin declares no animation",
+        None,
+    ),
+    (
+        # THE ORIGINAL DEFECT, restored: the class name is present and the
+        # markup is unchanged, but nothing draws motion - which is exactly
+        # what rpm shipped with `animate-spin`.
+        "glyph-spin-does-not-loop",
+        ".cm-glyph-spin { animation: cm-spin 0.9s linear infinite; }",
+        ".cm-glyph-spin { animation: cm-spin 0.9s linear; }",
+        "loop forever",
+        None,
+    ),
+    (
+        "glyph-spin-private-keyframes",
+        ".cm-glyph-spin { animation: cm-spin 0.9s linear infinite; }",
+        ".cm-glyph-spin { animation: cm-glyph-wobble 0.9s linear infinite; }",
+        "reuse the cm-spin keyframes",
+        None,
+    ),
+    (
+        "glyph-spin-unguarded-by-reduced-motion",
+        "\t.cm-cursor,\n\t.cm-spec__chip--motion,\n\t.cm-glyph-spin,\n"
+        "\t.cm-skeleton__line,",
+        "\t.cm-cursor,\n\t.cm-spec__chip--motion,\n\t.cm-skeleton__line,",
+        "animated but unguarded under reduced motion",
+        None,
+    ),
 ]
