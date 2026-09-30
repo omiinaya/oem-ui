@@ -8344,6 +8344,48 @@ for (const [name, fn] of pending.splice(0)) {
 	});
 }
 
+/* ================= the config is actually the config ================= */
+{
+	// `src/astro/config.ts` says it is "the ONE place to set your identity".
+	// While that was true in the comment and false in the code, the showcase
+	// hardcoded its own GitHub URL on the Header line and config.ts still
+	// said `github.com/you` - so the file that advertised itself as the
+	// single source of truth was the one thing the page never read. A config
+	// nothing reads is a comment.
+	const config = read("src/astro/config.ts");
+	const page = read("src/pages/index.astro");
+
+	check("the showcase imports SITE from the shared config", () => {
+		if (!/import\s*\{\s*SITE\s*\}\s*from\s*['"][^'"]*astro\/config['"]/.test(page))
+			throw new Error("src/pages/index.astro does not import SITE from astro/config");
+	});
+
+	check("the showcase takes its GitHub link from SITE, not a literal", () => {
+		const header = page.slice(page.indexOf("<Header"), page.indexOf("<Header") + 600);
+		if (/extraLinks/.test(header) && /github\.com\/[a-z]/i.test(header))
+			throw new Error("the Header block hardcodes a github.com URL instead of reading SITE.github");
+	});
+
+	check("the starter config ships the real identity, not a placeholder", () => {
+		// It is a copy-and-edit template, so placeholders are legal in a
+		// comment - but the VALUES are what a consumer copies verbatim.
+		const body = config.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+		if (/github\.com\/you\b/.test(body))
+			throw new Error("SITE.github is still the placeholder github.com/you");
+		if (/you@example\.com/.test(body))
+			throw new Error("SITE.email is still the placeholder you@example.com");
+		if (/https:\/\/example\.com/.test(body))
+			throw new Error("SITE.url is still the placeholder example.com");
+	});
+
+	check("the deployed header's GitHub href is the configured one", () => {
+		const gh = config.match(/github:\s*'([^']+)'/);
+		if (!gh) throw new Error("cannot read SITE.github out of config");
+		if (!gh[1].startsWith("https://github.com/omiinaya/"))
+			throw new Error("SITE.github does not point at the project's own repository: " + gh[1]);
+	});
+}
+
 /* ================= result ================= */
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length) {

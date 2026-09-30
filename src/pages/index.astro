@@ -86,7 +86,7 @@ import { SITE } from '../astro/config';
 			brand={SITE.title}
 			homeHref="/"
 			links={SECTION_ORDER.map((id) => ({ href: `#${id}`, label: id }))}
-		extraLinks={[{ href: 'https://github.com/omiinaya/oem-ui', label: 'github' }]}
+		extraLinks={[{ href: SITE.github, label: 'github' }]}
 		rail
 	/>
 		<main class="cm-shell cm-shell--rail">
