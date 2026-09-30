@@ -5,6 +5,40 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **A consumer the drift checker could not see was serving a runtime 175
+  lines behind the library.** `oem-cdn` compiles its admin assets into the
+  binary with `include_str!`, keeps the vendored layers at `web/oem-ui/`
+  and names the runtime `runtime.js` after its own asset route. Every
+  discovery path in `check-design-sync.sh` was keyed on the installer's
+  LAYOUT -- a directory called `cli-mono`, files called `cli-mono*.js` --
+  so the project was reported MISSING five files it actually ships. That
+  is the crying-wolf end state, and it was also burying the real defect:
+  `GET /admin/oem-ui/runtime.js` returned HTTP 200 with a runtime missing
+  `initTooltipClamp`, `initMeasureReadout` and `pxOf`. Measured at 175
+  differing lines.
+
+  Discovery is now by CONTENT: a vendored layer is the library's file,
+  wherever it is and whatever it is called. The filename survives as a
+  FALLBACK, not a replacement, because a shadow copy truncated to one
+  line shares 0% of the library's lines -- a copy named after the library
+  is a claim about the library, and an unresolvable claim is a failure to
+  name rather than a file to skip in silence.
+
+  A renamed copy is ADOPTION and passes when it is byte-identical; only
+  the drift is a failure, and it is reported on the renamed path. A
+  correct consumer must pass, because a checker that fails one teaches
+  the reader to ignore it.
+
+  The generalisable lesson is the one this repo keeps re-learning: **a
+  whitelist of paths is a hole, and replacing a name check with a
+  content check is not automatically safer.** The two signals fail in
+  opposite directions -- the name finds a copy that was destroyed, the
+  content finds a copy that was renamed -- and a rewrite that keeps only
+  one of them is a silent regression wearing the costume of a fix. 4/4
+  mutants killed, including the one where the drift is reported but the
+  exit code is not set, which survives a status-only assertion because
+  an unrelated verdict already holds the exit non-zero.
+
 - **The log table's sticky header was not sticky, and a green test said it
   was.** `position: sticky` on `.cm-table th` was asserted for a full cycle
   while the header visibly rode the page down. The cause: `overflow-x: auto`

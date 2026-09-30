@@ -89,30 +89,169 @@ strip_slash() {
 # adopt a project's own stylesheet as if it were the library's, and report
 # the whole thing as drift - which is the same false alarm, one level up.
 # The identity that matters is the CONTENT: a vendored library layer.
-prefix_for() {
+# What fraction of the LIBRARY file's distinct non-blank lines also appear
+# in the candidate. CONTENT is what makes a copy a copy; the filename is
+# only what a reader guesses at.
+#
+# Measured across this fleet, not guessed. Every real vendored layer
+# shares a large slice of the library's own distinct lines - the four
+# copies under /root/projects score 44%, 49%, 49% and 53% - while every
+# PROJECT's own stylesheet scores 0-1% (gantree's 2648-line global.css
+# shares ten lines, 0%). The runtime separates further still: oem-cdn's
+# stale copy shares 77% of the runtime's distinct lines and its own
+# app.js shares 0%.
+#
+# The threshold therefore sits with 1.7x headroom BELOW the lowest real
+# copy and 25x ABOVE the highest noise reading. That margin is the entire
+# reason a content test is safe here: the failure mode of getting the
+# threshold wrong is a FALSE FAILURE on a correct consumer, which is the
+# outcome this script's own history names as its worst state.
+COPY_PCT=25
+
+# MAP writes the layers as `src/styles/cli-mono/<leaf>`, but that middle
+# segment is the CANONICAL home, not a required one. A consumer whose
+# layers sit in `web/oem-ui/` still holds `tokens.css`; appending
+# `cli-mono/` to that directory asks for `web/oem-ui/cli-mono/tokens.css`
+# and reports MISSING for a file that exists. So the leaf is taken by
+# BASENAME whenever the discovered directory already contains it.
+#
+# A directory that is ALREADY the canonical one is returned unchanged, and
+# the test below is what keeps that true: `web/oem-ui` has no
+# `tokens.css`-bearing `cli-mono` child, so it takes the basename, while
+# `src/styles/cli-mono` holds the leaf directly and also takes the
+# basename. The doubled `src/styles/cli-mono/cli-mono/tokens.css` is the
+# shape you get when the existence test is skipped - it asks for a
+# directory that does not exist and reports MISSING for a file that does.
+css_leaf() {
+	local rel="$1" base="${1##*/}"
+	if [ -f "$t/$CD/$base" ]; then printf '%s' "$base"; return 0; fi
+	printf '%s' "$rel"
+}
+
+similar_to() {
+	python3 - "$1" "$2" 2>/dev/null <<'PY' || printf '0\n'
+import sys
+def uniq(p):
+	with open(p, encoding='utf-8', errors='replace') as f:
+		return {l.strip() for l in f if l.strip()}
+a = uniq(sys.argv[1])
+if not a:
+	print(0)
+else:
+	print(len(a & uniq(sys.argv[2])) * 100 // len(a))
+PY
+}
+
+# ---- where a consumer KEEPS the vendored layers, discovered by content ----
+#
+# The directory NAME is not a safe key. The canonical home is
+# src/styles/cli-mono/, but a project that compiles its assets into a
+# binary picks its own: oem-cdn serves its admin console through
+# include_str! and holds the layers at web/oem-ui/.
+#
+# The old discovery looked for a directory NAMED `cli-mono`, found none,
+# and printed five MISSING lines for a consumer that in fact ships all
+# five files. That is the crying-wolf end state - and it also buried the
+# real defect sitting directly behind it, because a checker reporting the
+# wrong reason is not a checker anyone reads twice.
+#
+# So the return value is the DIRECTORY, not a prefix. Callers used to
+# re-assemble a path by appending /styles, which cannot express a vendored
+# tree that has no `styles` segment at all - which is precisely the
+# oem-cdn shape. (That double-append bug already bit this script once;
+# it is recorded in the note below the original prefix_for.)
+css_dir_for() {
 	local t="$1" d
 	# The canonical layout first, so an unchanged project keeps the
 	# paths it has always reported.
-	[ -f "$t/src/styles/cli-mono/components.css" ] && { printf 'src'; return 0; }
-	for d in $(find "$t" -type d -name cli-mono -path '*styles*' \
+	if [ -f "$t/src/styles/cli-mono/components.css" ]; then
+		printf 'src/styles/cli-mono'; return 0
+	fi
+	for d in $(find "$t" -type f -name 'components.css' \
 		! -path '*/node_modules/*' ! -path '*/.git/*' ! -path '*/dist/*' \
-		! -path '*/target/*' 2>/dev/null | sort); do
-		[ -f "$d/components.css" ] || continue
-		# Identity check: a vendored copy IS (nearly) the library's
-		# file. A same-named project stylesheet is not, and adopting it
-		# would report the project as drifted against itself.
-		if cmp -s "$SRC/src/styles/components.css" "$d/components.css" \
-			|| [ "$(diff "$SRC/src/styles/components.css" "$d/components.css" 2>/dev/null | grep -c '^[<>]')" -gt 0 ]; then
-			# The prefix is everything BEFORE the trailing /styles/cli-mono,
-			# relative to the project root: `web/src/styles/cli-mono` yields
-			# `web/src`, because the caller re-appends /styles itself.
-			# Returning the whole path made the caller append /styles twice,
-			# and the check reported MISSING on files that exist.
-			printf '%s' "${d%/cli-mono}" | sed "s|^$t/*||; s|/*\$||; s|/styles\$||"
+		! -path '*/build/*' ! -path '*/target/*' 2>/dev/null | sort); do
+		d="${d%/components.css}"
+		# Never adopt the library's own file as a consumer's.
+		[ "$d/components.css" = "$SRC/src/styles/components.css" ] && continue
+		if [ "$(similar_to "$SRC/src/styles/components.css" "$d/components.css")" \
+			-ge "$COPY_PCT" ]; then
+			printf '%s' "${d#"$t"/}"
 			return 0
 		fi
 	done
 	return 1
+}
+
+# The bare scan above only needs "is this a consumer at all", which is
+# the same question asked with a coarser key. Kept as its own function
+# because the bare-invocation path uses it and the MAP path does not:
+# css_dir_for names a DIRECTORY, this only answers yes/no.
+#
+# It previously searched for a directory NAMED `cli-mono` and had to
+# strip `/styles` off the end to give a prefix back. Both halves of that
+# are gone: discovery is by content, and the caller no longer
+# re-assembles a path, so a vendored tree with no `styles` segment at all
+# is expressible rather than needing the prefix shaped around it.
+prefix_for() {
+	css_dir_for "$1" >/dev/null 2>&1
+}
+
+# The same question for the two JS files. Their home is usually a sibling
+# of the styles, but not always, and a copy that is byte-identical OR
+# merely similar is the same file for this purpose.
+js_dir_for() {
+	local t="$1" f d best="" rel dep bestdep=""
+	if [ -f "$t/src/js/cli-mono.js" ]; then
+		printf 'src/js'; return 0
+	fi
+	# Every .js is a candidate, and the origin is resolved by CONTENT,
+	# not by filename. Searching for the two known names would miss the
+	# copy that is most worth finding: oem-cdn compiles its assets into
+	# the binary and its asset route names the runtime `runtime.js`, so a
+	# name-keyed search never even lists it.
+	#
+	# Two different questions, and they must not be answered by one
+	# pass. "Where does this project keep the vendored runtime?" is
+	# about the home; "is there a copy here that has drifted?" is about
+	# the shadow scan, which walks every .js on its own. A SHADOWED
+	# runtime is the one that can never be adopted as the home, because
+	# the home is exactly what the drift is hiding from.
+	#
+	# Adopting the first match instead was how `assets/cli-mono.js` came
+	# to be the project's declared JS directory: MAP then compared that
+	# file against itself and reported the shadow as in sync, which is
+	# the one verdict a shadow scan must never produce.
+	for f in $(find "$t" -type f -name '*.js' \
+		! -path '*/node_modules/*' ! -path '*/.git/*' ! -path '*/dist/*' \
+		! -path '*/build/*' ! -path '*/target/*' 2>/dev/null | sort); do
+		case "$f" in *.min.js|*.map) continue ;; esac
+		# A canonical src/js wins outright: it is the layout the
+		# installer writes, so nothing else should be able to
+		# outvote it for the role of "where the runtime lives".
+		case "${f%/*}" in
+			"$t/src/js") printf 'src/js'; return 0 ;;
+		esac
+		# An EXACT match is a candidate home. A merely-similar one is
+		# not: a drifted copy is precisely what the shadow scan exists
+		# to report, and adopting it here would compare the drifted
+		# file against itself and call the result in sync.
+		cmp -s "$SRC/src/js/cli-mono.js" "$f" \
+			|| cmp -s "$SRC/src/js/cli-mono-theme-guard.js" "$f" || continue
+		# Otherwise remember the shallowest match, because a copy
+		# buried deep in the tree is more likely to be a
+		# secondary/verbatim-serve copy than the project home.
+		# Depth is counted RELATIVE to the project root: counting
+		# the absolute path made every comparison a tie at the
+		# same offset, so the first match always won.
+		d="${f%/*}"
+		rel="${d#"$t"/}"
+		dep="${rel//[^\/]/}"
+		if [ -z "$best" ] || [ "${#dep}" -lt "${#bestdep}" ]; then
+			best="$d"; bestdep="$dep"
+		fi
+	done
+	[ -n "$best" ] || return 1
+	printf '%s' "${best#"$t"/}"
 }
 
 targets=()
@@ -132,33 +271,86 @@ if [ ${#targets[@]} -eq 0 ]; then
 fi
 
 stale=0
+# Vendored files this run has already accounted for, because they were
+# reached under a name the canonical MAP does not use (a RENAMED
+# verdict). The shadow scan consults this so a correct consumer is not
+# failed twice for one file.
+declare -A ACCOUNTED=()
+declare -A GUARD_NAMES=()
+declare -A RUNTIME_NAMES=()
 for t in "${targets[@]}"; do
 	out=""
 	# Discovered, not assumed - see prefix_for. Empty means "no vendored
 	# layer anywhere in this project", which is reported rather than
 	# silently skipped, because an undetectable consumer is precisely the
 	# rpm failure this fixes.
-	CP="$(prefix_for "$t" || true)"
-	if [ -n "$CP" ]; then
-		# The js half sits under the SAME root as the styles. `CP` is the
-		# root's src (e.g. `web/src`), and the runtime lives in `CP/js` -
-		# NOT `CP/src/js`, which is what a naive `${CP}/src/js` produced
-		# and which reported MISSING on files that exist.
-		JP="$CP/js"
-	else
-		JP="src/js"
-	fi
+	# Both are DIRECTORIES, discovered by content. Empty means "no
+	# vendored layer of that kind anywhere in this project", which is
+	# reported below rather than silently skipped - an undetectable
+	# consumer is exactly the rpm failure this script exists to prevent.
+	CD="$(css_dir_for "$t" || true)"
+	JD="$(js_dir_for "$t" || true)"
 	for pair in "${MAP[@]}"; do
 		s="$SRC/${pair%%:*}"
 		dest="${pair##*:}"
 		case "$dest" in
-			src/styles/*) d="$t/${CP:-src}/styles/${dest#src/styles/}" ;;
-			src/js/*)     d="$t/$JP/${dest#src/js/}" ;;
+			src/styles/*) d="$t/${CD:-src/styles/cli-mono}/$(css_leaf "${dest#src/styles/}")" ;;
+			src/js/*)     d="$t/${JD:-src/js}/${dest#src/js/}" ;;
 			*)            d="$t/$dest" ;;
 		esac
 		if [ ! -f "$d" ]; then
-			out+="  MISSING  ${d#$t/}"$'\n'
-			stale=1
+			# A renamed vendored file is NOT a missing one. oem-cdn
+			# compiles its assets into the binary with include_str! and
+			# its asset route names the runtime `runtime.js` and the
+			# guard `theme-guard.js`; both are genuine vendored copies
+			# (the guard is byte-identical) and both are reported as
+			# SHADOW/ORPHAN by the content scan a few lines below.
+			# Printing MISSING for them is a false alarm that hides the
+			# real finding behind a path the consumer never chose and
+			# that install.sh would "fix" by adding a second, unserved
+			# copy under the canonical name.
+			renamed=""
+			case "$dest" in
+			src/js/*)
+				for c in $(find "$t/${JD:-src/js}" -maxdepth 1 -type f -name '*.js' \
+					! -name "${dest##*/}" 2>/dev/null); do
+					cmp -s "$s" "$c" || [ "$(similar_to "$s" "$c")" -ge "$COPY_PCT" ] || continue
+					renamed="${c#$t/}"; break
+				done ;;
+			esac
+			if [ -n "$renamed" ]; then
+				# A renamed copy is ADOPTION, not drift - provided it is
+				# byte-identical. It is reported, because a reader has to
+				# be able to see that this consumer's runtime is reached
+				# under a name MAP does not use, but reporting must not
+				# by itself fail the run: oem-cdn serves `runtime.js`
+				# because its Rust route is named that, and nothing
+				# about that is a defect. The drift that matters is
+				# caught below, where the copy is COMPARED.
+				if cmp -s "$s" "$t/$renamed"; then
+					out+="  RENAMED  ${d#$t/} is vendored as $renamed"$'\n'"                 (adoption, not drift; the comparison follows the CONTENT)"$'\n'
+				else
+					out+="  RENAMED  ${d#$t/} is vendored as $renamed"$'\n'"                 and that copy has DRIFTED from the library"$'\n'
+					stale=1
+				fi
+				# This copy IS the vendored file, reached under another
+				# name, so it is accounted for - and must be remembered
+				# as such. Without this the shadow scan reports it a
+				# second time as an ORPHAN, and a consumer that did
+				# nothing wrong fails on the same file twice.
+				ACCOUNTED["$t/$renamed"]=1
+				# The reachability scan below greps for the CANONICAL
+				# filename, so a consumer that loaded its renamed guard
+				# would still be reported UNREACHABLE. Record the names
+				# actually in use and let that scan accept either.
+				case "$dest" in
+				*theme-guard.js) GUARD_NAMES["${renamed##*/}"]=1 ;;
+				*/cli-mono.js)   RUNTIME_NAMES["${renamed##*/}"]=1 ;;
+				esac
+			else
+				out+="  MISSING  ${d#$t/}"$'\n'
+				stale=1
+			fi
 		elif ! cmp -s "$s" "$d"; then
 			n=$(diff "$s" "$d" | grep -c '^[<>]' || true)
 			out+="  STALE    ${d#$t/} ($n lines differ)"$'\n'
@@ -174,7 +366,7 @@ for t in "${targets[@]}"; do
 		s="$SRC/${pair%%:*}"
 		dest="${pair##*:}"
 		case "$dest" in
-			src/js/*) d="$t/$JP/${dest#src/js/}" ;;
+			src/js/*) d="$t/${JD:-src/js}/${dest#src/js/}" ;;
 			*)        d="$t/$dest" ;;
 		esac
 		[ -f "$d" ] || continue
@@ -217,7 +409,7 @@ for t in "${targets[@]}"; do
 	# Excluded: every path MAP and ALT already own, build output (dist/ is
 	# generated, and a hashed bundle asset is not a hand-kept copy) and
 	# vendored trees.
-	for f in $(find "$t" -type f -name 'cli-mono*.js' \
+	for f in $(find "$t" -type f -name '*.js' \
 		! -path '*/dist/*' ! -path '*/build/*' ! -path '*/node_modules/*' \
 		! -path '*/.git/*' ! -path '*/target/*' 2>/dev/null | sort); do
 		# Generated output, not a hand-kept copy.
@@ -228,22 +420,60 @@ for t in "${targets[@]}"; do
 		for pair in "${MAP[@]}" "${ALT[@]}"; do
 			pdest="${pair##*:}"
 			case "$pdest" in
-				src/styles/*) owned="$t/${CP:-src}/styles/${pdest#src/styles/}" ;;
-				src/js/*)     owned="$t/$JP/${pdest#src/js/}" ;;
+				src/styles/*) owned="$t/${CD:-src/styles/cli-mono}/$(css_leaf "${pdest#src/styles/}")" ;;
+				src/js/*)     owned="$t/${JD:-src/js}/${pdest#src/js/}" ;;
 				*)            owned="$t/$pdest" ;;
 			esac
 			[ "$f" = "$owned" ] && already=1 && break
 		done
 		[ "$already" -eq 1 ] && continue
-		# Which origin does this name correspond to?
-		case "$(basename "$f")" in
-			cli-mono.js)             o="$SRC/src/js/cli-mono.js" ;;
-			cli-mono-theme-guard.js) o="$SRC/src/js/cli-mono-theme-guard.js" ;;
-			*)                       o="" ;;
-		esac
-		# A cli-mono*.js that matches no known origin is some other tool's
-		# file. Naming it would be noise, and a noisy check gets ignored.
-		[ -n "$o" ] && [ -f "$o" ] || continue
+		# Already reached under a non-canonical name and reported as
+		# RENAMED above. Reporting it again here would fail a correct
+		# consumer twice over one file, which teaches the reader to
+		# ignore both lines.
+		[ -n "${ACCOUNTED[$f]:-}" ] && continue
+		# Which origin does this CONTENT correspond to? Resolved by
+		# similarity, never by filename: a consumer that compiles its
+		# assets into a binary renames the runtime to whatever its asset
+		# route calls it, and oem-cdn's is `runtime.js`. Keyed on the
+		# basename, that copy is structurally invisible - and oem-cdn
+		# was serving a runtime 175 lines behind the library while this
+		# script reported it MISSING five files it actually ships.
+		#
+		# The NAME is the fallback, and it has to be. A shadow copy that
+		# has been truncated or stubbed to a single line shares 0% of
+		# the library's lines, so similarity alone discards it as "some
+		# other tool's file" - and a one-line `assets/cli-mono.js` is
+		# the most damaged copy there is, which is exactly the one
+		# worth reporting. A file NAMED after the library is a claim
+		# about the library, and an unresolvable claim is a failure to
+		# name, not a file to skip in silence.
+		#
+		# Both signals, then: content finds the copies that were
+		# renamed, the name finds the copies that were destroyed.
+		o=""
+		if cmp -s "$SRC/src/js/cli-mono.js" "$f" \
+			|| [ "$(similar_to "$SRC/src/js/cli-mono.js" "$f")" -ge "$COPY_PCT" ]; then
+			o="$SRC/src/js/cli-mono.js"
+		elif cmp -s "$SRC/src/js/cli-mono-theme-guard.js" "$f" \
+			|| [ "$(similar_to "$SRC/src/js/cli-mono-theme-guard.js" "$f")" -ge "$COPY_PCT" ]; then
+			o="$SRC/src/js/cli-mono-theme-guard.js"
+		fi
+		# A .js that matches no known origin AND is not named after
+		# the library is some other tool's file. Naming it would be
+		# noise, and a noisy check gets ignored. A file called
+		# cli-mono*.js is NOT that: it is named after the library, so
+		# it is resolved against the runtime and reported either way.
+		if [ -z "$o" ] || [ ! -f "$o" ]; then
+			case "${f##*/}" in
+			cli-mono*.js)
+				o="$SRC/src/js/cli-mono.js"
+				case "$f" in
+				*theme-guard.js) o="$SRC/src/js/cli-mono-theme-guard.js" ;;
+				esac ;;
+			*) continue ;;
+			esac
+		fi
 		rel="${f#$t/}"
 		if ! cmp -s "$o" "$f"; then
 			n=$(diff "$o" "$f" | grep -c '^[<>]' || true)
@@ -297,14 +527,19 @@ for t in "${targets[@]}"; do
 						;;
 				esac
 			done
+			rt=0
 			case "$blob" in
-				*"cli-mono.js"*) ;;
-				*)
-					echo "  note: $t vendors cli-mono.js but references no script tag for it"
-					echo "        (fine if the site needs no runtime; wire it as"
-					echo "         <script is:inline src=...> or the tag is dropped from dist/)"
-					;;
+			*"cli-mono.js"*) rt=1 ;;
+			*)
+				for n in "${!RUNTIME_NAMES[@]}"; do
+					case "$blob" in *"$n"*) rt=1; break ;; esac
+				done ;;
 			esac
+			if [ "$rt" -eq 0 ]; then
+				echo "  note: $t vendors cli-mono.js but references no script tag for it"
+				echo "        (fine if the site needs no runtime; wire it as"
+				echo "         <script is:inline src=...> or the tag is dropped from dist/)"
+			fi
 
 			# Importing components.css is not the same as USING it. The
 			# check above is satisfied by the string "components.css"
@@ -359,11 +594,21 @@ for t in "${targets[@]}"; do
 			# real. Requiring the literal path flagged a correct consumer
 			# in this repo's own history.
 			case "$blob" in
-				*"cli-mono-theme-guard.js"*) ;;
-				*)
+			*"cli-mono-theme-guard.js"*) ;;
+			*)
+				# A renamed guard counts as loaded under its own name.
+				# oem-cdn serves `theme-guard.js` and its <head> loads
+				# exactly that; requiring the canonical filename called
+				# a shipped, wired guard UNREACHABLE.
+				loaded=0
+				for n in "${!GUARD_NAMES[@]}"; do
+					case "$blob" in *"$n"*) loaded=1; break ;; esac
+				done
+				if [ "$loaded" -eq 0 ]; then
 					out+="  UNREACHABLE  cli-mono-theme-guard.js is vendored but no <head> loads it"$'\n'
 					stale=1
-					;;
+				fi
+				;;
 			esac
 		fi
 	fi
@@ -384,8 +629,8 @@ for t in "${targets[@]}"; do
 	# name the library does not own is the defect, so the comparison is
 	# against the library's own rule selectors rather than a bare `.cm-`
 	# match.
-	if [ -n "$CP" ] && [ -f "$t/$CP/styles/cli-mono/components.css" ]; then
-		extra=$(python3 - "$SRC/src/styles/components.css" "$t/$CP/styles/cli-mono/components.css" <<'PY' 2>/dev/null
+	if [ -n "$CD" ] && [ -f "$t/$CD/components.css" ]; then
+		extra=$(python3 - "$SRC/src/styles/components.css" "$t/$CD/components.css" <<'PY' 2>/dev/null
 import re, sys
 lib, con = sys.argv[1], sys.argv[2]
 def owned(p):
@@ -408,7 +653,7 @@ PY
 		if [ -n "$extra" ]; then
 			# shellcheck disable=SC2086
 			set -- $extra
-			out+="  RESERVED  $CP/styles/cli-mono/components.css defines $# .cm-* class(es) the library does not:"
+			out+="  RESERVED  $CD/components.css defines $# .cm-* class(es) the library does not:"
 			out+=$'\n'"            $*"
 			out+=$'\n'"            the prefix is reserved for the library. Surface added here reaches"
 			out+=$'\n'"            no consumer, and no library fix ever lands on it."

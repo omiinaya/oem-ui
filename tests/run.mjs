@@ -3012,6 +3012,105 @@ check('the drift checker catches a shadow copy of the runtime on an unchecked pa
 	}
 });
 
+// A consumer that does not use the installer's LAYOUT is still a
+// consumer, and the previous discovery could not see it at all.
+//
+// Measured, not hypothesised: oem-cdn compiles its admin assets into the
+// binary with include_str!, keeps the layers at web/oem-ui/ and names
+// the runtime `runtime.js` after its own asset route. Discovery keyed on
+// a directory NAMED `cli-mono` found nothing there and printed five
+// MISSING lines for files the project actually ships - and the real
+// defect sat directly behind them: that runtime was 175 lines behind the
+// library, missing initTooltipClamp, initMeasureReadout and pxOf, and
+// was being SERVED (HTTP 200, 23823 bytes) from http://192.168.1.68:8787.
+//
+// Three claims, and each is a way this could have been done wrong:
+//   1. layers in a non-canonical DIRECTORY are found (content, not name)
+//   2. a RENAMED runtime is adoption, not drift -> passes when current
+//   3. the same renamed copy that has DRIFTED is reported, and named
+// Half 2 without half 3 is a check that blesses the defect it exists to
+// find; half 3 without half 2 is a check that fails a correct consumer,
+// which is the outcome this script's own history calls its worst state.
+check('the drift checker finds a consumer that renamed its files and kept them elsewhere', async () => {
+	const dir = mkdtempSync(join(tmpdir(), 'cm-rename-'));
+	try {
+		const inst = spawnSync('bash', [join(root, 'scripts/install.sh'), dir], {
+			encoding: 'utf8',
+		});
+		assert(inst.status === 0, `installer exited ${inst.status}: ${inst.stderr}`);
+
+		// Relocate the layers into a directory of the consumer's own
+		// choosing and rename both JS files, which is what a project
+		// embedding them does.
+		const vend = join(dir, 'web/oem-ui');
+		mkdirSync(vend, { recursive: true });
+		for (const f of ['tokens.css', 'base.css', 'components.css']) {
+			renameSync(join(dir, 'src/styles/cli-mono', f), join(vend, f));
+		}
+		renameSync(join(dir, 'src/js/cli-mono.js'), join(vend, 'runtime.js'));
+		renameSync(join(dir, 'src/js/cli-mono-theme-guard.js'), join(vend, 'theme-guard.js'));
+		mkdirSync(join(dir, 'src/pages'), { recursive: true });
+		mkdirSync(join(dir, 'src/components'), { recursive: true });
+		mkdirSync(join(dir, 'src/styles'), { recursive: true });
+		writeFileSync(join(dir, 'src/styles/site.css'),
+			"@import '../web/oem-ui/tokens.css';\n"
+			+ "@import '../web/oem-ui/base.css';\n"
+			+ "@import '../web/oem-ui/components.css';\n");
+		writeFileSync(join(dir, 'src/components/BaseHead.astro'),
+			"import guard from '../../web/oem-ui/theme-guard.js?raw';\n"
+			+ '<script is:inline set:html={guard} />\n'
+			+ '<script is:inline src="/oem-ui/runtime.js"></script>\n');
+		writeFileSync(join(dir, 'src/pages/index.astro'),
+			'<html><header class="cm-header"></header></html>\n');
+
+		const run = () => spawnSync('bash', [join(root, 'scripts/check-design-sync.sh'), dir], {
+			encoding: 'utf8', env: { ...process.env, OEM_UI_SRC: root },
+		});
+
+		// Half 2 first, and it is the half that is easy to get wrong:
+		// a consumer that did everything right must PASS. A checker
+		// that flags the rename is crying wolf, and the first thing a
+		// reader does with a crying-wolf checker is ignore it.
+		const clean = run();
+		assert(clean.status === 0,
+			`a correct consumer that renamed its files must pass, got ${clean.status}: ${clean.stdout.trim()}`);
+		// It must not be a silent pass either: the rename is the thing a
+		// reader has to be able to see, or the next person assumes the
+		// canonical paths are in use.
+		assert(/RENAMED\s+.*runtime\.js/.test(clean.stdout),
+			`the renamed runtime must still be named, got: ${clean.stdout.trim()}`);
+		// ...and the layers must be located, not reported MISSING.
+		assert(!/MISSING\s+.*(tokens|base|components)\.css/.test(clean.stdout),
+			`the vendored layers must be found in web/oem-ui, got: ${clean.stdout.trim()}`);
+
+		// Half 3: the same shape, with the renamed copy now drifted. The
+		// drift is only visible if the comparison FOLLOWS the content to
+		// the renamed path - the canonical path does not exist, so
+		// comparing it alone would report the consumer as fine forever.
+		//
+		// Isolated on purpose. Proven by mutation: with the drift
+		// reported but the exit code left alone, the suite stayed
+		// GREEN, because the renamed copy is also on a path the shadow
+		// scan does not own, and that scan's own verdict held rc=1 for
+		// an unrelated reason. Two defects, one non-zero exit - which
+		// is exactly how a mutation of the one hides behind the other.
+		// The assertion below is on the DRIFTED LINE, not merely on a
+		// non-zero status, so the only way to satisfy it is to have
+		// compared that copy and said so.
+		const rt = join(vend, 'runtime.js');
+		writeFileSync(rt, read('src/js/cli-mono.js') + '\n// drifted away from the library\n');
+		const drifted = run();
+		assert(drifted.status === 1,
+			`a renamed copy that has drifted must fail, got ${drifted.status}: ${drifted.stdout.trim()}`);
+		assert(/web\/oem-ui\/runtime\.js/.test(drifted.stdout),
+			`the drifted renamed copy must be named, got: ${drifted.stdout.trim()}`);
+		assert(/and that copy has DRIFTED from the library/.test(drifted.stdout),
+			`the rename verdict itself must report the drift, got: ${drifted.stdout.trim()}`);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
 check('--public installs byte-identical copies and documents the verbatim shape', async () => {
 	// The flag has to actually produce a usable copy, and the reason it
 	// exists has to be written down, or a consumer hits the Astro
