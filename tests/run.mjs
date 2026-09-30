@@ -7012,6 +7012,22 @@ check('no rule is declared inside another rule body', () => {
 	}
 });
 
+check('a disclosure action is walked to the end of the summary row', () => {
+	// The delete button is the one legal interactive child a <summary> may
+	// hold. Without `margin-left: auto` it sits hard against the last
+	// chip, and the row stops reading as one line of summary text.
+	const comp = read('src/styles/components.css');
+	const m = /((?:^|[,{}\s])[^{}\n]*\.cm-disclosure__action[^{}\n]*)\{([^}]*)\}/.exec(comp);
+	assert(m, 'the disclosure action slot must have its own rule');
+	assert(/margin-left:\s*auto/.test(m[2]),
+		`the action must be walked to the far end of the row, got: ${m[2].trim()}`);
+	// `align-self` only matters once the summary is allowed to wrap, and at
+	// 390px it is: without it the button sits on the first line while the
+	// text flows to the second, which looks detached rather than aligned.
+	assert(/align-self:\s*center/.test(m[2]),
+		`the action must stay centred on its own line when the summary wraps, got: ${m[2].trim()}`);
+});
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {

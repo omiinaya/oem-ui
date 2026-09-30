@@ -53,6 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`.cm-disclosure__action`** - the one interactive thing a `<summary>`
+  may hold, walked to the end of the row. A delete button sitting hard
+  against the last chip makes the row stop reading as one line of summary
+  text, and `align-self` keeps it on the summary's optical line when the
+  row wraps at 390px. `margin-left: auto` on the only legal child.
+
 - **`.cm-seg` / `.cm-seg__opt`** - a compact set of mutually exclusive
   choices, one always selected. The platform has no widget for it and it
   is not a tab bar: tabs switch panels and span the full width, while a

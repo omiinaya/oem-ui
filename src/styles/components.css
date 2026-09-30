@@ -3035,6 +3035,14 @@ html {
 	transform: rotate(90deg);
 }
 .cm-disclosure__title { flex: 1 1 auto; min-width: 0; }
+/* The one interactive thing a summary may contain. `margin-left: auto`
+   walks it to the far end of the row so the row still reads as one line
+   of summary text, and `align-self` keeps it off the tap floor's optical
+   line when the summary wraps at 390px. */
+.cm-disclosure__action {
+	margin-left: auto;
+	align-self: center;
+}
 .cm-disclosure__body {
 	padding: 0 var(--space-4) var(--space-4);
 	border-top: 1px solid var(--line);
