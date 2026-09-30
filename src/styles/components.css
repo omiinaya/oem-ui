@@ -1579,6 +1579,24 @@ html {
 		   broken page, not a degraded one. Without JS the links stay on
 		   screen, stacked, which is tall but complete. */
 		flex-direction: column;
+		/* `nowrap` is load-bearing, and a column is what makes it
+		   matter. The drawer inherits `flex-wrap: wrap` from the bar
+		   rule above. With `flex-direction: column` that wrap runs
+		   ACROSS, not down: when the 16 rows no longer fit the panel's
+		   height, instead of scrolling they break into a second
+		   column at x=179 -- and the panel is only 320px wide, so
+		   `layout`, `forms`, `auth` and `readme` land outside it,
+		   unreachable, with `scrollHeight == clientHeight` so the
+		   drawer cannot scroll to them either. Measured at 402x667:
+		   12 rows in column one, 4 stranded in column two.
+
+		   The trigger is HEIGHT, not width, which is why a width
+		   sweep never finds it. The list needs 869px of panel; any
+		   viewport shorter than about 800px tall wraps. An iPhone SE
+		   with Safari's chrome is ~667px, so this is the common phone
+		   case, not an edge case. `nowrap` makes the one column
+		   overflow-y, which the panel already allows. */
+		flex-wrap: nowrap;
 		align-items: stretch;
 	}
 	.cm-js .cm-header__links { display: none; }
@@ -2883,6 +2901,30 @@ html {
 	font-size: max(var(--min-font), 0.78rem);
 	margin-right: var(--space-2);
 }
+
+/* ---------- check row: a bare checkbox in a tappable label ----------
+   The library already styles `input[type=checkbox]` down to the tick, so the
+   control needs no class. What was missing is the ROW: a label whose hit
+   area is the word and the box, not the 17px box alone. Twenty-three
+   checkboxes across six surfaces each wrote their own flex row with their
+   own gap, and at 390px the label text is the only comfortable target.
+
+   The row carries the tap floor, so the label is the control: clicking the
+   word toggles the box, which is what a person aims at. `gap` and `align`
+   come from the scale. */
+.cm-check {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	min-height: var(--tap);
+	color: var(--ink-dim);
+	font-size: max(var(--min-font), 0.85rem);
+	cursor: pointer;
+}
+.cm-check:hover { color: var(--ink); }
+/* The box is drawn by base.css; without this the checkbox is a flex child
+   and a 17px box next to 15px text sits on the wrong optical line. */
+.cm-check > input[type='checkbox'] { align-self: center; }
 
 .cm-auth {
 	min-height: 100dvh;

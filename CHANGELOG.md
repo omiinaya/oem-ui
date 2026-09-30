@@ -72,6 +72,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Action toolbar** (`.cm-toolbar`, `.cm-toolbar__count`): the bar that acts on a multi-selection, which three consumers each wrote as a sticky flex row with their own border, background, shadow and z-index. It sticks to the BOTTOM - the count lives at the top of the page and the actions belong where the thumb already is - so it needs a numeric z-index (a sticky with `z-index: auto` is painted under the rows it covers), the themed shadow, and the strong border that a floating surface needs.
 
+- **Check row** (`.cm-check`): the base layer already draws the checkbox down to the tick, so the CONTROL needs no class - what was missing is the row. Twenty-three checkboxes across six surfaces each wrote their own flex label, and at 390px a 1.05rem box is a target you can miss while the word beside it is what a person aims at. The row carries the tap floor, so the word and the box are one target, and hover lightens the label rather than just the box.
+
 ### Fixed
 - **The inline row no longer starves its own excerpt.** The title column
   was `flex: 0 0 42ch` with `flex-shrink: 0`, so it held 404px and never

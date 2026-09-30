@@ -6396,6 +6396,28 @@ check('the code field states only what differs, and nothing it cannot win', () =
 		'the code field must reach the tap floor from the token, not a literal');
 });
 
+check('the check row is the tap target, not the 17px box', () => {
+	// The library already draws `input[type=checkbox]` down to the tick, so
+	// the control is correct with no class at all. The gap this fills is the
+	// ROW: measured at 390px, a 1.05rem box is a target you can miss, and
+	// the word beside it is what a person actually aims at. That only works
+	// if the label itself carries the floor and the pointer.
+	const row = (compSrc.match(/\.cm-check\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(row, '.cm-check is not defined');
+	assert(/min-height:\s*var\(--tap\)/.test(row),
+		'the row must carry the tap floor; without it the only target is a 17px box and the word is dead space');
+	assert(/cursor:\s*pointer/.test(row),
+		'the row is the control, so it must advertise that it can be clicked');
+	assert(/display:\s*flex/.test(row) && /align-items:\s*center/.test(row),
+		'the box and the label must sit on one optical line, or a 17px box reads as sitting above the text');
+	assert(/gap:\s*var\(--space-/.test(row),
+		'the gap between box and word is a step on the scale, not a number');
+	// A hover that lightens the box but not the word leaves the affordance
+	// on the part that is not the target.
+	assert(/cm-check:hover[^{]*\{[^}]*color:\s*var\(--ink\)/.test(compSrc),
+		'hover must lighten the LABEL too; highlighting only the box points at the part that is hard to hit');
+});
+
 check('the action toolbar sticks to the bottom and survives a scroll', () => {
 	// The count lives at the top of the page and the actions belong where the
 	// thumb already is, so this bar is bottom-sticky. Everything else here is
