@@ -1110,9 +1110,27 @@ button.cm-row:hover { background: var(--bg-2); }
 /* ---------- table ----------
    Data, not prose. The scroll wrapper is part of the component because a
    wide table that overflows the page is the single most common way a
-   monospace layout breaks on a phone. */
+   monospace layout breaks on a phone.
+
+   MEASURED in WebKit, and the opposite of what it looks like: `overflow-x:
+   auto` on this wrapper computes `overflow-y` to `auto` as well (CSS
+   overflow rule - only `visible` is forced to the other axis), so the
+   wrapper is a scrollport on BOTH axes. `th` is then sticky to the
+   WRAPPER rather than to the viewport, and the wrapper only ever
+   scrolls sideways - so the header rode down the page with it, drifting
+   by exactly the scroll distance (27px of scroll, 27px of drift, at
+   393x852). A test asserting `position: sticky` on the `th` PASSES
+   while the page is visibly broken; that is the whole reason this note
+   exists.
+
+   Viewport-sticky inside a horizontally scrolling ancestor is a CSS
+   constraint, not a WebKit quirk, so the header must stick to the
+   scrollport that actually scrolls. `max-height` makes the wrapper a
+   real vertical scrollport and the header then holds (measured drift
+   0px). Without it this is a table whose header is never visible. */
 .cm-table-wrap {
 	overflow-x: auto;
+	max-height: var(--table-max-h, 30rem);
 	border: 1px solid var(--line);
 	border-radius: var(--radius-sm);
 	-webkit-overflow-scrolling: touch;
@@ -1142,6 +1160,20 @@ button.cm-row:hover { background: var(--bg-2); }
 	color: var(--ink);
 }
 .cm-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* A numeric column aligns on the digit, which is the only way a column of
+   durations or sizes can be compared without reading each one. The
+   `__num` form matches the BEM of the rest of the block; `.num` above is
+   kept for the older markup. */
+.cm-table__num { text-align: right; font-variant-numeric: tabular-nums; }
+/* A long host or path must not set the column width for the whole
+   column - 40 hosts of wildly different lengths otherwise makes every
+   row as wide as the worst one. Truncate with an ellipsis so the value
+   is still identifiable on hover. */
+.cm-table__truncate {
+	max-width: 20rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
 /* On a phone a nowrap cell will make the table scroll; that is intended, but
    the first column should still wrap rather than push the table past the
    viewport. */
@@ -3260,6 +3292,26 @@ textarea.cm-code {
 .cm-code:focus-visible {
 	outline: 2px solid var(--ink);
 	outline-offset: 1px;
+}
+
+/* ---------- status code: a glyph, never a hue ----------
+   An HTTP status is the clearest case in the app for "glyph + weight,
+   never hue". A log is exactly where a colour is least useful: it is the
+   one view a person reads at a glance, in greyscale print, or with any
+   colour vision at all, and a wall of red 4xx and green 2xx rows is
+   unreadable in all three. So the class carries a MARKER and weight, and
+   the digits stay right there for anyone who wants the precise code. */
+.cm-status-code {
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	font-weight: 700;
+}
+.cm-status-code--ok { color: var(--ink); }
+.cm-status-code--warn { color: var(--ink-dim); }
+.cm-status-code--err {
+	color: var(--ink);
+	text-decoration: underline;
+	text-underline-offset: 0.2em;
 }
 
 /* ---------- the flush disclosure ----------

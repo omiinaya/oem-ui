@@ -300,11 +300,29 @@ def failures(out):
 
     tripped. Matching the name reports a false WRONG CLAIM.
 
+    The message is the right thing to match on - but the CHECK NAME has
+
+    to be returned too, because a mutant names the check it expects to
+
+    die (its 4th field), and for several checks that name and the message
+
+    are different strings. Returning only the message made every such
+
+    mutant read as WRONG CLAIM even though the right check had failed:
+
+    the runner compared a check name against a set of messages.
+
     """
 
-    return {m.group(1).strip() for m in
+    names = set()
 
-            re.finditer(r'FAIL\s+[^\n]+\n\s+([^\n]+)', out)}
+    for m in re.finditer(r'FAIL\s+([^\n]+)\n\s+([^\n]+)', out):
+
+        names.add(m.group(1).strip())
+
+        names.add(m.group(2).strip())
+
+    return names
 
 def apply(src, anchor, repl, scope):
 
@@ -490,6 +508,45 @@ def main():
     print('\n%d/%d killed, each on its own claim' % (killed, total))
 
     return 0 if killed == total else 1
+
+MUTANTS += [
+    # --- the log table: a page that drifts sideways instead of scrolling ---
+    # Scoped to the REAL rule. An unscoped `overflow-x: auto` lands in the
+    # first rule that declares it, which is not this one.
+    ('table-scroll',
+     '\toverflow-x: auto;', '\toverflow-x: visible;',
+     'the table scrolls inside its own wrapper, not the page',
+     '.cm-table-wrap {'),
+
+    # --- a sticky header that lets rows show through it ---
+    ('table-sticky',
+     '\tposition: sticky;', '\tposition: static;',
+     'the log table header stays put while the body scrolls',
+     '.cm-table th {'),
+    # `background:` alone is satisfied by `transparent`, which is exactly
+    # the mutant - so the check has to demand a real token.
+    ('table-sticky-bg',
+     '\tbackground: var(--panel);', '\tbackground: transparent;',
+     'the log table header stays put while the body scrolls',
+     '.cm-table th {'),
+
+    # --- the status code falling back to hue ---
+    ('status-hue',
+     '\ttext-decoration: underline;', '\tcolor: #dc2626;',
+     'a status code is marked by weight and glyph, not by hue',
+     '.cm-status-code--err {'),
+    ('status-tiers-gone',
+     '.cm-status-code--warn { color: var(--ink-dim); }',
+     '.cm-status-code--warn2 { color: var(--ink-dim); }',
+     'a status code is marked by weight and glyph, not by hue',
+     '.cm-status-code--warn { color: var(--ink-dim); }'),
+    ('status-glyph-only-colour',
+     '\ttext-decoration: underline;\n\ttext-underline-offset: 0.2em;',
+     '\tcolor: var(--ink-dim);',
+     'a status code is marked by weight and glyph, not by hue',
+     '.cm-status-code--err {'),
+]
+
 
 if __name__ == '__main__':
 

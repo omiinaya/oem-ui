@@ -37,10 +37,33 @@ import HeaderLink from '../astro/HeaderLink.astro';
  */
 const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'lists', 'states', 'surface',
-  'selection', 'stack', 'badge', 'json', 'rowon', 'switch', 'sheet', 'choice',
+  'selection', 'stack', 'badge', 'table', 'json', 'rowon', 'switch', 'sheet', 'choice',
 	'code', 'overlays', 'records', 'cards', 'prose', 'layout',
 	'forms', 'auth', 'readme',
 ] as const;
+
+/* The log specimen. Long enough to actually scroll, because a sticky
+   header on a table that fits is a sticky header nobody has tested - and
+   `.cm-table-wrap` is capped with a max-height precisely so the wrapper
+   becomes the vertical scrollport the header sticks to. Ten distinct
+   rows, cycled to twelve so the source stays readable and the overflow
+   is real rather than assumed. `k` is the tier, `g` the glyph: a log is
+   read at a glance and often in greyscale, so the tier never rests on
+   hue alone. */
+const LOG_ROWS = [
+	{ t: '2s ago',  m: 'GET',  host: 'plex.mrx.sh',      path: '/library/sections',                     k: 'ok',   g: '✓', s: '200', d: '12.4ms', ip: '10.0.0.9' },
+	{ t: '4s ago',  m: 'GET',  host: 'plex.mrx.sh',      path: '/old/path',                             k: 'warn', g: '!', s: '301', d: '1.1ms',  ip: '10.0.0.9' },
+	{ t: '9s ago',  m: 'POST', host: 'app.example.com',  path: '/api/upload',                           k: 'err',  g: '✕', s: '502', d: '30.0s',  ip: '10.0.0.4' },
+	{ t: '14s ago', m: 'GET',  host: 'links.mrx.sh',     path: '/',                                     k: 'ok',   g: '✓', s: '200', d: '88.0ms', ip: '10.0.0.2' },
+	{ t: '21s ago', m: 'GET',  host: 'cdn.mrx.sh',       path: '/assets/app.9f2c1a.js',                  k: 'ok',   g: '✓', s: '200', d: '4.2ms',  ip: '10.0.0.7' },
+	{ t: '30s ago', m: 'HEAD', host: 'plex.mrx.sh',      path: '/library/sections/',                    k: 'warn', g: '!', s: '304', d: '0.9ms',  ip: '10.0.0.9' },
+	{ t: '44s ago', m: 'GET',  host: 'gone.example.net', path: '/a/very/long/path/that/keeps/going/on', k: 'err',  g: '✕', s: '404', d: '2.0ms',  ip: '10.0.0.3' },
+	{ t: '51s ago', m: 'GET',  host: 'links.mrx.sh',     path: '/tags/design-system',                   k: 'ok',   g: '✓', s: '200', d: '61.3ms', ip: '10.0.0.2' },
+	{ t: '1m ago',  m: 'PUT',  host: 'api.mrx.sh',       path: '/v1/objects/9f2c1a',                    k: 'err',  g: '✕', s: '507', d: '12.0s',  ip: '10.0.0.5' },
+	{ t: '1m ago',  m: 'GET',  host: 'plex.mrx.sh',      path: '/library/tokens',                       k: 'ok',   g: '✓', s: '200', d: '9.8ms',  ip: '10.0.0.9' },
+] as const;
+const LOG = Array.from({ length: 12 }, (_, i) => LOG_ROWS[i % LOG_ROWS.length]);
+
 import { SITE } from '../astro/config';
 ---
 
@@ -502,10 +525,10 @@ import { SITE } from '../astro/config';
 							<tr><th>layer</th><th>file</th><th class="num">lines</th><th class="num">touches</th></tr>
 						</thead>
 						<tbody>
-							<tr aria-selected="true"><td>tokens</td><td>tokens.css</td><td class="num">231</td><td class="num">4</td></tr>
-							<tr><td>base</td><td>base.css</td><td class="num">412</td><td class="num">7</td></tr>
-							<tr><td>components</td><td>components.css</td><td class="num">1180</td><td class="num">31</td></tr>
-							<tr><td>runtime</td><td>cli-mono.js</td><td class="num">196</td><td class="num">3</td></tr>
+							<tr aria-selected="true"><td>tokens</td><td>tokens.css</td><td class="cm-table__num">231</td><td class="cm-table__num">4</td></tr>
+							<tr><td>base</td><td>base.css</td><td class="cm-table__num">412</td><td class="cm-table__num">7</td></tr>
+							<tr><td>components</td><td>components.css</td><td class="cm-table__num">1180</td><td class="cm-table__num">31</td></tr>
+							<tr><td>runtime</td><td>cli-mono.js</td><td class="cm-table__num">196</td><td class="cm-table__num">3</td></tr>
 						</tbody>
 					</table>
 				</div>
@@ -919,6 +942,47 @@ import { SITE } from '../astro/config';
 									<div class="cm-head__sub">404 catch-all domains</div>
 								</div>
 								<button class="cm-btn cm-btn--sm cm-btn--primary cm-head-row__action">Add Dead Host</button>
+							</div>
+						</section>
+						<section id="table" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+							<h2>table</h2>
+							<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
+								For records a person scans <em>across</em> rather
+								than one at a time - a log is the case that
+								cannot be cards, because the columns have to
+								line up. The header is sticky, because row 400
+								otherwise has no idea which column it is in.
+								Status codes carry a weight and a marker, not a
+								hue: a wall of red and green is unreadable in
+								greyscale and to anyone with colour vision.
+							</p>
+							<div class="cm-table-wrap">
+								<table class="cm-table">
+									<thead>
+										<tr>
+											<th>Time</th>
+											<th>Method</th>
+											<th>Host</th>
+											<th>Path</th>
+											<th>Status</th>
+											<th class="cm-table__num">Duration</th>
+											<th>Client</th>
+										</tr>
+									</thead>
+									<tbody>
+										{LOG.map(r => (
+											<tr>
+												<td>{r.t}</td>
+												<td>{r.m}</td>
+												<td class="cm-table__truncate">{r.host}</td>
+												<td class="cm-table__truncate">{r.path}</td>
+												<td><span class={`cm-status-code cm-status-code--${r.k}`}>{r.g} {r.s}</span></td>
+												<td class="cm-table__num">{r.d}</td>
+												<td>{r.ip}</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
 							</div>
 						</section>
 						<section id="json" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">

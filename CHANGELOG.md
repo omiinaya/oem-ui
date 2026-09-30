@@ -5,6 +5,32 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **The log table's sticky header was not sticky, and a green test said it
+  was.** `position: sticky` on `.cm-table th` was asserted for a full cycle
+  while the header visibly rode the page down. The cause: `overflow-x: auto`
+  on `.cm-table-wrap` computes `overflow-y` to `auto` as well (only `visible`
+  is forced to the other axis), so the wrapper is a scrollport on BOTH axes
+  and `th` is sticky to the WRAPPER -- which only ever scrolls sideways, so
+  there is nothing to stick to. Measured in WebKit at 393x852: 27px of page
+  scroll produced exactly 27px of header drift.
+
+  Viewport-sticky inside a horizontally scrolling ancestor is a CSS
+  constraint, not a WebKit quirk, so the fix makes the wrapper a real
+  vertical scrollport: `.cm-table-wrap` gains `max-height: var(--table-max-h,
+  30rem)`. Header drift is now 0px at both 393x852 and 375x667.
+
+  The lesson generalises past tables, and it is the sharpest one recorded
+  here: **asserting the CAUSE, not the EFFECT.** `position: sticky` is the
+  effect, and it is exactly the thing that lied. A CSS-text test can read a
+  correct-looking value off a rule whose layout is broken. Assert the
+  property that makes the effect possible, and measure the effect in the
+  engine (`tests/verify-table-webkit.py`).
+
+  The showcase log grew from 3 rows to 12 because a sticky header on a
+  table that fits is a sticky header nobody has tested. That is now a test
+  too. 4/4 mutants killed, including `max-height: none` -- declared, but
+  inert, which is the mutation a value-shaped test misses.
+
 - `check-design-sync.sh` now distinguishes syncing a file from ADOPTING it.
   Importing `components.css` is a claim about a filename; it says nothing
   about whether a page emits a class the file defines. `dev-blog` imported

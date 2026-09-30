@@ -7223,6 +7223,120 @@ check('a row that is itself a control keeps the row geometry', () => {
 		'beside the row divider');
 });
 
+/* ---------- the log table scrolls sideways, not the page ---------- */
+
+check('the table scrolls inside its own wrapper, not the page', () => {
+	const comp = read('src/styles/components.css');
+	const wrap = /([^{}\n]*\.cm-table-wrap\s*\{[^}]*\})/.exec(comp);
+	assert(wrap, 'no .cm-table-wrap rule, so the table has no frame to scroll in');
+	assert(/overflow-x:\s*auto/.test(wrap[1]),
+		'the table wrapper does not scroll horizontally, so a wide log grows ' +
+		'the page instead of scrolling and the whole UI drifts sideways on a phone');
+	// The scroll must be on the WRAPPER. On the table itself, `overflow` is
+	// ignored for a table box, so the rule reads as if it worked and the
+	// page still grows.
+	assert(!/^\.cm-table\s*\{[^}]*overflow/.test(comp),
+		'overflow is set on .cm-table itself, which a table box ignores, so the ' +
+		'horizontal scroll silently does nothing');
+});
+
+check('the log table header stays put while the body scrolls', () => {
+	const comp = read('src/styles/components.css');
+	const th = /([^{}\n]*\.cm-table th\s*\{[^}]*\})/.exec(comp);
+	assert(th, 'no .cm-table th rule');
+	assert(/position:\s*sticky/.test(th[1]),
+		'the header row is not sticky, so once a log is longer than a screen ' +
+		'every row is read without knowing which column it belongs to');
+	// A sticky header with a transparent background lets rows show through
+	// it. `/background:/` alone is satisfied by `transparent`, which is
+	// precisely the mutant, so the check demands a real token.
+	assert(/background:\s*var\(--[a-z0-9-]+\)/.test(th[1]),
+		'the sticky header background is not an opaque token, so the rows ' +
+		'scroll visibly through the header as they pass under it');
+});
+
+check('a status code is marked by weight and glyph, not by hue', () => {
+	const comp = read('src/styles/components.css');
+	const block = comp.slice(comp.indexOf('/* ---------- status code'), comp.indexOf('/* ---------- the flush disclosure'));
+	assert(block.length > 100, 'the status-code surface is missing entirely');
+	assert(!/#[0-9a-f]{3,8}\b/.test(block),
+		'the status code hardcodes a colour, so a log is readable only by hue');
+	assert(!/\b(red|green|emerald|amber|blue|orange|yellow)\b/i.test(block.replace(/never a hue[\s\S]*/i, '')),
+		'the status-code surface names a hue, so the rule it replaced is back');
+	// The three tiers must be distinguishable without colour, so each needs
+	// a declaration that is NOT a colour.
+	const tiers = block.match(/\.cm-status-code--(?:ok|warn|err)\s*\{[^}]*\}/g) || [];
+	assert(tiers.length === 3, 'the three status tiers are not all defined');
+	assert(tiers.filter(t => /text-decoration/.test(t)).length >= 1,
+		'no status tier differs by anything but colour, so a 4xx and a 2xx are ' +
+		'indistinguishable in greyscale');
+});
+
+/* ---------- the sticky header that was silently not sticky ----------
+   `position: sticky` on the `th` was green for a whole cycle while the
+   header visibly rode the page. Measured cause: `overflow-x: auto` on
+   the wrapper computes `overflow-y` to `auto` as well (CSS overflow rule
+   - only `visible` is forced to the other axis), so the wrapper is a
+   scrollport on BOTH axes. `th` is therefore sticky to the WRAPPER, and
+   the wrapper only ever scrolls sideways, so there is nothing for the
+   header to stick to. Measured drift: exactly the page scroll distance.
+
+   Viewport-sticky inside a horizontally scrolling ancestor is impossible,
+   so the fix is to make the wrapper a REAL vertical scrollport via
+   max-height. This test asserts the cause, not the effect, because the
+   effect (`position: sticky`) is exactly the thing that lied. */
+check('the table wrapper can actually scroll vertically', () => {
+	const comp = read('src/styles/components.css');
+	const wrap = /([^{}\n]*\.cm-table-wrap\s*\{[^}]*\})/.exec(comp);
+	assert(wrap, 'no .cm-table-wrap rule, so the table has no frame to scroll in');
+	assert(/max-height:\s*var\(--table-max-h/.test(wrap[1]),
+		'the table wrapper has no max-height, so it is a scrollport that never ' +
+		'scrolls vertically: `overflow-x: auto` already forced overflow-y to ' +
+		'`auto`, which makes the sticky header resolve against the wrapper ' +
+		'instead of the viewport, and the header then rides the page down ' +
+		'(measured: header drift exactly equal to the scroll distance)');
+});
+
+check('the sticky header resolves against a scrollport that scrolls', () => {
+	const comp = read('src/styles/components.css');
+	const wrap = /([^{}\n]*\.cm-table-wrap\s*\{[^}]*\})/.exec(comp);
+	const th = /([^{}\n]*\.cm-table th\s*\{[^}]*\})/.exec(comp);
+	assert(wrap && th, 'no .cm-table-wrap / .cm-table th rule');
+	assert(/position:\s*sticky/.test(th[1]),
+		'the header row is not sticky, so once a log is longer than the cap ' +
+		'every row is read without knowing which column it belongs to');
+	// The pairing is the invariant, not either half. Sticky with no
+	// scrollable ancestor and a scrollable ancestor with no sticky are
+	// both the original bug in opposite directions, and either passes a
+	// test that checks only one of the two properties.
+	assert(/max-height:\s*var\(--table-max-h/.test(wrap[1]) &&
+		/position:\s*sticky/.test(th[1]),
+		'the header is sticky but its scrollport cannot scroll (or the ' +
+		'wrapper scrolls but the header is not sticky): a sticky header ' +
+		'outside a bounded scrollport is decoration');
+	// A sticky header with a transparent background lets rows show through.
+	// `/background:/` alone is satisfied by `transparent`, which is exactly
+	// the mutant, so demand a real token.
+	assert(/background:\s*var\(--[a-z0-9-]+\)/.test(th[1]),
+		'the sticky header background is not an opaque token, so the rows ' +
+		'scroll visibly through the header as they pass under it');
+});
+
+check('the log specimen is long enough to scroll inside its own cap', () => {
+	const page = read('src/pages/index.astro');
+	const spec = /id="table"[\s\S]*?<\/section>/.exec(page);
+	assert(spec, 'no table showcase section');
+	// A sticky header on a table that fits is a sticky header nobody has
+	// tested, and it passes every assertion above. The specimen must
+	// actually overflow the cap, which at 30rem is more rows than a
+	// casual 3-row sample provides.
+	const rows = /const LOG = Array\.from\(\{ length: (\d+)/.exec(page);
+	assert(rows, 'the log specimen is not generated from a row count');
+	assert(Number(rows[1]) >= 10,
+		`the log specimen renders ${rows[1]} rows, too few to overflow the ` +
+		'30rem cap, so the sticky header is never exercised in the showcase');
+});
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {
