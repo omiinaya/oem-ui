@@ -7028,6 +7028,29 @@ check('a disclosure action is walked to the end of the summary row', () => {
 		`the action must stay centred on its own line when the summary wraps, got: ${m[2].trim()}`);
 });
 
+/* ---------- page head badge: ink only, and it holds its box ---------- */
+
+check('the page head badge is marked with an inset rule, not a gradient', () => {
+	const comp = read('src/styles/components.css');
+	const rule = [...comp.matchAll(/([^{}\n]*\.cm-head__badge[^{}\n]*)\{([^}]*)\}/g)][0];
+	assert(rule, '.cm-head__badge must have its own rule body');
+	// Read the BODY. A whole-file /gradient/ search matches the two comments
+	// that explain why the library has none, which is the opposite failure.
+	assert(!/gradient/.test(rule[2]),
+		'the badge paints a gradient; the library marks state with an inset rule, not a hue');
+	assert(/box-shadow:\s*inset/.test(rule[2]),
+		'the badge has no inset rule, so it reads as an unlabelled grey square');
+});
+
+check('the page head badge sizes its glyph in CSS, not in markup', () => {
+	const comp = read('src/styles/components.css');
+	const rule = [...comp.matchAll(/([^{}\n]*\.cm-head__badge\s*>\s*svg[^{}\n]*)\{([^}]*)\}/g)][0];
+	assert(rule, '.cm-head__badge > svg must carry its own dimensions');
+	assert(/width:\s*1rem/.test(rule[2]) && /height:\s*1rem/.test(rule[2]),
+		'the badge glyph is sized in markup instead of CSS, so a consumer ' +
+		'that omits the class renders an icon at its default 24px');
+});
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {

@@ -134,6 +134,28 @@ MUTANTS = [
         'the action must stay centred on its own line when the summary wraps',
         '.cm-disclosure__action',
     ),
+    (
+        'the page head badge loses its inset rule',
+        '\tbox-shadow: inset 3px 0 0 var(--ink);',
+        '\tbox-shadow: none;',
+        'the badge has no inset rule, so it reads as an unlabelled grey square',
+        '.cm-head__badge {',
+    ),
+    (
+        'the page head badge paints a gradient',
+        '\tbackground: var(--bg-2);',
+        '\tbackground: linear-gradient(to bottom right, #7c3aed, #2563eb);',
+        'the badge paints a gradient; the library marks state with an inset rule, not a hue',
+        '.cm-head__badge {',
+    ),
+    (
+        'the badge glyph falls back to markup sizing',
+        '.cm-head__badge > svg { height: 1rem; width: 1rem; }',
+        '.cm-head__badge > svg { height: 24px; width: 24px; }',
+        'the badge glyph is sized in markup instead of CSS, so a consumer that omits the class renders an icon at its default 24px',
+        '.cm-head__badge > svg',
+    ),
+
 ]
 
 def src_of(d, rel=None):

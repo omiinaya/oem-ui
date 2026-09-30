@@ -2926,6 +2926,29 @@ html {
    and a 17px box next to 15px text sits on the wrong optical line. */
 .cm-check > input[type='checkbox'] { align-self: center; }
 
+/* ---------- page head badge: the square glyph on a title row ----------
+   Seven pages each drew a gradient square beside the page title, in seven
+   different gradients. The library forbids gradients - glyph + weight is
+   the whole palette - so the badge is an inset square on the ink token,
+   the same mark `.cm-section--on` already uses to show selection.
+
+   It sits next to a button on every one of those pages, so it takes the
+   tap floor on a touch viewport even though it is not itself a target. */
+.cm-head__badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	flex: 0 0 auto;
+	border-radius: var(--radius-sm);
+	border: 1px solid var(--ink-dim);
+	background: var(--bg-2);
+	box-shadow: inset 3px 0 0 var(--ink);
+	color: var(--ink);
+}
+.cm-head__badge > svg { height: 1rem; width: 1rem; }
+
 /* ---------- segmented control ----------
 
    A small set of mutually exclusive choices, one of which is always

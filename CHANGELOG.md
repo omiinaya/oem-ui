@@ -53,6 +53,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`.cm-head__badge`** - the square glyph on a page title row. Seven
+  pages each drew a gradient square beside their title, in seven different
+  gradients. The library forbids gradients: glyph + weight is the whole
+  palette, and a hue is the only signal that fails in greyscale. The badge
+  is an inset square on the ink token - the same mark `.cm-section--on`
+  already uses to show selection - and sizes its own glyph in CSS so a
+  consumer cannot leave the icon at its default 24px.
+
+
 - **`.cm-disclosure__action`** - the one interactive thing a `<summary>`
   may hold, walked to the end of the row. A delete button sitting hard
   against the last chip makes the row stop reading as one line of summary
