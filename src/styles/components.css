@@ -569,6 +569,21 @@ button.cm-row {
 	color: inherit;
 	cursor: pointer;
 }
+/* The button reset is (0,0,1) so this wins nothing by accident, but it
+   does declare `background: transparent` at (0,1,1) - which OUTRANKS
+   `.cm-row--on` at (0,1,0). The selected row therefore computed to a
+   transparent background in WebKit and the "on" state was invisible on
+   every button row. Measured before the fix: `.cm-row cm-row--on`
+   computed `rgba(0, 0, 0, 0)` while `.cm-row--on` declares
+   `background: var(--bg-2)`.
+
+   The state modifier must be able to win over the element default, so it
+   is restated at the same specificity rather than trusting source order.
+   An `<a class="cm-row cm-row--on">` is unaffected either way. */
+button.cm-row--on,
+button.cm-row--on:hover {
+	background: var(--bg-2);
+}
 button.cm-row:hover { background: var(--bg-2); }
 
 .cm-row__title {
@@ -641,6 +656,45 @@ button.cm-row:hover { background: var(--bg-2); }
 	font-size: 0.75rem;
 	white-space: nowrap;
 	flex: 0 0 auto;
+}
+
+/* A meta slot is a fixed, unshrinkable strip by default - correct for a
+   status or a timestamp, and it is why the body carries
+   `overflow: hidden`. But a meta slot that holds a CONTROL (a scheme
+   <select>, an inline edit) cannot be unshrinkable: the body clipped it
+   and the control was unreachable on a phone.
+
+   Measured in WebKit at 390px, before this: the `select` and
+   `.cm-inline` extended to x=450 and x=587 against a 390px viewport, and
+   `.cm-row__body { overflow: hidden }` hid the rest of them. On a
+   modifier, the slot becomes a wrapping flex row and stops being
+   unshrinkable, so the body keeps its clip and the content fits. */
+.cm-row__meta--wrap {
+	white-space: normal;
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-2);
+}
+.cm-row__meta--wrap > * { min-width: 0; }
+
+/* A row body is a nowrap flex line by default - title, desc and meta on
+   one line, which is right when the row is a summary. It has to give way
+   when the row carries a control: at 390px the unshrinkable meta slot
+   and the button group behind it left the scheme <select> covered and
+   the inline edit measured 0px wide.
+
+   On the modifier the body wraps, so the second line starts below the
+   first instead of underneath it, and the meta slot goes to a full line
+   of its own rather than fighting the title for the same row. */
+.cm-row__body--wrap {
+	flex-wrap: wrap;
+	row-gap: var(--space-2);
+}
+.cm-row__body--wrap > .cm-row__meta--wrap {
+	flex: 1 0 100%;
 }
 .cm-row__sym {
 	color: var(--ink-faint);
@@ -1315,7 +1369,15 @@ button.cm-row:hover { background: var(--bg-2); }
 	max-width: 100%;
 	min-width: 0;
 	overflow-wrap: break-word;
-}
+
+	/* A tag is a LABEL, not a paragraph: it must never wrap. As a flex item
+	   it defaulted to `0 1 auto`, so a `.cm-head-row` squeezed it below its
+	   content width and `overflow-wrap: break-word` broke "24 total" across
+	   two lines - measured 43px tall next to a 24px sibling with identical
+	   rules. `flex: 0 0 auto` keeps the content width when there is room;
+	   `max-width: 100%` still caps it on a narrow screen, and only then does
+	   the text wrap. */
+	flex: 0 0 auto;}
 .cm-tag--accent { border-color: var(--accent-dim); color: var(--ink); }
 
 /* ---------- state chip ----------
@@ -3387,6 +3449,16 @@ button.cm-link:focus-visible {
 }
 .cm-inline--wide { max-width: 32rem; }
 
+/* An IP or a PORT is a short value, and an input sized by
+   `width: 100%` inside a `cm-row__meta` strip is sized by whatever
+   space is left - which on a phone is nothing, so the field collapses
+   and there is nothing to click. `.cm-inline__input--tight` is a width
+   for the INPUT, sized to the longest value the field actually takes:
+   an IPv4 address at the mono 0.82rem, and comfortably more than a
+   5-digit port. `ch` units so it tracks the font rather than a hard px.
+   `.cm-inline--wide` above is a max-width on the DISPLAY span, which
+   is a different thing and does not size the input. */
+
 .cm-inline__input {
 	display: inline-block;
 	width: 100%;
@@ -3397,6 +3469,20 @@ button.cm-link:focus-visible {
 	border: 1px solid var(--ink-dim);
 	border-radius: var(--radius-sm);
 	padding: 0 var(--space-1);
+}
+/* The class is DOUBLED, and it is the base layer that forces it. The
+   `input:not([type=checkbox]):not([type=radio]):not([type=range])`
+   rule in base.css is (0,6,1) and declares `width: 100%`; a plain
+   `.cm-inline__input--tight` is (0,1,0) and loses outright - source
+   order is irrelevant. Measured in WebKit: 386px instead of 11ch, at
+   1280px and at 390px. Doubling the class takes it to (0,2,0), which
+   still LOSES, so it is doubled AND declared after - and the
+   declaration the browser actually used was `width: 386px` from the
+   base rule, with `flex-basis: auto` on a `0 1 auto` flex item. */
+.cm-inline__input.cm-inline__input--tight {
+	width: 11ch;
+	max-width: none;
+	min-width: 0;
 }
 .cm-inline__input:focus-visible {
 	outline: 2px solid var(--ink);

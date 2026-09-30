@@ -1183,6 +1183,48 @@ import { SITE } from '../astro/config';
 									</button>
 								</li>
 							</ul>
+							<p class="cm-head__sub" style="margin:var(--space-6) 0 var(--space-5)">
+								<code>cm-row__meta--wrap</code> is for a meta slot that carries
+								a CONTROL rather than a label. The plain meta slot is nowrap and
+								unshrinkable, which is right for a status and wrong for a
+								&lt;select&gt;: the row body clips it, so the control is unreachable
+								on a phone. On the modifier the slot wraps and shrinks, so the row
+								still fits at 390px.
+							</p>
+							<ul class="cm-rows" style="max-width:34rem;border:1px solid var(--line);border-radius:var(--radius-sm)">
+								<li>
+									<div class="cm-row">
+										<span class="cm-row__body cm-row__body--wrap">
+											<span class="cm-row__title">app.example.com</span>
+											<span class="cm-row__meta cm-row__meta--wrap">
+												<span aria-hidden="true">&rarr;</span>
+												<label class="cm-sr-only" for="cm-demo-scheme">Forward scheme</label>
+												<select id="cm-demo-scheme">
+													<option value="http">http</option>
+													<option value="https" selected>https</option>
+												</select>
+												<span aria-hidden="true">://</span>
+												<span class="cm-inline">origin.internal:8443</span>
+											</span>
+										</span>
+									</div>
+								</li>
+							</ul>
+							<p class="cm-head__sub" style="margin:var(--space-6) 0 var(--space-5)">
+								<code>cm-inline__input--tight</code> sizes the INPUT rather than
+								the display span. <code>cm-inline--wide</code> is a max-width on the
+								span; an IP or a port is short, and
+								<code>width: 100%</code> inside a meta strip sized it to
+								whatever space was left - which on a phone is none, so the
+								field collapsed and there was nothing to click.
+							</p>
+							<div class="cm-row" style="max-width:34rem;gap:var(--space-2);align-items:center">
+								<span class="cm-row__meta">&rarr;</span>
+								<input class="cm-inline__input cm-inline__input--tight" value="10.0.0.7" aria-label="Forward IP" />
+								<span class="cm-row__meta">:</span>
+								<input class="cm-inline__input cm-inline__input--tight" value="8443" aria-label="Forward port" />
+							</div>
+
 						</section>
 						<section id="switch" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
 							<h2>switch</h2>

@@ -132,4 +132,125 @@ MUTANTS = [
         "animated but unguarded under reduced motion",
         None,
     ),
+    (
+        # THE ORIGINAL DEFECT, restored exactly: the base layer never reset a
+        # bare <button>, so the UA face paints. Removing `background: none`
+        # from the reset is indistinguishable from the state before the fix
+        # - every nav row, tab, chip and row goes silver.
+        "button-reset-drops-background-none",
+        "button {\n\t-webkit-appearance: none;\n\tappearance: none;\n\tbackground: none;",
+        "button {\n\t-webkit-appearance: none;\n\tappearance: none;",
+        "keeps the UA button face",
+        None,
+    ),
+    (
+        # `background: transparent` satisfies a naive /background/ grep but
+        # paints nothing, so the guard must demand `none` specifically.
+        "button-reset-background-transparent",
+        "button {\n\t-webkit-appearance: none;\n\tappearance: none;\n\tbackground: none;",
+        "button {\n\t-webkit-appearance: none;\n\tappearance: none;\n\tbackground: transparent;",
+        "keeps the UA button face",
+        None,
+    ),
+    (
+        # Removing appearance alone still leaves the UA face in engines that
+        # honour -webkit-appearance only - the reset is two declarations
+        # because WebKit ignores the bare alias on some controls.
+        "button-reset-drops-appearance",
+        "button {\n\t-webkit-appearance: none;\n\tappearance: none;\n\tbackground: none;",
+        "button {\n\tbackground: none;",
+        "clears appearance but not the native",
+        None,
+    ),
+    (
+        # THE SECOND DEFECT, restored: the state modifier is dropped, so
+        # `button.cm-row { background: transparent }` at (0,1,1) outranks it
+        # and the selected row is invisible again.
+        "row-on-loses-the-button-case",
+        "button.cm-row--on,\nbutton.cm-row--on:hover {\n\tbackground: var(--bg-2);\n}",
+        "button.cm-row--on:hover {\n\tbackground: var(--bg-2);\n}",
+        "cannot outrank the element default",
+        None,
+    ),
+    (
+        # Right selector, no background: the modifier matches but paints
+        # nothing, which is the same invisible result.
+        "row-on-without-a-background",
+        "button.cm-row--on,\nbutton.cm-row--on:hover {\n\tbackground: var(--bg-2);\n}",
+        "button.cm-row--on,\nbutton.cm-row--on:hover {\n\tcolor: var(--ink);\n}",
+        "cannot outrank the element default",
+        None,
+    ),
+    (
+        # A tag is a label. Shrinkable as a flex item, it wraps in a
+        # .cm-head-row and comes out two lines tall.
+        # A tag is a label. Shrinkable as a flex item, it wraps in a
+        # .cm-head-row and comes out two lines tall (measured 43px next to
+        # a 24px sibling under identical rules).
+        "tag-shrinkable-as-a-flex-item",
+        "\t   the text wrap. */\n\tflex: 0 0 auto;",
+        "\t   the text wrap. */",
+        "a tag is shrinkable as a flex item",
+        None,
+    ),
+    (
+        # The meta slot stays nowrap and unshrinkable, so the row body
+        # clips the select and it is unreachable at 390px.
+        "meta-wrap-not-a-flex-row",
+        ".cm-row__meta--wrap {\n\twhite-space: normal;\n\tflex: 1 1 auto;\n\tmin-width: 0;\n\tdisplay: flex;\n\tflex-wrap: wrap;",
+        ".cm-row__meta--wrap {\n\twhite-space: normal;\n\tflex: 1 1 auto;\n\tmin-width: 0;\n\tdisplay: flex;",
+        "has no wrapping variant",
+        None,
+    ),
+    (
+        # The body stays a single line, so the meta slot and the button
+        # group overlap instead of stacking.
+        "row-body-wrap-removed",
+        ".cm-row__body--wrap {\n\tflex-wrap: wrap;",
+        ".cm-row__body--wrap {\n\tflex-wrap: nowrap;",
+        "carrying a control has no wrapping variant",
+        None,
+    ),
+    (
+        # Full-width meta line removed: the slot wraps but still competes
+        # with the title for the same line.
+        "row-body-wrap-full-line-meta-removed",
+        "\tflex: 1 0 100%;\n}",
+        "\tflex: 1 1 auto;\n}",
+        "competes with the title for the same line",
+        None,
+    ),
+    (
+        # The real trap is ORDER, not the value: same specificity, so
+        # whichever comes later wins on source order. Renaming the rule
+        # reproduces "declared before": the check compares two indexOf
+        # positions, and a rule that is not there at all sorts first.
+        "tight-input-not-declared-after-the-base-rule",
+        ".cm-inline__input.cm-inline__input--tight {\n\twidth: 11ch;",
+        ".cm-inline__input.cm-inline__input--typo {\n\twidth: 11ch;",
+        "not declared after .cm-inline__input",
+        None,
+    ),
+    (
+        # Revert to the over-broad skip: every element carrying a cm-
+        # class loses its full width. Measured in the app: a bare select
+        # on Access Lists collapsed to 17px inside a 36px parent.
+        "bare-width-skips-every-cm-class",
+        "input:not([type='checkbox']):not([type='radio']):not([type='range']):not(.cm-inline__input),\ntextarea:not(.cm-inline__input),\nselect:not(.cm-inline__input)",
+        "input:not([type='checkbox']):not([type='radio']):not([type='range']):not([class*='cm-']),\ntextarea:not([class*='cm-']),\nselect:not([class*='cm-'])",
+        "no longer steps aside for",
+        None,
+    ),
+    (
+        # The other direction: the split never steps aside, so the short
+        # input is 386px wide again. The anchor must cover the WHOLE
+        # selector list - mutating only the input clause leaves
+        # textarea/select holding :not(.cm-inline__input), and the check
+        # still passes. That is a survivor, not a kill.
+        "bare-width-stops-for-nothing",
+        "input:not([type='checkbox']):not([type='radio']):not([type='range']):not(.cm-inline__input),\ntextarea:not(.cm-inline__input),\nselect:not(.cm-inline__input)",
+        "input:not([type='checkbox']):not([type='radio']):not([type='range']):not(.cm-nothing),\ntextarea:not(.cm-nothing),\nselect:not(.cm-nothing)",
+        "no longer steps aside for",
+        None,
+    ),
 ]
