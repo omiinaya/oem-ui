@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   because using your own header is a design choice, but the gap between
   "in sync" and "adopted" is no longer silent.
 
+- The published site is the BUILD, not the repository. Pages was configured
+  `source={branch: master, path: /}` while the deploy workflow used
+  `actions/deploy-pages`. Those are two incompatible publishing mechanisms:
+  classic Pages served the repo root, so GitHub rendered `README.md` as the
+  homepage and the Astro build was never served at all. Every workflow
+  reported success for three days while `ui.mrx.sh` showed a page with no
+  `<header>` and a title from a commit before the mobile-drawer fix.
+  `build_type` is now `workflow`, and `tests/verify-live-deploy.py` asserts
+  the deployed bytes rather than trusting a green run.
+
 ## Fixed
 - The header bar no longer paints outside its own box. Between the phone
   drawer (640px) and the rail (1000px) the bar's nav was `flex-wrap: wrap`

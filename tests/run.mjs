@@ -2093,6 +2093,43 @@ check('a synced consumer is not just a consumer with the same files', () => {
 		'the sync checker does not know what class the library header uses');
 });
 
+/* ================= the deploy serves the build, not the README ====== */
+// This is a test of the PUBLISHED site, not of the source. It has no way
+// to run in a unit suite, so it is asserted two ways: here, that the
+// workflow publishes the way Pages is actually configured, and in
+// tests/verify-live-deploy.py, which fetches the real URL.
+//
+// The failure this encodes: Pages was configured source={branch:master,
+// path:/} while the workflow used actions/deploy-pages. Those are two
+// incompatible mechanisms. Classic Pages published the repo ROOT, so
+// GitHub rendered README.md as the homepage and the Astro build was
+// never served. Every workflow reported success the whole time -- the
+// build ran, the artifact uploaded, the deploy step went green -- and
+// ui.mrx.sh showed a page with no <header> and a title from a commit
+// three days prior. Verified green for 3 days while shipping nothing.
+const workflow = read('.github/workflows/deploy.yml');
+check('the deploy uses the GitHub Actions Pages publisher', () => {
+	// A classic source and a workflow publisher cannot both be in play.
+	assert(/actions\/deploy-pages/.test(workflow),
+		'the deploy job does not use actions/deploy-pages');
+	assert(/actions\/upload-pages-artifact/.test(workflow),
+		'the build job never uploads a Pages artifact');
+});
+
+// The artifact has to be the BUILD, not the repository. Uploading the
+// repo root is exactly the bug: it publishes README.md.
+check('the published artifact is the build, not the repository', () => {
+	assert(/path:\s*dist\b/.test(workflow),
+		'the uploaded artifact is not dist; the repo root would serve README.md');
+});
+
+// A CNAME in the repo is only a suggestion; the Pages setting is the
+// thing that binds the domain. Keep the file honest about why it exists.
+check('the CNAME matches the domain the build publishes', () => {
+	assert(/SITE_URL:\s*https:\/\/ui\.mrx\.sh/.test(workflow),
+		'the build publishes a different origin than the CNAME claims');
+});
+
 /* ================= the desktop nav rail ================= */
 console.log('\ndesktop nav rail');
 const RAIL_CSS = read('src/styles/components.css');

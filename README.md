@@ -1002,6 +1002,24 @@ are already permanently on screen.
 The contract is pinned by `tests/mutate-rail.py` (17 mutations, 0
 survived).
 
+## Verifying the published site
+
+`tests/verify-live-deploy.py` fetches the real URL and asserts the page is
+the build rather than the repository. It exists because a green workflow
+is not evidence that anything was published: Pages was configured to serve
+the repo root, so `README.md` was rendered as the homepage and every deploy
+reported success for three days. The interesting detail is that the stale
+page still contained the string `cm-header__links` -- inside a `<code>`
+documentation specimen -- so counting occurrences reported a header where
+there was none. The check counts an ELEMENT, not a substring.
+
+Run it directly, or point it anywhere with `BASE_URL`:
+
+```
+python tests/verify-live-deploy.py
+BASE_URL=http://192.168.1.68:4401/ python tests/verify-live-deploy.py
+```
+
 ## The bar between the drawer and the rail
 
 Between the phone drawer (640px) and the rail (1000px) the header is still a
