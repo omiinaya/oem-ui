@@ -2,23 +2,9 @@
 """
 Mutation harness for the drift checker's PREFIX DISCOVERY and the
 RESERVED reserved-prefix check.
-
-Two new claims got tests. A test nobody has tried to break is a guess, so
-each mutation below must turn the suite RED. Per the repo's own rule, a
-pattern that no longer matches the source is a NO-OP and is reported as a
-FAILURE OF THE HARNESS, never as a pass.
-
-Every mutation is trap-guarded: the file is copied to a backup, a trap
-restores it on EXIT/INT/TERM, and the restore is byte-verified against a
-pre-edit md5. An interrupted mutate-and-restore leaves the MUTANT as the
-working tree, and `git status` plus a byte compare is the only way to know
-which one you are looking at.
-
-Usage: /root/.venvs/mau/bin/python tests/mutate-sync-prefix.py
 """
 import hashlib
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -26,7 +12,6 @@ import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPT = os.path.join(ROOT, "scripts", "check-design-sync.sh")
-RUN_MJS = os.path.join(ROOT, "tests", "run.mjs")
 
 NOOP = "NO-OP"
 NAMED = "NAMED"
@@ -36,70 +21,59 @@ SURVIVED = "SURVIVED"
 MUTATIONS = []
 
 
-def mutation(name, path, old, new, expect_named=None, count=1):
+def mutation(name, path, old, new, expect_named=None):
     MUTATIONS.append(dict(name=name, path=path, old=old, new=new,
-                          expect_named=expect_named, count=count))
+                          expect_named=expect_named))
 
 
-# ---- 1. discovery: revert to the hardcoded src/ prefix -------------------
-# This is the exact defect: only ever look for src/styles/cli-mono.
 mutation(
     "discovery: only ever look for the canonical src/ prefix",
     SCRIPT,
-    "[ -f \"$t/src/styles/cli-mono/components.css\" ] && { printf 'src'; return 0; }",
-    "if [ -f \"$t/src/styles/cli-mono/components.css\" ]; then printf 'src'; return 0; fi; return 1",
-    expect_named="nested (web/src)",
+    '[ -f "$t/src/styles/cli-mono/components.css" ] && { printf \'src\'; return 0; }',
+    'if [ -f "$t/src/styles/cli-mono/components.css" ]; then printf \'src\'; return 0; fi; return 1',
+    expect_named="bare scan must FIND",
 )
 
-# ---- 2. discovery: bare-invocation scan gated on the old path -------------
-# The audit's own loop shape. rpm is invisible to it.
 mutation(
     "discovery: bare scan only tests src/styles/cli-mono",
     SCRIPT,
     'prefix_for "$(strip_slash "$d")" >/dev/null 2>&1 && targets+=("$(strip_slash "$d")")',
     '[ -d "$d/src/styles/cli-mono" ] && targets+=("$(strip_slash "$d")")',
+    expect_named="bare scan must FIND",
 )
 
-# ---- 3. prefix_for: return 1 always (never discovers) -------------------
 mutation(
     "discovery: prefix_for always fails",
     SCRIPT,
     "\t\t\tprintf '%s' \"${d%/cli-mono}\" | sed \"s|^$t/*||; s|/*\\$||; s|/styles\\$||\"\n\t\t\treturn 0",
     "\t\t\treturn 1",
+    expect_named="bare scan must FIND",
 )
 
-# ---- 4. prefix_for: drop the /styles strip -----------------------------
-# Yields web/src/styles, and the caller re-appends /styles -> MISSING on
-# files that exist. This is the bug that bit the first version.
 mutation(
     "discovery: return the path INCLUDING /styles",
     SCRIPT,
-    "s|^$t/*||; s|/*\\$||; s|/styles\\$||",
-    "s|^$t/*||; s|/*\\$||",
-    expect_named="nested (web/src)",
+    r"s|^$t/*||; s|/*\$||; s|/styles\$||",
+    r"s|^$t/*||; s|/*\$||",
+    expect_named="nested (web/src): a byte-identical consumer",
 )
 
-# ---- 5. js prefix: assume repo-root src/js -----------------------------
 mutation(
     "discovery: js half hardcoded to repo-root src/js",
     SCRIPT,
     'JP="$CP/js"',
     'JP="src/js"',
-    expect_named="nested (web/src)",
+    expect_named="nested (web/src): a byte-identical consumer",
 )
 
-# ---- 6. the child-combinator-free case: MISSING branch removed ---------
-# If the "no file is missing" assertion is the only thing that notices,
-# deleting the file entirely must still be caught.
 mutation(
-    "discovery: drop the /styles suffix rewrite entirely",
+    "discovery: comparison hardcodes the src/ prefix",
     SCRIPT,
     "\t\tcase \"$dest\" in\n\t\t\tsrc/styles/*) d=\"$t/${CP:-src}/styles/${dest#src/styles/}\" ;;",
     "\t\tcase \"$dest\" in\n\t\t\tsrc/styles/*) d=\"$t/src/styles/${dest#src/styles/}\" ;;",
-    expect_named="nested (web/src)",
+    expect_named="nested (web/src): a byte-identical consumer",
 )
 
-# ---- 7. RESERVED: never report -----------------------------------------
 mutation(
     "reserved: reserved-prefix check disabled",
     SCRIPT,
@@ -108,24 +82,21 @@ mutation(
     expect_named="RESERVED",
 )
 
-# ---- 8. RESERVED: strip comments before parsing ------------------------
-# Without this, a class named in the library's PROSE is read as defined,
-# which is the "somewhere else in the file mentions it" family.
 mutation(
     "reserved: do not strip CSS comments before matching",
     SCRIPT,
     "css = re.sub(r'/\\*.*?\\*/', '', open(p).read(), flags=re.S)",
     "css = open(p).read()",
+    expect_named="nothing is rogue when the only difference is a comment",
 )
 
-# ---- 9. RESERVED: compare basenames, not whole names --------------------
 mutation(
     "reserved: match only the block prefix, so cm-x-y is treated as cm-x",
     SCRIPT,
     "rogue = sorted(n for n in con_names - lib_names)",
     "rogue = sorted({n.split('-')[0] + '-' + n.split('-')[1] if n.count('-') > 1 else n for n in con_names - lib_names})",
+    expect_named="offending class must be NAMED",
 )
-
 
 def run_suite():
     r = subprocess.run(["node", "tests/run.mjs"], cwd=ROOT,
@@ -146,7 +117,23 @@ def main():
         return 2
     print(f"baseline: suite green ({base_out.strip().splitlines()[-1]})\n")
 
-    # Snapshot the two files so a restore can be byte-verified.
+    # Every pattern must be UNIQUE before we mutate, or a mutation lands on
+    # an unrelated line and proves nothing.
+    #
+    # This check ran OUTSIDE the try/finally in the first version, so its
+    # early `return 2` skipped the restore and left the PREVIOUS run's
+    # mutant sitting in the working tree - which then looked like someone
+    # else's edit. A harness that can leave the repo in a state it never
+    # measured is worse than no harness, so the pre-check now only decides
+    # whether to proceed; the restore below always runs.
+    bad_pattern = None
+    for m in MUTATIONS:
+        src = open(m["path"], encoding="utf8").read()
+        n = src.count(m["old"])
+        if n != 1:
+            bad_pattern = f"{m['name']!r} matches {n} times, expected 1"
+            break
+
     backup = tempfile.mkdtemp(prefix="mut-sync-")
     snaps = {}
     for m in MUTATIONS:
@@ -157,67 +144,55 @@ def main():
             snaps[f] = dst
     original = {f: md5(d) for f, d in snaps.items()}
 
-    results = []
-    restored_ok = True
-
     def restore():
         for f, d in snaps.items():
             shutil.copy2(d, f)
 
+    results = []
     try:
+        if bad_pattern:
+            print(f"FIX THE HARNESS: {bad_pattern}")
+            return 2
         for i, m in enumerate(MUTATIONS, 1):
-            src = open(m["path"], encoding="utf8").read()
-            n = src.count(m["old"])
-            if n == 0:
-                results.append((m["name"], NOOP, 0,
-                                "pattern does not match the source - FIX THE HARNESS"))
-                continue
-            if n > m["count"]:
-                results.append((m["name"], NOOP, n,
-                                f"pattern is not unique ({n} occurrences) - scope it to its rule"))
-                continue
             restore()
+            src = open(m["path"], encoding="utf8").read()
             mutated = src.replace(m["old"], m["new"], 1)
-            assert mutated != src, "replacement was a no-op"
+            if mutated == src:
+                results.append((m["name"], NOOP, "replacement was a no-op"))
+                continue
             open(m["path"], "w", encoding="utf8").write(mutated)
             if md5(m["path"]) == original[m["path"]]:
-                results.append((m["name"], NOOP, 0, "mutation did not change the file"))
+                results.append((m["name"], NOOP, "mutation did not change the file"))
                 continue
             rc, out = run_suite()
             if rc == 0:
                 verdict = SURVIVED
-                why = "suite stayed green - the test does not guard this"
+            elif m["expect_named"] and m["expect_named"] in out:
+                verdict = NAMED
             else:
-                if m["expect_named"] and m["expect_named"] in out:
-                    verdict = NAMED
-                    why = "killed, with the expected message on the wire"
-                else:
-                    verdict = UNNAMED
-                    why = "killed, but NOT by the check under test"
-            results.append((m["name"], verdict, n, why))
+                verdict = UNNAMED
+            results.append((m["name"], verdict,
+                            out[-400:] if verdict in (UNNAMED, SURVIVED) else ""))
             print(f"[{i}/{len(MUTATIONS)}] {verdict:8} {m['name']}")
     finally:
         restore()
-        # A green suite proves a mutant died; it never proves the ORIGINAL
-        # came back. Verify the restore by hash.
         for f, h in original.items():
             if md5(f) != h:
-                restored_ok = False
                 print(f"RESTORE FAILED for {f}")
+                return 1
 
     print("\n--- tally ---")
     counts = {}
-    for name, verdict, n, why in results:
+    for name, verdict, detail in results:
         counts[verdict] = counts.get(verdict, 0) + 1
         print(f"  {verdict:8} {name}")
         if verdict in (NOOP, SURVIVED, UNNAMED):
-            print(f"           -> {why}")
+            print(f"           {detail.strip()[-300:]}")
     print(f"\n{counts}")
-    print("restore verified byte-for-byte:", restored_ok)
+    print("restore verified byte-for-byte: True")
 
-    clean = counts.get(NOOP, 0) == 0 and counts.get(SURVIVED, 0) == 0
     shutil.rmtree(backup, ignore_errors=True)
-    if not restored_ok or not clean:
+    if counts.get(NOOP, 0) or counts.get(SURVIVED, 0) or counts.get(UNNAMED, 0):
         return 1
     return 0
 

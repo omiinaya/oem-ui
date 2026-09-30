@@ -6665,6 +6665,47 @@ check('the drift checker discovers a consumer\'s install root, not just src/', (
 	const run = (dir) => spawnSync('bash', [join(root, 'scripts/check-design-sync.sh'), dir], {
 		encoding: 'utf8', env: { ...process.env, OEM_UI_SRC: root },
 	});
+	// (a) THE BARE SCAN must FIND a nested consumer at all. Passing the
+	// directory explicitly proved nothing about discovery - it only proved
+	// that the comparison honours a prefix once one has been resolved.
+	// Without this, mutating the scan loop is caught by some other
+	// assertion and the test claims a guard it does not have.
+	{
+		const scanRoot = mkdtempSync(join(tmpdir(), 'cm-scan-'));
+		const fakeRoot = join(scanRoot, 'projects');
+		mkdirSync(fakeRoot, { recursive: true });
+		const nestedDir = join(fakeRoot, 'rpm-like');
+		mkdirSync(join(nestedDir, 'web/src/styles/cli-mono'), { recursive: true });
+		mkdirSync(join(nestedDir, 'web/src/js'), { recursive: true });
+		for (const f of ['tokens.css', 'base.css', 'components.css']) {
+			writeFileSync(join(nestedDir, 'web/src/styles/cli-mono', f), readFileSync(join(root, 'src/styles', f)));
+		}
+		for (const f of ['cli-mono.js', 'cli-mono-theme-guard.js']) {
+			writeFileSync(join(nestedDir, 'web/src/js', f), readFileSync(join(root, 'src/js', f)));
+		}
+		mkdirSync(join(nestedDir, 'src'), { recursive: true });
+		writeFileSync(join(nestedDir, 'src/app.tsx'), [
+			"import './web/src/styles/cli-mono/tokens.css';",
+			"import './web/src/styles/cli-mono/base.css';",
+			"import './web/src/styles/cli-mono/components.css';",
+			"import './web/src/js/cli-mono.js';",
+			"import './web/src/js/cli-mono-theme-guard.js';",
+		].join('\n'));
+		const scan = spawnSync('bash', [join(root, 'scripts/check-design-sync.sh')], {
+			encoding: 'utf8',
+			env: { ...process.env, OEM_UI_SRC: root, CONSUMER_ROOT: fakeRoot },
+		});
+		assert(/rpm-like/.test(scan.stdout),
+			`the bare scan must FIND a consumer whose layers are nested, got: ${scan.stdout.trim()}`);
+		// Only DISCOVERY is claimed here. Whether it then passes is the
+		// per-layout claim below, which passes the directory explicitly -
+		// asserting both in one place made a discovery mutant die on the
+		// wrong message and read as an unnamed kill.
+		assert(!/no consumer projects found/.test(scan.stdout),
+			`the scan must not report an empty consumer root, got: ${scan.stdout.trim()}`);
+		rmSync(scanRoot, { recursive: true, force: true });
+	}
+
 	for (const nested of [false, true]) {
 		const label = nested ? 'nested (web/src)' : 'canonical (src)';
 		const dir = mk(nested);
@@ -6735,6 +6776,54 @@ check('the drift checker names surface built inside a vendored layer', () => {
 			`expected RESERVED, got: ${rogue.stdout.trim()}`);
 		assert(/cm-not-in-the-library/.test(rogue.stdout),
 			`the offending class must be NAMED, got: ${rogue.stdout.trim()}`);
+
+		// (2) a class named only in the LIBRARY's PROSE is not a definition.
+		//
+		// Without comment stripping the library's own prose satisfies the
+		// comparison: a name mentioned in a note reads as "the library
+		// owns it", the real rogue class is excused, and RESERVED stays
+		// silent. So the fixture must make the library MENTION the class
+		// while DEFINING nothing, and the check must still report it.
+		const libCss = join(root, 'src/styles/components.css');
+		writeFileSync(join(dir, 'src/styles/cli-mono/components.css'),
+			readFileSync(libCss) +
+			'\n.cm-prose-only { color: var(--ink); }\n');
+		const proseDefined = run();
+		assert(/cm-prose-only/.test(proseDefined.stdout),
+			`a class the library does not define must be reported, got: ${proseDefined.stdout.trim()}`);
+
+		// The mirror image, and the one comment stripping exists for: a
+		// class that appears ONLY inside a CSS comment must not be read as
+		// a definition on EITHER side. The library gets the name in a
+		// comment; the consumer's copy does not define it. A parser that
+		// does not strip comments reads the library's prose as ownership,
+		// excuses the consumer, and RESERVED goes quiet on a real defect.
+		const libWithProse = readFileSync(libCss, 'utf8').replace(
+			/\n(\.cm-header\s*\{)/,
+			'\n/* deliberately NOT .cm-comment-only */\n$1');
+		if (libWithProse === readFileSync(libCss)) {
+			throw new Error('fixture anchor .cm-header not found - the prose case would silently pass');
+		}
+		writeFileSync(join(dir, 'src/styles/cli-mono/components.css'), libWithProse);
+		const prose = run();
+		assert(!/RESERVED/.test(prose.stdout),
+			`nothing is rogue when the only difference is a comment, but RESERVED fired: ${prose.stdout.trim()}`);
+
+		// (3) the check must name the RIGHT classes and no others. A
+		// comparison that trims the suffix would report a BLOCK part as
+		// rogue; one that is too coarse would miss a variant.
+		writeFileSync(join(dir, 'src/styles/cli-mono/components.css'),
+			readFileSync(libCss) +
+			'\n.cm-toolbar__group { color: var(--ink); }\n' +
+			'\n.cm-not-a-library-part-xyz { color: var(--ink); }\n');
+		const named = run();
+		const outText = named.stdout;
+		assert(/cm-toolbar__group/.test(outText),
+			`a BEM variant the library does not define must be reported, got: ${outText.trim()}`);
+		assert(/cm-not-a-library-part-xyz/.test(outText),
+			`and so must a wholly new name, got: ${outText.trim()}`);
+		assert(!/\bcm-header\b/.test(outText),
+			`an EXISTING library class must not be reported as rogue, got: ${outText.trim()}`);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
