@@ -53,6 +53,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`.cm-head-row`** (`__text`, `__action`) - the page title ROW: badge,
+  name + sub, and the page's own action on one line. `.cm-head` is the
+  document-head variant, a vertical stack with `--head-top` above it, so
+  using it here put the action button *under* the title and duplicated a
+  top padding inside an already-padded card. The action is walked to the
+  far end with `margin-left: auto`, not `justify-content`, so a long title
+  shrinks and wraps without the action drifting off the edge. Below 420px
+  the row wraps and the action takes the full width.
+
+
 - **`.cm-head__badge`** - the square glyph on a page title row. Seven
   pages each drew a gradient square beside their title, in seven different
   gradients. The library forbids gradients: glyph + weight is the whole

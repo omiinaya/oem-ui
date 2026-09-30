@@ -7051,6 +7051,38 @@ check('the page head badge sizes its glyph in CSS, not in markup', () => {
 		'that omits the class renders an icon at its default 24px');
 });
 
+/* ---------- page title row: it lays out, and its action reaches the end ---------- */
+
+check('the page title row is a flex row, not a document head block', () => {
+	const comp = read('src/styles/components.css');
+	const rule = [...comp.matchAll(/([^{}\n]*\.cm-head-row\s*\{[^}]*\})/g)][0];
+	assert(rule, '.cm-head-row must have its own rule body');
+	assert(/display:\s*flex/.test(rule[1]),
+		'the title row has no display:flex, so the badge, the title and the ' +
+		'action stack as three block children instead of sharing one line');
+});
+
+check('the title row action is pushed to the end of the row', () => {
+	const comp = read('src/styles/components.css');
+	const rule = [...comp.matchAll(/([^{}\n]*\.cm-head-row__action\s*\{[^}]*\})/g)][0];
+	assert(rule, '.cm-head-row__action must have its own rule body');
+	assert(/margin-left:\s*auto/.test(rule[1]),
+		'the action is not walked to the far end of the row, so it sits ' +
+		'beside the title however long the title grows');
+});
+
+check('a narrow title row wraps instead of squeezing the title', () => {
+	const comp = read('src/styles/components.css');
+	// A rule-inside-a-rulebreak; [^{}]* cannot match it because the body
+	// itself has braces. Slice from the media opener to the end of its block.
+	const at = comp.indexOf('@media (max-width: 420px)');
+	assert(at >= 0, 'no media query adapts .cm-head-row for a narrow viewport');
+	const block = comp.slice(at, comp.indexOf('\n}', at));
+	assert(/flex-wrap:\s*wrap/.test(block),
+		'.cm-head-row never wraps, so at 320px the badge, title and a ' +
+		'full-word button all compete for one line');
+});
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {

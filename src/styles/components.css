@@ -66,6 +66,30 @@
 	margin: 0;
 }
 
+/* The page title ROW: badge, name+sub, and the page's own action, on one
+   line. .cm-head above is the document-head variant - a vertical stack with
+   --head-top above it - and using it for this put the action button under
+   the title instead of beside it, with the block's top padding duplicated
+   inside an already-padded card.
+
+   The action is pushed to the far end with margin-left:auto rather than
+   justify-content, so a long title can shrink and wrap without the action
+   drifting away from the edge. */
+.cm-head-row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+}
+.cm-head-row__text { min-width: 0; }
+.cm-head-row__action { margin-left: auto; flex: 0 0 auto; }
+/* At 320px a badge + a long title + a full-word button cannot share one
+   line honestly. The action drops below rather than squeezing the title to
+   three words per line. */
+@media (max-width: 420px) {
+	.cm-head-row { flex-wrap: wrap; }
+	.cm-head-row__action { margin-left: 0; width: 100%; }
+}
+
 /* ---------- post / article head ----------
    The article variant of .cm-head. It is a DIFFERENT block from the page
    head in exactly one way: it is the last thing before the body text, so

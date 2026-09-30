@@ -156,6 +156,28 @@ MUTANTS = [
         '.cm-head__badge > svg',
     ),
 
+    (
+        'the page title row stops laying out as a row',
+        '\tdisplay: flex;\n\talign-items: center;',
+        '\tdisplay: block;\n\talign-items: center;',
+        'the title row has no display:flex, so the badge, the title and the action stack as three block children instead of sharing one line',
+        '.cm-head-row {',
+    ),
+    (
+        'the title row action leaves the far end',
+        '.cm-head-row__action { margin-left: auto; flex: 0 0 auto; }',
+        '.cm-head-row__action { margin-left: 0; flex: 0 0 auto; }',
+        'the action is not walked to the far end of the row, so it sits beside the title however long the title grows',
+        '.cm-head-row__action {',
+    ),
+    (
+        'a narrow title row stops wrapping',
+        '.cm-head-row { flex-wrap: wrap; }',
+        '.cm-head-row { flex-wrap: nowrap; }',
+        '.cm-head-row never wraps, so at 320px the badge, title and a full-word button all compete for one line',
+        '.cm-head-row { flex-wrap: wrap; }',
+    ),
+
 ]
 
 def src_of(d, rel=None):
