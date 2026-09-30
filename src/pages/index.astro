@@ -37,7 +37,7 @@ import HeaderLink from '../astro/HeaderLink.astro';
  */
 const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'lists', 'states', 'surface',
-  'selection',
+  'selection', 'stack',
 	'code', 'overlays', 'records', 'cards', 'prose', 'layout',
 	'forms', 'auth', 'readme',
 ] as const;
@@ -860,6 +860,46 @@ import { SITE } from '../astro/config';
 			     blocks here, on purpose: the bug that made every copy
 			     button on a page copy the FIRST block only, and the
 			     double-bind, both need a second button to exist. -->
+			<section id="stack" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+				<h2>record stack</h2>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
+					A vertical run of records. The stack is opt-in rather
+					than baked into the list, because a ledger of rows can be
+					flush (each row's own border does the separating) or
+					stacked (cards with air between them), and the list
+					element cannot know which one it is.
+				</p>
+				<div style="display:grid;gap:var(--space-5);grid-template-columns:repeat(auto-fit,minmax(15rem,1fr))">
+					<div>
+						<p class="cm-row__meta" style="margin-bottom:var(--space-3)">stacked</p>
+						<ul class="cm-rows cm-stack">
+							<li class="cm-row cm-section cm-section--pad">
+								<span class="cm-row__body">
+									<span class="cm-row__title">app.example.com</span>
+									<span class="cm-row__meta">/health</span>
+								</span>
+							</li>
+							<li class="cm-row cm-section cm-section--pad">
+								<span class="cm-row__body">
+									<span class="cm-row__title">cdn.example.com</span>
+									<span class="cm-row__meta">/assets</span>
+								</span>
+							</li>
+						</ul>
+					</div>
+					<div>
+						<p class="cm-row__meta" style="margin-bottom:var(--space-3)">flush</p>
+						<ul class="cm-rows">
+							<li class="cm-row">
+								<span class="cm-row__body">
+									<span class="cm-row__title">app.example.com</span>
+									<span class="cm-row__meta">/health</span>
+								</span>
+							</li>
+							</ul>
+					</div>
+				</div>
+			</section>
 			<section id="code" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
 				<h2>code</h2>
 				<p class="cm-head__sub">

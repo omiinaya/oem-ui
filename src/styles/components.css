@@ -2926,6 +2926,21 @@ html {
    and a 17px box next to 15px text sits on the wrong optical line. */
 .cm-check > input[type='checkbox'] { align-self: center; }
 
+/* ---------- record stack ----------
+
+   A data page is a vertical run of records, and Tailwind's `space-y-*` is
+   what every one of them reached for - eleven surfaces wrote the same
+   one-line gap by hand, each one a different value. `.cm-rows` resets the
+   list but deliberately carries no gap: a `<ul>` of records can be flush
+   (a table-like ledger) or stacked (cards with air between them), and the
+   list element cannot know which. So the stack is its own class, opt-in,
+   and the gap comes off the scale. */
+.cm-stack {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;

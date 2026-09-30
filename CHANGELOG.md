@@ -51,6 +51,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`.cm-stack`** - a vertical run of records. Tailwind's `space-y-*` is what
+  every data page reached for, and eleven surfaces wrote the same one-line gap
+  by hand, each a different value. Opt-in by design: `.cm-rows` resets the
+  list but deliberately carries no gap, because a ledger's rows are separated
+  by their own border and a list of cards is not. A rule that reaches a plain
+  `.cm-rows` with a gap is now a contract failure, not a preference.
+
+- `cm-header__group` / `cm-header__group-label`: grouped rail nav. An
+  application rail has labelled groups, and the flat `.cm-header__links`
+  could not express one without faking the label out of a link - which
+  inherits the 44px tap floor onto a heading that is not a target. The
+  label declares `min-height: 0` for exactly that reason. Six contract
+  checks added, mutation-verified (6/6).
+- **`--measure-title`, and a specimen that reports its own live state.** The
+  inline list row now gives its title column a named measure, so a list
+  reads as a table instead of a ragged stack of lines. It ships with a
+  foundation specimen rendered *from* the token (`max-width:var(--measure-title)`,
+  which resolves to 404.578125px) and a runtime readout that reports the
+  live excerpt width, or `excerpt handed off` when the column is out of
+  play. The readout MEASURES the row rather than restating the media
+  query breakpoints, so it cannot disagree with the stylesheet it
+  documents; it reuses its node on re-init because `init()` runs again on
+  every Astro page-load. With scripting off the specimen still renders
+  from the token and the readout is simply absent.
+
+- **Selection and state marks** (`.cm-section--on`, `.cm-dot`, `.cm-dot--on`): a data surface needs a selected row and a live/off indicator, and twelve consumers each invented one - in hue. A selected row is a left rule and a tint, not an outline, so a column of them scans as a column; on is a FILLED dot and off is a HOLLOW one, so the distinction survives greyscale.
+
+- **Inline edit** (`.cm-inline`, `.cm-inline--wide`, `.cm-inline__input`): a data surface is mostly values you want to change in place, and every consumer rewrote the same double-click-to-edit span with its own padding and ring. The display half is a DOTTED UNDERLINE and a text cursor, not a box - a box on every cell turns a table into a form. The editing half inherits the font and the measure, so the value does not change size the instant you click it.
+
+- **Action toolbar** (`.cm-toolbar`, `.cm-toolbar__count`): the bar that acts on a multi-selection, which three consumers each wrote as a sticky flex row with their own border, background, shadow and z-index. It sticks to the BOTTOM - the count lives at the top of the page and the actions belong where the thumb already is - so it needs a numeric z-index (a sticky with `z-index: auto` is painted under the rows it covers), the themed shadow, and the strong border that a floating surface needs.
+
+- **Check row** (`.cm-check`): the base layer already draws the checkbox down to the tick, so the CONTROL needs no class - what was missing is the row. Twenty-three checkboxes across six surfaces each wrote their own flex label, and at 390px a 1.05rem box is a target you can miss while the word beside it is what a person aims at. The row carries the tap floor, so the word and the box are one target, and hover lightens the label rather than just the box.
+
+
 ### Fixed
 - **The drift checker could not see a consumer whose layers are not at the
   repo root.** `spacetime-rpm` serves its admin console from `web/`, so it
@@ -80,33 +116,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   consumer's bundler refuse the file. No existing check parsed the file for
   balance, which is why they all stayed green. A CSS file that does not
   parse is the one defect a consumer cannot work around.
-
-### Added
-- `cm-header__group` / `cm-header__group-label`: grouped rail nav. An
-  application rail has labelled groups, and the flat `.cm-header__links`
-  could not express one without faking the label out of a link - which
-  inherits the 44px tap floor onto a heading that is not a target. The
-  label declares `min-height: 0` for exactly that reason. Six contract
-  checks added, mutation-verified (6/6).
-- **`--measure-title`, and a specimen that reports its own live state.** The
-  inline list row now gives its title column a named measure, so a list
-  reads as a table instead of a ragged stack of lines. It ships with a
-  foundation specimen rendered *from* the token (`max-width:var(--measure-title)`,
-  which resolves to 404.578125px) and a runtime readout that reports the
-  live excerpt width, or `excerpt handed off` when the column is out of
-  play. The readout MEASURES the row rather than restating the media
-  query breakpoints, so it cannot disagree with the stylesheet it
-  documents; it reuses its node on re-init because `init()` runs again on
-  every Astro page-load. With scripting off the specimen still renders
-  from the token and the readout is simply absent.
-
-- **Selection and state marks** (`.cm-section--on`, `.cm-dot`, `.cm-dot--on`): a data surface needs a selected row and a live/off indicator, and twelve consumers each invented one - in hue. A selected row is a left rule and a tint, not an outline, so a column of them scans as a column; on is a FILLED dot and off is a HOLLOW one, so the distinction survives greyscale.
-
-- **Inline edit** (`.cm-inline`, `.cm-inline--wide`, `.cm-inline__input`): a data surface is mostly values you want to change in place, and every consumer rewrote the same double-click-to-edit span with its own padding and ring. The display half is a DOTTED UNDERLINE and a text cursor, not a box - a box on every cell turns a table into a form. The editing half inherits the font and the measure, so the value does not change size the instant you click it.
-
-- **Action toolbar** (`.cm-toolbar`, `.cm-toolbar__count`): the bar that acts on a multi-selection, which three consumers each wrote as a sticky flex row with their own border, background, shadow and z-index. It sticks to the BOTTOM - the count lives at the top of the page and the actions belong where the thumb already is - so it needs a numeric z-index (a sticky with `z-index: auto` is painted under the rows it covers), the themed shadow, and the strong border that a floating surface needs.
-
-- **Check row** (`.cm-check`): the base layer already draws the checkbox down to the tick, so the CONTROL needs no class - what was missing is the row. Twenty-three checkboxes across six surfaces each wrote their own flex label, and at 390px a 1.05rem box is a target you can miss while the word beside it is what a person aims at. The row carries the tap floor, so the word and the box are one target, and hover lightens the label rather than just the box.
 
 ### Fixed
 - **The inline row no longer starves its own excerpt.** The title column

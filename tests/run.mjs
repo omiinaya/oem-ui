@@ -6829,6 +6829,59 @@ check('the drift checker names surface built inside a vendored layer', () => {
 	}
 });
 
+/* ---------- record stack: the contract, asserted on the real rule ---------- */
+
+check('the record stack is a flex column whose gap is off the scale', () => {
+	const comp = read('src/styles/components.css');
+	// Key on the SELECTOR LIST that contains .cm-stack, never on the literal
+	// '.cm-stack {'. A grouped rule ('.cm-stack, .cm-rows {') is the same
+	// block with a second target, and that second target is exactly the
+	// opt-in break the next check hunts for - so the two must not collide.
+	const rule = [...comp.matchAll(/([^{}\n]*\.cm-stack[^{}\n]*)\{([^}]*)\}/g)][0];
+	assert(rule, '.cm-stack must have its own rule body');
+	assert(comp.indexOf(rule[0]) < comp.indexOf('.cm-auth {'),
+		'.cm-stack must be defined before .cm-auth so the auth surface stays last');
+
+	const body = rule[2];
+	// Two claims, two messages. A shared message makes the own-claim
+	// detector mislabel which assertion actually fired.
+	assert(/display:\s*flex/.test(body),
+		'the stack must be a flex container');
+	assert(/flex-direction:\s*column/.test(body),
+		`a stack whose flex-direction is not column lays records out in a ROW, got: ${body.trim()}`);
+	// Pin the VALUE. /gap/ alone also matches `gap: 0`, which is not a stack.
+	assert(/gap:\s*var\(--space-\d\)/.test(body),
+		`the gap must come off the spacing scale, got: ${body.trim()}`);
+	assert(!/[\d.]+(rem|em)/.test(body),
+		`the stack carries a hardcoded rem value; use --space-*: ${body.trim()}`);
+});
+
+check('a stack is opt-in, so a list that never asked for one is still flush', () => {
+	const comp = read('src/styles/components.css');
+	// The break is not "the selector is spelled .cm-stack" - renaming it to
+	// .cm-rows.cm-stack renders identically and is not a defect. The break
+	// is any rule that reaches a plain <ul class="cm-rows"> that never asked
+	// to be stacked, because that list's rows are already separated by their
+	// own border and a gap would space them twice.
+	const rules = [...comp.matchAll(/([^{}\n]*\.cm-stack[^{}\n]*)\{([^}]*)\}/g)];
+	assert(rules.length > 0, '.cm-stack must have its own rule body');
+	const stackRule = rules[0];
+	assert(!/(^|[^-])\.cm-rows\b/.test(stackRule[1]),
+		`the stack rule also targets a plain .cm-rows list: "${stackRule[1].trim()}"`);
+
+	// Every rule that targets the LIST element itself. A descendant rule
+	// ('.cm-rows--column .cm-row__body') styles something inside a row, and
+	// a cm-rows VARIANT is opt-in by name - neither is the bare list.
+	for (const m of comp.matchAll(/^(\.[^{}\n]*cm-rows[^{}\n]*)\{([^}]*)\}/gm)) {
+		const sel = m[1].trim();
+		const bare = /^\.cm-rows$/.test(sel);
+		const rows = /^\.cm-rows\s*,/.test(sel) || /,\s*\.cm-rows(\s*,|\s*$)/.test(sel);
+		if (!bare && !rows) continue;
+		assert(!/\bgap\s*:/.test(m[2]),
+			`"${sel}" reaches a list that never asked for a stack; it carries a gap: ${m[2].trim()}`);
+	}
+});
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {
