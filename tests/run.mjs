@@ -5723,16 +5723,28 @@ check('the scrim is gated on the html element, not a CSS sibling', () => {
 		throw new Error('the open state is not on <html>, so the scrim cannot be gated on it');
 });
 
-/* A drawer over the left edge that does not lock the page behind it lets a
-   tap land on the content the drawer is covering. */
-check('the drawer locks page scroll while it is open', () => {
-	// The LOCK and the UNLOCK, both, or the page is stuck scrolled-free
-	// forever after one accidental open. `/body[^]*overflow/` matched the
-	// unlock line alone and passed while the lock was gone.
-	if (!/body\.style\.overflow\s*=\s*'hidden'/.test(MC_NAV_JS))
-		throw new Error('opening the drawer does not lock page scroll');
-	if (!/body\.style\.overflow\s*=\s*''/.test(MC_NAV_JS))
-		throw new Error('closing the drawer never restores page scroll');
+/* A drawer over the left edge must stop a tap reaching the content it covers.
+ *
+ * This used to assert `body.style.overflow = 'hidden'` on open - which
+ * encoded a BUG as a requirement. <html> is the scrolling element here, so a
+ * body lock never stopped the page, AND an `overflow: hidden` box becomes a
+ * scroll container, which unpinned the sticky header (Omar's "gap at the
+ * top" with the drawer open). The drawer is position:fixed over a
+ * position:fixed scrim, so the page is covered from the first frame and the
+ * scrim swallows the taps. See "the drawer must not unpin the header".
+ */
+check('the drawer blocks taps on the page behind it, without a body lock', () => {
+	const code = MC_NAV_JS.replace(/\/\*[\s\S]*?\*\//g, '');
+	if (/body\.style\.overflow\s*=\s*'hidden'/.test(code))
+		throw new Error('the drawer scroll-locks via body overflow, which unpins the sticky header');
+	// Clearing on close is allowed and wanted: it cleans up a value an older
+	// build or a consumer may have left inline. What must not exist is a
+	// WRITE on the open path. That distinction is the whole fix.
+	const openBranch = code.match(/if\s*\(open\)\s*\{([\s\S]*?)\n\s*\}/);
+	if (openBranch && /body\.style\.overflow\s*=\s*'hidden'/.test(openBranch[1]))
+		throw new Error('the open branch still writes a body overflow lock');
+	if (!/body\.style\.overflow\s*=\s*''/.test(code))
+		throw new Error('the close path never clears a stale body overflow');
 });
 
 /* ================= copy / code bar =================
@@ -8383,6 +8395,60 @@ for (const [name, fn] of pending.splice(0)) {
 		if (!gh) throw new Error("cannot read SITE.github out of config");
 		if (!gh[1].startsWith("https://github.com/omiinaya/"))
 			throw new Error("SITE.github does not point at the project's own repository: " + gh[1]);
+	});
+}
+
+/* ================= the drawer must not unpin the header ================= */
+{
+	// Omar: "scroll the background with sidebar open... the gap is at the top."
+	//
+	// The runtime used to scroll-lock the page behind the open drawer with
+	// `body.style.overflow = 'hidden'`. That was wrong twice over:
+	//   * <html> is the scrolling element here, so a body lock locked nothing;
+	//   * an `overflow: hidden` box BECOMES A SCROLL CONTAINER, so body became
+	//     the containing block for the sticky header and the bar rode the
+	//     document out of the viewport (measured headerTop -1800).
+	//
+	// These pin the SOURCE so the lock cannot come back. The runtime proof is
+	// tests/verify-drawer-sticky.py.
+	const js = read("src/js/cli-mono.js");
+	// Comments must be stripped first: the explanation of WHY the lock is
+	// wrong necessarily names the lock, and a regex that reads the comment
+	// reports the fixed file as broken.
+	const jsCode = js.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+	check("the runtime never sets an overflow scroll-lock on body", () => {
+		if (/body\.style\.overflow\s*=\s*['"]hidden['"]/.test(jsCode))
+			throw new Error("body.style.overflow = 'hidden' makes body a scroll container and unpins the sticky header");
+	});
+
+	check("the drawer open path writes no overflow at all", () => {
+		// The lock is gone entirely on open; only the close path clears any
+		// value a consumer or an older build may have left behind.
+		if (/if\s*\(open\)\s*\{[^}]*body\.style\.overflow/.test(jsCode))
+			throw new Error("the open branch still writes an overflow lock");
+	});
+
+	check("the drawer is fixed, so the page is covered and needs no lock", () => {
+		const css = read("src/styles/components.css");
+		// The drawer must be position:fixed at mobile width; that is what makes
+		// removing the scroll-lock safe.
+		const drawer = ruleBodies(css, ".cm-header__links").join("\n");
+		if (!/position:\s*fixed/.test(drawer))
+			throw new Error("the drawer is not position:fixed, so dropping the lock would expose the page");
+	});
+
+	check("the scrim covers the viewport, so a tap cannot reach the page behind", () => {
+		const css = read("src/styles/components.css");
+		// The full-bleed rule is gated on `.cm-js` (the runtime adds the class
+		// only when it actually creates the scrim), so look it up there. A bare
+		// `.cm-nav-scrim` lookup finds only the transition reset and reads a
+		// correctly-built scrim as missing.
+		const scrim = ruleBodies(css, ".cm-js .cm-nav-scrim").join("\n");
+		if (!/position:\s*fixed/.test(scrim))
+			throw new Error("the scrim is not position:fixed");
+		if (!/inset:\s*0|top:\s*0/.test(scrim))
+			throw new Error("the scrim does not cover the viewport from the top edge");
 	});
 }
 
