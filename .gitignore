@@ -6,3 +6,5 @@ dist/
 
 # The SAME-PATH symlink this repo's own tooling uses to reach itself.
 /oem-ui
+__pycache__/
+*.pyc
