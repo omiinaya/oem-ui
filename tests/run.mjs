@@ -7388,9 +7388,9 @@ check('the row meter is a row', () => {
 	// Explicit ordering: without it, DOM order decides, and a consumer
 	// writing track-first markup (which is what this showcase does) gets
 	// the value before the bar.
-	const orders = [...comp.matchAll(/\.cm-meter--row \.cm-meter__(label|track|val)\s*\{[^}]*order:\s*(\d)/g)];
-	assert(orders.length === 3,
-		'--row does not order all three parts, so the row renders in DOM ' +
+	const orders = [...comp.matchAll(/\.cm-meter--row \.cm-meter__(label|track|val|note)\s*\{[^}]*order:\s*(\d)/g)];
+	assert(orders.length === 4,
+		'--row does not order all four parts, so the row renders in DOM ' +
 		'order and the same markup lays out differently per consumer');
 });
 
@@ -7458,6 +7458,26 @@ check('cm-cols--2 is two EQUAL columns', () => {
 		'cm-cols--2 is not equal columns; `cm-split` is 1.6fr/1fr on purpose ' +
 		'because it models main-plus-aside, and a reader comparing two ' +
 		'answers to the same question reads the wider one as more important');
+});
+
+check('the meter note is a fixed-width column, not loose text', () => {
+	const comp = read('src/styles/components.css');
+	const note = /([^{}\n]*\.cm-meter--row \.cm-meter__note\s*\{[^}]*\})/.exec(comp);
+	assert(note, 'no .cm-meter--row .cm-meter__note rule');
+	// Without a width the shares are ragged, and a column of percentages
+	// that cannot be scanned is decoration.
+	// `flex: 0 0 auto` is NOT enough: that is the default `flex` and it
+	// lets the column shrink to its content, so two rows of different
+	// percentage widths still ragged. The claim is a width, so demand one.
+	assert(/min-width:\s*(?!0)\S/.test(note[1]),
+		'the meter note has no fixed width, so a column of percentages ' +
+		'rags and the reader cannot scan it for the one they want');
+	assert(/text-align:\s*right/.test(note[1]),
+		'the meter note is not right-aligned, so the decimals do not line ' +
+		'up and "96.0%" reads differently from "3.0%"');
+	assert(/font-variant-numeric:\s*tabular-nums/.test(note[1]),
+		'the meter note uses proportional figures, so the digits in a ' +
+		'column of percentages are all a different width');
 });
 
 /* ================= async checks (installer) ================= */

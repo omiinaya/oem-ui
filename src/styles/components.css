@@ -2931,6 +2931,22 @@ button.cm-row:hover { background: var(--bg-2); }
 .cm-meter--row .cm-meter__val {
 	order: 3;
 }
+/* The share beside the count: a fourth column for a ranked row that
+   prints both. "4,210" is how many and "96.0%" is how much of the
+   total, and a reader scanning the list needs the first to compare
+   rows and the second to understand what the row costs them. It is
+   fixed-width so the percentages align on the decimal, which is the
+   only way a column of them can be scanned. */
+.cm-meter--row .cm-meter__note {
+	order: 4;
+	flex: 0 0 auto;
+	min-width: 3.5rem;
+	text-align: right;
+	font-size: max(var(--min-font), 0.78rem);
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	color: var(--ink-dim);
+}
 
 /* ---------- grouped rail nav ----------
    An application rail has labelled groups (Hosting, Security, Monitoring).

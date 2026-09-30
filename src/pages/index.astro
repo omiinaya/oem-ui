@@ -1011,6 +1011,7 @@ import { SITE } from '../astro/config';
 												</div>
 												<span class="cm-meter__label">{label}</span>
 												<span class="cm-meter__val">{value}</span>
+												<span class="cm-meter__note">{(pct / 4).toFixed(1)}%</span>
 											</div>
 										))}
 									</div>
@@ -1029,6 +1030,7 @@ import { SITE } from '../astro/config';
 												</div>
 												<span class="cm-meter__label">{label}</span>
 												<span class="cm-meter__val">{value}</span>
+												<span class="cm-meter__note">{(pct / 4).toFixed(1)}%</span>
 											</div>
 										))}
 									</div>
@@ -1592,7 +1594,8 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 							grow, so every bar starts at the same x and two
 							lengths can be compared by their left edge - which
 							is the only thing a bar chart is for. The value stays
-							in a column you can scan down.
+							in a column you can scan down, with the share beside it in a
+							column of its own, aligned on the decimal.
 						</p>
 						<div class="cm-meters">
 							{[
@@ -1610,6 +1613,7 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 									</div>
 									<span class="cm-meter__label">{label}</span>
 									<span class="cm-meter__val">{value}</span>
+									<span class="cm-meter__note">{(pct / 4).toFixed(1)}%</span>
 								</div>
 							))}
 						</div>

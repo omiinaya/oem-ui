@@ -613,6 +613,28 @@ MUTANTS += [
 ]
 
 
+MUTANTS += [
+    # --- the share column that cannot be scanned ---
+    ('meter-note-ragged',
+     '\tmin-width: 3.5rem;', '\t/* no width */',
+     'the meter note is a fixed-width column, not loose text',
+     '.cm-meter--row .cm-meter__note {'),
+    ('meter-note-left',
+     '\ttext-align: right;', '\ttext-align: left;',
+     'the meter note is a fixed-width column, not loose text',
+     '.cm-meter--row .cm-meter__note {'),
+    ('meter-note-proportional',
+     '\tfont-variant-numeric: tabular-nums;', '\tfont-variant-numeric: normal;',
+     'the meter note is a fixed-width column, not loose text',
+     '.cm-meter--row .cm-meter__note {'),
+    # --- the fourth part no longer ordered ---
+    ('meter-note-no-order',
+     '\torder: 4;', '\t/* order dropped */',
+     'the row meter is a row',
+     '.cm-meter--row .cm-meter__note {'),
+]
+
+
 if __name__ == '__main__':
 
     sys.exit(main())
