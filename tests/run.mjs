@@ -2131,6 +2131,43 @@ check('the CNAME matches the domain the build publishes', () => {
 		'the build publishes a different origin than the CNAME claims');
 });
 
+/* ================= an extraLink renders something ================= */
+console.log('\nheader icon links');
+{
+	const hdr = read('src/astro/Header.astro');
+	// The absence was INVISIBLE: the <a> rendered, the href was right,
+	// the link was focusable -- and it measured width 0, because its
+	// only child was the sr-only label. A link that is present in the
+	// DOM and absent from the screen is the hardest kind of missing.
+	check('an extraLink with no artwork still gets a built-in mark', () => {
+		assert(/const ICON: Record<string, string>/.test(hdr),
+			'the library ships no built-in marks, so an extraLink with no ' +
+			'icon renders as a zero-width invisible link');
+	});
+
+	check('the built-in mark is raw HTML, not a slot fallback', () => {
+		// A named slot's fallback content is ESCAPED as text. Passing the
+		// mark that way rendered `&lt;svg ...` literally: the link measured
+		// 337x625 of visible angle brackets and contained no SVG at all.
+		const i = hdr.indexOf('icon-${l.label.toLowerCase()}');
+		assert(i > 0, 'the icon slot is gone entirely');
+		const around = hdr.slice(Math.max(0, i - 400), i);
+		assert(/set:html=\{ICON\[/.test(around),
+			'the built-in mark must render via set:html; a slot fallback ' +
+			'escapes it and the button turns into literal markup text');
+	});
+
+	check('the github mark is the real path, not a truncated one', () => {
+		const m = hdr.match(/d="(M8 0C3\.58[^"]+)"/);
+		assert(m, 'no github path found in the library header');
+		// A mangled path (a bad transform, a clipped curve) still parses
+		// and still has a long `d`, so length alone proves nothing: the
+		// authoritative copy is dev-blog's, byte for byte.
+		assert(m[1].length === 570,
+			`the github path is ${m[1].length} chars; the real mark is 570`);
+	});
+}
+
 /* ================= the mobile drawer is one column ================= */
 console.log('\nmobile drawer');
 {
@@ -7972,6 +8009,85 @@ check('.cm-field__control keeps its affordance on the control, not a new row', (
 	assert(/\.cm-field__control > \.cm-icon-btn/.test(compSrc),
 		'the affordance inside .cm-field__control is not the class that ' +
 		'carries the tap floor');
+	assert(/button\s*\{[^}]*background:\s*none/.test(baseSrc),
+		'a bare <button> keeps the UA button face: the library never resets ' +
+		'background on a bare button, so WebKit paints #c0c0c0 on every ' +
+		'nav row, tab, chip and row');
+	assert(/button\s*\{[^}]*(?:-webkit-)?appearance:\s*none/.test(baseSrc),
+		'the bare <button> reset clears appearance but not the native ' +
+		'-webkit-appearance, which is the one WebKit actually honours on a ' +
+		'button - the UA face comes back');
+	assert(/button\.cm-row--on\s*[,{][^{}]*\{[^}]*background/.test(compSrc),
+		'a selected button row (cm-row--on) cannot outrank the element ' +
+		'default `button.cm-row { background: transparent }`, so the "on" ' +
+		'state paints nothing - measured transparent in WebKit');
+	assert(/\.cm-tag\s*\{[^}]*flex:\s*0\s+0\s+auto/.test(compSrc),
+		'a tag is shrinkable as a flex item, so a .cm-head-row squeezes it ' +
+		'below its content width and it wraps - measured 43px vs 24px');
+	assert(/\.cm-row__meta--wrap\s*\{[^}]*flex-wrap:\s*wrap/.test(compSrc),
+		'a meta slot holding a CONTROL (a select, an inline edit) has no ' +
+		'wrapping variant, so .cm-row__body { overflow: hidden } clips it ' +
+		'and the control is unreachable on a phone');
+	assert(/\.cm-row__body--wrap\s*\{[^}]*flex-wrap:\s*wrap/.test(compSrc),
+		'a row body carrying a control has no wrapping variant, so the ' +
+		'meta slot and the button group fight for one line and the control ' +
+		'ends up covered at 390px');
+	assert(/\.cm-row__body--wrap\s*>\s*\.cm-row__meta--wrap\s*\{[^}]*flex:\s*1\s+0\s+100%/.test(compSrc),
+		'the wrapped meta slot is not given a line of its own, so it ' +
+		'competes with the title for the same line and the control ends up ' +
+		'under it');
+
+/* Same specificity, so source order decides. Its OWN check because the two
+   showcase-coverage checks would otherwise fire first on a rename and
+   mask it. */
+check('a short inline input keeps its own width', () => {
+	const tight = compSrc.indexOf('.cm-inline__input--tight {');
+	const base = compSrc.indexOf('.cm-inline__input {');
+	assert(tight > base,
+		'.cm-inline__input--tight is not declared after .cm-inline__input, ' +
+		'so a short field renders full width - measured 386px instead of 11ch');
+});
+check('a bare field is still full width after the width split', () => {
+	// `width: 100%` moved out of the (0,6,1) element-default block into
+	// its own single-declaration rule that steps aside for the one class
+	// that sizes itself.
+	//
+	// Parsed, not regex-matched: a comment inside the element-default body
+	// contains the text `width: 100%`, so any regex loose enough to find
+	// the split also matches the block ABOVE it - the assertion then passes
+	// against the wrong rule and guards nothing. Strip comments first, take
+	// only the rules that declare a width, and require exactly the three
+	// element defaults the split is allowed to cover.
+	const bare = baseSrc.replace(/\/\*[\s\S]*?\*\//g, '');
+	const widthRules = [];
+	for (const m of bare.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+		if (/\bwidth:\s*100%/.test(m[2]) && /\b(input|textarea|select)\b/.test(m[1]))
+			widthRules.push(m[1].trim());
+	}
+	assert(widthRules.length === 1,
+		'the bare field width split should be one rule covering the ' +
+		'element defaults, found ' + widthRules.length + ': ' +
+		JSON.stringify(widthRules));
+	const only = widthRules[0];
+	// `only` still holds the newlines from the multi-line selector list.
+	// Flatten it, or the `(^|[,\s])` boundary never matches at a line
+	// start and the check reports the wrong assertion.
+	const sel = only.replace(/\s+/g, ' ');
+	for (const el of ['input', 'textarea', 'select']) {
+		assert(new RegExp('(^|[, ])' + el + ':not\\(').test(sel),
+			'a bare ' + el + ' must still be full width, but the width ' +
+			'rule does not cover it: ' + only);
+	}
+	assert(only.includes(':not(.cm-inline__input)'),
+		'the bare field width rule no longer steps aside for ' +
+		'.cm-inline__input, so a short input cannot size itself - ' +
+		'measured 386px instead of 11ch');
+	assert(!/\[class\*=/.test(only),
+		'the bare field width rule skips EVERY element carrying a cm- ' +
+		'class, so any component input without cm-inline__input silently ' +
+		'loses its full width');
+});
+
 });
 
 /* ================= async checks (installer) ================= */
