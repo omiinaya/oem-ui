@@ -2850,6 +2850,40 @@ html {
 	outline-offset: 1px;
 }
 
+/* ---------- action toolbar: the row that acts on a selection ----------
+   A multi-select surface needs one bar that follows the selection, and
+   three consumers each wrote it as a sticky flex row with their own border,
+   background, shadow and z-index.
+
+   It sticks to the BOTTOM, because the selection count lives at the top of
+   the page and the actions belong where the thumb already is. The count is
+   aria-live so a select-all announces itself, and the whole bar is a
+   toolbar so a screen reader reads it as one group rather than five
+   unrelated buttons. */
+.cm-toolbar {
+	position: sticky;
+	bottom: 0;
+	z-index: 10;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-2);
+	margin-top: var(--space-4);
+	padding: var(--space-3);
+	background: var(--panel);
+	border: 1px solid var(--ink-dim);
+	border-radius: var(--radius-sm);
+	/* A bar that floats over the list needs the theme's own shadow, not a
+	   hardcoded one, or it disappears into a dark page. */
+	box-shadow: var(--shadow-card);
+}
+.cm-toolbar__count {
+	color: var(--ink-dim);
+	font-size: max(var(--min-font), 0.78rem);
+	margin-right: var(--space-2);
+}
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;

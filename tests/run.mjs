@@ -6396,6 +6396,34 @@ check('the code field states only what differs, and nothing it cannot win', () =
 		'the code field must reach the tap floor from the token, not a literal');
 });
 
+check('the action toolbar sticks to the bottom and survives a scroll', () => {
+	// The count lives at the top of the page and the actions belong where the
+	// thumb already is, so this bar is bottom-sticky. Everything else here is
+	// the part a consumer gets wrong when it writes this shape by hand: a
+	// border strong enough to read as a separate surface (it FLOATS over the
+	// list, so it needs an edge that survives a dark page), and a z-index,
+	// because sticky without one is painted under the rows it covers.
+	const bar = (compSrc.match(/\.cm-toolbar\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(bar, '.cm-toolbar is not defined');
+	assert(/position:\s*sticky/.test(bar) && /bottom:\s*0/.test(bar),
+		'the toolbar must stick to the BOTTOM; a top-sticky bar pushes the selection count off screen');
+	// `z-index: auto` contains the substring "z-index", so a presence check
+	// passes on exactly the value that removes the stacking. The claim is that
+	// it is a NUMBER above the content it covers.
+	assert(/z-index:\s*[1-9]/.test(bar),
+		'a sticky bar needs a NUMERIC z-index above the rows; z-index: auto leaves it painted under the list it is meant to float over');
+	assert(/box-shadow:\s*var\(--/.test(bar),
+		'a floating bar needs a themed shadow, not a hardcoded rgb(); on a dark page a hardcoded one disappears');
+	assert(/border:\s*1px solid var\(--ink-dim\)/.test(bar),
+		'the bar floats over content, so its border must be the strong edge, not the faint one');
+	// The count is how the user knows what they are about to act on.
+	assert(/aria-live|role="toolbar"/.test(JSON.stringify(showcase)) || /cm-toolbar__count/.test(showcase),
+		'the showcase must render the count, or the bar is a row of anonymous buttons');
+	const count = (compSrc.match(/\.cm-toolbar__count\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(count && /color:\s*var\(--ink-dim\)/.test(count),
+		'the count is a label, not a value: it must read dim, or it competes with the buttons beside it');
+});
+
 check('the inline-edit display half is an affordance, not a box', () => {
 	// The claim: a value you can change in place announces itself with a
 	// dotted underline and a text cursor, NOT with a border and padding on

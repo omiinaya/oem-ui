@@ -70,6 +70,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Inline edit** (`.cm-inline`, `.cm-inline--wide`, `.cm-inline__input`): a data surface is mostly values you want to change in place, and every consumer rewrote the same double-click-to-edit span with its own padding and ring. The display half is a DOTTED UNDERLINE and a text cursor, not a box - a box on every cell turns a table into a form. The editing half inherits the font and the measure, so the value does not change size the instant you click it.
 
+- **Action toolbar** (`.cm-toolbar`, `.cm-toolbar__count`): the bar that acts on a multi-selection, which three consumers each wrote as a sticky flex row with their own border, background, shadow and z-index. It sticks to the BOTTOM - the count lives at the top of the page and the actions belong where the thumb already is - so it needs a numeric z-index (a sticky with `z-index: auto` is painted under the rows it covers), the themed shadow, and the strong border that a floating surface needs.
+
 ### Fixed
 - **The inline row no longer starves its own excerpt.** The title column
   was `flex: 0 0 42ch` with `flex-shrink: 0`, so it held 404px and never

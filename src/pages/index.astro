@@ -812,6 +812,20 @@ import { SITE } from '../astro/config';
 				</div>
 			</section>
 
+				<h3 class="cm-kicker" style="margin-top:var(--space-6)">action toolbar</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+					The bar that acts on a selection sticks to the
+					<strong>bottom</strong>: the count lives at the top of the page
+					and the actions belong where the thumb already is.
+				</p>
+				<div class="cm-toolbar">
+					<span class="cm-toolbar__count" aria-live="polite">3 items selected</span>
+					<button class="cm-btn cm-btn--sm">enable all</button>
+					<button class="cm-btn cm-btn--sm">disable all</button>
+					<button class="cm-btn cm-btn--sm cm-btn--primary">delete all</button>
+					<button class="cm-btn cm-btn--sm cm-btn--ghost">clear</button>
+				</div>
+
 				<h3 class="cm-kicker" style="margin-top:var(--space-6)">inline edit</h3>
 				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
 					A data surface is mostly values you want to change in place.
