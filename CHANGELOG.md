@@ -53,6 +53,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`.cm-seg` / `.cm-seg__opt`** - a compact set of mutually exclusive
+  choices, one always selected. The platform has no widget for it and it
+  is not a tab bar: tabs switch panels and span the full width, while a
+  segmented control is an inline choice inside a form row - "allow /
+  deny", "on / off", "http / https". The selected option is marked with
+  an inset rule and a panel fill, the same two signals
+  `.cm-tabs__tab[aria-selected]` uses, because a thicker border would
+  widen the box and walk the whole row sideways. Options wrap rather than
+  clip on a 390px screen, and a coarse pointer gets the tap floor.
+- **`.cm-disclosure` and friends** - a summary row that reveals a panel.
+  `<details>`/`<summary>` gives keyboard and find-in-page for free, but
+  the marker is a browser triangle the library cannot restyle into the
+  mono look, so the marker is hidden and the affordance is drawn as a
+  glyph slot that turns with state. Five contract checks,
+  mutation-verified (8/8).
+
+
 - **`.cm-stack`** - a vertical run of records. Tailwind's `space-y-*` is what
   every data page reached for, and eleven surfaces wrote the same one-line gap
   by hand, each a different value. Opt-in by design: `.cm-rows` resets the

@@ -18,6 +18,7 @@ import { dirname, isAbsolute, join } from 'node:path';
 import vm from 'node:vm';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const NL_ = String.fromCharCode(10);
 const read = (p) => readFileSync(isAbsolute(p) ? p : join(root, p), 'utf8');
 // `exists` accepts absolute paths as-is; only relative ones resolve against
 // the repo root, so the installer test can point at a temp dir.
@@ -6879,6 +6880,135 @@ check('a stack is opt-in, so a list that never asked for one is still flush', ()
 		if (!bare && !rows) continue;
 		assert(!/\bgap\s*:/.test(m[2]),
 			`"${sel}" reaches a list that never asked for a stack; it carries a gap: ${m[2].trim()}`);
+	}
+});
+
+/* ---------- choice + disclosure: the contract, asserted on the real rules ---------- */
+
+check('a segmented option is marked by an inset rule, not a thicker border', () => {
+	// Match the rule by its selector list, never by the literal '.cm-seg__opt {':
+	// a grouped selector is the same block with a second target, and the
+	// literal is blind to exactly that.
+	const rule = [...compSrc.matchAll(/([^{}\n]*\.cm-seg__opt[^{}\n]*)\{([^}]*)\}/g)]
+		.find(m => /aria-pressed/.test(m[0]));
+	assert(rule, 'the selected segmented option must be styled off [aria-pressed]');
+	const body = rule[2];
+	// Pin the VALUE. A thicker border is the anti-pattern this replaces:
+	// it widens the box by its own delta and walks the whole row sideways.
+	assert(/box-shadow:\s*inset/.test(body),
+		`the selected option marks itself with an inset rule, got: ${body.trim()}`);
+	assert(!/border-width:\s*[2-9]|border:\s*[2-9]/.test(body),
+		`a thicker border on the selected option widens the box and walks the row sideways: ${body.trim()}`);
+	// The state is an attribute, not a class, so the look cannot drift
+	// from what assistive tech is told.
+	assert(!/\.[^{}\n]*--on\b|\.[^{}\n]*--active\b/.test(rule[1]),
+		`the selected option must be marked by an attribute, not an author class: "${rule[1].trim()}"`);
+});
+
+check('a segmented control is a group of real buttons, one row, wrapping not clipping', () => {
+	const seg = [...compSrc.matchAll(/([^{}\n]*\.cm-seg[^{}\n]*)\{([^}]*)\}/g)];
+	const root = seg.find(m => /^\s*\.cm-seg\s*$/.test(m[1]));
+	assert(root, '.cm-seg must have its own rule body');
+	assert(/display:\s*inline-flex/.test(root[2]),
+		'a segmented control is an inline control inside a form row, not a block');
+	// A long option set wraps rather than running off a 390px screen.
+	assert(/flex-wrap:\s*wrap/.test(compSrc.match(/\.cm-seg \{[\s\S]*?\}/)[0]),
+		'a segmented control must wrap its options instead of clipping them');
+	// Coarse pointers get the same floor as every other control. Scope the
+	// search to the coarse-pointer BLOCK: /min-height: var(--tap)/ matches a
+	// dozen unrelated rules, so a whole-file test passes with this one gone.
+	// There are five coarse-pointer blocks, and this one is the last. Taking
+	// the FIRST matches .cm-copy's floor and passes while the segmented
+	// control's is gone - so select the block that mentions the class.
+	const coarse = [...compSrc.matchAll(
+		/@media \(pointer:\s*coarse\)\s*\{([\s\S]*?)\n\}/g)]
+		.find(m => m[1].includes('.cm-seg__opt'));
+	assert(coarse, 'the segmented control must carry a coarse-pointer block');
+	assert(/\.cm-seg__opt[^\n{]*\{[^}]*min-height:\s*var\(--tap\)/.test(coarse[1]),
+		`a coarse pointer must get the tap floor on each option, got: ${coarse[1].trim()}`);
+});
+
+check('the disclosure hides the native marker and draws its own affordance', () => {
+	// <details> gives keyboard and find-in-page free, but the marker is a
+	// browser triangle the library cannot restyle into the mono look.
+	// Pin the DECLARATION, not the two halves separately: `display: none`
+	// appears many times in the file, so two loose tests pass while the
+	// marker rule itself is untouched.
+	const marker = /\.cm-disclosure__summary::-webkit-details-marker\s*\{([^}]*)\}/.exec(compSrc);
+	assert(marker, 'the native marker rule must exist to be hidden');
+	assert(/display:\s*none/.test(marker[1]),
+		`the native marker must be hidden, or the mono affordance sits beside a browser triangle: ${marker[1].trim()}`);
+	const mark = [...compSrc.matchAll(/([^{}\n]*\.cm-disclosure__mark[^{}\n]*)\{([^}]*)\}/g)];
+	assert(mark.length, '.cm-disclosure__mark must have its own rule body');
+	// The glyph turns with state, so it points at the thing it opens.
+	// The rotation lives in the OPEN rule. Searching the file finds the
+	// transition declaration on the mark, which mentions transform too.
+	const open = /\.cm-disclosure\[open\][^{]*\{([^}]*)\}/.exec(compSrc);
+	assert(open, 'the rotation must be scoped to the open state, so the open rule must exist');
+	assert(/transform:\s*rotate\(/.test(open[1]),
+		`the disclosure affordance must turn with state, or it points away from the panel it opens: ${open[1].trim()}`);
+});
+
+check('a closed disclosure panel is really hidden, not merely un-rendered', () => {
+	// The mechanism is `hidden`, and any author `display` outranks the UA
+	// sheet - so a panel open at paint stays visible after it closes
+	// unless the rule says so. `.cm-tabs__panel[hidden]` already had to
+	// learn this; a disclosure is the same trap.
+	// `hidden` on the DISCLOSURE panel specifically. /\[hidden\]/ also
+	// matches .cm-tabs__panel[hidden], which is a different component - so
+	// the disclosure check would pass on the tabs rule alone.
+	const panel = /\.cm-disclosure__body[^{]*\[hidden\][^{]*\{([^}]*)\}/.exec(compSrc);
+	assert(panel, 'a closed disclosure panel must be styled, or it survives its own close');
+	assert(/display:\s*none/.test(panel[1]),
+		`a hidden panel must be stated as display:none, got: ${panel[1].trim()}`);
+});
+
+check('no rule is declared inside another rule body', () => {
+	// A NESTED rule is brace-balanced, so the balance check passes while
+	// the stylesheet means something else entirely. This has happened
+	// twice here, both times from a targeted insert that landed between a
+	// rule's last declaration and its closing brace.
+	//
+	// Walk braces by hand. The scan must NOT use `\{([^{}]*)\}`: a body
+	// that CONTAINS a nested rule has braces in it, so that pattern skips
+	// the very case it is looking for. The nested rule's text starts at the
+	// START OF ITS SELECTOR LINE, not at its opening brace - slicing from
+	// the brace cuts the selector off and the test can never see what it
+	// is hunting for.
+	//
+	// An @media block legitimately contains rules, so nesting is only a
+	// DEFECT when the immediate parent is a plain style rule.
+	const AT_RULE = /^@(media|supports|container|layer)/;
+	// Track at-rule nesting on a STACK rather than slicing backwards to the
+	// previous `}`: the source has its comments stripped, so a comment that
+	// used to separate a rule from the next one is gone and the backward
+	// slice can land inside an @media block and misread it as a style rule.
+	const stack = [];
+	let open = -1;
+	for (let i = 0; i < compSrc.length; i++) {
+		const c = compSrc[i];
+		if (c === '{') {
+			const sel = compSrc.slice(
+				compSrc.lastIndexOf('}', i) + 1, i).trim();
+			stack.push(AT_RULE.test(sel));
+			if (stack.length === 2) open = i;
+		} else if (c === '}') {
+			// `pop` is the rule being CLOSED, so the PARENT is what is now
+			// on top. Reading the popped value tests the child and misses
+			// exactly the case under test.
+			stack.pop();
+			const parentWasAtRule = stack[stack.length - 1];
+			if (stack.length === 1 && open !== -1) {
+				if (!parentWasAtRule) {
+					const lineStart = compSrc.lastIndexOf(NL_, open) + 1;
+					const inner = compSrc.slice(lineStart, i).trim();
+					assert(!/^\.[a-zA-Z][\w-]*/.test(inner),
+						`a rule is declared inside a style rule: ${inner.slice(0, 60)}. ` +
+						'Braces still balance, so only this check sees it.');
+				}
+				open = -1;
+			}
+		}
 	}
 });
 
