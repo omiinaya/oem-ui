@@ -7394,6 +7394,72 @@ check('the row meter is a row', () => {
 		'order and the same markup lays out differently per consumer');
 });
 
+/* ---------- a row action must be a real control, at the tap floor ---------- */
+
+check('the in-table action is a control, not a bare <tr onClick>', () => {
+	const comp = read('src/styles/components.css');
+	const rule = /([^{}\n]*\.cm-table__action\s*\{[^}]*\})/.exec(comp);
+	assert(rule, 'no .cm-table__action rule, so a clickable row is a <tr> with ' +
+		'an onClick and nothing else');
+	// Without these the UA gives a button its own grey box and border, and
+	// the grid stops reading as a grid.
+	assert(/background:\s*none/.test(rule[1]) || /background:\s*transparent/.test(rule[1]),
+		'the in-table action keeps the UA button background, so it renders as ' +
+		'a raised box in the middle of a flat grid');
+	assert(/border:\s*0\b/.test(rule[1]),
+		'the in-table action keeps the UA button border, so it draws a second ' +
+		'edge beside the table rule');
+	assert(/min-height:\s*var\(--tap\)/.test(rule[1]),
+		'the in-table action has no tap floor, so on a phone the only ' +
+		'clickable thing in a row is a line of 12px text');
+	assert(/cursor:\s*pointer/.test(rule[1]),
+		'the in-table action does not show a pointer, so it does not read as ' +
+		'clickable on a desktop');
+});
+
+check('the in-table action keeps a visible focus ring', () => {
+	const comp = read('src/styles/components.css');
+	const focus = /\.cm-table__action:focus-visible\s*\{[^}]*\}/.exec(comp);
+	assert(focus, 'no :focus-visible rule for the in-table action');
+	assert(/outline:/.test(focus[0]),
+		'the in-table action has no focus outline, so a keyboard user cannot ' +
+		'tell which row they are on');
+});
+
+check('the in-table action hint is always visible without hover', () => {
+	const comp = read('src/styles/components.css');
+	// A touch device has no hover, so `opacity: 0` there would leave the
+	// row looking like plain text with no indication it does anything.
+	const coarse = comp.slice(comp.indexOf('@media (pointer: coarse), (max-width: 680px) {'));
+	const window_ = coarse.slice(0, coarse.indexOf('}'));
+	assert(/\.cm-table__action\s+svg/.test(window_) && /opacity:\s*1/.test(window_),
+		'the arrow that marks a row as a control is opacity:0 with no ' +
+		'coarse-pointer override, so on a phone every action row looks like ' +
+		'plain text');
+});
+
+/* ---------- two equal columns, not a main-plus-aside ---------- */
+
+check('cm-cols--2 is two EQUAL columns', () => {
+	const comp = read('src/styles/components.css');
+	const at = comp.indexOf('@media (min-width: 760px)');
+	assert(at > 0, 'cm-cols--2 never becomes two columns, so the pair stacks ' +
+		'at every width');
+	// Slice from THIS media block: the file has several `@media (min-width`
+	// openers and the first of them belongs to something else.
+	// Slice the WHOLE media block, not to the first `}`: `.cm-cols--2` is
+	// a one-line rule, so the block's closing brace on the next line is
+	// what ends it and a `slice(at, indexOf('}', at))` cuts the rule in half.
+	const end = comp.indexOf('\n}', at);
+	const block = comp.slice(at, end > at ? end : comp.indexOf('}', at));
+	const rule = /\.cm-cols--2\s*\{([^}]*)\}/.exec(block);
+	assert(rule, 'no .cm-cols--2 rule inside the 760px block');
+	assert(/grid-template-columns:\s*1fr 1fr/.test(rule[1]),
+		'cm-cols--2 is not equal columns; `cm-split` is 1.6fr/1fr on purpose ' +
+		'because it models main-plus-aside, and a reader comparing two ' +
+		'answers to the same question reads the wider one as more important');
+});
+
 /* ================= async checks (installer) ================= */
 for (const [name, fn] of pending.splice(0)) {
 	try {

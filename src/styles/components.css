@@ -750,6 +750,31 @@ button.cm-row:hover { background: var(--bg-2); }
 	}
 }
 
+/* Two EQUAL columns of ranked data. `cm-split` is deliberately
+   asymmetric (1.6fr / 1fr) because it models main-plus-aside, and it
+   would be wrong here: "top paths" and "referrers" are two answers to
+   the same question about the same host, and a reader comparing them
+   needs both at the same width. An asymmetry in a comparison invites
+   them to read the wider column as more important, which it is not.
+   Stacked below 760px, because two ranked lists side by side at 390px
+   leaves each bar about 120px - too short to compare lengths in. */
+.cm-cols {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: var(--space-6);
+	min-width: 0;
+}
+@media (min-width: 760px) {
+	.cm-cols--2 { grid-template-columns: 1fr 1fr; }
+}
+/* A titled group inside a column or a dialog: a heading plus whatever
+   it labels, with the spacing between the two owned here so no consumer
+   re-derives it. `cm-head__sub` is the heading because a sub-heading is
+   a role, not a colour - the dimming is what marks it as subordinate to
+   the title above it. */
+.cm-block { min-width: 0; }
+.cm-block > .cm-head__sub { margin: 0 0 var(--space-3); }
+
 /* ---------- back link ----------
    "← back" above a detail page. A tap target in its own right, so it
    takes the --tap floor on a coarse pointer, and the arrow is its
@@ -1183,6 +1208,62 @@ button.cm-row:hover { background: var(--bg-2); }
 	max-width: 20rem;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+/* The control inside a table cell.
+
+   A `<tr onClick>` is not a control: it is not focusable, Enter and Space
+   do nothing, and to a screen reader it is text. So the row's action has
+   to be a real element in a real cell - and then the only question is
+   what it looks like, because by default a button in a cell draws a
+   2px raised box in the middle of a flat grid, which makes the whole
+   table look like a stack of buttons.
+
+   So it is drawn as text with the affordance added on hover and focus:
+   an underline that appears, and an arrow that slides. The target is
+   still the button's own padding box, not the text, so the tap floor
+   holds; it just does not LOOK like a chrome button. The arrow is
+   hidden from assistive tech because the button's own name already
+   says where it goes. */
+.cm-table__action {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2);
+	min-height: var(--tap);
+	padding: 0 var(--space-1);
+	margin-left: calc(-1 * var(--space-1));
+	background: none;
+	border: 0;
+	border-radius: var(--radius-sm);
+	color: var(--ink);
+	font: inherit;
+	font-family: var(--font-mono);
+	text-align: left;
+	cursor: pointer;
+}
+.cm-table__action:hover { text-decoration: underline; }
+.cm-table__action:focus-visible {
+	outline: 2px solid var(--ink);
+	outline-offset: 2px;
+}
+.cm-table__action svg {
+	color: var(--ink-faint);
+	flex: 0 0 auto;
+	/* The arrow is a hint, not the content: it slides in on hover rather
+	   than shifting the text, so a row of buttons does not jitter. */
+	opacity: 0;
+	transition: opacity var(--cm-t) var(--cm-ease), transform var(--cm-t) var(--cm-ease);
+	transform: translateX(0);
+}
+.cm-table__action:hover svg,
+.cm-table__action:focus-visible svg {
+	opacity: 1;
+	transform: translateX(2px);
+}
+/* A touch device has no hover, so the hint never appears and the row
+   would look like plain text with no indication it is a control. On a
+   coarse pointer the arrow is simply always there. */
+@media (pointer: coarse), (max-width: 680px) {
+	.cm-table__action svg { opacity: 1; }
 }
 /* On a phone a nowrap cell will make the table scroll; that is intended, but
    the first column should still wrap rather than push the table past the

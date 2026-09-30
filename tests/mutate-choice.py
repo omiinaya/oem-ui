@@ -571,6 +571,48 @@ MUTANTS += [
 ]
 
 
+MUTANTS += [
+    # --- the in-table action reverting to a <tr onClick> in everything but name ---
+    ('tblaction-ua-background',
+     '\tbackground: none;', '\t/* dropped */',
+     'the in-table action is a control, not a bare <tr onClick>',
+     '.cm-table__action {'),
+    ('tblaction-ua-border',
+     '\tborder: 0;', '\tborder: 1px solid var(--ink-dim);',
+     'the in-table action is a control, not a bare <tr onClick>',
+     '.cm-table__action {'),
+    ('tblaction-no-tap-floor',
+     '\tmin-height: var(--tap);', '\t/* dropped */',
+     'the in-table action is a control, not a bare <tr onClick>',
+     '.cm-table__action {'),
+    ('tblaction-no-cursor',
+     '\tcursor: pointer;', '\tcursor: default;',
+     'the in-table action is a control, not a bare <tr onClick>',
+     '.cm-table__action {'),
+
+    # --- a focus ring nobody can see ---
+    ('tblaction-no-focus-ring',
+     '.cm-table__action:focus-visible {\n\toutline: 2px solid var(--ink);\n\toutline-offset: 2px;\n}',
+     '.cm-table__action:focus-visible { }',
+     'the in-table action keeps a visible focus ring',
+     '.cm-table__action:focus-visible {'),
+
+    # --- the arrow that only hover reveals ---
+    ('tblaction-coarse-arrow',
+     '\t.cm-table__action svg { opacity: 1; }',
+     '\t.cm-table__action svg { opacity: 0; }',
+     'the in-table action hint is always visible without hover',
+     '@media (pointer: coarse), (max-width: 680px) {'),
+
+    # --- two equal columns quietly becoming main-plus-aside ---
+    ('cols-unequal',
+     '.cm-cols--2 { grid-template-columns: 1fr 1fr; }',
+     '.cm-cols--2 { grid-template-columns: 1.6fr 1fr; }',
+     'cm-cols--2 is two EQUAL columns',
+     '@media (min-width: 760px) {'),
+]
+
+
 if __name__ == '__main__':
 
     sys.exit(main())

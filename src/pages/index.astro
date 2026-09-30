@@ -37,7 +37,7 @@ import HeaderLink from '../astro/HeaderLink.astro';
  */
 const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'lists', 'states', 'surface',
-  'selection', 'stack', 'badge', 'table', 'json', 'rowon', 'switch', 'sheet', 'choice',
+  'selection', 'stack', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'choice',
 	'code', 'overlays', 'records', 'cards', 'prose', 'layout',
 	'forms', 'auth', 'readme',
 ] as const;
@@ -942,6 +942,97 @@ import { SITE } from '../astro/config';
 									<div class="cm-head__sub">404 catch-all domains</div>
 								</div>
 								<button class="cm-btn cm-btn--sm cm-btn--primary cm-head-row__action">Add Dead Host</button>
+							</div>
+						</section>
+												<section id="tblaction" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+							<h2>table action</h2>
+							<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
+								A row's control, in the table's own visual language.
+								A <code>&lt;tr onClick&gt;</code> is not a control - it
+								is not focusable and Enter does nothing - so this is
+								a real button, drawn as text so the grid does not
+								become a stack of chrome. The tap floor is its own
+								padding box. On a coarse pointer the arrow is always
+								visible, because there is no hover to reveal it.
+							</p>
+							<div class="cm-table-wrap">
+								<table class="cm-table">
+									<thead>
+										<tr>
+											<th>Host</th>
+											<th class="cm-table__num">Total</th>
+											<th class="cm-table__num">2xx</th>
+											<th class="cm-table__num">5xx</th>
+											<th class="cm-table__num">Avg RT</th>
+										</tr>
+									</thead>
+									<tbody>
+										{[
+											['plex.mrx.sh', '4.2k', '4.1k', '9', '12.4ms'],
+											['app.example.com', '1.9k', '1.6k', '210', '88.0ms'],
+											['static.example.com', '640', '640', '0', '3.1ms'],
+										].map(([host, total, two, five, rt]) => (
+											<tr>
+												<td>
+													<button type="button" class="cm-table__action">
+														{host}
+														<svg
+															viewBox="0 0 24 24"
+															fill="none"
+															stroke="currentColor"
+															stroke-width="2"
+															aria-hidden="true"
+															>
+															<path d="M7 17 17 7M8 7h9v9" />
+														</svg>
+													</button>
+												</td>
+												<td class="cm-table__num">{total}</td>
+												<td class="cm-table__num">{two}</td>
+												<td class="cm-table__num">{five}</td>
+												<td class="cm-table__num">{rt}</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+							<div class="cm-cols cm-cols--2" style="margin-top:var(--space-6)">
+								<div class="cm-block">
+									<h3 class="cm-head__sub">Top paths</h3>
+									<div class="cm-meters">
+										{[
+											['/api/health', 100, '4.2k'],
+											['/assets/app.js', 44, '1.9k'],
+											['/library/sections', 15, '640'],
+										].map(([label, pct, value]) => (
+											<div class="cm-meter cm-meter--row">
+												<div class="cm-meter__track" aria-hidden="true">
+													<span class="cm-meter__fill" style={`--cm-meter-fill: ${pct}%`} />
+												</div>
+												<span class="cm-meter__label">{label}</span>
+												<span class="cm-meter__val">{value}</span>
+											</div>
+										))}
+									</div>
+								</div>
+								<div class="cm-block">
+									<h3 class="cm-head__sub">Referrers</h3>
+									<div class="cm-meters">
+										{[
+											['app.example.com', 100, '2.1k'],
+											['(direct)', 62, '1.3k'],
+											['news.ycombinator.com', 11, '221'],
+										].map(([label, pct, value]) => (
+											<div class="cm-meter cm-meter--row">
+												<div class="cm-meter__track" aria-hidden="true">
+													<span class="cm-meter__fill" style={`--cm-meter-fill: ${pct}%`} />
+												</div>
+												<span class="cm-meter__label">{label}</span>
+												<span class="cm-meter__val">{value}</span>
+											</div>
+										))}
+									</div>
+								</div>
 							</div>
 						</section>
 						<section id="table" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
