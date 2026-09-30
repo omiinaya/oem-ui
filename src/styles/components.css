@@ -2762,6 +2762,44 @@ html {
    text field - it must be legible as a code, centred, tracked out and
    sized for a thumb. Everything else composes existing components. */
 
+/* ---------- selection + state marks ----------
+   Two roles every data surface needs and that this library did not own, so
+   twelve consumers each invented one - and invented them in HUE: 28 distinct
+   raw Tailwind colours across the pages, a red dot for "off", a green dot for
+   "on", a primary ring for "selected". None of that survives a greyscale
+   print, and none of it is a design decision anybody made.
+
+   The library's rule is glyph + weight, never hue, so both marks carry the
+   meaning in SHAPE and WEIGHT and take colour only from the ink ramp.
+
+   Selection is a left rule plus a faint tint, not an outline: an outline
+   competes with the row's own border and reads as "this box is different",
+   which is exactly what it is - but the weight lands on one edge so a list
+   of them scans as a column. */
+.cm-section--on {
+	border-color: var(--ink-dim);
+	background: var(--bg-2);
+	box-shadow: inset 3px 0 0 var(--ink);
+}
+
+/* A live/off indicator. `aria-hidden` is the caller's job: the mark is
+   decoration beside a label that already says what it means. */
+.cm-dot {
+	display: inline-block;
+	width: 0.5rem;
+	height: 0.5rem;
+	border-radius: 50%;
+	border: 1px solid var(--ink-faint);
+	background: transparent;
+	flex: 0 0 auto;
+}
+/* "On" is a FILLED mark; "off" is the hollow one. Weight, not hue - the
+   same distinction the chips make with a glyph. */
+.cm-dot--on {
+	background: var(--ink);
+	border-color: var(--ink);
+}
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;

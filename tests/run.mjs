@@ -6396,6 +6396,32 @@ check('the code field states only what differs, and nothing it cannot win', () =
 		'the code field must reach the tap floor from the token, not a literal');
 });
 
+check('a selected row is a left rule and a tint, not an outline', () => {
+	// The whole point of the class is that the three declarations below are
+	// what distinguish it from its base. A suite that only proves the class
+	// EXISTS and RENDERS lets every one of them be deleted in silence.
+	const rule = (compSrc.match(/\.cm-section--on\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(rule, '.cm-section--on is not defined');
+	assert(/box-shadow:\s*inset 3px 0 0/.test(rule),
+		'a selected row needs the inset left rule; an outline would compete with the row\'s own border');
+	assert(/background:\s*var\(--bg-2\)/.test(rule),
+		'a selected row needs a tint distinct from the panel background');
+});
+
+check('the state mark reads on and off by weight, not by hue', () => {
+	const off = (compSrc.match(/\.cm-dot\s*\{([^}]*)\}/) || [, ''])[1];
+	const on = (compSrc.match(/\.cm-dot--on\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(off, '.cm-dot is not defined');
+	assert(on, '.cm-dot--on is not defined');
+	assert(/background:\s*transparent/.test(off),
+		'the "off" mark must be hollow, or it is indistinguishable from "on" in greyscale');
+	assert(/background:\s*var\(--ink\)/.test(on),
+		'the "on" mark must be FILLED; weight, not hue, is what carries the state');
+	// A mark nobody can see is not a mark.
+	assert(/width:\s*0\.5rem/.test(off) && /height:\s*0\.5rem/.test(off),
+		'the state mark must be large enough to read at a glance');
+});
+
 check('the auth frame owns the measure on its child, not on itself', () => {
 	// A max-width on the FRAME fights the padding: with `width: 100%`
 	// plus padding and a max-width, the box overflows its own padding

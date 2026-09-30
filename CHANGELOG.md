@@ -66,6 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   every Astro page-load. With scripting off the specimen still renders
   from the token and the readout is simply absent.
 
+- **Selection and state marks** (`.cm-section--on`, `.cm-dot`, `.cm-dot--on`): a data surface needs a selected row and a live/off indicator, and twelve consumers each invented one - in hue. A selected row is a left rule and a tint, not an outline, so a column of them scans as a column; on is a FILLED dot and off is a HOLLOW one, so the distinction survives greyscale.
+
 ### Fixed
 - **The inline row no longer starves its own excerpt.** The title column
   was `flex: 0 0 42ch` with `flex-shrink: 0`, so it held 404px and never
