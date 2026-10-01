@@ -1,0 +1,58 @@
+---
+/**
+ * oem-ui <SectionHead> — the heading block that opens a section.
+ *
+ * The page head owns `--head-h1`. A section inside the page does NOT: an
+ * `h2` wearing `.cm-head__title` outside a `.cm-head` falls through to the
+ * base heading rule and comes out at the SAME size as the page title.
+ * MEASURED on rpm's Dashboard: "Dashboard" and "Certificate Expiry
+ * Summary" both computed 32px / w700, so every panel heading competed with
+ * the page heading and the type scale was invisible in the one page that
+ * should show it. This component is the second step of that scale.
+ *
+ * The `action` slot exists because that is the shape the block has in
+ * every real use. rpm writes `.cm-section > .cm-head-row > .cm-head-row__text
+ * > .cm-section__title` plus a sibling `.cm-head-row__action` eighteen
+ * times across Dashboard, Metrics, Settings and DeadHosts, and the markup
+ * is what makes the title sit BESIDE its own button rather than above it.
+ * Copy-pasting that nesting is how the classes drift apart from the ones
+ * the CSS actually defines.
+ *
+ * `sub` and `action` are SLOTS, not string props, and that is a measured
+ * decision rather than a style one. A real section lede in this system
+ * carries inline `<code>` for class names and `<em>` for emphasis: 7 of the
+ * showcase's 26 section ledes did before this component existed. A string
+ * prop would escape those tags and print `<code>.cm-check</code>` as
+ * visible text, so the migration would have silently removed inline code
+ * from every section description on the page. A slot renders the caller's
+ * markup inside a `<p>` this component owns, which is the only version
+ * where the caller keeps its own emphasis AND the class stays consistent.
+ *
+ * `title` stays a plain string: it is a heading, and a heading in this
+ * system never carries inline markup.
+ */
+interface Props {
+	/** The section heading. Rendered as an `h2` by default. */
+	title: string;
+	/**
+	 * Heading level. rpm renders one of these as an `h3` inside a dialog
+	 * (DeadHosts' "New Dead Host"), so this is a prop rather than a fixed
+	 * `h2` - a component that hardcodes the level silently breaks the
+	 * document outline of every consumer that needs a different one.
+	 */
+	level?: 2 | 3 | 4;
+}
+
+const { title, level = 2 } = Astro.props;
+const Tag = `h${level}` as 'h2' | 'h3' | 'h4';
+const hasSub = Boolean(Astro.slots.has('default'));
+const hasAction = Boolean(Astro.slots.has('action'));
+---
+
+<div class="cm-head-row">
+	<div class="cm-head-row__text">
+		<Tag class="cm-section__title">{title}</Tag>
+		{hasSub && <p class="cm-section__sub"><slot /></p>}
+	</div>
+	{hasAction && <div class="cm-head-row__action"><slot name="action" /></div>}
+</div>

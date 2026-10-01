@@ -2809,6 +2809,36 @@ button.cm-row:hover { background: var(--bg-2); }
 	padding: 0;
 	list-style: none;
 }
+/* The stranded-tile fix.
+
+   MEASURED: on the rpm dashboard, seven `.cm-stat` tiles in a 1008px
+   band resolve to six columns of 158px with the seventh alone on row
+   two and 850px of dead space beside it. `auto-fit` above removes a
+   FIXED column count; it cannot remove a ragged last row, because it
+   always fits as many columns as the width allows. That is arithmetic -
+   the first fix attempted here capped it with a computed minmax and
+   measured the same 158px back, which is what proved it.
+
+   So the balanced band takes an EXPLICIT column count, and the count is
+   chosen per tile-count rather than defaulted: no single column count
+   balances 5, 6, 7 AND 8 tiles to within one dead column except 2,
+   which is far too sparse on a desktop band. The app sets the count for
+   its own data with an inline custom property - 7 tiles, 4 columns,
+   4 + 3, one dead column.
+
+   To pick one for a new set of data: divide the tile count by the
+   column count you want, and if the remainder is 1, drop a column so
+   the short row is fuller than the gap beside it. */
+.cm-stats--balance {
+	grid-template-columns: repeat(var(--cm-stat-cols, 4), minmax(0, 1fr));
+}
+/* Below these widths a fixed column count would squeeze or overflow, so
+   it falls back to letting the tiles wrap at two. */
+@media (max-width: 560px) {
+	.cm-stats--balance {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
 .cm-stats > li { margin: 0; min-width: 0; }
 .cm-stat {
 	display: flex;
@@ -2973,6 +3003,26 @@ button.cm-row:hover { background: var(--bg-2); }
 	align-items: start;
 }
 .cm-cards > li { margin: 0; min-width: 0; }
+/* Same arithmetic as .cm-stats--balance, same reason.
+
+   MEASURED on the rpm dashboard: three `.cm-tile`s inside a 1008px
+   `.cm-cards` resolve to two columns of 20rem, so the third tile sits
+   alone with half a row of dead space beside it - and the tile below it
+   (the "all certificates are healthy" callout) reads as though it is
+   clipping the tile above, which is what it looked like.
+
+   auto-fit always fits as many columns as the width allows, so an odd
+   count strands the last one. An explicit count makes 3 tiles read as
+   one row of three. */
+.cm-cards--balance {
+	grid-template-columns: repeat(var(--cm-cards-cols, 3), minmax(0, 1fr));
+}
+@media (max-width: 760px) {
+	.cm-cards--balance { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 460px) {
+	.cm-cards--balance { grid-template-columns: minmax(0, 1fr); }
+}
 .cm-card {
 	display: flex;
 	flex-direction: column;

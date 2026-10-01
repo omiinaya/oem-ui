@@ -20,6 +20,7 @@ import Card from '../astro/Card.astro';
 import Meter from '../astro/Meter.astro';
 import CodeBlock from '../astro/CodeBlock.astro';
 import HeaderLink from '../astro/HeaderLink.astro';
+import SectionHead from '../astro/SectionHead.astro';
 
 /**
  * The showcase's section index, in DOCUMENT order.
@@ -102,12 +103,9 @@ import { SITE } from '../astro/config';
 			     with its own token would be worse than no specimen, and a
 			     test asserts the wiring. -->
 			<section id="foundation" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-				<h2>foundation</h2>
-				<p class="cm-head__sub">
-					The design language, shown as specimens. Every value here is
-					rendered from the token it documents, so this page cannot
-					drift away from the system it demos.
-				</p>
+				<SectionHead title="foundation">
+The design language, shown as specimens. Every value here is rendered from the token it documents, so this page cannot drift away from the system it demos.
+				</SectionHead>
 
 				<h3>colour</h3>
 				<p class="cm-head__sub">
@@ -248,7 +246,7 @@ import { SITE } from '../astro/config';
 			</section>
 
 			<section id="buttons" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
-				<h2>buttons</h2>
+				<SectionHead title="buttons" />
 				<div class="cm-btn-group">
 					<a class="cm-btn">Default</a>
 					<a class="cm-btn cm-btn--primary">Primary</a>
@@ -266,14 +264,9 @@ import { SITE } from '../astro/config';
 			     live - it is the one in the header, so its states are real,
 			     not a hand-built mock. -->
 			<section id="nav" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-				<h2>nav</h2>
-				<p class="cm-head__sub">
-					Two states, two different questions. <code>active</code> marks the page you
-					are on and renders <code>aria-current="page"</code>; the scroll-spy marks
-					what you are reading as you scroll. They coexist on a one-page site, so
-					they cannot be the same attribute. Scroll to watch the first nav above
-					change.
-				</p>
+				<SectionHead title="nav">
+Two states, two different questions. <code>active</code> marks the page you are on and renders <code>aria-current="page"</code>; the scroll-spy marks what you are reading as you scroll. They coexist on a one-page site, so they cannot be the same attribute. Scroll to watch the first nav above change.
+				</SectionHead>
 
 				<div class="cm-spec">
 					<div class="cm-spec__row">
@@ -436,7 +429,7 @@ import { SITE } from '../astro/config';
 				</section>
 
 			<section id="lists" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
-				<h2>lists / rows</h2>
+				<SectionHead title="lists / rows" />
 				<div class="cm-list-head" style="margin-bottom:0.4rem">Index / compact</div>
 				<ul class="cm-rows cm-rows--inline">
 					<PostRow href="#1" index={3} title="Extract components from a design" description="separate tokens, base, components and runtime." date={new Date('2025-09-26')} />
@@ -451,12 +444,9 @@ import { SITE } from '../astro/config';
 			     that does not own them lets every consumer invent them —
 			     usually in colour, or as an unguarded spinner. -->
 			<section id="states" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-				<h2>states</h2>
-				<p class="cm-head__sub">
-					What a surface shows before it has data, and after it fails. Status is
-					carried by a glyph and a word, never by hue: this system has no chroma to
-					carry it, and greyscale print still reads correctly.
-				</p>
+				<SectionHead title="states">
+What a surface shows before it has data, and after it fails. Status is carried by a glyph and a word, never by hue: this system has no chroma to carry it, and greyscale print still reads correctly.
+				</SectionHead>
 
 				<h3 class="cm-kicker">empty</h3>
 				<div class="cm-state">
@@ -566,14 +556,9 @@ import { SITE } from '../astro/config';
 			     and the tag row overflowing its column by 26px at 320
 			     lived here for the whole life of the class. -->
 			<section id="surface" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-				<h2>variants</h2>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
-					Each row is one modifier against its own base, so the
-					difference is the thing being reviewed. A variant that
-					computed identically to its base would be a class that
-					looks right in this table and does nothing anywhere
-					else.
-				</p>
+				<SectionHead title="variants">
+Each row is one modifier against its own base, so the difference is the thing being reviewed. A variant that computed identically to its base would be a class that looks right in this table and does nothing anywhere else.
+				</SectionHead>
 
 				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">tags</h3>
 				<div class="cm-spec">
@@ -823,13 +808,9 @@ import { SITE } from '../astro/config';
 			     one app. Both are weight and shape here, so they survive a
 			     greyscale print and a colour-blind read. -->
 			<section id="selection" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-				<h2>selection + state marks</h2>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
-					A selected row takes a left rule and a faint tint rather
-					than an outline: an outline competes with the row's own
-					border, and the weight belongs on one edge so a column
-					of them scans as a column.
-				</p>
+				<SectionHead title="selection + state marks">
+A selected row takes a left rule and a faint tint rather than an outline: an outline competes with the row's own border, and the weight belongs on one edge so a column of them scans as a column.
+				</SectionHead>
 				<div style="display:grid;gap:var(--space-3);max-width:34rem">
 					<div class="cm-section cm-section--pad">
 						<div class="cm-row__body">
@@ -904,14 +885,9 @@ import { SITE } from '../astro/config';
 			     button on a page copy the FIRST block only, and the
 			     double-bind, both need a second button to exist. -->
 			<section id="stack" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-				<h2>record stack</h2>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
-					A vertical run of records. The stack is opt-in rather
-					than baked into the list, because a ledger of rows can be
-					flush (each row's own border does the separating) or
-					stacked (cards with air between them), and the list
-					element cannot know which one it is.
-				</p>
+				<SectionHead title="record stack">
+A vertical run of records. The stack is opt-in rather than baked into the list, because a ledger of rows can be flush (each row's own border does the separating) or stacked (cards with air between them), and the list element cannot know which one it is.
+				</SectionHead>
 				<div style="display:grid;gap:var(--space-5);grid-template-columns:repeat(auto-fit,minmax(15rem,1fr))">
 					<div>
 						<p class="cm-row__meta" style="margin-bottom:var(--space-3)">stacked</p>
@@ -944,15 +920,9 @@ import { SITE } from '../astro/config';
 				</div>
 			</section>
 						<section id="badge" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-							<h2>page head</h2>
-							<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
-								The title row every page starts with: a square
-								glyph, the name, one line of what the page is
-								for, and the page's own action. The badge is
-								an inset square rather than the seven
-								gradients it replaces, because a hue is the
-								only signal that fails in greyscale.
-							</p>
+							<SectionHead title="page head">
+The title row every page starts with: a square glyph, the name, one line of what the page is for, and the page's own action. The badge is an inset square rather than the seven gradients it replaces, because a hue is the only signal that fails in greyscale.
+							</SectionHead>
 							<div class="cm-head-row">
 								<span class="cm-head__badge" aria-hidden="true">
 									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>
@@ -965,16 +935,9 @@ import { SITE } from '../astro/config';
 							</div>
 						</section>
 												<section id="tblaction" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-							<h2>table action</h2>
-							<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
-								A row's control, in the table's own visual language.
-								A <code>&lt;tr onClick&gt;</code> is not a control - it
-								is not focusable and Enter does nothing - so this is
-								a real button, drawn as text so the grid does not
-								become a stack of chrome. The tap floor is its own
-								padding box. On a coarse pointer the arrow is always
-								visible, because there is no hover to reveal it.
-							</p>
+							<SectionHead title="table action">
+A row's control, in the table's own visual language. A <code>&lt;tr onClick&gt;</code> is not a control - it is not focusable and Enter does nothing - so this is a real button, drawn as text so the grid does not become a stack of chrome. The tap floor is its own padding box. On a coarse pointer the arrow is always visible, because there is no hover to reveal it.
+							</SectionHead>
 							<div class="cm-table-wrap">
 								<table class="cm-table">
 									<thead>
@@ -1058,26 +1021,9 @@ import { SITE } from '../astro/config';
 							</div>
 						</section>
 						<section id="table" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-							<h2>table</h2>
-							<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
-								For records a person scans <em>across</em> rather
-								than one at a time - a log is the case that
-								cannot be cards, because the columns have to
-								line up. The header is sticky, because row 400
-								otherwise has no idea which column it is in.
-								Status codes carry a weight and a marker, not a
-								hue: a wall of red and green is unreadable in
-								greyscale and to anyone with colour vision.
-							Five of the seven headers are sort controls. Each is a
-							&#60;button&#62; inside a &#60;th scope="col" aria-sort&#62;, which is
-							the shape a sortable column actually has: the sort
-							state lives on the th, where the accessibility tree
-							reads it, and the dot is drawn by CSS from that same
-							attribute so the visible mark and the announced
-							state cannot drift apart. A &#123;&lt;th onClick&#125;&#125; is not a
-							control - it cannot be focused and Enter does
-							nothing to it.
-							</p>
+							<SectionHead title="table">
+For records a person scans <em>across</em> rather than one at a time - a log is the case that cannot be cards, because the columns have to line up. The header is sticky, because row 400 otherwise has no idea which column it is in. Status codes carry a weight and a marker, not a hue: a wall of red and green is unreadable in greyscale and to anyone with colour vision. Five of the seven headers are sort controls. Each is a &#60;button&#62; inside a &#60;th scope="col" aria-sort&#62;, which is the shape a sortable column actually has: the sort state lives on the th, where the accessibility tree reads it, and the dot is drawn by CSS from that same attribute so the visible mark and the announced state cannot drift apart. A &#123;&lt;th onClick&#125;&#125; is not a control - it cannot be focused and Enter does nothing to it.
+							</SectionHead>
 							<div class="cm-table-wrap">
 								<table class="cm-table">
 									<thead>
@@ -1120,15 +1066,9 @@ import { SITE } from '../astro/config';
 							</div>
 						</section>
 						<section id="json" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-							<h2>code: json</h2>
-							<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
-								The monospace surface for structured text, in the two
-								forms it is always used: a block you read and a
-								block you edit. Same type, same frame, so switching
-								between them does not move the text. Not to be
-								confused with <code>cm-code-input</code>, which is
-								the centred one-time-code field.
-							</p>
+							<SectionHead title="code: json">
+The monospace surface for structured text, in the two forms it is always used: a block you read and a block you edit. Same type, same frame, so switching between them does not move the text. Not to be confused with <code>cm-code-input</code>, which is the centred one-time-code field.
+							</SectionHead>
 							<div class="cm-row" style="border:1px solid var(--line);border-radius:var(--radius-sm)">
 								<details class="cm-disclosure cm-disclosure--flush" open>
 									<summary class="cm-disclosure__summary">
@@ -1146,15 +1086,9 @@ import { SITE } from '../astro/config';
 							</div>
 						</section>
 						<section id="rowon" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-							<h2>selected row</h2>
-							<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
-								<code>cm-row--on</code> is the list-row form of the
-								selected treatment, and <code>button.cm-row</code> is
-								a row that is itself the control. Both mark state with
-								an inset rule rather than a tint: a coloured row is the
-								one signal that disappears in greyscale print, and a
-								selected row is information the reader has to see.
-							</p>
+							<SectionHead title="selected row">
+<code>cm-row--on</code> is the list-row form of the selected treatment, and <code>button.cm-row</code> is a row that is itself the control. Both mark state with an inset rule rather than a tint: a coloured row is the one signal that disappears in greyscale print, and a selected row is information the reader has to see.
+							</SectionHead>
 							<ul class="cm-rows" style="max-width:34rem;border:1px solid var(--line);border-radius:var(--radius-sm)">
 								<li>
 									<button type="button" class="cm-row cm-row--on">
@@ -1227,17 +1161,9 @@ import { SITE } from '../astro/config';
 
 						</section>
 						<section id="switch" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-							<h2>switch</h2>
-							<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
-								For "this whole behaviour is on or off" - as distinct
-								from <code>cm-check</code>, which is "include this
-								row". The knob's position carries the state, not its
-								colour. The <code>&lt;input&gt;</code> is the control,
-								transparent and on top: it is the tap target, the
-								focus target and the form value, so a keyboard or
-								screen reader reaches a real checkbox rather than a
-								<code>&lt;div&gt;</code> with a click handler.
-							</p>
+							<SectionHead title="switch">
+For "this whole behaviour is on or off" - as distinct from <code>cm-check</code>, which is "include this row". The knob's position carries the state, not its colour. The <code>&lt;input&gt;</code> is the control, transparent and on top: it is the tap target, the focus target and the form value, so a keyboard or screen reader reaches a real checkbox rather than a <code>&lt;div&gt;</code> with a click handler.
+							</SectionHead>
 							<div class="cm-card" style="max-width:26rem">
 								<div class="cm-card__body cm-stack">
 									<label class="cm-check">
@@ -1272,16 +1198,9 @@ import { SITE } from '../astro/config';
 							</div>
 						</section>
 						<section id="sheet" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-							<h2>dialog, as a side sheet</h2>
-							<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
-								The same native <code>&lt;dialog&gt;</code> as the
-								confirm modal, anchored to the right edge instead
-								of the centre. Only the frame changes, so it keeps
-								the focus trap, Escape, the top layer and the
-								inertness of the page behind it - all of which a
-								hand-rolled <code>position: fixed</code> panel
-								gives up. Full-width and flush below 640px.
-							</p>
+							<SectionHead title="dialog, as a side sheet">
+The same native <code>&lt;dialog&gt;</code> as the confirm modal, anchored to the right edge instead of the centre. Only the frame changes, so it keeps the focus trap, Escape, the top layer and the inertness of the page behind it - all of which a hand-rolled <code>position: fixed</code> panel gives up. Full-width and flush below 640px.
+							</SectionHead>
 							<dialog class="cm-dialog cm-dialog--sheet" style="position:static;height:16rem;margin:0 auto;max-height:16rem">
 								<div class="cm-dialog__head">
 									<div>
@@ -1298,13 +1217,9 @@ import { SITE } from '../astro/config';
 							</dialog>
 						</section>
 						<section id="choice" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-				<h2>choice + disclosure</h2>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
-					A compact set of exclusive choices, and a summary row
-					that reveals a panel. Both mark their selected / open
-					state with an inset rule, because a thicker border would
-					widen the box and walk the row sideways.
-				</p>
+				<SectionHead title="choice + disclosure">
+A compact set of exclusive choices, and a summary row that reveals a panel. Both mark their selected / open state with an inset rule, because a thicker border would widen the box and walk the row sideways.
+				</SectionHead>
 				<div style="display:grid;gap:var(--space-5);max-width:34rem">
 					<div class="cm-field">
 						<span class="cm-field__label">Directive</span>
@@ -1330,16 +1245,9 @@ import { SITE } from '../astro/config';
 				</div>
 			</section>
 <section id="code" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-				<h2>code</h2>
-				<p class="cm-head__sub">
-					A <code>&lt;pre&gt;</code> is an element default, so it is on-brand
-					before you add a class. <code>.cm-codebar</code> is the wrapper that
-					gives it a label row and a home for a copy button, and
-					<code>.cm-copy</code> is the button. Press one: the label
-					changes, and the state class is the only feedback &mdash; this
-					system has no chroma, so the change has to be legible in
-					greyscale.
-				</p>
+				<SectionHead title="code">
+A <code>&lt;pre&gt;</code> is an element default, so it is on-brand before you add a class. <code>.cm-codebar</code> is the wrapper that gives it a label row and a home for a copy button, and <code>.cm-copy</code> is the button. Press one: the label changes, and the state class is the only feedback &mdash; this system has no chroma, so the change has to be legible in greyscale.
+				</SectionHead>
 
 				<CodeBlock
 					id="demo-install"
@@ -1417,15 +1325,9 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 			     hover/focus. Nothing here has a runtime that reimplements
 			     what a browser already does correctly. -->
 			<section id="overlays" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-				<h2>overlays</h2>
-				<p class="cm-head__sub">
-					Five surfaces that sit on top of the page. Four of the five are
-					native elements doing native things &mdash; a <code>&lt;dialog&gt;</code>,
-					a <code>[popover]</code>, a hover, a <code>hidden</code> attribute. Only
-					the tablist needs script, because the platform ships no tab widget
-					and the roving tabindex is the one part of the ARIA contract CSS
-					cannot express.
-				</p>
+				<SectionHead title="overlays">
+Five surfaces that sit on top of the page. Four of the five are native elements doing native things &mdash; a <code>&lt;dialog&gt;</code>, a <code>[popover]</code>, a hover, a <code>hidden</code> attribute. Only the tablist needs script, because the platform ships no tab widget and the roving tabindex is the one part of the ARIA contract CSS cannot express.
+				</SectionHead>
 
 				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">tabs</h3>
 				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
@@ -1600,14 +1502,9 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 			     A metric tile is not a key/value row and a work history
 			     is not a link list, so both needed a real component. -->
 			<section id="records" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-				<h2>Records</h2>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
-					Stat tiles and a dated timeline. The tile count is data, so
-					<code>.cm-stats</code> sizes its columns with
-					<code>auto-fit</code> rather than a fixed number, and the timeline
-					rail is drawn on the <em>item</em> so it stops at the last
-					record on its own, with no script.
-				</p>
+				<SectionHead title="Records">
+Stat tiles and a dated timeline. The tile count is data, so <code>.cm-stats</code> sizes its columns with <code>auto-fit</code> rather than a fixed number, and the timeline rail is drawn on the <em>item</em> so it stops at the last record on its own, with no script.
+				</SectionHead>
 
 				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">stat tiles</h3>
 				<ul class="cm-stats">
@@ -1645,16 +1542,9 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 			     One subject that needs more room than a row, and a
 			     number that is a proportion rather than a count. -->
 			<section id="cards" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-				<h2>Cards and meters</h2>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
-					A card is a unit of content with a title, so
-					<code>.cm-cards</code> is a grid and <code>.cm-card</code>
-					fills its cell — a two-line card and a six-line card in
-					the same row still share a bottom edge. A meter is a
-					number that happens to be drawn: the bar is
-					<code>aria-hidden</code> and the value is real text, so
-					the chart and the sentence can never disagree.
-				</p>
+				<SectionHead title="Cards and meters">
+A card is a unit of content with a title, so <code>.cm-cards</code> is a grid and <code>.cm-card</code> fills its cell — a two-line card and a six-line card in the same row still share a bottom edge. A meter is a number that happens to be drawn: the bar is <code>aria-hidden</code> and the value is real text, so the chart and the sentence can never disagree.
+				</SectionHead>
 
 				<ul class="cm-cards">
 					<Card title="A+ 220-1101" sub="taken 2022 · lapsed 2025" accent>
@@ -1732,7 +1622,7 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 			     rule renders the way it reads. -->
 
 			<section id="tiles">
-				<h2>Tiles &amp; inline navigation</h2>
+				<SectionHead title="Tiles &amp; inline navigation" />
 				<p class="lede">
 					A tile is a bucket count with its bound under it. The tier is a
 					<b>glyph</b>, not a tint, and it is a modifier that defaults to
@@ -1778,14 +1668,9 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 			</section>
 
 			<section id="prose" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-				<h2>prose</h2>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
-					<code>.cm-prose</code> for the body of an article and
-					<code>.cm-post-head</code> for the block above it. The
-					post head is the one page head that carries a rule
-					under itself, because the thing below it is prose and
-					not another section.
-				</p>
+				<SectionHead title="prose">
+<code>.cm-prose</code> for the body of an article and <code>.cm-post-head</code> for the block above it. The post head is the one page head that carries a rule under itself, because the thing below it is prose and not another section.
+				</SectionHead>
 
 				<article>
 					<PostHead
@@ -1825,16 +1710,9 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 			     any of them. The specimens below are drawn FROM the
 			     tokens they document. -->
 			<section id="layout" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-				<h2>layout</h2>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
-					<code>.cm-lede</code> is the opening sentence under a page
-					head, and <code>.cm-split</code> puts a metadata column beside
-					a content block. The measure comes from
-					<code>--measure</code>, not a number typed next to it, so
-					changing the reading width is a token change. The split
-					stacks below 700px on purpose: two columns of text on a
-					phone is two unreadable columns.
-				</p>
+				<SectionHead title="layout">
+<code>.cm-lede</code> is the opening sentence under a page head, and <code>.cm-split</code> puts a metadata column beside a content block. The measure comes from <code>--measure</code>, not a number typed next to it, so changing the reading width is a token change. The split stacks below 700px on purpose: two columns of text on a phone is two unreadable columns.
+				</SectionHead>
 
 					<!-- `.cm-shell--rail` centres a PROSE measure in the space
 					     beside the rail, which is right for a content page. An
@@ -1998,11 +1876,9 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 			</section>
 
 			<section id="forms" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
-				<h2>forms</h2>
-				<p class="cm-head__sub">
-					inputs are element defaults, so a bare <code>&lt;input&gt;</code> is already
-					on-brand. <code>.cm-field</code> and friends are the layout around them.
-				</p>
+				<SectionHead title="forms">
+inputs are element defaults, so a bare <code>&lt;input&gt;</code> is already on-brand. <code>.cm-field</code> and friends are the layout around them.
+				</SectionHead>
 				<form class="cm-form" onsubmit="return false">
 					<div class="cm-field-row">
 						<div class="cm-field">
@@ -2079,15 +1955,9 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 			     100dvh specimen inside a scrolling page pushes every
 			     other section a full screen down. -->
 			<section id="auth" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
-				<h2>auth</h2>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
-					Every class below except <code>.cm-auth</code>,
-					<code>.cm-card--auth</code>, <code>.cm-code-input</code>
-					and <code>.cm-divider</code> was already in this
-					system. A sign-in screen is the card, the field, the
-					alert and the button you have just seen, arranged
-					for credentials.
-				</p>
+				<SectionHead title="auth">
+Every class below except <code>.cm-auth</code>, <code>.cm-card--auth</code>, <code>.cm-code-input</code> and <code>.cm-divider</code> was already in this system. A sign-in screen is the card, the field, the alert and the button you have just seen, arranged for credentials.
+				</SectionHead>
 
 				<div class="cm-spec">
 					<div class="cm-auth" style="min-height:420px;background:var(--bg-2)">
@@ -2177,7 +2047,7 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 			</section>
 
 			<section id="readme" class="cm-section cm-section--pad">
-				<h2>usage</h2>
+				<SectionHead title="usage" />
 				<div class="cm-term">
 					<div class="cm-term__bar">
 						<span class="cm-term__dot"></span><span class="cm-term__dot"></span><span class="cm-term__dot"></span>
