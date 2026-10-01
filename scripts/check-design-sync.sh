@@ -295,15 +295,34 @@ if [ ${#targets[@]} -eq 0 ]; then
 fi
 
 stale=0
-# Vendored files this run has already accounted for, because they were
-# reached under a name the canonical MAP does not use (a RENAMED
-# verdict). The shadow scan consults this so a correct consumer is not
-# failed twice for one file.
+# Findings that REQUIRE action, kept apart from the informational notes.
+#
+# Before this split, ANY non-empty output printed the `drift in <target>`
+# header and a `fix:` line -- including the RENAMED verdict, which is
+# explicitly ADOPTION and does not set `stale`. So a byte-identical consumer
+# (oem-cdn) exited 0 while its output still read "drift in oem-cdn" and
+# "fix: install.sh /root/projects/oem-cdn". Two readers disagreed: the exit
+# code said clean, the text said drift.
+#
+# The text is what a human reads and what CI pastes, so it was the one that
+# lied. Worse, the fix: line was UNPERFORMABLE for exactly those targets:
+# the remedy writes the canonical src/ layout, which the project does not
+# serve, so following it adds a second, unserved copy and the next run
+# reports the same thing. A remediation the tool cannot perform is worse
+# than no remediation, because it converts a clean result into a loop.
+#
+# So: `out` is informational (RENAMED = adoption, and its layout hint), and
+# `findings` is what makes the run fail. Only a finding prints `fix:`.
 declare -A ACCOUNTED=()
 declare -A GUARD_NAMES=()
 declare -A RUNTIME_NAMES=()
 for t in "${targets[@]}"; do
 	out=""
+	findings=""
+	# Whether THIS target has a finding, as opposed to the run as a whole.
+	# Reset per target: without it, one drifting consumer would label every
+	# later adoption-only consumer as drifting too.
+	tstale=0
 	# Discovered, not assumed - see prefix_for. Empty means "no vendored
 	# layer anywhere in this project", which is reported rather than
 	# silently skipped, because an undetectable consumer is precisely the
@@ -355,7 +374,7 @@ for t in "${targets[@]}"; do
 					out+="  RENAMED  ${d#$t/} is vendored as $renamed"$'\n'"                 (adoption, not drift; the comparison follows the CONTENT)"$'\n'
 				else
 					out+="  RENAMED  ${d#$t/} is vendored as $renamed"$'\n'"                 and that copy has DRIFTED from the library"$'\n'
-					stale=1
+					stale=1; tstale=1
 				fi
 				# This copy IS the vendored file, reached under another
 				# name, so it is accounted for - and must be remembered
@@ -373,12 +392,12 @@ for t in "${targets[@]}"; do
 				esac
 			else
 				out+="  MISSING  ${d#$t/}"$'\n'
-				stale=1
+				stale=1; tstale=1
 			fi
 		elif ! cmp -s "$s" "$d"; then
 			n=$(diff "$s" "$d" | grep -c '^[<>]' || true)
 			out+="  STALE    ${d#$t/} ($n lines differ)"$'\n'
-			stale=1
+			stale=1; tstale=1
 		fi
 	done
 
@@ -397,7 +416,7 @@ for t in "${targets[@]}"; do
 		if ! cmp -s "$s" "$d"; then
 			n=$(diff "$s" "$d" | grep -c '^[<>]' || true)
 			out+="  STALE    ${d#$t/} ($n lines differ)"$'\n'
-			stale=1
+			stale=1; tstale=1
 		fi
 	done
 
@@ -502,10 +521,10 @@ for t in "${targets[@]}"; do
 		if ! cmp -s "$o" "$f"; then
 			n=$(diff "$o" "$f" | grep -c '^[<>]' || true)
 			out+="  SHADOW   $rel ($n lines differ from the library)"$'\n'
-			stale=1
+			stale=1; tstale=1
 		else
 			out+="  ORPHAN   $rel is byte-identical but on no path this check compares"$'\n'
-			stale=1
+			stale=1; tstale=1
 		fi
 	done
 
@@ -589,7 +608,7 @@ for t in "${targets[@]}"; do
 					*"$v"*) ;;
 					*)
 						out+="  UNREACHABLE  $v is vendored but nothing imports it"$'\n'
-						stale=1
+						stale=1; tstale=1
 						;;
 				esac
 			done
@@ -693,7 +712,7 @@ for t in "${targets[@]}"; do
 				done
 				if [ "$loaded" -eq 0 ]; then
 					out+="  UNREACHABLE  cli-mono-theme-guard.js is vendored but no <head> loads it"$'\n'
-					stale=1
+					stale=1; tstale=1
 				fi
 				;;
 			esac
@@ -745,14 +764,32 @@ PY
 			out+=$'\n'"            the prefix is reserved for the library. Surface added here reaches"
 			out+=$'\n'"            no consumer, and no library fix ever lands on it."
 			out+=$'\n'
-			stale=1
+			stale=1; tstale=1
 		fi
 	fi
 
-	if [ -n "$out" ]; then
+	# `out` carries BOTH the informational notes and the findings; `tstale`
+	# says which target actually failed. The header and the `fix:` line are
+	# driven by the verdict, not by whether there was anything to say:
+	#
+	#   tstale=1  -> "drift in <t>" + the notes + "fix: ..."   (unchanged)
+	#   tstale=0 and notes -> "in sync  <t>" + the notes, and NO fix: line.
+	#     oem-cdn is exactly this: two RENAMED adoptions, byte-identical,
+	#     exit 0. It previously printed "drift in oem-cdn" and a fix: line
+	#     whose command could not perform the repair.
+	if [ "$tstale" -eq 1 ]; then
 		echo "drift in $t"
 		echo -n "$out"
 		echo "  fix: $SRC/scripts/install.sh $t"
+	elif [ -n "$out" ]; then
+		# In sync, with something worth saying: an adoption under a layout
+		# the canonical MAP does not name. Renaming the header is the point
+		# -- a reader must not have to know the exit code to know whether a
+		# target drifted.
+		echo "in sync  $t"
+		echo -n "$out"
+		echo "        (adoption under a renamed/embedded layout; nothing to fix."
+		echo "         re-vendor with: $SRC/scripts/install.sh $t --embed-rename <dir>)"
 	else
 		echo "in sync  $t"
 	fi

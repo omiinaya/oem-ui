@@ -8682,6 +8682,33 @@ for (const [name, fn] of pending.splice(0)) {
 	});
 }
 
+/* ============ the standalone installer-layout suite ============ */
+//
+// tests/install-layout.test.mjs is a SELF-CONTAINED runner (it does its own
+// pass/fail tally), because it drives the installer by RUNNING it into temp
+// dirs and comparing bytes -- which needs its own execFileSync-based tree
+// walk. It was written standalone and never wired into this file, so
+// `npm test` never ran it: 11 tests, all of them guarding the embedded
+// install layout, were invisible to the suite that ships the library.
+//
+// A test that nothing runs is a comment. It runs here, and its non-zero exit
+// is a failure of THIS suite -- so the tally below is derived from the
+// child's exit status, never from parsing its stdout for "passed", which is
+// how a suite reports success for a child that crashed before printing.
+{
+	const standalone = join(root, 'tests', 'install-layout.test.mjs');
+	check('the standalone installer-layout suite runs inside npm test', () => {
+		assert(existsSync(standalone), `tests/install-layout.test.mjs is missing -- the embedded-layout tests are not being run at all`);
+		const r = spawnSync('node', [standalone], { encoding: 'utf8', timeout: 180000 });
+		if (r.status !== 0) {
+			// Surface the child's own failure lines: a bare "exited 1" tells
+			// the reader nothing about WHICH layout broke.
+			const detail = (r.stdout || '').split('\n').filter((l) => l.includes('FAIL')).join('\n');
+			throw new Error(`exited ${r.status}\n${detail || r.stderr || '(no output)'}`);
+		}
+	});
+}
+
 /* ================= result ================= */
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length) {

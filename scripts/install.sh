@@ -26,6 +26,43 @@
 #   <target>/public/cli-mono.js
 #   <target>/public/cli-mono-theme-guard.js
 #
+# --embed installs into <dir>, keeping the library filenames, for a project
+# that compiles the assets INTO a binary or a non-Astro bundle rather than
+# serving a tree:
+#
+#   --embed <dir>   ->  <dir>/tokens.css  <dir>/base.css  <dir>/components.css
+#                        <dir>/cli-mono.js  <dir>/cli-mono-theme-guard.js
+#
+# --embed-rename <dir>  same, but the two JS files are RENAMED on the way in
+# and the recommended <script> tags are printed with those names.
+#
+# That is a REAL shape, not a hypothetical: oem-cdn compiles its admin UI
+# into the binary with include_str! and serves it from Rust routes NAMED
+# `runtime.js` and `theme-guard.js`, so its vendored copy lives at
+# web/oem-ui/{runtime.js,theme-guard.js}. Before this flag existed no
+# documented invocation of this script could produce that path -- --flat puts
+# the CSS in <target>/cli-mono/ and the JS at the top level, and the default
+# and --public both assume src/ or public/.
+#
+# That matters because the drift checker follows CONTENT, so the renamed
+# pair verifies against the same library bytes as every other layout, and
+# because its remedy line is now performable for this shape:
+#
+#     fix: scripts/install.sh /root/projects/oem-cdn --embed-rename web/oem-ui
+#
+# Previously that line was a NO-OP for oem-cdn: it wrote five files into
+# paths the project does not serve, left the drifted web/oem-ui/ copy
+# untouched, and the next run reported the same finding. A remediation the
+# tool cannot perform is worse than no remediation, because it converts a
+# visible failure into a loop.
+#
+# NOTE the checker's `fix:` line does NOT append this flag for you. It prints
+# the bare invocation, because the flag depends on a LAYOUT choice that only
+# the consumer's author can make. check-design-sync.sh reports the layout a
+# target actually uses (see its RENAMED lines) so the right flag is visible
+# in the output, but the operator has to choose it. That is deliberate: a
+# checker that guessed a layout would install a second, unserved copy.
+#
 # That is a real shape, not a preference. Astro TREATS <script src> as a
 # bundler asset reference, and when the src is a variable it cannot resolve
 # the tag is dropped from dist/ entirely while the HTML comment above it
@@ -47,19 +84,24 @@ TARGET=""
 FROM=""
 FLAT=0
 PUBLIC=0
+EMBED=""
+EMBED_RENAME=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --from) FROM="${2:-}"; shift 2 ;;
     --flat) FLAT=1; shift ;;
     --public) PUBLIC=1; shift ;;
-    -h|--help) sed -n '2,42p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --embed) EMBED="${2:-}"; shift 2 ;;
+    --embed-rename) EMBED_RENAME="${2:-}"; shift 2 ;;
+    -h|--help) sed -n '2,74p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) die "unknown flag: $1" ;;
     *) TARGET="$1"; shift ;;
   esac
 done
 
-[ -n "$TARGET" ] || die "usage: install.sh <target-project-dir> [--from <oem-ui-path>] [--flat]"
+[ -n "$TARGET" ] || die "usage: install.sh <target-project-dir> [--from <oem-ui-path>] [--flat | --public | --embed <dir> | --embed-rename <dir>]"
+[ -n "$EMBED" ] && [ -n "$EMBED_RENAME" ] && die "--embed and --embed-rename are alternatives, not a pair"
 
 # Default source: the checkout this script lives in, resolved through any
 # symlinks so a parent directory that links a project tree still finds the
@@ -71,7 +113,34 @@ fi
 
 TARGET="$(mkdir -p "$TARGET" && cd "$TARGET" && pwd)"
 
-if [ "$FLAT" -eq 1 ]; then
+if [ -n "$EMBED" ] || [ -n "$EMBED_RENAME" ]; then
+  # An EMBEDDED layout: the files go into <dir> under their own names, with
+  # no src/ or public/ segment invented. `<dir>` is interpreted relative to
+  # $TARGET, because the whole point is to reproduce a path inside the target
+  # (`--embed web/oem-ui`), not to escape it.
+  #
+  # The two flags are alternatives, so exactly one of them is non-empty here
+  # and DIR must be THAT one. Selecting with ${EMBED_RENAME:-$EMBED} appends
+  # to $EMBED instead of choosing between them, so `--embed web/oem-ui`
+  # wrote web/oem-uiweb/oem-ui -- a doubled path that still "succeeded".
+  if [ -n "$EMBED" ]; then DIR="$EMBED"; else DIR="$EMBED_RENAME"; fi
+  case "$DIR" in
+    /*) die "--embed takes a path INSIDE the target, not an absolute one: $DIR" ;;
+    ../*|*/../*) die "--embed path escapes the target: $DIR" ;;
+  esac
+  CSS_DIR="$TARGET/$DIR"
+  JS_DEST="$CSS_DIR/cli-mono.js"
+  GUARD_DEST="$CSS_DIR/cli-mono-theme-guard.js"
+  mkdir -p "$CSS_DIR"
+  if [ -n "$EMBED_RENAME" ]; then
+    # The RENAMED shape: the two JS files keep the library's CONTENT but take
+    # the name the host serves them under, so its routes/HTML keep working.
+    # Content is what check-design-sync.sh follows, so this stays verifiable
+    # against the same library bytes as every other layout.
+    JS_DEST="$CSS_DIR/runtime.js"
+    GUARD_DEST="$CSS_DIR/theme-guard.js"
+  fi
+elif [ "$FLAT" -eq 1 ]; then
   CSS_DIR="$TARGET/cli-mono"
   JS_DEST="$TARGET/cli-mono.js"
   GUARD_DEST="$TARGET/cli-mono-theme-guard.js"
@@ -108,7 +177,17 @@ if [ "$PUBLIC" -eq 1 ]; then
 fi
 
 printf '\nLoad in this order (tokens, base, components), JS last:\n'
-if [ "$FLAT" -eq 1 ]; then
+if [ -n "$EMBED" ] || [ -n "$EMBED_RENAME" ]; then
+  printf '  <link rel="stylesheet" href="%s/tokens.css" />\n' "$DIR"
+  printf '  <link rel="stylesheet" href="%s/base.css" />\n' "$DIR"
+  printf '  <link rel="stylesheet" href="%s/components.css" />\n' "$DIR"
+  printf '  <script src="%s/%s"></script>\n' "$DIR" "$(basename "$JS_DEST")"
+  printf '  and FIRST in <head>, before any stylesheet:\n'
+  printf '  <script src="%s/%s"></script>\n' "$DIR" "$(basename "$GUARD_DEST")"
+  printf '\nThese files are compiled into your binary or bundle. Serve them\n'
+  printf 'verbatim under the paths above; do not edit them in place - re-run\n'
+  printf 'this script to pick up a library update.\n'
+elif [ "$FLAT" -eq 1 ]; then
   printf '  <link rel="stylesheet" href="/cli-mono/tokens.css" />\n'
   printf '  <link rel="stylesheet" href="/cli-mono/base.css" />\n'
   printf '  <link rel="stylesheet" href="/cli-mono/components.css" />\n'

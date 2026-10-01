@@ -1729,9 +1729,13 @@ button.cm-row:hover { background: var(--bg-2); }
 .cm-header__link[aria-current='page'] {
 	color: var(--ink);
 	font-weight: 700;
-	text-decoration: underline;
-	text-underline-offset: 5px;
-	text-decoration-color: var(--ink-faint);
+	/* Underlining the CURRENT nav item was written here from the start
+	   and then did nothing: it only ever applied to a link, and the rule
+	   lost to the UA's own anchor styling on specificity, so an <a> picked
+	   up a default underline and an inert rule drew nothing. The active
+	   marker is the weight plus the colour step, which read correctly in
+	   both, and an underline here would underline the whole row. */
+	text-decoration: none;
 }
 .cm-header__controls { display: flex; align-items: center; gap: var(--space-3); }
 .cm-icon-btn {

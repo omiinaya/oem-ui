@@ -8,3 +8,6 @@ dist/
 /oem-ui
 __pycache__/
 *.pyc
+
+# mutation-sweep sandboxes (tests/mutate-install-layout.sh)
+tests/.mutinstall.*
