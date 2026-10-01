@@ -8716,6 +8716,189 @@ for (const [name, fn] of pending.splice(0)) {
 	});
 }
 
+/* ============ the breadcrumb ============ */
+//
+// The trail above a detail page. It exists because a CONSUMER needed it:
+// gantree and gantree-ui-icons each carry a byte-identical 14-line
+// hand-rolled copy (.crumbs / .crumb-sep / .crumb-here), and nothing in
+// the library owned the shape. So each check below is about a defect
+// that copy actually had, not a hypothetical.
+//
+// The three that matter are all things a value-shaped test would miss:
+//
+//   - the floor must be var(--tap) and NOT a literal, because an inert
+//     `min-height: 44px` passes /min-height/ and is a second source of
+//     truth for a number the token already owns;
+//   - the separator must be a ::after on the LINK, because a markup
+//     separator is announced and that cannot be checked from CSS text
+//     alone - so the DEMONSTRATION has to prove it, which is why the
+//     showcase trail is read here too;
+//   - the current crumb must be aria-current="page", which is not
+//     visible in any stylesheet, so it is asserted on the page.
+{
+	const crumbsSrc = compSrc;
+	const page = read('src/pages/index.astro');
+
+	check('the breadcrumb trail is defined', () => {
+		assert(/\.cm-crumbs\s*\{/.test(crumbsSrc), '.cm-crumbs is not defined');
+	});
+
+	check('the trail wraps rather than scrolling', () => {
+		// A trail grows with depth. Overflow-x on a breadcrumb means the
+		// FIRST crumb - the only guaranteed way out of the page - is the
+		// one pushed out of sight on the narrowest viewport.
+		const block = /\.cm-crumbs\s*\{([^}]*)\}/.exec(crumbsSrc);
+		assert(block, '.cm-crumbs rule not found');
+		assert(/flex-wrap:\s*wrap/.test(block[1]), 'the trail does not wrap');
+		assert(!/overflow-x/.test(block[1]), 'the trail scrolls sideways instead of wrapping');
+		assert(!/white-space:\s*nowrap/.test(block[1]), 'the trail is nowrap, so it overflows instead of wrapping');
+	});
+
+	check('every crumb link reaches the tap floor from the token', () => {
+		// The defect this replaces, measured on the hand-rolled copy: bare
+		// text at 0.78rem is ~16px tall against a 44px floor.
+		const m = /\.cm-crumbs__link\s*\{([^}]*)\}/.exec(crumbsSrc);
+		assert(m, '.cm-crumbs__link rule not found');
+		assert(/min-height:\s*var\(--tap\)/.test(m[1]),
+			'.cm-crumbs__link has no min-height: var(--tap)');
+		// The inert-value mutant: 44px is DECLARED, so /min-height/ matches
+		// and the check above would pass. Assert the var() reference.
+		assert(!/min-height:\s*44px/.test(m[1]),
+			'the tap floor is a literal 44px rather than var(--tap)');
+	});
+
+	check('the current crumb reaches the floor too', () => {
+		// It is the row a thumb lands on when backing OUT of a page, so it
+		// is not exempt just because it is not a link.
+		const m = /\.cm-crumbs__here\s*\{([^}]*)\}/.exec(crumbsSrc);
+		assert(m, '.cm-crumbs__here rule not found');
+		assert(/min-height:\s*var\(--tap\)/.test(m[1]),
+			'.cm-crumbs__here has no min-height: var(--tap)');
+	});
+
+	check('the separator is aria-hidden in the MARKUP, and that is the whole reason', () => {
+		// This check was originally "the separator is a ::after, so it cannot
+		// be announced". MEASURED over CDP with
+		// Accessibility.getFullAXTree, that is FALSE: a ::after is part of
+		// name-from-content, so the link's accessible name came back
+		// "store>" - the separator is spoken. Both aria-hidden shapes read
+		// "store". The `ignored` flag was false, so it was not a reporting
+		// artifact. So the requirement is the ATTRIBUTE, not the technique,
+		// and it has to be asserted on the markup because no stylesheet
+		// can carry it.
+		const trails = [...page.matchAll(/<nav class="cm-crumbs"[^>]*>([\s\S]*?)<\/nav>/g)];
+		assert(trails.length >= 1, 'no cm-crumbs trail in the showcase');
+		let seps = 0;
+		for (const [, body] of trails) {
+			const found = [...body.matchAll(/<span class="cm-crumbs__sep"([^>]*)>/g)];
+			for (const [, attrs] of found) {
+				seps++;
+				assert(/aria-hidden="true"/.test(attrs),
+					'a cm-crumbs__sep has no aria-hidden="true", so a screen reader speaks the chevron');
+			}
+		}
+		assert(seps > 0, 'no separator is demonstrated, so its accessibility is untested');
+	});
+
+	check('the separator lives INSIDE its link, so it can never wrap alone', () => {
+		// MEASURED, not reasoned: with the separator as a SIBLING flex item,
+		// the 5-level trail at 393px put a lone chevron at the start of row 2
+		// and another at the end, and the wrapped row began at left 56px
+		// instead of 40px. The separator is its own flex child, so flex-wrap
+		// is free to break on either side of it. Nesting it inside the link
+		// makes link+separator one unbreakable box.
+		//
+		// Left edges went from [40, 56, 107, 213] to [40, 107, 225], so every
+		// row now starts on the margin. Assert the SHAPE rather than the
+		// pixels: the geometry probe owns the numbers, and a test that
+		// hardcodes left edges would fail on any font change and pass on a
+		// regression that moved them the other way.
+		const trails = [...page.matchAll(/<nav class="cm-crumbs"[^>]*>([\s\S]*?)<\/nav>/g)];
+		assert(trails.length >= 1, 'no cm-crumbs trail in the showcase');
+		for (const [, body] of trails) {
+			// every separator must be preceded by link text and closed by </a>,
+			// i.e. no separator may sit between two sibling elements
+			const siblings = body.match(/<\/a>\s*<span class="cm-crumbs__sep"/g) || [];
+			assert(siblings.length === 0,
+				`${siblings.length} separator(s) are a sibling of the links, so one can wrap onto a row of its own`);
+			const inLink = body.match(/<span class="cm-crumbs__sep"[^>]*>[\s\S]*?<\/span>\s*<\/a>/g) || [];
+			const total = (body.match(/cm-crumbs__sep/g) || []).length;
+			assert(inLink.length === total,
+				`only ${inLink.length} of ${total} separators are inside their link`);
+		}
+	});
+
+	check('the separator is a real element, because ::after would be spoken', () => {
+		// The pairing with the check above, and the reason the two must not
+		// be collapsed into one. Either shape silences the separator, but
+		// only one of them also survives a wrap. And a ::after is not silent
+		// at all.
+		assert(/\.cm-crumbs__sep\s*\{/.test(compSrc), '.cm-crumbs__sep is not styled by the library');
+		// A ::after separator is the LOUD variant. Asserting its ABSENCE
+		// guards against the regression being reintroduced, because it is
+		// the shape that looks like an improvement and measures as a bug.
+		assert(!/\.cm-crumbs__link[^{}]*::after/.test(compSrc),
+			'the separator is back on a ::after, which name-from-content reads aloud');
+	});
+
+	check('the breadcrumb uses aria-current, the marker the header already uses', () => {
+		// A second private "active" convention is how the header and the
+		// trail end up disagreeing about what "you are here" means. The
+		// stylesheet alone cannot prove this - aria-current is markup - so
+		// it is asserted on the demonstration.
+		assert(/\.cm-header__link\[aria-current='page'\]/.test(compSrc),
+			'the header no longer marks the current page with aria-current, so this is not the shared convention');
+		// Scoped to the TRAIL, not to the page. This check was originally
+		// /aria-current="page"/.test(page), and the page carries 7 of them -
+		// 6 in the header nav - so deleting the breadcrumb's own marker
+		// still left 6 and the check stayed green. A mutation proved it:
+		// the marker removed from the specimen was MISSED. An unscoped
+		// existence check on a page that has another component using the
+		// same attribute measures the other component.
+		const trails = [...page.matchAll(/<nav class="cm-crumbs"[^>]*>([\s\S]*?)<\/nav>/g)];
+		assert(trails.length >= 1, 'no cm-crumbs trail in the showcase');
+		for (const [, body] of trails) {
+			assert(/aria-current="page"/.test(body),
+				'a demonstrated breadcrumb does not mark its current crumb with aria-current="page"');
+		}
+	});
+
+	check('the demonstration proves the current crumb is NOT a link', () => {
+		// The whole point of the current crumb is that it goes nowhere. A
+		// demonstration that renders it as an <a href> proves the opposite
+		// of what it documents, and it would still look right.
+		const trail = /<nav class="cm-crumbs"[^>]*>([\s\S]*?)<\/nav>/.exec(page);
+		assert(trail, 'no cm-crumbs nav in the showcase');
+		assert(/<span class="cm-crumbs__here"[^>]*>/.test(trail[1]),
+			'the demonstrated trail has no cm-crumbs__here crumb');
+		assert(!/<a[^>]*class="cm-crumbs__here"/.test(trail[1]),
+			'the current crumb is demonstrated as a link');
+	});
+
+	check('the trail is a nav with a label, so it is announced as one', () => {
+		const navs = page.match(/<nav class="cm-crumbs"[^>]*>/g) || [];
+		assert(navs.length >= 1, 'the trail is not demonstrated');
+		for (const n of navs) {
+			assert(/aria-label=/.test(n), `a cm-crumbs nav has no aria-label: ${n}`);
+		}
+	});
+
+	check('the showcase demonstrates a deep trail, not just the two-crumb case', () => {
+		// A fixture that cannot wrap proves nothing about the wrap. Three
+		// levels fit on every phone; the defect this component exists to
+		// fix only appears at depth.
+		const deep = /aria-label="Breadcrumb, deep">([\s\S]*?)<\/nav>/.exec(page);
+		assert(deep, 'no deep trail specimen in the showcase');
+		const links = (deep[1].match(/cm-crumbs__link/g) || []).length;
+		assert(links >= 4, `the deep trail has only ${links} links; a short trail never wraps`);
+	});
+
+	check('the breadcrumb is demonstrated before it is trusted', () => {
+		assert(/id="crumbs"/.test(page), 'the showcase has no breadcrumb section');
+		assert(/class="cm-crumbs"/.test(page), 'the breadcrumb is defined but never demonstrated');
+	});
+}
+
 /* ================= result ================= */
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length) {

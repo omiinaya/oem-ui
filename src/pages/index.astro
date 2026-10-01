@@ -37,7 +37,7 @@ import SectionHead from '../astro/SectionHead.astro';
  * wrong place fails the suite instead of quietly breaking the spy.
  */
 const SECTION_ORDER = [
-	'foundation', 'buttons', 'nav', 'lists', 'states', 'surface',
+	'foundation', 'buttons', 'nav', 'crumbs', 'lists', 'states', 'surface',
   'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'choice',
 	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'layout',
 	'forms', 'auth', 'readme',
@@ -427,6 +427,66 @@ Two states, two different questions. <code>active</code> marks the page you are 
 					</div>
 				</div>
 				</section>
+
+			<section id="crumbs" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+				<SectionHead title="breadcrumb">
+					The trail above a detail page: how deep am I, and how do I get out. It is the first thing a thumb touches, so every crumb is a <code>--tap</code> target; the separator is a <code>.cm-crumbs__sep</code> carrying <code>aria-hidden="true"</code> so a screen reader never speaks it; and the last crumb is marked <code>aria-current="page"</code>, the same attribute the header nav uses, so "you are here" survives greyscale print and a screen reader.
+				</SectionHead>
+
+				<h3 class="cm-kicker">three levels</h3>
+				<nav class="cm-crumbs" aria-label="Breadcrumb">
+					<a class="cm-crumbs__link" href="#lists">plugins<span class="cm-crumbs__sep" aria-hidden="true">&rsaquo;</span></a>
+					<a class="cm-crumbs__link" href="#lists">terminal<span class="cm-crumbs__sep" aria-hidden="true">&rsaquo;</span></a>
+					<span class="cm-crumbs__here" aria-current="page">cli-mono</span>
+				</nav>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">deep trail, wraps on a phone</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+					A trail grows with its depth. Five levels at 390px overflows the
+					column, so this one wraps. Each separator lives <em>inside</em> the
+					crumb it follows, so a wrap can never strand a lone chevron on a
+					line of its own. The last crumb is <code>aria-current="page"</code>
+					and is not a link — so it carries no separator <em>after</em> it,
+					but it keeps the one before, which is the trail reading left to
+					right.
+				</p>
+				<nav class="cm-crumbs" aria-label="Breadcrumb, deep">
+					<a class="cm-crumbs__link" href="#lists">store<span class="cm-crumbs__sep" aria-hidden="true">&rsaquo;</span></a>
+					<a class="cm-crumbs__link" href="#lists">categories<span class="cm-crumbs__sep" aria-hidden="true">&rsaquo;</span></a>
+					<a class="cm-crumbs__link" href="#lists">developer tools<span class="cm-crumbs__sep" aria-hidden="true">&rsaquo;</span></a>
+					<a class="cm-crumbs__link" href="#lists">terminal multiplexer<span class="cm-crumbs__sep" aria-hidden="true">&rsaquo;</span></a>
+					<span class="cm-crumbs__here" aria-current="page">cli-mono-embed</span>
+				</nav>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">the rules</h3>
+				<div class="cm-spec">
+					<div class="cm-spec__row" role="listitem">
+						<span class="cm-spec__label"><code>cm-crumbs</code></span>
+						<span class="cm-spec__sample"><code>nav[aria-label]</code></span>
+						<span class="cm-spec__val"><code>wraps, never scrolls</code></span>
+					</div>
+					<div class="cm-spec__row" role="listitem">
+						<span class="cm-spec__label"><code>cm-crumbs__link</code></span>
+						<span class="cm-spec__sample"><code>href</code></span>
+						<span class="cm-spec__val"><code>--tap floor</code></span>
+					</div>
+					<div class="cm-spec__row" role="listitem">
+						<span class="cm-spec__label"><code>aria-current</code></span>
+						<span class="cm-spec__sample"><code>page</code></span>
+						<span class="cm-spec__val"><code>no separator</code></span>
+					</div>
+					<div class="cm-spec__row" role="listitem">
+						<span class="cm-spec__label"><code>cm-crumbs__sep</code></span>
+						<span class="cm-spec__sample"><code>aria-hidden</code></span>
+						<span class="cm-spec__val"><code>never spoken</code></span>
+					</div>
+					<div class="cm-spec__row" role="listitem">
+						<span class="cm-spec__label"><code>cm-crumbs__here</code></span>
+						<span class="cm-spec__sample"><code>span</code></span>
+						<span class="cm-spec__val"><code>never a link</code></span>
+					</div>
+				</div>
+			</section>
 
 			<section id="lists" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
 				<SectionHead title="lists / rows" />

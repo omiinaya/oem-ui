@@ -1050,6 +1050,129 @@ button.cm-row:hover { background: var(--bg-2); }
 	.cm-rows--inline .cm-row__desc { display: none; }
 }
 
+/* ---------- breadcrumb ----------
+   The trail that answers "how deep am I, and how do I get out", above a
+   detail page. This is a real component and not an imagined one: gantree
+   and gantree-ui-icons each carry a byte-identical hand-rolled copy
+   (.crumbs / .crumb-sep / .crumb-here, 14 lines) and NOTHING in this
+   library owned the shape, so the copy was free to be wrong in three
+   ways that are fixed here and were all measurable.
+
+   1. NO TAP FLOOR. The hand-rolled row is bare text at 0.78rem on a
+      0.4rem gap, so every crumb link is about 16px tall against a
+      --tap floor of 44px. A trail is the FIRST thing a person touches
+      on a detail page, so this is the row where the floor matters most,
+      and the same coarse-pointer rule that rescues .cm-btn rescues this.
+
+   2. THE SEPARATOR IS A CHARACTER. `&rsaquo;` in a <span> sits in the
+      text run between two links. Left without aria-hidden it is announced
+      as "greater-than" between two destinations, and every consumer then
+      has to remember the attribute. The separator here is a
+      .cm-crumbs__sep element the library styles once - and it must carry
+      aria-hidden="true" in the MARKUP, because a ::after would NOT do:
+      generated content is part of name-from-content, so the link would
+      be read as "store greater-than". Measured, not assumed - see the
+      rule and tests/measure-crumb-separator-ax.py.
+
+   3. THE CURRENT CRUMB IS NOT MARKED. The hand-rolled last crumb is a
+      <span> that merely differs in colour - which is invisible to a
+      screen reader and invisible in greyscale print, which is the only
+      print mode this system supports. aria-current="page" is what says
+      "you are here"; .cm-header__link already uses that same attribute
+      for exactly this job, and the two must not diverge, so the marker
+      is asserted against the header rule rather than invented here.
+
+   The wrap is the point: a trail grows with its depth, and on a 390px
+   phone a four-level trail is ~340px of links in a ~330px column. It
+   wraps instead of scrolling, and it wraps in a way that keeps the
+   first crumb on the first line, so the trail stays readable instead of
+   becoming a single run past the right edge. */
+.cm-crumbs {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-1);
+	margin: 0 0 var(--space-4);
+	padding: 0;
+	font-family: var(--font-mono);
+	font-size: max(var(--min-font), var(--text-xs));
+	color: var(--ink-faint);
+}
+/* Each crumb is a tap target in its own right. The floor is on the LINK,
+   not on the trail, so the vertical rhythm of the row is set by the
+   links themselves and the separator inherits the same box - a taller
+   hit area around the separator costs nothing and avoids a seam where
+   the trail's height changes between levels. */
+.cm-crumbs__link {
+	display: inline-flex;
+	align-items: center;
+	min-height: var(--tap);
+	padding: 0 var(--space-2);
+	color: var(--ink-dim);
+	text-decoration: none;
+	transition: color var(--cm-t) var(--cm-ease);
+}
+.cm-crumbs__link:hover { color: var(--ink); }
+/* The underline is on hover/focus rather than always, because a trail is
+   already a row of things that look like links; the affordance has to
+   earn its way in. */
+.cm-crumbs__link:hover,
+.cm-crumbs__link:focus-visible { text-decoration: underline; }
+/* A SEPARATOR ELEMENT, aria-hidden, and NOT a ::after.
+
+   The first version of this rule put the chevron in
+   `.cm-crumbs__link::after`, on the reasoning that generated content is
+   absent from the DOM and therefore "leaves the accessibility tree
+   entirely". MEASURED, that is false. Read over CDP with
+   Accessibility.getFullAXTree, all three candidate shapes give:
+
+       a ::after on the link              link name "store›"  <- LOUD
+       b <span aria-hidden> in the link   link name "store"   <- silent
+       c <span aria-hidden> between links link name "store"   <- silent
+
+   ::after content is part of name-from-content, so the shape that reads
+   as the clever one is the only one that gets spoken. The `ignored` flag
+   on those nodes is false, so it is not a reporting artifact.
+
+   So the separator is real markup with aria-hidden="true", which is what
+   gantree already had, and the reason the library version still earns its
+   place is the rest: the tap floor, the wrap, and aria-current. Cost of
+   the honest shape: one element per separator, so it is aria-hidden in
+   the MARKUP and styled by ONE rule here rather than typed into every
+   consumer - and tests/measure-crumb-separator-ax.py keeps the three
+   shapes comparable so this is not re-decided from memory. */
+.cm-crumbs__sep {
+	color: var(--ink-faint);
+	padding-inline: var(--space-1);
+	user-select: none;
+}
+/* A crumb with no href is the current page and must never look like a
+   destination. :not(a) is the check rather than a class, so a consumer
+   that forgets the class still gets the non-interactive appearance
+   instead of shipping a link that goes nowhere. */
+.cm-crumbs__here {
+	display: inline-flex;
+	align-items: center;
+	min-height: var(--tap);
+	padding: 0 var(--space-2);
+	color: var(--ink);
+}
+/* The current crumb is marked by aria-current="page", which is the SAME
+   attribute .cm-header__link uses for the same job. Asserting both is
+   what stops a second, private "active" convention growing here. */
+.cm-crumbs__link[aria-current='page'] {
+	color: var(--ink);
+}
+/* Below the wrap width the trail is a column of targets, so the hit area
+   and the row stop fighting each other and the separator becomes a
+   row-ending mark instead of an inline glyph. The break is the same
+   680px the back link and the inline row use. */
+@media (max-width: 680px) {
+	.cm-crumbs { gap: 0; }
+	.cm-crumbs__link,
+	.cm-crumbs__here { padding-inline: 0 var(--space-3); }
+}
+
 /* ---------- media frame ---------- */
 .cm-media {
 	margin: 1rem 0 2rem;

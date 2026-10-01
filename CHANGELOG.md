@@ -5,6 +5,67 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **A breadcrumb, because two consumers each hand-rolled one and got it
+  wrong three ways.**
+  `.cm-crumbs` / `.cm-crumbs__link` / `.cm-crumbs__sep` /
+  `.cm-crumbs__here` — the trail above a detail page. This is not an
+  imagined component: `gantree` and `gantree-ui-icons` each carry a
+  **byte-identical** 14-line copy of `.crumbs` / `.crumb-sep` /
+  `.crumb-here` in `web/src/styles/global.css`, and nothing in this
+  library owned the shape, so the copy was free to be wrong. All three
+  defects were measured, not guessed:
+
+  1. **No tap floor.** The hand-rolled row is bare text at `0.78rem`,
+     which renders 12.48px tall against a `--tap` floor of 44px — a
+     **31.52px shortfall on the row a thumb lands on first** when backing
+     out of a page. Measured in WebKit at 393x852 with `pointer: coarse`,
+     every `.cm-crumbs__link` is now exactly **44.00px**.
+  2. **The separator was a live character.** `&rsaquo;` in a `<span>`
+     sits in the text run between two destinations. It is now a
+     `.cm-crumbs__sep` carrying `aria-hidden="true"`.
+  3. **The current crumb was unmarked.** The hand-rolled last crumb is a
+     `<span>` that merely differs in colour — invisible to a screen
+     reader and in greyscale print, the only print mode this system has.
+     It now carries `aria-current="page"`, the same attribute
+     `.cm-header__link` already uses, asserted against that rule so a
+     second private convention cannot grow.
+
+  **The separator decision was reversed by measurement, and the first
+  answer was wrong.** It shipped as a `::after` on the link, with a
+  comment claiming generated content "leaves the accessibility tree
+  entirely". A CDP read of `Accessibility.getFullAXTree` says otherwise:
+
+      ::after on the link              link name `store›`   <- SPOKEN
+      <span aria-hidden> in the link   link name `store`    <- silent
+      <span aria-hidden> between links link name `store`    <- silent
+
+  `::after` content is part of name-from-content, so the shape that reads
+  as the clever one is the only one that gets announced, with
+  `ignored: false` — not a reporting artifact. So the separator is real
+  markup with `aria-hidden="true"`, which is what the consumer already
+  had, and the library version earns its place on the floor, the wrap and
+  `aria-current`. `tests/measure-crumb-separator-ax.py` keeps the three
+  shapes comparable so this is not re-decided from memory.
+
+  **A screenshot found what the geometry probe had half-measured.** With
+  the separator as a sibling flex item it is its own flex child, so
+  `flex-wrap` is free to break on either side of it: the 5-level trail at
+  393px put a lone chevron at the start of row 2 and another at the end,
+  and the wrapped row began at **left 56px instead of 40px**. Nesting the
+  separator inside its link makes link+separator one unbreakable box;
+  left edges went from `[40, 56, 107, 213]` to `[40, 107, 225]`, so every
+  row now starts on the margin. It is still silent, because `aria-hidden`
+  is what silences it and nesting changes nothing about that.
+
+  The trail wraps rather than scrolling: a deep trail overflows a phone
+  column, and the first crumb is the one guaranteed way out of the page.
+  Verified at 393x852 (3 rows) and 375x667 (4 rows), plus desktop 1440
+  (1 row). Both themes clear AA: crumb links 7.21:1 dark / 8.49:1 light,
+  current crumb 16.16:1 / 18.09:1. 11 new contract tests, 11 mutations
+  all caught and 0 no-op, including the inert-value mutant
+  (`min-height: 44px` instead of `var(--tap)`) and the one that moves the
+  separator back out of its link.
+
 - **The header's icon link was 18px wide, and no test ever looked at it.**
   `.cm-header__icon-link` - the glyph link a header carries, the one that
   ships the GitHub mark with the link so the two cannot be separated - got

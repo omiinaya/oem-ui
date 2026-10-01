@@ -362,6 +362,38 @@ so every route begins its content at the same y. This is deliberate: the
 thing that most reliably makes a site feel unpolished is content that jumps
 between pages.
 
+### Breadcrumb
+
+The trail above a detail page. It is here because two consumers each
+hand-rolled one and got it wrong in three measurable ways.
+
+```html
+<nav class="cm-crumbs" aria-label="Breadcrumb">
+  <a class="cm-crumbs__link" href="/">plugins<span class="cm-crumbs__sep" aria-hidden="true">&rsaquo;</span></a>
+  <a class="cm-crumbs__link" href="/?q=terminal">terminal<span class="cm-crumbs__sep" aria-hidden="true">&rsaquo;</span></a>
+  <span class="cm-crumbs__here" aria-current="page">cli-mono</span>
+</nav>
+```
+
+- **Every crumb is a `--tap` target.** Measured at 393x852 in WebKit on a
+  coarse pointer: 44.00px. The hand-rolled version this replaces was bare
+  text at `0.78rem`, i.e. 12.48px — a 31.5px shortfall on the first row a
+  thumb touches.
+- **The separator goes INSIDE its link.** It is its own flex child when it
+  is a sibling, so `flex-wrap` can strand a lone `›` at a line start. As a
+  child of the link, link+separator cannot be broken apart.
+- **`aria-hidden="true"` on the separator is required, and a `::after`
+  would NOT work.** Measured over CDP with `Accessibility.getFullAXTree`:
+  a `::after` separator makes the link's accessible name `store›` — it is
+  *spoken*, because generated content is part of name-from-content. The
+  `aria-hidden` element reads `store`. Compare the shapes with
+  `tests/measure-crumb-separator-ax.py`.
+- **The current crumb is `aria-current="page"`**, the same attribute
+  `.cm-header__link` uses. It is a `<span>`, never an `<a>`: the one crumb
+  on the page that goes nowhere should not be a link.
+- The trail **wraps, never scrolls** — a deep trail overflows a phone
+  column, and the first crumb is the guaranteed way out.
+
 ### Forms
 
 Controls are **element defaults**, not classes. A bare `<input>` is already
