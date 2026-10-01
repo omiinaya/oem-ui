@@ -56,6 +56,13 @@
 .cm-head .cm-head__title,
 .cm-head-row .cm-head__title {
 	font-size: var(--head-h1);
+	/* The weight belongs HERE, not to the element. Measured on rpm: the
+	   pages whose title is an <h1> rendered 32px w700, while the pages
+	   whose title is a <div class="cm-head__title"> inside the same
+	   .cm-head rendered 32px w400 - same size, half the presence. The
+	   bold came from the UA stylesheet for <h1> and nothing set it for
+	   the div, so a page's title weight depended on its markup. */
+	font-weight: 700;
 	line-height: 1.15;
 	margin: 0 0 0.6rem;
 	letter-spacing: -0.01em;
@@ -118,7 +125,7 @@
 	   step between a panel heading and a page title is a scale decision,
 	   and a raw rem here put it outside the one place that decision
 	   belongs. */
-	font-size: 1.15rem;
+	font-size: var(--head-h2);
 	font-weight: 700;
 	line-height: 1.25;
 	letter-spacing: -0.01em;
