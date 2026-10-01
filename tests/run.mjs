@@ -5128,7 +5128,14 @@ check('the --tap token is the 44px floor', () => {
 // it is the case where inheriting the floor on ONE axis is the bug rather
 // than the safety net. Measured at 32x44 on both live sites before the
 // variant existed.
-const INTERACTIVE = ['cm-btn', 'cm-tabs__tab', 'cm-nav-toggle', 'cm-chip--action', 'cm-icon-btn--bare'];
+const INTERACTIVE = ['cm-btn', 'cm-tabs__tab', 'cm-nav-toggle', 'cm-chip--action', 'cm-icon-btn--bare', 'cm-header__icon-link'];
+// `cm-header__icon-link` is the fifth, and it was a real defect rather than
+// a bookkeeping entry: base.css's coarse-pointer element floor gives an
+// `<a>` a `min-height`, so the header's GitHub link inherited 44px of
+// HEIGHT and took its WIDTH from the 18px inline SVG it wraps, measuring
+// 18x44 on dev-blog. It belongs in the PINS_BOTH_DIMENSIONS set, because a
+// floor satisfied on one axis is the bug the other two members of that set
+// were added for.
 // Every rule that DECLARES the class - parsed as a rule list, not matched
 // with a regex over raw text, because the forms here are exactly the ones a
 // regex gets wrong:
@@ -5239,7 +5246,7 @@ for (const sel of INTERACTIVE) {
 	// only for min-height reports that as a failure, which is the same
 	// defect as a check scoped to the wrong layer.
 	const IN_THE_BASE_ELEMENT_LAYER = new Set(['cm-tabs__tab']);
-	const PINS_BOTH_DIMENSIONS = new Set(['cm-icon-btn--bare']);
+	const PINS_BOTH_DIMENSIONS = new Set(['cm-icon-btn--bare', 'cm-header__icon-link']);
 	const all = declsOf(sel);
 	// The value, not the substring. `[role='tab']` shares ONE declaration
 	// block with `a, button, label, input, textarea, select` and
