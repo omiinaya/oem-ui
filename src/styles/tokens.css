@@ -32,7 +32,60 @@
 	   matters: MEASURED on rpm's Dashboard, the page title and a panel
 	   heading both computed 32px / w700, which is why the scale looked
 	   like it had only one step. */
-	--head-h2: 1.15rem;
+	/* ONE source for the section-heading step. It used to declare its
+	   own 1.15rem here AND live on the text scale as --text-md, so
+	   a retune of one silently left the other behind - which is how
+	   the heading and the data under it ended up identical. The
+	   heading scale is the text scale's top end, not a parallel
+	   set of numbers. */
+	--head-h2: var(--text-md);
+
+	/* ---- the TEXT scale ----------------------------------------
+	   The heading scale above has three steps, which is all a page
+	   needs. BODY text was never given a scale at all: rules reached
+	   for raw rem literals - 0.7, 0.72, 0.8, 0.84, 1.05 - and MEASURED
+	   on rpm's Dashboard that produced TWELVE distinct rendered sizes
+	   (32, 21.6, 18.4, 16.8, 16, 13.6, 13.44, 13.12, 12.8, 12, 11.52,
+	   11.2) for what should be five jobs. A page with no type scale
+	   reads as flat no matter how good the spacing is: every size
+	   differs from its neighbour by a couple of pixels, so nothing
+	   groups and the eye has to work out what belongs to what.
+
+	   Five steps, and every body-size rule resolves one of them:
+	     --text-lg    a value that is the POINT of its panel (a count)
+	     --text       the default reading size
+	     --text-sm    secondary text: meta, help, a row's description
+	     --text-xs    a label, a tag, a chip
+	     --text-micro the uppercase tracked label, and the floor
+	   --min-font below is the hard WCAG/iOS floor and is deliberately
+	   the same number as --text-xs, so a rule that reaches for either
+	   lands on the same rendered size. */
+	--text-lg: 1.35rem;
+	/* The one step between a section heading (--head-h2, 18.4px) and body
+	   text. A metric VALUE belongs here and not at --text-lg: a tile whose
+	   number is louder than the heading that introduces it inverts the
+	   reading order, and MEASURED on rpm that was exactly what the
+	   Dashboard did - 21.6px figures against 18.4px headings, so the
+	   data outweighed the structure meant to organise it. */
+	/* --text-md is the SECTION HEADING step, and --text is the data step
+	   under it. They sat at the same value for a while, which MEASURED
+	   as a hero numeral and its own panel title both rendering 18.4px
+	   at w700 in the same white: the data and the thing meant to
+	   organise it were indistinguishable by size, and enclosure was
+	   the only thing telling them apart. The scale needs a real step
+	   between them, so the heading owns --text-md and the value one
+	   step below. */
+	--text-md: 1.25rem;
+	--text: 1rem;
+	--text-sm: 0.875rem;
+	--text-xs: 0.8125rem;
+	/* NOT 0.7rem. The smallest step is the uppercase tracked label, it
+	   is a real label and not decoration, and 0.7rem computed to
+	   11.2px - under the 12px floor. A scale step that sits below the
+	   accessibility floor is a step the system should not have, so the
+	   floor wins: 0.75rem lands on 12px exactly and the scale still
+	   steps down from --text-xs. */
+	--text-micro: 0.75rem;
 	--radius: 10px;
 	--radius-sm: 6px;
 
@@ -142,6 +195,14 @@
 	--bg-2: #101010;
 	--bg-3: #161616;
 	--panel: #111111;
+	/* A surface NESTED inside a panel. It needed its own step: a tile
+	   inside a panel was painted `--bg-2` (#101010) on a `--panel`
+	   (#111111) - MEASURED contrast ratio 1.008, which is one 255th of
+	   a difference. The border was doing all the work and the fill did
+	   none, so three levels of enclosure on rpm's Dashboard all read as
+	   the same plane. In a dark UI a nested surface is RAISED, so it is
+	   LIGHTER than the panel that holds it. */
+	--panel-nested: #1a1a1a;
 	--line: #262626;
 	--line-soft: #1c1c1c;
 
@@ -188,6 +249,9 @@
 	--bg-2: #ffffff;
 	--bg-3: #f0f0f0;
 	--panel: #f5f5f5;
+	/* The same logic inverts in a light UI: a nested surface is
+	   RECESSED, so it is darker than the panel that holds it. */
+	--panel-nested: #ececec;
 	--line: #d6d6d6;
 	--line-soft: #e2e2e2;
 
@@ -238,6 +302,14 @@
 	--bg-2: #101010;
 	--bg-3: #161616;
 	--panel: #111111;
+	/* A surface NESTED inside a panel. It needed its own step: a tile
+	   inside a panel was painted `--bg-2` (#101010) on a `--panel`
+	   (#111111) - MEASURED contrast ratio 1.008, which is one 255th of
+	   a difference. The border was doing all the work and the fill did
+	   none, so three levels of enclosure on rpm's Dashboard all read as
+	   the same plane. In a dark UI a nested surface is RAISED, so it is
+	   LIGHTER than the panel that holds it. */
+	--panel-nested: #1a1a1a;
 	--line: #262626;
 	--line-soft: #1c1c1c;
 	--ink: #e8e8e8;
@@ -265,6 +337,9 @@
 	--bg-2: #ffffff;
 	--bg-3: #f0f0f0;
 	--panel: #f5f5f5;
+	/* The same logic inverts in a light UI: a nested surface is
+	   RECESSED, so it is darker than the panel that holds it. */
+	--panel-nested: #ececec;
 	--line: #d6d6d6;
 	--line-soft: #e2e2e2;
 	--ink: #111111;

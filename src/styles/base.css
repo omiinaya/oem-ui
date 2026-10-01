@@ -40,7 +40,7 @@ body {
 	background-attachment: fixed;
 	color: var(--ink);
 	font-family: var(--font-body);
-	font-size: 16px;
+	font-size: var(--text);
 	line-height: 1.7;
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
@@ -75,9 +75,9 @@ h1, h2, h3, h4, h5, h6 {
 	line-height: 1.25;
 	letter-spacing: -0.01em;
 }
-h1 { font-size: 2.1rem; }
-h2 { font-size: 1.45rem; margin-top: 2em; }
-h3 { font-size: 1.2rem; margin-top: 1.6em; }
+h1 { font-size: var(--head-h1); }
+h2 { font-size: var(--head-h2); margin-top: 2em; }
+h3 { font-size: var(--text-lg); margin-top: 1.6em; }
 
 p {
 	margin: 0 0 1.1em;
@@ -129,7 +129,7 @@ pre {
 pre > code {
 	all: unset;
 	font-family: var(--font-mono);
-	font-size: 0.82rem;
+	font-size: var(--text-xs);
 	line-height: 1.7;
 	color: var(--ink);
 	display: block;
@@ -231,9 +231,9 @@ button:focus-visible,
 	/* The page title must stay clearly above a section h2 (23.2px).
 	   1.7rem rendered at 27.2px, too close to shout at the same volume. */
 	:root { --head-top: 2rem; --head-h1: 1.95rem; }
-	body { font-size: 15px; }
+	body { font-size: var(--text-sm); }
 	h1 { font-size: var(--head-h1); }
-	pre { padding: 1.1em 1.1em; font-size: 0.78rem; }
+	pre { padding: 1.1em 1.1em; font-size: var(--text-xs); }
 	.cm-prose { padding: 0; }
 }
 

@@ -23,12 +23,12 @@ MUTATIONS = [
     # TOKEN. Editing `font-size: 1.15rem` in components.css mutated
     # nothing at all and three mutations "survived" - which meant they
     # never happened, not that the guard was weak.
-    ('make the section title as large as the page head',
+    ('collapse the section heading onto the body step',
      TOK,
-     lambda s: s.replace('--head-h2: 1.15rem;', '--head-h2: 1.95rem;', 1)),
+     lambda s: s.replace('--head-h2: var(--text-md);', '--head-h2: var(--text);', 1)),
     ('shove the section title below legibility',
      TOK,
-     lambda s: s.replace('--head-h2: 1.15rem;', '--head-h2: 0.5rem;', 1)),
+     lambda s: s.replace('--text-md: 1.25rem;', '--text-md: 0.5rem;', 1)),
     ('put a panel heading back in the page-title class',
      DASH,
      lambda s: s.replace('<h2 className="cm-section__title">',
@@ -38,7 +38,7 @@ MUTATIONS = [
      lambda s: s.replace('cm-section__title', 'cm-head__title')),
     ('collapse section back onto the card title',
      TOK,
-     lambda s: s.replace('--head-h2: 1.15rem;', '--head-h2: 1.05rem;', 1)),
+     lambda s: s.replace('--head-h2: var(--text-md);', '--head-h2: var(--text-xs);', 1)),
     ('the section title stops reading the token at all',
      LIB,
      lambda s: s.replace('font-size: var(--head-h2);', 'font-size: 1.15rem;', 1)),

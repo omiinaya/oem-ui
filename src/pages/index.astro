@@ -918,6 +918,30 @@ A vertical run of records. The stack is opt-in rather than baked into the list, 
 							</ul>
 					</div>
 				</div>
+
+				<div>
+					<p class="cm-row__meta" style="margin-bottom:var(--space-3)">tight, the ledger case</p>
+					<ul class="cm-rows cm-stack cm-stack--tight">
+						<li class="cm-row">
+							<span class="cm-row__body">app.example.com</span>
+							<span class="cm-row__meta">/health</span>
+						</li>
+						<li class="cm-row">
+							<span class="cm-row__body">cdn.example.com</span>
+							<span class="cm-row__meta">/assets</span>
+						</li>
+						<li class="cm-row">
+							<span class="cm-row__body">api.example.com</span>
+							<span class="cm-row__meta">/v2</span>
+						</li>
+					</ul>
+					<p class="cm-head__sub" style="margin-top:var(--space-3)">
+						A run of BORDERED panels is a page of regions and gets the
+						default gap; a run of hairline-separated records is one table
+						and stays tight. The gap between siblings has to beat the
+						padding inside a sibling or the grouping isn't legible.
+					</p>
+				</div>
 			</section>
 						<section id="badge" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
 							<SectionHead title="page head">
@@ -1886,6 +1910,20 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 						</dl>
 					</div>
 				</div>
+					<div>
+						<h4 class="cm-kicker cm-kicker--plain">flush</h4>
+						<dl class="cm-kv cm-kv--flush">
+							<div><dt>rows</dt><dd>4</dd></div>
+							<div><dt>stack</dt><dd>v1.12</dd></div>
+						</dl>
+						<p class="cm-head__sub" style="margin:var(--space-2) 0 0">
+						<code>.cm-kv--flush</code> drops the block's own bottom margin:
+						inside a dialog or a card the surrounding panel already
+						provides that space, and cancelling it with an inline
+						<code>style</code> is something a stylesheet cannot override
+						or audit.
+						</p>
+					</div>
 
 				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">key-value, whole row is the link</h3>
 				<p class="cm-head__sub" style="margin-bottom:var(--space-4)">

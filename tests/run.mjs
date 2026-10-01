@@ -53,6 +53,41 @@ function assert(cond, msg) {
 // Sources the component tests read, stripped of comments once so a note in
 // the CSS can never be mistaken for a rule.
 const tokenSrc = read('src/styles/tokens.css').replace(/\/\*[\s\S]*?\*\//g, '');
+
+// Resolve a font-size DECLARATION to a number, following one level of
+// var() indirection into tokens.css. Every size rule in the components
+// layer now names a scale token rather than a raw rem, so a guard that
+// parsed a literal silently stopped testing anything - it reported a
+// "missing size" where there was a real rule, and would have passed if
+// the rule were deleted. Resolve the value the browser would.
+function resolveSize(decl) {
+  if (!decl) return null;
+  // `max(var(--min-font), var(--text-md))` renders as the SECOND
+  // argument at desktop: the first is a floor, and a floor is not the
+  // value. Reading the first argument instead reported a size nothing
+  // ever paints.
+  const fn = /\b(?:max|min|clamp)\(([^()]*)\)/.exec(decl);
+  if (fn) return resolveSize(fn[1].split(',').slice(-1)[0].trim());
+  // A token may point at another token (`--head-h2: var(--text-md)`).
+  // One hop reported a false "no resolvable font-size" on a perfectly
+  // valid scale, and the tempting fix - deleting the indirection - is
+  // how two sources for one step come to exist. Follow the chain.
+  for (let i = 0; i < 8; i++) {
+    const v = /var\(\s*(--[a-z0-9-]+)\s*\)/.exec(decl);
+    if (!v) break;
+    const t = new RegExp(`^\\s*${v[1]}\\s*:\\s*([^;]+);`, 'm').exec(tokenSrc);
+    if (!t) return null;
+    decl = t[1].trim();
+  }
+  const m = /([0-9.]+)rem|([0-9.]+)px/.exec(decl);
+  if (!m) return null;
+  return parseFloat(m[1] ?? m[2]) * (m[1] ? 16 : 1);
+}
+// The value of a size, in px, from a rule body.
+function sizeOf(body) {
+  const d = /font-size:\s*([^;}]+)/.exec(body || '');
+  return d ? resolveSize(d[1]) : null;
+}
 const compSrc = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
 // Element defaults live in base.css by design - a bare `input` is
 // on-brand there, and `.cm-sr-only` is a bare element utility. A
@@ -4427,14 +4462,16 @@ check('cm-stat: the value can never be the loudest thing in its section', () => 
 	// against any `h2` selector: `.cm-prose h2` is a heading inside long
 	// form copy and is deliberately a step smaller, so matching it would
 	// compare a section tile against the wrong scale entirely.
-	const h2 = /(?:^|\n)h2\s*\{[^}]*font-size:\s*([0-9.]+)rem/.exec(base);
+	const h2 = /(?:^|\n)h2\s*\{([^}]*)\}/.exec(base);
 	assert(h2, 'no bare h2 element default found in base.css');
+	const h2px = sizeOf(h2[1]);
+	assert(h2px, 'the bare h2 default declares no resolvable font-size');
 	const val = /^\.cm-stat__val\s*\{([^}]*)\}/m.exec(compSrc);
 	assert(val, '.cm-stat__val is not defined');
-	const v = /font-size:\s*([0-9.]+)rem/.exec(val[1]);
-	assert(v, '.cm-stat__val declares no rem font-size');
-	assert(parseFloat(v[1]) <= parseFloat(h2[1]),
-		`.cm-stat__val (${v[1]}rem) must not exceed the section h2 (${h2[1]}rem)`);
+	const vpx = sizeOf(val[1]);
+	assert(vpx, '.cm-stat__val declares no resolvable font-size');
+	assert(vpx <= h2px,
+		`.cm-stat__val (${vpx}px) must not exceed the section h2 (${h2px}px)`);
 	// And a wrapping figure must not widen the grid track.
 	assert(/overflow-wrap:\s*break-word/.test(val[1]),
 		'a long value must wrap inside its tile, not widen the grid');
@@ -6438,10 +6475,21 @@ check('a state chip cannot fall below the 12px text floor', () => {
 	// is sub-floor in the one place a consumer will never think to look.
 	// Asserted against the TOKEN, not 12px, so a retune of --min-font does
 	// not leave the chip pinned to a number that no longer means anything.
+	// The rule is FLOORING A SCALE TOKEN, not a literal: the token
+	// carries the value and the floor keeps it honest. Pinning the
+	// literal (as this check did) meant it broke the moment the scale
+	// was introduced, and it was reading a number that no longer
+	// described anything.
 	const rule = /^\.cm-chip \{([^}]*)\}/m.exec(compSrc);
 	assert(rule, 'no .cm-chip base rule found');
-	assert(/font-size:\s*max\(var\(--min-font\),\s*0\.7rem\)/.test(rule[1]),
-		'.cm-chip must floor its font-size at var(--min-font) via max(); 0.7rem alone is 11.2px');
+	const fs = /font-size:\s*max\(\s*var\(--min-font\)\s*,\s*(var\(--[a-z0-9-]+\))\s*\)/.exec(rule[1]);
+	assert(fs, '.cm-chip must floor its font-size at var(--min-font) via max()');
+	assert(fs[1], '.cm-chip must size itself from the type scale, not a raw rem literal');
+	// ...and the step it names must itself sit at or above the floor.
+	const step = resolveSize(fs[1]);
+	const floor = resolveSize('12px');
+	assert(step >= floor,
+		`.cm-chip names ${fs[1].trim()} = ${step}px, which is under the ${floor}px floor`);
 	// The same floor the rest of the system asserts, so the two cannot
 	// disagree about what the floor is.
 	assert(/--min-font:\s*12px/.test(tokenSrc),
