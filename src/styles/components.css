@@ -110,13 +110,34 @@
    IS, because "a div" was a perfectly reasonable thing for a caller to
    reach for and it silently did the wrong thing.
 
-   `min-width: 0` stays: it is what lets a long title shrink and wrap
-   instead of pushing the action off the row. */
+   THE TRAP, and it is the whole reason this rule is not the obvious one:
+   making this a flex row made its children flex items too, so the
+   `min-width: 0` that lets the WRAPPER shrink stopped at the wrapper
+   and started applying to the title itself. A flex item with
+   `min-width: 0` shrinks to the width of its longest word, not to its
+   content - measured on the showcase: 22 headings collapsed, "nav" to
+   13px wide and "Records" to 23px, each wrapping one or two characters
+   per line. The fix is to give the permission to the CHILD that needs
+   it and let the wrapper be an ordinary shrinkable block. */
 .cm-head-row__text {
 	display: flex;
 	align-items: center;
 	gap: var(--space-3);
 	min-width: 0;
+}
+/* Only the text may shrink, and only down to its longest word. The
+   badge is an icon: letting it shrink would squash the glyph, so it is
+   held at its natural size. */
+.cm-head-row__text > .cm-section__title,
+.cm-head-row__text > .cm-head__title,
+.cm-head-row__text > .cm-head__sub,
+.cm-head-row__text > * {
+	flex: 0 1 auto;
+	min-width: min(100%, 12rem);
+}
+.cm-head-row__text > .cm-head__badge {
+	flex: 0 0 auto;
+	min-width: auto;
 }
 
 /* ---------- push / stick to the far end ----------
@@ -2152,7 +2173,7 @@ button.cm-row:hover { background: var(--bg-2); }
 	position: absolute;
 	top: 50%;
 	right: 0;
-	transform: translateY(-50%);
+	transform: none;
 }
 .cm-form { display: flex; flex-direction: column; }
 /* actions sit apart from the last field and align to the right */

@@ -11,6 +11,7 @@ import sys
 
 TEST = '/root/projects/oem-ui/tests/contract-type-scale.py'
 LIB = pathlib.Path('/root/projects/oem-ui/src/styles/components.css')
+TOK = pathlib.Path('/root/projects/oem-ui/src/styles/tokens.css')
 DASH = pathlib.Path('/mnt/pve/mrx-thunder/projects/spacetime-rpm/web/src/pages/Dashboard.tsx')
 PY = '/root/.venvs/mau/bin/python'
 
@@ -18,12 +19,16 @@ MUTATIONS = [
     ('delete the section heading from the library',
      LIB,
      lambda s: s.replace('.cm-section__title {', '.cm-section__titleXX {', 1)),
+    # The scale moved into tokens.css as --head-h2, so these mutate the
+    # TOKEN. Editing `font-size: 1.15rem` in components.css mutated
+    # nothing at all and three mutations "survived" - which meant they
+    # never happened, not that the guard was weak.
     ('make the section title as large as the page head',
-     LIB,
-     lambda s: s.replace('font-size: 1.15rem;', 'font-size: 1.95rem;', 1)),
+     TOK,
+     lambda s: s.replace('--head-h2: 1.15rem;', '--head-h2: 1.95rem;', 1)),
     ('shove the section title below legibility',
-     LIB,
-     lambda s: s.replace('font-size: 1.15rem;', 'font-size: 0.5rem;', 1)),
+     TOK,
+     lambda s: s.replace('--head-h2: 1.15rem;', '--head-h2: 0.5rem;', 1)),
     ('put a panel heading back in the page-title class',
      DASH,
      lambda s: s.replace('<h2 className="cm-section__title">',
@@ -32,8 +37,11 @@ MUTATIONS = [
      DASH,
      lambda s: s.replace('cm-section__title', 'cm-head__title')),
     ('collapse section back onto the card title',
+     TOK,
+     lambda s: s.replace('--head-h2: 1.15rem;', '--head-h2: 1.05rem;', 1)),
+    ('the section title stops reading the token at all',
      LIB,
-     lambda s: s.replace('font-size: 1.15rem;', 'font-size: 1.05rem;', 1)),
+     lambda s: s.replace('font-size: var(--head-h2);', 'font-size: 1.15rem;', 1)),
 ]
 
 baseline = subprocess.run([PY, TEST], capture_output=True, text=True)

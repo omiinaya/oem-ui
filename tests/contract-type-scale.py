@@ -31,23 +31,38 @@ tsx = sorted(glob.glob(str(APP / '**' / '*.tsx'), recursive=True))
 
 print('1. the library defines a section heading, separate from the page head')
 check('.cm-section__title {' in css, '.cm-section__title is defined in the library')
-_anchor = '.cm-head-row__action { margin-left: auto; flex: 0 0 auto; }'
-_after = css.split(_anchor, 1)
-check(len(_after) == 2 and '.cm-section__title' in _after[1][:1200],
-      'it is anchored beside the head block, not appended loose')
+# The heading scale is a TOKEN question, so resolve tokens rather than
+# reading a literal: `--head-h2` lives in tokens.css, and a guard that
+# parsed `font-size: 1.15rem` went red for a change that made the scale
+# MORE coherent, not less.
+tokens = (LIB_DIR / 'tokens.css').read_text()
+_sec_tok = re.search(r'--head-h2:\s*([\d.]+)rem', tokens)
+check(_sec_tok is not None, '--head-h2 is a token in tokens.css')
+check(re.search(r'font-size:\s*var\(--head-h2\)', css) is not None,
+      'the section title reads that token, not a raw rem')
 m = re.search(r'\.cm-section__title \{(.*?)\}', css, re.S)
 check(bool(m), '.cm-section__title has a rule body')
 size = re.search(r'font-size: ([^;]+);', m.group(1)) if m else None
 check(bool(size), '.cm-section__title declares a font-size')
 
 print('2. the scale steps: page head > section > card > legible floor')
-tok = re.search(r'--head-h1: ([\d.]+)rem', base)
-check(tok is not None, '--head-h1 token exists')
-if tok and size:
+tok = re.search(r'--head-h1:\s*([\d.]+)rem', tokens)
+check(tok is not None, '--head-h1 is a token in tokens.css')
+if tok and _sec_tok:
     head_px = float(tok.group(1)) * 16
-    sec_px = float(re.match(r'([\d.]+)', size.group(1)).group(1)) * 16
+    sec_px = float(_sec_tok.group(1)) * 16
     print(f'   page head = {head_px:.1f}px   section = {sec_px:.1f}px')
-    check(sec_px < head_px, f'section ({sec_px:.1f}px) < page head ({head_px:.1f}px)')
+    # STRICTLY smaller. `sec < head` alone passes when the two are
+    # EQUAL, which is the exact regression: setting --head-h2 to
+    # --head-h1 reproduced the 32px-everywhere defect this guard exists
+    # to catch, and the mutation survived. The gap has to be real.
+    check(sec_px < head_px,
+          f'section ({sec_px:.1f}px) < page head ({head_px:.1f}px)')
+    check(head_px - sec_px >= 8,
+          f'the step is a visible gap, not a hairline '
+          f'({head_px:.1f} - {sec_px:.1f} = {head_px - sec_px:.1f}px)')
+    check(sec_px != head_px,
+          f'the two steps are not the same size ({sec_px:.1f} vs {head_px:.1f})')
     check(sec_px >= 14, f'section ({sec_px:.1f}px) still legible (>= 14px)')
     card = re.search(r'\.cm-card__title \{(.*?)\}', css, re.S)
     cps = re.search(r'font-size: ([\d.]+)rem', card.group(1)) if card else None

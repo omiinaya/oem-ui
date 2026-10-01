@@ -1506,7 +1506,7 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 			     is not a link list, so both needed a real component. -->
 			<section id="records" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
 				<SectionHead title="Records">
-Stat tiles and a dated timeline. The tile count is data, so <code>.cm-stats</code> sizes its columns with <code>auto-fit</code> rather than a fixed number, and the timeline rail is drawn on the <em>item</em> so it stops at the last record on its own, with no script.
+Stat tiles and a dated timeline. The tile count is data, so <code>.cm-stats</code> sizes its columns with <code>auto-fit</code> rather than a fixed number, and the timeline rail is drawn on the <em>item</em> so it stops at the last record on its own, with no script. (<code>auto-fit</code> fits the count to the width; it cannot balance a ragged last row — see the balanced band below for that.)
 				</SectionHead>
 
 				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">stat tiles</h3>
@@ -1519,6 +1519,84 @@ Stat tiles and a dated timeline. The tile count is data, so <code>.cm-stats</cod
 					The note line is optional. It is the qualifier that makes a
 					number honest: “5,000+” on its own is a boast, “5,000+ across
 					the estate” is a fact.
+				</p>
+
+				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6);margin-bottom:var(--space-3)">
+					balanced bands, and a header row with a trailing chip
+				</h3>
+				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
+					<code>auto-fit</code> cannot stop a stranded tile. It always fits as
+					many columns as the width allows, so the last row keeps whatever
+					is left — measured on a seven-tile band at 1280px: six columns
+					of 158px and one tile alone beside 850px of nothing. A balanced
+					band takes an explicit count, and the page that knows how many
+					tiles it has is the page that sets it.
+				</p>
+
+				<ul class="cm-stats cm-stats--balance" style="--cm-stat-cols: 4">
+					<Stat value="1" label="proxy host" />
+					<Stat value="1" label="redirection" />
+					<Stat value="3" label="streams" />
+					<Stat value="1" label="dead host" />
+					<Stat value="9" label="access lists" />
+					<Stat value="24" label="certificates" />
+					<Stat value="1" label="user" />
+				</ul>
+				<p class="cm-head__sub" style="margin-top:var(--space-3)">
+					Seven tiles over four columns: 4 + 3, one dead column, which is
+					the best a single count can do for an odd total.
+				</p>
+
+				<div class="cm-head-row" style="margin-top:var(--space-7);margin-bottom:var(--space-4)">
+					<div class="cm-head-row__text">
+						<span class="cm-head__badge" aria-hidden="true">●</span>
+						<h3 class="cm-section__title">A header row with a trailing chip</h3>
+					</div>
+					<span class="cm-tag cm-head-row__meta">24 total</span>
+				</div>
+				<div class="cm-cards cm-cards--balance">
+					<div class="cm-tile">
+						<div class="cm-tile__label">Healthy</div>
+						<div class="cm-tile__val">24</div>
+						<div class="cm-tile__note">&gt;30 days</div>
+					</div>
+					<div class="cm-tile">
+						<div class="cm-tile__label">Expiring soon</div>
+						<div class="cm-tile__val">0</div>
+						<div class="cm-tile__note">&lt;30 days</div>
+					</div>
+					<div class="cm-tile">
+						<div class="cm-tile__label">Expired</div>
+						<div class="cm-tile__val">0</div>
+					</div>
+				</div>
+				<p class="cm-head__sub" style="margin-top:var(--space-3)">
+					The badge and the title share one line, and the chip is held
+					against the right edge by <code>.cm-head-row__meta</code>. Three
+					tiles over three columns: <code>.cm-cards--balance</code> is the
+					same fix for a card row, where a fitted grid left two and one.
+				</p>
+
+				<div class="cm-row" style="margin-top:var(--space-5);align-items:stretch">
+					<span class="cm-row__body">Trailing meta</span>
+					<span class="cm-row__meta cm-stick-top">top-aligned, not stretched</span>
+					<span class="cm-row__meta cm-push">last, so .cm-push holds it right</span>
+				</div>
+				<p class="cm-head__sub" style="margin-top:var(--space-3)">
+					Both are position utilities, and <code>.cm-push</code> only means
+					something as the LAST child: <code>margin-left: auto</code>
+					distributes the slack that follows it, so an element with
+					siblings after it is pushed away from them instead of the edge.
+				</p>
+				<div class="cm-btn-group cm-push-group" style="margin-top:var(--space-4)">
+					<span class="cm-tag">left</span>
+					<span class="cm-tag cm-push">right</span>
+				</div>
+				<p class="cm-head__sub" style="margin-top:var(--space-3)">
+					<code>.cm-push</code> and <code>.cm-stick-top</code> replace four
+					inline <code>marginLeft: 'auto'</code> copies in rpm. An inline
+					style cannot be overridden by a stylesheet and cannot respond to
+					a breakpoint; a class can do both.
 				</p>
 
 				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6);margin-bottom:var(--space-3)">timeline</h3>

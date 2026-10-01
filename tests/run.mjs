@@ -7432,13 +7432,27 @@ check('a disclosure action is walked to the end of the summary row', () => {
 
 check('the page head badge is marked with an inset rule, not a gradient', () => {
 	const comp = read('src/styles/components.css');
-	const rule = [...comp.matchAll(/([^{}\n]*\.cm-head__badge[^{}\n]*)\{([^}]*)\}/g)][0];
+	// Take the rule that PAINTS the badge, not merely the first rule that
+	// mentions it: `.cm-head-row__text > .cm-head__badge` is a layout
+	// exemption (do not squash the icon) and declares no paint at all, so
+	// reading "the first match" silently graded a layout rule as if it were
+	// the style - and reported a broken badge while the badge was perfect.
+	const rules = [...comp.matchAll(
+		/([^{}\n]*\.cm-head__badge[^{}\n]*)\{([^}]*)\}/g)]
+		.map(r => ({ sel: r[1].trim(), body: r[2] }));
+	const rule = rules.find(r => /box-shadow|background|border/.test(r.body))
+		|| rules.find(r => !/[>]/.test(r.sel));
 	assert(rule, '.cm-head__badge must have its own rule body');
+	assert(!/[>]/.test(rule.sel),
+		`the badge's own paint rule must be a bare class, not a descendant rule (got ${rule.sel})`);
 	// Read the BODY. A whole-file /gradient/ search matches the two comments
 	// that explain why the library has none, which is the opposite failure.
-	assert(!/gradient/.test(rule[2]),
+	assert(!/gradient/.test(rule.body),
 		'the badge paints a gradient; the library marks state with an inset rule, not a hue');
-	assert(/box-shadow:\s*inset/.test(rule[2]),
+	// `inset` may lead the shorthand (`inset 3px 0 0 var(--ink)`) or trail
+	// it (`3px 0 0 var(--ink) inset`); pinning the order would have failed
+	// a perfectly good declaration - the trap this check exists to catch.
+	assert(/box-shadow:[^;]*inset/.test(rule.body),
 		'the badge has no inset rule, so it reads as an unlabelled grey square');
 });
 
