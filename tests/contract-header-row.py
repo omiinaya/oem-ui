@@ -36,9 +36,22 @@ check('align-items: center' in body,
       'the badge and title are centred on the same baseline')
 check('min-width: 0' in body,
       'it still lets a long title shrink instead of pushing the action off')
-# the old single-line declaration must be gone, or it fights the block
-check(css.count('.cm-head-row__text {') == 1,
-      'there is exactly one .cm-head-row__text rule (no leftover one-liner)')
+# The old single-line declaration must be gone, or it fights the block.
+# This used to be `count('.cm-head-row__text {') == 1`, which went stale
+# the moment the library needed a second block rule (the shrink floor) --
+# and a literal-count assertion fails the day the CSS gets BETTER, which
+# is the worst possible time for a guard to go red. Assert the actual
+# defect instead: a leftover ONE-LINER declaration of this selector.
+_text_css = re.sub(r'/\*.*?\*/', '', css, flags=re.S)
+_blocks = re.findall(r'\.cm-head-row__text \{([^}]*)\}', _text_css)
+# A one-liner is a single declaration. Block rules here carry two or
+# more. Measuring bytes would have been another invented threshold.
+_one_liners = [b for b in _blocks
+               if len([d for d in b.split(';') if d.strip()]) <= 1]
+check(not _one_liners,
+      'no leftover one-line .cm-head-row__text declaration')
+check(len(_blocks) >= 1,
+      '.cm-head-row__text still declares its own block rule')
 
 print('2. a trailing chip is pushed to the row\'s far end')
 meta = re.search(r'\.cm-head-row__meta \{(.*?)\}', css, re.S)

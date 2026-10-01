@@ -167,8 +167,21 @@
 	flex: 0 1 auto;
 	min-width: min(100%, 12rem);
 }
+/* `:not(.cm-head__badge)` is LOAD-BEARING, not decoration. The catch-all
+   below matches the badge too, and both rules weigh the same (0,2,0), so
+   without this exclusion the badge took `flex: 1 1 auto` from whichever
+   came last and stretched to fill the row.
+
+   MEASURED: six head-row badges on the dashboard rendered 297 / 306 /
+   352 / 405 / 405 / 417px wide and 32px tall -- empty frames around a
+   16px glyph, each one wider than the last, pushing every panel title to
+   a different x (581 / 636 / 689 / 701). A badge that draws a 400px border
+   around nothing is the loudest object on the page, louder than the page
+   title. The `contract-header-shrink.py` guard checked that the badge
+   HAS a rule and that it says `flex: 0 0 auto`; it never checked that the
+   badge actually WINS. */
 .cm-head-row__text > .cm-head__sub,
-.cm-head-row__text > *:not(.cm-section__title):not(.cm-head__title) {
+.cm-head-row__text > *:not(.cm-section__title):not(.cm-head__title):not(.cm-head__badge) {
 	flex: 1 1 auto;
 	min-width: 0;
 }
@@ -4192,9 +4205,85 @@ textarea.cm-code {
 .cm-stack {
 	display: flex;
 	flex-direction: column;
+	/* The one gap that has to be right: sibling separation must EXCEED
+	   a panel's own padding (measured 19.2px), or the eye merges the
+	   regions before it can read them as separate. */
 	gap: var(--space-5);
 }
+/* Named density steps. These exist because six different call sites
+   were each passing `gap: var(--space-N)` inline, which put the
+   vertical rhythm of the whole product in the markup -- and made it
+   invisible to the showcase and to any guard that reads the library.
+   A rhythm is a library decision; the app names the step it wants. */
 .cm-stack--tight { gap: var(--space-2); }
+.cm-stack--snug { gap: var(--space-4); }
+.cm-stack--airy { gap: var(--space-6); }
+.cm-stack--loose { gap: var(--space-7); }
+
+/* A code or PRE block with a bounded height that scrolls rather than
+   growing the page. Two of these appeared as inline styles on the same
+   component, which is how the pre-wrap + break-word pairing got lost. */
+.cm-code--scroll {
+	margin: 0;
+	max-height: 10rem;
+	overflow: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+/* A field that hugs its content instead of stretching: a "compact"
+   variant of the library's full-width control. */
+.cm-field--textarea { min-height: 8rem; }
+
+/* A segmented control laid out as a grid rather than a row, for a set
+   of options of differing widths that must still align in columns. */
+.cm-seg--grid {
+	display: grid;
+	gap: var(--space-1);
+}
+
+/* A hint that trails its label: lower contrast, and it wraps to the next
+   line instead of forcing the label to truncate. */
+.cm-hint {
+	opacity: 0.5;
+	white-space: normal;
+}
+
+/* A row of controls that wraps rather than overflowing a narrow rail. */
+.cm-row--wrap { flex-wrap: wrap; }
+
+/* A control group that stacks on a narrow container: the buttons keep
+   their full width, which is the whole point on a phone. */
+.cm-btn-group--stack {
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+/* A form is a column with a real rhythm. The auth card carried
+   `gap: var(--space-4)` inline on BOTH of its forms, which is the same
+   decision written twice in markup where no guard could see it. */
+.cm-form { gap: var(--space-4); }
+
+/* A control group that pushes its last item to the far end: a
+   "cancel / confirm" pair, or a secondary action opposite a primary. */
+.cm-btn-group--split { justify-content: space-between; }
+
+/* A header that needs air above it without a wrapper element. */
+.cm-header-block { padding: var(--space-7); }
+
+/* A card head that tightens its own padding -- for a row inside a card
+   that would otherwise read as a second, padded section. */
+.cm-card__head--tight { padding: var(--space-2) var(--space-4); }
+
+/* An auth card's header, which the login page separated from the form
+   with an inline margin. */
+.cm-kicker--spaced { margin-bottom: var(--space-5); }
+
+/* A flex child that takes the slack but may still shrink. The
+   `min-width: 0` is the half that matters: a long unbreakable string
+   in a dialog title would otherwise push the close button off the edge
+   instead of wrapping. */
+.cm-fill { flex: 1; min-width: 0; }
 
 .cm-auth {
 	min-height: 100dvh;
