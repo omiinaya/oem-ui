@@ -3882,6 +3882,21 @@ button.cm-link:focus-visible {
 	align-items: center;
 	flex: none;
 	cursor: pointer;
+	/* The HIT area is padded to the 24px finger floor while the TRACK keeps
+	   its drawn size.
+
+	   MEASURED in WebKit at an iPhone 390px viewport: the switch rendered
+	   17px tall, and because the checkbox inside is `position: absolute;
+	   inset: 0` it inherits that box -- so the entire tap target for
+	   enabling or disabling a user was 17px. Chromium at 1280px never
+	   showed it, and neither did any desktop check, because the defect is
+	   a finger problem, not a mouse one.
+
+	   `padding: 3px 0` is chosen so track height + 6px = 23-24px at the
+	   library's default track, without shifting the track's own baseline:
+	   the wrapper grows symmetrically, so the row's text alignment is
+	   unchanged and nothing moves except the clickable area. */
+	padding: 3px 0;
 }
 .cm-switch > input[type='checkbox'] {
 	position: absolute;
@@ -4032,6 +4047,19 @@ button.cm-link:focus-visible {
 .cm-disclosure__summary {
 	display: flex;
 	align-items: center;
+	/* `flex-wrap: wrap` is what keeps the row inside the viewport.
+	   MEASURED in WebKit at 390px: a summary carrying a 44px
+	   `.cm-disclosure__action` button laid the button out at x=353..397 --
+	   7px past the right edge of a 390px screen, so /access-lists scrolled
+	   sideways. The summary's own min-width is already 0 and the title
+	   already shrinks, so with no wrap the row's CONTENT is what overflowed
+	   its box: flex put title and button on one line, and the button kept
+	   its natural width while the line ran off the panel.
+
+	   Wrapping puts the action on its own line when it cannot fit beside
+	   the title, which is the behaviour every phone user expects and the
+	   one the library already asks for at `.cm-header__links`. */
+	flex-wrap: wrap;
 	gap: var(--space-3);
 	padding: var(--space-3) var(--space-4);
 	cursor: pointer;
