@@ -5,6 +5,37 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **The header's icon link was 18px wide, and no test ever looked at it.**
+  `.cm-header__icon-link` - the glyph link a header carries, the one that
+  ships the GitHub mark with the link so the two cannot be separated - got
+  its `min-height` from base.css's coarse-pointer element floor, and its
+  WIDTH from the 18px inline `<svg>` it wraps, because nothing in the
+  library sized the box. Measured on dev-blog at 390x844 in WebKit with
+  `pointer: coarse`: **18x44**. The theme toggle beside it, a
+  `.cm-icon-btn`, measured 44x44. Two controls in one header, one built
+  for a finger and one not, and the tap-floor sweep was green the whole
+  time because `cm-header__icon-link` was never on its list.
+
+  The rule is now byte-identical to the one `.cm-icon-btn--bare` already
+  had, and for the same reason - a floor satisfied on ONE axis is the
+  defect, not the guarantee:
+
+      @media (pointer: coarse) {
+          .cm-header__icon-link { width: var(--tap); height: var(--tap); }
+      }
+
+  After: 44x44. `cm-header__icon-link` joins `INTERACTIVE` and
+  `PINS_BOTH_DIMENSIONS`, so the existing sweep now asks the right
+  question of it. Three mutations, all caught: the rule deleted, the rule
+  reduced to one axis, and the rule set to an inert `8px` literal. That
+  third one is the reason the check reads the `var(--tap)` reference
+  rather than testing that a `width` was declared - `8px` is declared, and
+  a value-shaped test would pass it.
+
+  Found by re-syncing five consumers onto the current library and then
+  MEASURING them, which is the argument for doing both: no consumer could
+  report this, because every one of them vendors the same rule.
+
 - **`.cm-section__title` shipped for rpm and was rendered nowhere.** The
   class was correct, in the stylesheet, and dead: the library's own suite
   reported it as unreachable CSS on a page that reaches all 270 others.
