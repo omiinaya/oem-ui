@@ -2697,6 +2697,17 @@ button.cm-row:hover { background: var(--bg-2); }
 		max-width: none;
 		margin-inline: 0;
 	}
+	/* The far edge still needs AIR. Releasing the measure means the
+	   column is now as wide as the space beside the rail, so with no
+	   right padding the content lands flush on the viewport edge:
+	   measured on rpm at 1280px, `.cm-stats` ran x=252 to x=1280
+	   with the last tile's right border off-screen, while every
+	   panel below it kept its own margin and looked inset. The
+	   column and its contents have to end on the SAME line, so the
+	   gutter lives on the shell here rather than on each page. */
+	.cm-shell--rail--fill {
+		padding-right: var(--gutter);
+	}
 	/* `width: auto` matters as much as `max-width: none`. base.css
 	   gives `main` `width: var(--maxw)`, so a rule that only relaxes
 	   the cap leaves the box 860px wide with `max-width: none`
