@@ -92,8 +92,32 @@
 	align-items: center;
 	gap: var(--space-3);
 }
-.cm-head-row__text { min-width: 0; }
 .cm-head-row__action { margin-left: auto; flex: 0 0 auto; }
+/* A trailing METADATA chip - a count, a total - belongs to the right
+   edge of the header row, not floating beside the title.
+
+   MEASURED on rpm: `.cm-tag` sat 623px from its card's right edge,
+   stranded mid-card, because nothing on the row pushed it. The action
+   variant above covers buttons; this is the read-only equivalent. */
+.cm-head-row__meta { margin-left: auto; flex: 0 0 auto; align-self: center; }
+/* The badge and the title sit BESIDE each other, on one line.
+
+   MEASURED on rpm: this element carried only `min-width: 0`, so a
+   caller who wrapped a `.cm-head__badge` and a title in it got them
+   STACKED - the icon box alone on its row, the title 32px below it, at
+   the same x. All six of the dashboard's card headers did this. The
+   rule existed to let the text shrink; it should also say what the row
+   IS, because "a div" was a perfectly reasonable thing for a caller to
+   reach for and it silently did the wrong thing.
+
+   `min-width: 0` stays: it is what lets a long title shrink and wrap
+   instead of pushing the action off the row. */
+.cm-head-row__text {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	min-width: 0;
+}
 
 /* ---------- push / stick to the far end ----------
    Four call sites in rpm were writing `style={{ marginLeft: 'auto' }}`
