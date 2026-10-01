@@ -5,6 +5,55 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **`.cm-section__title` shipped for rpm and was rendered nowhere.** The
+  class was correct, in the stylesheet, and dead: the library's own suite
+  reported it as unreachable CSS on a page that reaches all 270 others.
+  rpm had meanwhile hand-written the whole block eighteen times, and the
+  showcase had its own third spelling. So the missing thing was never the
+  class - it was an OWNER. `<SectionHead>` is that owner, and it is the
+  same shape rpm writes by hand:
+
+      <div class="cm-section">                 <-- the panel
+        <SectionHead title="OIDC Providers" sub="…">
+          <span slot="action"><button class="cm-btn">Add</button></span>
+        </SectionHead>
+
+  The 26 showcase section headings were converted to it, which is what
+  makes both classes live: measured in WebKit at 375/390/1440, 26 titles
+  and 22 subs now render, and the scale genuinely separates - page title
+  31.2px, section title 18.4px. Before this the two were both 32px/w700,
+  which is why the scale looked one-step-only on the one page that should
+  show it.
+
+  * `sub` is a SLOT, not a string prop, and that is measured rather than
+    preferred. 14 of the 22 section ledes carry a real `<code>` element
+    for a class name; a string prop would have printed the tag as visible
+    text. A test asserts the element is live AND that no escaped markup
+    leaked in, so the choice cannot be quietly reverted.
+
+  * `--head-h2` is now a token. The class sized itself from a literal
+    `1.15rem`, so the step between a panel heading and a page title could
+    not be retuned without editing a rule instead of a scale. The test
+    asserts the `var()` reference, not the presence of `font-size` -
+    a literal satisfies the second and misses the first.
+
+  * The `level` prop exists because rpm renders one of these as an `h3`
+    inside a dialog; a component that hardcodes `h2` silently breaks the
+    document outline of every consumer that needs a different one.
+
+- **A selector LIST is one rule, and two glyph tests were reading it as
+  none.** Pairing the alert and toast severity glyphs into
+  `.cm-alert--ok .cm-alert__mark::before, .cm-alert--ok .cm-toast__mark::before { … }`
+  is smaller, valid CSS, and it broke `status is never carried by colour
+  alone` and `the variants are the same three as .cm-alert` at the same
+  time: both read `selector {`, so the comma inside the list made the
+  alert half invisible. The page rendered perfectly in WebKit - the guards
+  were measuring their own reading, not the browser. The glyph rules are
+  now one selector each, and the tests walk selector lists via
+  `declForSelector`, which is what the variant test in this repo already
+  did for exactly this reason.
+
+
 - **oem-log's header is the library's, and it was 58px too tall.** The
   rows migration left ONE second implementation of the design system
   standing in that project: 170 lines of scoped CSS in a single

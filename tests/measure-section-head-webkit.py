@@ -40,16 +40,19 @@ PROBE = r"""
   const subs = [...document.querySelectorAll('.cm-section__sub')];
   const clientW = document.documentElement.clientWidth;
 
-  // The action row: does the control share a ROW with the title, and is it
-  // pushed to the far end?
+  // The action row: is the control BESIDE the text, and does it stay inside
+  // the row it belongs to?
   //
-  // The first version compared the action's `top` against the TITLE's top
-  // and reported a stack at every width including 1440 - including a false
-  // failure. `.cm-head-row` is `align-items: center`, so with a 94px sub
-  // under the title the action is centred against the WHOLE text block,
-  // not aligned to the title's first line. The correct question is whether
-  // the action is horizontally beside the text and inside the same row,
-  // which is what `left` proves and `top` alone cannot.
+  // Two earlier versions of this probe were wrong, and both are worth
+  // keeping recorded:
+  //  1. comparing the action's `top` to the TITLE's top reported a stack at
+  //     every width including 1440. `.cm-head-row` is `align-items: center`,
+  //     so with a 94px sub under the title the action centres against the
+  //     WHOLE text block. `top` alone cannot answer "same row?".
+  //  2. demanding the action be beside the text at EVERY width was also
+  //     wrong: below 420px the library deliberately drops the action onto
+  //     its own line so a long title is not squeezed to three words per
+  //     line. The contract is width-dependent, so the probe has to be too.
   let actionRow = null;
   for (const a of document.querySelectorAll('.cm-head-row__action')) {
     const row = a.closest('.cm-head-row');
@@ -63,9 +66,10 @@ PROBE = r"""
       // beside = the action starts to the RIGHT of the text block, so it
       // cannot be stacked under it however the row aligns vertically.
       beside: ab.left >= tb.right - 1,
+      // full = the action took the whole row, which is the <=420px contract
+      full: ab.width >= rb.width - 1,
       actionLeft: px(ab.left),
       textRight: px(tb.right),
-      // and it must not overflow the row it belongs to
       withinRow: ab.right <= rb.right + 1,
       insetFromRight: px(rb.right - ab.right),
       rowH: px(rb.height),
@@ -139,24 +143,32 @@ def main() -> int:
                     fails.append(f"w={w}: only {r['sectionCount']} section titles "
                                  f"rendered; the component is not being used")
 
-                # 2. the action belongs BESIDE the text block. `beside` is
-                # horizontal, so it cannot be fooled by vertical centring.
+                # 2. The action is beside the text on a wide band, and takes
+                # its OWN full-width line at phone widths. Both are the
+                # contract; a probe that demanded one shape everywhere
+                # reported a deliberate, correct layout as a defect twice.
                 if r["actionRow"] is None:
                     fails.append(f"w={w}: no action row with a control was found")
                 else:
-                    if not r["actionRow"]["beside"]:
+                    ar = r["actionRow"]
+                    narrow = w <= 420
+                    if narrow and not ar["full"]:
+                        fails.append(
+                            f"w={w}: below 420px the action must take the full "
+                            f"row so the title is not squeezed ({ar})"
+                        )
+                    if not narrow and not ar["beside"]:
                         fails.append(
                             f"w={w}: the action is NOT beside the text "
-                            f"({r['actionRow']}) - the block stacks instead of opposing"
+                            f"({ar}) - the block stacks instead of opposing"
                         )
-                    if not r["actionRow"]["withinRow"]:
+                    if not ar["withinRow"]:
                         fails.append(
-                            f"w={w}: the action overflows its row "
-                            f"({r['actionRow']})"
+                            f"w={w}: the action overflows its row ({ar})"
                         )
-                    if r["actionRow"]["insetFromRight"] > 1.5:
+                    if not narrow and ar["insetFromRight"] > 1.5:
                         fails.append(
-                            f"w={w}: the action sits {r['actionRow']['insetFromRight']}px "
+                            f"w={w}: the action sits {ar['insetFromRight']}px "
                             f"from the row's right edge, so it is not pushed to the far end"
                         )
 

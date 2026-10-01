@@ -1115,6 +1115,7 @@ Copy from `src/astro/` and set your identity in `config.ts`:
 | `HeaderLink.astro` | one nav link, `aria-current` when it is this page |
 | `Footer.astro` | meta row + status line |
 | `PageHead.astro` | kicker / title / sub block |
+| `SectionHead.astro` | the heading that opens a section, at the second scale step. `sub` and `action` are slots |
 | `PostHead.astro` | article head with byline |
 | `PostRow.astro` | one list row |
 | `StatusStrip.astro` | label / value status line |
