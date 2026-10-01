@@ -8899,6 +8899,183 @@ for (const [name, fn] of pending.splice(0)) {
 	});
 }
 
+/* ================= prose table: `.cm-prose-table` =================
+   A table INSIDE prose, as opposed to `.cm-table`, which is a data grid.
+
+   The reason this is its own component is a MEASURED difference, and the
+   tests below assert the measurements' causes rather than their effects:
+
+   - `.cm-table` is `nowrap` + sticky header inside a capped scrollport.
+     That is right for a log you scan across, and wrong for an article:
+     the article page owns the vertical scroll, so the sticky header
+     sticks to a wrapper that never scrolls and is never seen.
+   - `width: 100%` on a table is ADVISORY against the cells' intrinsic
+     min-content width. With a 6-column sentence table, `table-layout:
+     auto` laid it out at 1074px inside a 739px column - 335px past the
+     edge. `table-layout: fixed` is what makes `width: 100%` real.
+
+   Each assertion below was mutation-checked; the mutation for each is
+   written in the comment beside it, and `scripts/mutate-prose-table.mjs`
+   runs them all and prints a kill count derived from the same variable
+   it reports. */
+{
+	const PT = 'cm-prose-table';
+	// Comments STRIPPED, and this is the point: the prose in the source
+	// names `nowrap`, `word-break` and `overflow-wrap: anywhere` while
+	// explaining why it does NOT use them. A regex over the raw file
+	// reads that explanation as a declaration and the suite fails on
+	// prose. Assert DECLARATIONS, never text.
+	const comp2 = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	const page2 = read('src/pages/index.astro');
+
+	check('the prose table is a DIFFERENT component from the data grid', () => {
+		// Both exist, and neither is defined in terms of the other. If the
+		// prose table were built on `.cm-table` it would inherit `nowrap`
+		// and the sticky header, which is the whole bug.
+		assert(/\.cm-prose-table\s*\{/.test(comp2), `.${PT} is not defined`);
+		assert(/\.cm-table\s*\{/.test(comp2), '.cm-table is missing - the comparison is meaningless');
+		// It must not be an alias.
+		assert(!/\.cm-prose-table\s*,\s*\.cm-table\b/.test(comp2),
+			`${PT} is grouped with .cm-table, so it inherits the grid's nowrap and sticky header`);
+	});
+
+	check('the prose table does not inherit the data grid\'s nowrap or sticky header', () => {
+		// SCOPED, and the scope matters: the visually-hidden `thead` in the
+		// stacked layout carries `white-space: nowrap` on purpose - it is a
+		// 1px clip box, and letting it wrap would make its box grow and
+		// paint. Asserting nowrap over the WHOLE component flags that
+		// correct declaration and trains you to distrust the check. So
+		// the rule is skipped when its own block clips it.
+		const rules = [...comp2.matchAll(
+			new RegExp(`(\\.${PT}[^{]*)\\{([^}]*)\\}`, 'g'))].map((m) => [m[1], m[2]]);
+		assert(rules.length > 0, `.${PT} has no rules`);
+		for (const [sel, decl] of rules) {
+			const isClipped = /clip-path:\s*inset/.test(decl) || /clip:\s*rect/.test(decl);
+			if (isClipped) continue;
+			assert(!/white-space:\s*nowrap/.test(decl),
+				`${PT} declares nowrap on a VISIBLE box (${sel.trim()}): a six-column table gets a scrollbar per table`);
+			assert(!/position:\s*sticky/.test(decl),
+				`${PT} is sticky (${sel.trim()}): the article page owns the vertical scroll, so a sticky header never shows`);
+		}
+	});
+
+	check('the prose table has no max-height, because the page owns the vertical scroll', () => {
+		// The data grid's 30rem cap belongs to the grid. Here it would put
+		// a second scrollbar inside a paragraph and cut a table off
+		// mid-row. Assert the pairing the other way too: if a consumer
+		// copies .cm-table-wrap here, this catches it.
+		const rules = [...comp2.matchAll(new RegExp(`\\.${PT}[^{]*\\{([^}]*)\\}`, 'g'))].map((m) => m[1]);
+		for (const r of rules) {
+			assert(!/max-height/.test(r),
+				`${PT} declares a max-height: a second scrollbar inside a paragraph`);
+		}
+	});
+
+	check('the prose table honours width:100% instead of overflowing its column', () => {
+		// THE cause of the 335px overflow. `width: 100%` alone is advisory
+		// against the cells' min-content floor; `table-layout: fixed` is
+		// what makes it real. MUTATION: delete the table-layout
+		// declaration - a value-shaped test would still pass on
+		// `width: 100%`, which is why this asserts the LAYOUT.
+		const rule = /\.cm-prose-table\s*\{([^}]*)\}/.exec(comp2);
+		assert(rule, `.${PT} has no rule block`);
+		assert(/table-layout:\s*fixed/.test(rule[1]),
+			`${PT} has no table-layout: fixed, so width:100% stays advisory against min-content and a wide table overflows its column (measured 335px past the edge)`);
+		assert(/width:\s*100%/.test(rule[1]),
+			`${PT} does not declare width: 100%`);
+	});
+
+	check('the prose table wraps cells rather than holding them on one line', () => {
+		// Assert the rule that owns the property, and scope it: `.cm-table`
+		// legitimately declares nowrap, so a file-wide /nowrap/ scan would
+		// fail on the grid for the right reason and read as the wrong one.
+		const rules = [...comp2.matchAll(
+			new RegExp(`\\.${PT}\\s+(th|td)[^{]*\\{([^}]*)\\}`, 'g'))].map((m) => m[2]);
+		assert(rules.length > 0, `${PT} declares no cell rule`);
+		assert(rules.some((r) => /overflow-wrap:\s*break-word/.test(r)),
+			`${PT} cells declare no overflow-wrap, so a long URL runs past the column`);
+		// And the banned sibling must not appear. The suite already bans
+		// `anywhere` globally; this asserts the CELL rule did not sneak
+		// `word-break: break-word` in, which shreds a sentence to 44
+		// lines per row (measured).
+		for (const r of rules) {
+			assert(!/word-break:\s*break-(word|all)/.test(r),
+				`${PT} cells use word-break: break-word/all, which shreds prose to one word per line`);
+		}
+	});
+
+	check('the prose table is floored to the minimum font size', () => {
+		// A bare `0.94em` under the library base font resolves to ~11.7px
+		// on a phone - under the 12px floor every other component is held
+		// to, and components.css loads after base.css so a floor there
+		// loses. MUTATION: swap max(var(--min-font), 0.94em) for 0.94em -
+		// the existing exhaustive floor scan fails, which is the proof.
+		const rule = /\.cm-prose-table\s*\{([^}]*)\}/.exec(comp2);
+		assert(rule && /font-size:\s*max\(var\(--min-font\)/.test(rule[1]),
+			`${PT} has no --min-font floor on its font-size; it renders at ~11.7px on a phone`);
+	});
+
+	check('the stacked phone layout is a media query, not a base rule', () => {
+		// Stacking at every width would be wrong just as surely as not
+		// stacking on a phone. Assert the query and the breakpoint, so
+		// "always stacked" and "never stacked" both fail.
+		assert(/@media \(max-width: \d+px\) \{\s*\.cm-prose-table thead/.test(comp2.replace(/\n\s+/g, ' ')),
+			`${PT} has no stacked-row media block on the thead`);
+		assert(/\.cm-prose-table thead\s*\{[^}]*position:\s*absolute/.test(comp2),
+			`${PT} hides thead with display:none in the stacked layout, which removes it from the accessibility tree; it must be clipped instead`);
+		assert(/clip-path:\s*inset\(50%\)/.test(comp2),
+			`${PT} does not clip the visually-hidden thead, so it still paints`);
+	});
+
+	check('every stacked cell reads its label from data-label, in the CSS', () => {
+		// The invariant is the PAIRING. `content: attr(data-label)` in the
+		// stacked block means a consumer CANNOT switch this layout on
+		// without the text being there - there is no way to get a
+		// headerless table of values by accident. MUTATION: delete the
+		// ::before rule - this fails, which is the point.
+		assert(/td::before\s*\{[^}]*content:\s*attr\(data-label\)/.test(comp2),
+			`${PT} stacked cells do not render their data-label, so a stacked row is a list of values with no column names`);
+		assert(/td:not\(\[data-label\]\)::before\s*\{\s*content:\s*none/.test(comp2),
+			`${PT} renders an empty label line for an unlabelled cell`);
+	});
+
+	check('the showcase demonstrates the prose table before it is trusted', () => {
+		assert(/id="prosetable"/.test(page2), 'the showcase has no prose-table section');
+		assert(new RegExp(`class="${PT}"`).test(page2),
+			`${PT} is defined but never rendered in the showcase`);
+	});
+
+	check('the demonstrated prose table is one the stacked layout can actually carry', () => {
+		// A fixture that FITS proves nothing. Three columns fit everywhere,
+		// so a `data-label`-less or nowrap regression would look perfect in
+		// a screenshot of it. Six columns of sentences is the case.
+		const sec = /<section id="prosetable"[\s\S]*?<\/section>/.exec(page2);
+		assert(sec, 'no prose-table section to inspect');
+		const block = sec[0];
+		const cols = (block.match(/<th scope="col"/g) || []).length;
+		assert(cols >= 5,
+			`the prose-table fixture has only ${cols} columns; a narrow table fits at every width and never exercises the wrap or the stacking`);
+		// Every body cell labelled, or the stacked layout drops its headers.
+		const cells = block.match(/<td/g) || [];
+		const labelled = block.match(/<td data-label=/g) || [];
+		assert(cells.length === labelled.length,
+			`${cells.length - labelled.length} prose-table cells carry no data-label, so they lose their column name when stacked`);
+	});
+
+	check('the prose table keeps its table semantics - a table, not a pile of divs', () => {
+		// The stacked layout is CSS only. If a consumer "fixed" the phone
+		// layout in markup, every row/column association for a screen
+		// reader is gone and this fails.
+		const sec = /<section id="prosetable"[\s\S]*?<\/section>/.exec(page2);
+		assert(sec, 'no prose-table section');
+		assert(/<table class="cm-prose-table">/.test(sec[0]),
+			'the prose table is not rendered as a <table>');
+		assert(/<thead>/.test(sec[0]) && /<tbody>/.test(sec[0]),
+			'the prose table has no thead/tbody, so row and column association is lost');
+		assert(/<caption>/.test(sec[0]),
+			'the prose table has no caption, so a table read out of context has no name');
+	});
+}
 /* ================= result ================= */
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length) {

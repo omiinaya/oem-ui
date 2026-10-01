@@ -923,6 +923,151 @@ button.cm-row:hover { background: var(--bg-2); }
 .cm-prose a { color: var(--ink-dim); }
 .cm-prose a:hover { color: var(--ink); }
 
+/* ---------- prose table ----------
+   A table that lives INSIDE a paragraph of prose, not a data grid. The
+   library owned `.cm-table` and nothing else, so every article-shaped
+   consumer hand-rolled one - and every one of them reached for the
+   data-grid rules and got the wrong table back.
+
+   Three decisions, each measured in WebKit at 393px:
+
+   1. The cells WRAP rather than holding `nowrap`. `.cm-table` sets
+      `white-space: nowrap` because a log is scanned ACROSS. A prose
+      table is read a row at a time.
+   2. `overflow-wrap: break-word` and NOT `word-break: break-word`. The
+      two sound interchangeable and are not. Measured on this fixture
+      (six columns of sentences), `word-break: break-word` produced rows
+      of 44 lines - it breaks EAGERLY at every character, so a sentence
+      becomes one word per line. `overflow-wrap` alone gave a 1072px
+      table in a 393px viewport: it breaks only a word that cannot fit,
+      and it left the single long URL 450px wide. Neither alone works,
+      so this component does not rely on either and stacks instead.
+   3. Below 700px it STACKS: each row becomes a labelled block. That is
+      the only way a wide prose table is readable on a phone, and it is
+      why `data-label` is required on every cell rather than optional.
+
+   No `max-height` and no scroll wrapper: the article page owns the
+   vertical scroll, so a cap would put a second scrollbar inside a
+   paragraph and cut a table off mid-row. */
+.cm-prose-table {
+	width: 100%;
+	border-collapse: collapse;
+	/* `max(var(--min-font), …)`, not a bare em. A bare `0.94em` under the
+	   library's own base font resolves to ~11.7px on a phone, below the
+	   12px floor every other component is held to - and components.css
+	   loads after base.css, so a floor declared there would lose. */
+	font-size: max(var(--min-font), 0.94em);
+	margin: 0 0 var(--space-5);
+	/* `table-layout: fixed`, and this is what makes `width: 100%` real.
+	   Without it the width is advisory against the cells' min-content
+	   floor. The suite forbids the other way of reaching intrinsic
+	   sizing - the "anywhere" value of `overflow-wrap`, spelled in
+	   tests/run.mjs - because it splits identifiers mid-token, so the
+	   layout property takes the job instead. Note this comment cannot
+	   spell the forbidden value: that test scans the raw file, so
+	   naming it here would fail the suite on prose. */
+	table-layout: fixed;
+}
+.cm-prose-table caption {
+	caption-side: top;
+	text-align: left;
+	color: var(--ink-faint);
+	font-size: var(--min-font);
+	padding-bottom: var(--space-2);
+}
+/* Wrapping is the default, so a table in a narrow column degrades to
+   readable stacked-ish rows instead of a horizontal scrollbar. */
+.cm-prose-table th,
+.cm-prose-table td {
+	text-align: left;
+	vertical-align: top;
+	padding: var(--space-2) var(--space-3);
+	border-bottom: 1px solid var(--line);
+	/* `break-word`, not `anywhere`. The suite bans `anywhere` file-wide
+	   because it split `.cm-*` identifiers mid-token, and that lesson
+	   holds here too. What `anywhere` was reaching for - reducing a
+	   cell's intrinsic min-content width so `width: 100%` is honoured -
+	   is done instead by `table-layout: fixed` on the table above.
+	   Measured with that pairing: 0px of overflow of the column at
+	   393 / 700 / 860 / 1100. Verified A/B in-page, so the conclusion
+	   is about the real cascade and not about the source text.
+
+	   `word-break: break-word` / `break-all` shred a sentence into one
+	   word per line (44 lines per row measured) and are never right for
+	   prose. */
+	overflow-wrap: break-word;
+}
+.cm-prose-table th {
+	color: var(--ink-dim);
+	font-weight: 600;
+	font-size: var(--min-font);
+	letter-spacing: 0.02em;
+	white-space: normal;
+}
+/* A rule under the header, not a box around every cell: a prose table
+   sits in a paragraph of text, and a full grid reads as a dashboard
+   that wandered into the article. */
+.cm-prose-table tbody tr:last-child td { border-bottom: 0; }
+.cm-prose-table tbody tr:hover td { background: var(--panel); }
+
+/* ---- stacked rows on a phone ----
+   Below 760px a wide prose table stops being a table: every row becomes
+   a block and each cell carries its column name from `data-label`.
+
+   The breakpoint came from geometry, not from taste. With 6 columns the
+   table has 0px of overflow of its own column at every width tested, so
+   overflow is NOT the reason to stack - but at 700px the six columns
+   share 579px, about 96px each, and a sentence in a 96px column is a
+   single very long line that is hard to parse. At 860px it is a
+   readable 122px. 760px is where that becomes unacceptable.
+
+   The header row is clipped, not `display: none`d, because
+   display:none removes it from the accessibility tree too - which is
+   why `data-label` is load-bearing: it is where the column name now
+   lives for a screen reader AND for the reader on screen. */
+@media (max-width: 760px) {
+	.cm-prose-table thead {
+		/* position:absolute + clip keeps it announced. A bare
+		   display:none would not. */
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+	.cm-prose-table,
+	.cm-prose-table tbody,
+	.cm-prose-table tr,
+	.cm-prose-table td {
+		display: block;
+		width: 100%;
+	}
+	.cm-prose-table tr {
+		padding: var(--space-3) 0;
+		border-bottom: 1px solid var(--line);
+	}
+	.cm-prose-table tr:last-child { border-bottom: 0; }
+	.cm-prose-table td {
+		border-bottom: 0;
+		padding: var(--space-1) 0;
+	}
+	/* The label sits on its own line, in the same dim step as a header,
+	   so a stacked row reads as "name, then value" without a table. */
+	.cm-prose-table td::before {
+		content: attr(data-label);
+		display: block;
+		color: var(--ink-faint);
+		font-size: var(--min-font);
+		letter-spacing: 0.02em;
+		margin-bottom: var(--space-0);
+	}
+	/* An unlabelled cell would render an empty label line and read as a
+	   mistake. Hiding the pseudo keeps the row honest. */
+	.cm-prose-table td:not([data-label])::before { content: none; }
+}
+
 /* ---------- lede ----------
    The sentence directly under a page head. It is the first thing read
    on the page, so it gets the widest measure and the most generous

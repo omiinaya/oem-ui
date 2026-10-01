@@ -39,7 +39,7 @@ import SectionHead from '../astro/SectionHead.astro';
 const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'crumbs', 'lists', 'states', 'surface',
   'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'choice',
-	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'layout',
+	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'prosetable', 'layout',
 	'forms', 'auth', 'readme',
 ] as const;
 
@@ -1942,8 +1942,81 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 						sets <code>--ink</code> and weight 700 together, so it
 						survives greyscale and clears 16:1 on the surface behind it.
 						</p>
-				</article>
-			</section>
+											</article>
+
+											<!-- ====================================================
+											     prose table: a table INSIDE prose. The library had
+											     `.cm-table`, which is a data grid - nowrap cells,
+											     a sticky header, a capped scrollport. It is the
+											     wrong component for an article, and the consumer
+											     that needed one (hermes-articles, 397 markdown
+											     pipe-tables across 34 articles) hand-rolled
+											     `.article-content .table-wrapper` with
+											     `min-width: max-content`, which puts a
+											     horizontal scrollbar under EVERY table in the
+											     article whether or not it needed one.
+
+											     The fixture below is deliberately SIX columns of
+											     sentences - the case that forces the decision.
+											     Three columns would fit and prove nothing. -->
+										<section id="prosetable" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+											<SectionHead title="prose table">
+						<code>.cm-prose-table</code> is for a table that is part of a sentence-paragraph - a comparison, a set of facts. <code>.cm-table</code> is for a grid you scan across. The cells WRAP here instead of holding <code>nowrap</code>, so a six-column table in a 68ch measure degrades into readable rows rather than a scrollbar the reader has to discover mid-article, and there is no <code>max-height</code>, because the article page owns the vertical scroll and a cap would put a second scrollbar inside a paragraph. The last row shows the one thing that cannot wrap: a long unbreakable URL, which breaks rather than dragging the page wide with it.
+											</SectionHead>
+
+											<div class="cm-prose">
+												<p>A comparison belongs in the flow of the prose, and this table has a
+													caption and four rows of sentences:</p>
+												<table class="cm-prose-table">
+													<caption>Benchmarks measured on the same host, 2026-09-30.</caption>
+													<thead>
+														<tr>
+															<th scope="col">Engine</th>
+															<th scope="col">What it actually does</th>
+															<th scope="col">Cold start</th>
+															<th scope="col">Feasibility for this workload</th>
+															<th scope="col">Falls over on</th>
+															<th scope="col">Recommendation</th>
+														</tr>
+													</thead>
+													<tbody>
+														<tr>
+															<td data-label="Engine">Signal generation</td>
+															<td data-label="What it actually does">Analyzes price, volume and social data to output a buy, sell or hold signal.</td>
+															<td data-label="Cold start">~400ms</td>
+															<td data-label="Feasibility for this workload">Hard but achievable, and the only category where a human stays in the loop.</td>
+															<td data-label="Falls over on">Regime change with no retrain.</td>
+															<td data-label="Recommendation">Ship this first.</td>
+														</tr>
+														<tr>
+															<td data-label="Engine">Strategy optimization</td>
+															<td data-label="What it actually does">Backtests thousands of parameter combinations to find a profitable configuration.</td>
+															<td data-label="Cold start">minutes</td>
+															<td data-label="Feasibility for this workload">Moderate, and the output is only as honest as the historical data.</td>
+															<td data-label="Falls over on">Look-ahead bias in the backtest.</td>
+															<td data-label="Recommendation">Build after the first ships.</td>
+														</tr>
+														<tr>
+															<td data-label="Engine">Fully autonomous</td>
+															<td data-label="What it actually does">The AI decides what to trade, at what size, and executes with no human input.</td>
+															<td data-label="Cold start">n/a</td>
+															<td data-label="Feasibility for this workload">Extremely hard, and mostly fails in practice for retail-sized accounts.</td>
+															<td data-label="Falls over on">Everything, at once, unattended.</td>
+															<td data-label="Recommendation">Do not build this.</td>
+														</tr>
+														<tr>
+															<td data-label="Engine">Audit trail</td>
+															<td data-label="What it actually does">Records every decision and the data behind it, for a later reader to check.</td>
+															<td data-label="Cold start">~0ms</td>
+															<td data-label="Feasibility for this workload">Trivial, and the one thing worth building regardless of the other three.</td>
+															<td data-label="Falls over on">Nothing, which is the point.</td>
+															<td data-label="Recommendation">Long URL that cannot wrap: https://oem.ngo/docs/benchmark/2026/09/30/full-methodology-and-reproduction-notes-v2</td>
+														</tr>
+													</tbody>
+												</table>
+											</div>
+										</section>
+									</section>
 			<!-- ==================================================== layout
 			     The two page shapes that are not a single column: a lede
 			     under the head, and a main block with a metadata aside.
