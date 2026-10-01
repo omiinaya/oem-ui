@@ -270,6 +270,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **The showcase's own section ledes were rendering beside their titles,
+  one word per line.** `.cm-head-row__text` is `display: flex` in a ROW --
+  deliberately, so a caller who wraps a `.cm-head__badge` with a title gets
+  the icon BESIDE the text. But a section head is a title and a lede, and
+  in a row they land SIDE BY SIDE. Measured in WebKit at 375px: the title's
+  `min-width: min(100%, 12rem)` floor took 192px of a 295px column and left
+  the lede 91px wide at x=244, 527px tall, wrapping one word per line. The
+  column is `nowrap` with no clipping ancestor, so the lede also overflowed
+  to x=436 -- a horizontal overflow on the showcase's own header, at three
+  of the four widths measured.
+
+  The fix is a `:has()` rule that makes the column a COLUMN only when it
+  holds a lede, so a badge-and-title pair stays a row. Verified across all
+  28 instances on the page: every title+lede pair stacks with the lede at
+  the title's left edge and full column width, and the one badge case is
+  still a row with the badge at left=40 and the title at left=74.
+
+  Two fixes were measured wrong on the way there, and both are recorded
+  because the next person will try them:
+
+  - Putting the floor on the COLUMN (`flex: 0 1 12rem`) instead of on each
+    child collapsed the title to 9px wide, one word per line, 200px tall.
+    That is the exact regression commit 89301ee exists to prevent: the
+    "a title may wrap but may not collapse" invariant belongs to the
+    title, not to the wrapper.
+  - Making the lede a `flex: 1 1 auto` sibling does not help either; in a
+    nowrap ROW the children are laid out beside each other regardless of
+    how they size.
+
+  The showcase's `.cm-push` / `.cm-stick-top` row used `.cm-row__meta`
+  without `--wrap`, so its prose ran to x=499 on a 375px viewport. That is
+  the library's own documented escape hatch (`.cm-row__meta--wrap`, added
+  for exactly this), so the specimen was wrong, not the class.
+
+- **`check-design-sync.sh` called a byte-identical consumer drifted.** The
+  `drift in <target>` header and the `fix:` line were driven by "was there
+  any output at all" rather than by the verdict. `RENAMED` is ADOPTION and
+  does not set `stale`, so oem-cdn -- whose `web/oem-ui/` copy is
+  byte-identical to the library -- exited 0 while its own output read
+  `drift in ... oem-cdn` and printed a remedy that cannot perform the
+  repair: `install.sh <target>` writes the canonical `src/` layout, which
+  that project does not serve, so following it adds a second, unserved copy
+  and the next run reports the same thing. The exit code said clean and
+  the text said drift, and the text is what a human reads.
+
+  `out` is now informational and `tstale` (reset per target) is the verdict,
+  so only a finding prints `drift in` and `fix:`. An adoption-only target
+  reports `in sync` WITH its `RENAMED` lines and a `re-vendor with:
+  --embed-rename <dir>` hint instead.
+
+- **`install.sh` learned `--embed` and `--embed-rename`** (in the previous
+  cycle, landed in 1f1333a). No documented invocation could produce the
+  path oem-cdn actually serves: `--flat` puts CSS in `<target>/cli-mono/`
+  and JS at the top level, and the default and `--public` both assume
+  `src/` or `public/`. The 11 contract tests for it were written
+  standalone and never wired into `run.mjs`, so `npm test` never ran
+  them; they run now, and `tests/mutate-sync-verdict.sh` proves the
+  verdict split above.
+
+- **Two mutation harnesses were writing outside the repo.**
+  `tests/mutate-install-layout.sh` mutation #4 removes the path-escape
+  guard, so that run really installs into `../<name>` -- into `$TMPDIR`,
+  outside the repo, where the restore trap cannot reach it. The leftover
+  `$TMPDIR/escape` then failed every LATER run of the test it had just
+  passed, for a defect that did not exist. Both harnesses now sandbox
+  inside the repo and the trap removes it. The escape probe also
+  asserted a fixed, shared path; it now gets a unique destination and
+  asserts the install wrote nothing at all.
+
+- **`tests/mutate-sync-verdict.sh` pointed at LIVE consumers and lied.**
+  It used oem-cdn and dev-blog as fixtures, both edited by concurrent runs
+  of this cron, so a mid-sweep re-vendor made oem-cdn genuinely stale and
+  all five mutations "died" for the wrong reason -- five identical
+  detection strings, which is the tell. It builds its own ADOPT and DRIFT
+  consumers byte-for-byte now, and preflights them: if the fixtures no
+  longer exercise both halves it reports FIXTURE BROKEN and exits rather
+  than reporting meaningless kills.
+
 ### Added
 
 - **`.cm-row--on`** - the list-row form of the selected treatment, the same inset rule `cm-section--on` uses. A tinted row is the one signal that disappears in greyscale print, and a selected row is information the reader has to see.

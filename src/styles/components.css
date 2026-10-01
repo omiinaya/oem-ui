@@ -125,15 +125,52 @@
 	gap: var(--space-3);
 	min-width: 0;
 }
+/* A row, so a caller who wrapped a `.cm-head__badge` with a title gets the
+   icon BESIDE the text. But the section lede is a title and a sub, and in a
+   `row` they land SIDE BY SIDE rather than stacked - measured on the showcase
+   at 375px: the sub sat to the right of the title at x=244, 91px wide and
+   527px tall, one word per line, because the title's 12rem floor had taken
+   the column and left the sub the remainder.
+
+   So the text column is a COLUMN, which is what "a title and its lede"
+   means, and a badge is still handled by the badge rule below. The lede is
+   where this bites: it is prose, it is the longest thing in the header, and
+   in a row it is the element that gets squeezed to nothing. */
+.cm-head-row__text:has(> .cm-section__sub),
+.cm-head-row__text:has(> .cm-head__sub) {
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--space-1);
+}
 /* Only the text may shrink, and only down to its longest word. The
    badge is an icon: letting it shrink would squash the glyph, so it is
-   held at its natural size. */
+   held at its natural size.
+
+   The floor applies to the TITLE. The sub shares what the title leaves:
+   `.cm-head-row__text` is `nowrap` and holds both, so a floor repeated on
+   every child asks the column for 2 x 12rem + gap. Measured in WebKit at
+   375px: the column is 295px, the two floors sum to 384px, and the sub
+   overflowed to x=436 with nothing clipping it.
+
+   Putting the floor on the COLUMN instead (`flex: 0 1 12rem` there) is
+   wrong and was measured wrong: it lets the title itself shrink, and the
+   title collapsed to 9px wide, one word per line, 200px tall. The
+   invariant this floor exists for -- a header title may wrap but may not
+   collapse -- belongs to the title, so the floor stays here, on the
+   title, and the sub is left free to take the remainder. */
+.cm-head-row__text {
+	flex: 1 1 auto;
+	min-width: 0;
+}
 .cm-head-row__text > .cm-section__title,
-.cm-head-row__text > .cm-head__title,
-.cm-head-row__text > .cm-head__sub,
-.cm-head-row__text > * {
+.cm-head-row__text > .cm-head__title {
 	flex: 0 1 auto;
 	min-width: min(100%, 12rem);
+}
+.cm-head-row__text > .cm-head__sub,
+.cm-head-row__text > *:not(.cm-section__title):not(.cm-head__title) {
+	flex: 1 1 auto;
+	min-width: 0;
 }
 .cm-head-row__text > .cm-head__badge {
 	flex: 0 0 auto;
