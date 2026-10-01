@@ -63,6 +63,30 @@ const baseSrc = read('src/styles/base.css').replace(/\/\*[\s\S]*?\*\//g, '');
 const allCss = compSrc + '\n' + baseSrc;
 const showcase = read('src/pages/index.astro');
 
+/* The DECLARATION that rule gives the selector, or null.
+   A selector LIST - `.a .b::before, .a .c::before { content: 'x' }` - is one
+   rule with two selectors, so a `selector {` regex cannot see it: the comma
+   between them is not part of the selector, and the anchored pattern never
+   matches either half. That reads as "this variant has no glyph", and it
+   costs a full cycle: the alert and toast glyphs were merged into a shared
+   selector list, the browser rendered it correctly, and two contract tests
+   went red on a perfectly good rule.
+
+   So walk the rule's whole selector LIST, exactly as the variant test
+   below already does for the same reason. The class has to be ONE of the
+   selectors; that is the whole contract.
+
+   `want` is a full selector (e.g. '.cm-alert--ok .cm-alert__mark::before'),
+   matched as a substring of each trimmed selector, not as a regex, so a
+   caller cannot accidentally hand us a pattern with a stray metacharacter. */
+function declForSelector(want, src = compSrc) {
+  for (const m of src.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+    if (!m[1].split(',').some((s) => s.trim().includes(want))) continue;
+    return m[2];
+  }
+  return null;
+}
+
 /* ================= contrast math (WCAG 2.1) ================= */
 const srgb = (h) => {
 	const x = h.replace('#', '');
@@ -1722,13 +1746,15 @@ check('status is never carried by colour alone', () => {
 	const glyph = {};
 	for (const v of ['ok', 'warn', 'err']) {
 		assert(new RegExp(`\\.cm-alert--${v}\\b`).test(compSrc), `.cm-alert--${v} is missing`);
-		// Build the pattern by concatenation: nesting a backtick escape
-		// inside a template literal is unreadable and easy to break.
-		const want = '.cm-alert--' + v + ' .cm-alert__mark::before';
-		const re = new RegExp(
-			want.replace('.', '\\.').replace(' ', ' ') + '\\s*\\{[^}]*content:\\s*\'([^\']*)\'');
-		const m = compSrc.match(re);
-		assert(m, `.cm-alert--${v} must carry a ::before glyph, not a colour alone`);
+		// Read the rule through declForSelector, not `selector {`. The glyph
+		// rules are the ones most likely to be written as a selector list once
+		// someone shares them with another component, and a list makes the
+		// anchored form match nothing at all - which reads as "this variant
+		// has no glyph" against a rule that renders the glyph fine.
+		const body = declForSelector(`.cm-alert--${v} .cm-alert__mark::before`);
+		assert(body, `.cm-alert--${v} must carry a ::before glyph, not a colour alone`);
+		const m = /content:\s*'([^']*)'/.exec(body);
+		assert(m, `.cm-alert--${v} declares no content: for its ::before glyph`);
 		glyph[v] = m[1];
 	}
 	assert(new Set(Object.values(glyph)).size === 3,
@@ -3973,10 +3999,13 @@ check('cm-toast: the variants are the same three as .cm-alert, and the glyphs ma
 	const glyphOf = (prefix) => {
 		const out = {};
 		for (const v of ['ok', 'warn', 'err']) {
-			const m = new RegExp(
-				`\\.${prefix}--${v} \\.${prefix}__mark::before\\s*\\{[^}]*content:\\s*'([^']*)'`,
-			).exec(compSrc);
-			assert(m, `.${prefix}--${v} carries no ::before glyph`);
+			// Selector-list aware, for the same reason as the alert test above:
+			// pairing the toast and alert glyphs into one rule is the obvious
+			// refactor here, and it is exactly what made this test blind.
+			const body = declForSelector(`.${prefix}--${v} .${prefix}__mark::before`);
+			assert(body, `.${prefix}--${v} carries no ::before glyph`);
+			const m = /content:\s*'([^']*)'/.exec(body);
+			assert(m, `.${prefix}--${v} declares no content: for its ::before glyph`);
 			out[v] = m[1];
 		}
 		return out;

@@ -1247,12 +1247,28 @@ button.cm-row:hover { background: var(--bg-2); }
    literal ● in CSS is a byte-count hazard on every file that imports it. */
 /* A toast is a transient alert, so it borrows the SAME glyphs and border
    weights rather than carrying its own severity style. A toast's mark
-   element is .cm-toast__mark, so both mark classes are named here. */
-.cm-alert--ok .cm-alert__mark::before,
+   element is .cm-toast__mark, so both mark classes are named here.
+
+   ONE selector per rule, deliberately. The shared-glyph version of this
+   paired them into a selector LIST
+   (`.cm-alert--ok .cm-alert__mark::before, .cm-alert--ok .cm-toast__mark::before
+   { ... }`), which is smaller and valid CSS, and it broke two contract
+   tests at once: both read `selector {`, so a comma inside the selector
+   list made the alert half invisible. The page still rendered correctly in
+   WebKit -- the guard was measuring its own reading, not the browser. The
+   same false negative is already documented in tests/run.mjs for
+   `.cm-status--ok`; this is the second time it cost a cycle, so the rules
+   stay one-per-line and the tests walk selector lists. */
+.cm-alert--ok .cm-alert__mark::before { content: '\25cf\00a0'; }
+.cm-alert--warn .cm-alert__mark::before { content: '\25b2\00a0'; }
+.cm-alert--err .cm-alert__mark::before { content: '\2715\00a0'; }
+/* Same three glyphs, restated for the toast's own mark class. These are
+   duplicated rather than shared with a CSS custom property because the
+   pair is a CONTRACT, not a style: a test asserts the two are byte-equal
+   per severity, so a change to one half fails the suite instead of
+   quietly desynchronising the two. */
 .cm-alert--ok .cm-toast__mark::before { content: '\25cf\00a0'; }
-.cm-alert--warn .cm-alert__mark::before,
 .cm-alert--warn .cm-toast__mark::before { content: '\25b2\00a0'; }
-.cm-alert--err .cm-alert__mark::before,
 .cm-alert--err .cm-toast__mark::before { content: '\2715\00a0'; }
 .cm-alert--ok { border-left-color: var(--ink-dim); }
 .cm-alert--warn { border-left-color: var(--ink-faint); }
