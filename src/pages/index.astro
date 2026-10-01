@@ -1836,6 +1836,28 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 					phone is two unreadable columns.
 				</p>
 
+					<!-- `.cm-shell--rail` centres a PROSE measure in the space
+					     beside the rail, which is right for a content page. An
+					     application shell wants the whole column instead: with
+					     the prose measure the page slid right as the window
+					     widened (measured x=336 at 1280px, x=416 at 1440px),
+					     because `margin-inline: auto` re-centres the capped
+					     child in whatever room is left. `.cm-shell--rail--fill`
+					     releases the cap AND the fixed `width: var(--maxw)`, so
+					     the column is pinned to the rail's padding edge and
+					     uses all the rest. Rendered nested here because the
+					     showcase's own shell is the prose variant. -->
+					<div class="cm-shell cm-shell--rail cm-shell--rail--fill"
+						 style="border:1px solid var(--line);margin-bottom:var(--space-5)">
+						<div style="padding:var(--space-4)">
+							<p class="cm-head__sub" style="margin:0">
+								An application column. It fills the space beside the rail
+								instead of being centred in it, so the left edge stays
+								put at every window width.
+							</p>
+						</div>
+					</div>
+
 				<div class="cm-spec" style="margin-bottom:var(--space-6)">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>--measure</code></span>

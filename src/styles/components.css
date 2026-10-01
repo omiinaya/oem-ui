@@ -2680,6 +2680,28 @@ button.cm-row:hover { background: var(--bg-2); }
 		max-width: var(--maxw);
 		margin-inline: auto;
 	}
+	/* ...and that is a PROSE measure, which is right for a content page
+	   and wrong for an application shell. `.cm-shell--rail--fill` is for
+	   the second case: a dashboard or admin panel whose columns should
+	   use the whole space beside the rail instead of being centred in
+	   it. Measured in WebKit on rpm at 1280px and 1440px: with the prose
+	   measure the page column's x moved 336 -> 416 as the window grew,
+	   because `margin-inline: auto` re-centres the capped child in
+	   whatever space is left. A table with fifteen columns does not want
+	   that; it wants the room. The rail's own padding is untouched, so
+	   the column still starts clear of the rail - only the cap and the
+	   centring are released. */
+	.cm-shell--rail--fill,
+	.cm-shell--rail--fill > * {
+		width: auto;
+		max-width: none;
+		margin-inline: 0;
+	}
+	/* `width: auto` matters as much as `max-width: none`. base.css
+	   gives `main` `width: var(--maxw)`, so a rule that only relaxes
+	   the cap leaves the box 860px wide with `max-width: none`
+	   computed - which reads as fixed but is not. Measured: the
+	   shell was 1440px and main was still 860. */
 	/* The header itself must stop spanning the full width, or it would draw
 	   a bar over the top of the rail's column. It keeps the rail's own
 	   column, so `position: sticky` is dropped in favour of a fixed rail:

@@ -8288,6 +8288,30 @@ check('a bare field is still full width after the width split', () => {
 		'class, so any component input without cm-inline__input silently ' +
 		'loses its full width');
 });
+check('the fill shell releases the prose measure, not just the cap', () => {
+	// `.cm-shell--rail` centres `--maxw` in the space beside the rail -
+	// right for a content page. An application shell needs the whole
+	// column, or the page drifts right as the window widens (measured
+	// x=336 at 1280px, x=416 at 1440px).
+	//
+	// `width: auto` is the part that is easy to miss: base.css gives
+	// `main` `width: var(--maxw)`, so relaxing only `max-width` leaves
+	// the box 860px wide while COMPUTED max-width reads `none` - which
+	// looks fixed and is not.
+	const rule = compSrc.match(
+		/\.cm-shell--rail--fill,\s*\.cm-shell--rail--fill > \*\s*\{([^}]*)\}/);
+	assert(rule,
+		'.cm-shell--rail--fill has no combined rule for the shell and ' +
+		'its children; the two were fixed separately and drifted');
+	assert(/width:\s*auto/.test(rule[1]),
+		'.cm-shell--rail--fill no longer sets width: auto, so base.css ' +
+		'width: var(--maxw) still pins the column - measured 860px in a ' +
+		'1440px shell with max-width computed to none');
+	assert(/max-width:\s*none/.test(rule[1]),
+		'.cm-shell--rail--fill no longer releases the prose max-width');
+	assert(/margin-inline:\s*0/.test(rule[1]),
+		'.cm-shell--rail--fill no longer un-centres the column');
+});
 
 });
 

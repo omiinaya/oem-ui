@@ -77,8 +77,11 @@ MUTATIONS = [
     ('the link list shrink-wraps again',
      CSS, '\t\talign-self: stretch;\n', '\t',
      'the rail link list fills the rail instead of shrink-wrapping'),
+    # Scoped to the rail list: a bare `\t\twidth: 100%;` occurs TWICE in
+    # the sheet, so an unscoped anchor mutates whichever comes first and
+    # the suite goes red on the wrong guard.
     ('the list loses its width backstop',
-     CSS, '\t\twidth: 100%;\n', '',
+     CSS, '\t\talign-self: stretch;\n\t\twidth: 100%;\n', '\t\talign-self: stretch;\n',
      'the rail link list fills the rail instead of shrink-wrapping'),
     ('the list can no longer scroll in a short window',
      CSS, '\t\tgap: var(--space-0);\n\t\toverflow-y: auto;', '\t\tgap: var(--space-0);\n\t\toverflow-y: visible;',
@@ -182,6 +185,24 @@ MUTATIONS = [
     ('the showcase stops offsetting its own content',
      PAGE, 'class="cm-shell cm-shell--rail"', 'class="cm-shell"',
      'the showcase opts in, and a mobile reader still gets the burger'),
+    # --- the fill shell -------------------------------------------------
+    # `width: auto` is the load-bearing half. base.css gives `main`
+    # `width: var(--maxw)`, so a --fill that relaxes only the cap leaves
+    # the column 860px wide with computed max-width reading `none` -
+    # measured in a 1440px shell. A mutant that drops just that
+    # declaration is the whole regression.
+    # The claim is matched against the `FAIL <name>` LINE only - this
+    # harness never reads the assert message, which lives on the next
+    # line. So the claim must be a substring of the test NAME.
+    ('the fill shell keeps the prose measure',
+     CSS, '.cm-shell--rail--fill,\n\t.cm-shell--rail--fill > * {\n\t\twidth: auto;',
+     '.cm-shell--rail--fill,\n\t.cm-shell--rail--fill > * {',
+     'the fill shell releases the prose measure, not just the cap'),
+
+    ('the fill shell goes back to centring',
+     CSS, '.cm-shell--rail--fill > * {\n\t\twidth: auto;\n\t\tmax-width: none;\n\t\tmargin-inline: 0;',
+     '.cm-shell--rail--fill > * {\n\t\twidth: auto;\n\t\tmax-width: none;\n\t\tmargin-inline: auto;',
+     'the fill shell releases the prose measure, not just the cap'),
 ]
 
 
