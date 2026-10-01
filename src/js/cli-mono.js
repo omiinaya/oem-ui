@@ -662,7 +662,15 @@
 		});
 	}
 
-	function toast(msg) {
+	/* `opts.duration` overrides the 6s default. A lag warning is an FYI, not
+	   a decision the user has to read, so it should not hold the region for
+	   as long as an error would. null/0/undefined all mean "keep the
+	   default" - 0 meaning "never expires" is sonner's rule and would make
+	   the region grow without bound. */
+	function toast(msg, severity, opts) {
+		var life = (opts && typeof opts.duration === 'number' && opts.duration > 0)
+			? opts.duration
+			: TOAST_MS;
 		var region =
 			document.querySelector('[data-cm-toasts]') ||
 			(function () {
@@ -676,10 +684,37 @@
 			})();
 		var node = null;
 		if (typeof msg === 'string') {
-			var span = document.createElement('span');
-			span.className = 'cm-toast';
-			span.textContent = msg;
-			node = span;
+			/* A toast carries the SAME severity vocabulary as .cm-alert -
+			   ok / warn / err - because a toast IS a transient alert. Two
+			   vocabularies is how an app ends up with one system's
+			   border weights and another's glyphs. The mark is a text
+			   node in the library's own glyphs, so it inherits the token
+			   colours instead of a hard-coded green. */
+			var sev = severity === 'error' ? 'err'
+				: severity === 'success' ? 'ok'
+				: severity === 'warning' ? 'warn'
+				: null;
+			if (sev) {
+				var box = document.createElement('div');
+				box.className = 'cm-toast cm-alert--' + sev;
+				var mark = document.createElement('span');
+				mark.className = 'cm-toast__mark';
+				var body = document.createElement('div');
+				body.className = 'cm-toast__body';
+				var text = document.createElement('p');
+				text.className = 'cm-toast__text';
+				text.style.margin = '0';
+				text.textContent = msg;
+				body.appendChild(text);
+				box.appendChild(mark);
+				box.appendChild(body);
+				node = box;
+			} else {
+				var span = document.createElement('span');
+				span.className = 'cm-toast';
+				span.textContent = msg;
+				node = span;
+			}
 		} else if (msg && msg.nodeType === 1) {
 			node = msg;
 		} else {
@@ -690,7 +725,7 @@
 		if (typeof setTimeout === 'function') {
 			setTimeout(function () {
 				dismiss(node);
-			}, TOAST_MS);
+			}, life);
 		}
 		return node;
 	}
