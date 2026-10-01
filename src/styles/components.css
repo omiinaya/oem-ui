@@ -2173,7 +2173,7 @@ button.cm-row:hover { background: var(--bg-2); }
 	position: absolute;
 	top: 50%;
 	right: 0;
-	transform: none;
+	transform: translateY(-50%);
 }
 .cm-form { display: flex; flex-direction: column; }
 /* actions sit apart from the last field and align to the right */
