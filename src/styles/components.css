@@ -88,6 +88,18 @@
 .cm-head-row__text { min-width: 0; }
 .cm-head-row__action { margin-left: auto; flex: 0 0 auto; }
 
+/* ---------- push / stick to the far end ----------
+   Four call sites in rpm were writing `style={{ marginLeft: 'auto' }}`
+   to do one thing: hold a trailing element against the right edge of a
+   row. That is a layout idea the design system should own, not four
+   inline copies - an inline style cannot be overridden by a stylesheet,
+   cannot respond to a breakpoint, and does not show up in a class audit.
+
+   `.cm-push` is the whole rule. `.cm-stick-top` is its column twin. */
+.cm-push { margin-left: auto; }
+.cm-push-group { margin-left: auto; display: flex; gap: var(--space-2); }
+.cm-stick-top { align-self: flex-start; }
+
 /* ---------- section heading ----------
    The page head owns `--head-h1`. A section inside the page does NOT:
    `.cm-head__title` only takes its size inside `.cm-head`, so an `h2`
@@ -102,6 +114,10 @@
    stays the only place a page title belongs. */
 .cm-section__title {
 	margin: 0;
+	/* --head-h2, the second step of the heading scale. Not a literal: the
+	   step between a panel heading and a page title is a scale decision,
+	   and a raw rem here put it outside the one place that decision
+	   belongs. */
 	font-size: 1.15rem;
 	font-weight: 700;
 	line-height: 1.25;

@@ -302,7 +302,7 @@ check('emits a FOUC guard snippet that only applies saved light', () => {
 
 /* ================= astro components ================= */
 console.log('\nastro components');
-const astroFiles = ['Head.astro', 'Header.astro', 'HeaderLink.astro', 'Footer.astro', 'PageHead.astro', 'PostHead.astro', 'PostRow.astro', 'StatusStrip.astro', 'Card.astro', 'Meter.astro', 'Stat.astro', 'TimelineItem.astro', 'config.ts'];
+const astroFiles = ['Head.astro', 'Header.astro', 'HeaderLink.astro', 'Footer.astro', 'PageHead.astro', 'PostHead.astro', 'PostRow.astro', 'StatusStrip.astro', 'Card.astro', 'Meter.astro', 'Stat.astro', 'SectionHead.astro', 'TimelineItem.astro', 'config.ts'];
 for (const f of astroFiles) {
 	check(`ships src/astro/${f}`, () => {
 		// Assert the file is ON DISK, not merely named in this list. A list
@@ -7504,6 +7504,85 @@ check('a page title is styled inside the row container, not only the head', () =
 		'title inside .cm-head-row inherits the UA default size');
 	assert(sized.some(m => /font-size:\s*var\(--head-h1\)/.test(m[2])),
 		'the row-scoped title rule does not carry the same --head-h1 as the head');
+});
+
+/* ---------- SectionHead: the second step of the type scale ----------
+   `.cm-section__title` and `.cm-section__sub` shipped for rpm and were
+   rendered NOWHERE, so the library's own suite reported them as dead CSS
+   while rpm carried 18 hand-written copies of the same block. The class was
+   never the fix; the block needed an owner.
+
+   These read the BUILT page, not the showcase source, because the whole
+   defect this component exists for is a class that exists and is never
+   used. A source-level test would pass on a component nobody renders. */
+
+check('SectionHead: the built page renders the section title it defines', () => {
+	assert(built, 'dist/index.html is missing - run `npm run build` first');
+	const titles = [...built.matchAll(/<h([2-4]) class="cm-section__title">/g)];
+	assert(titles.length >= 20,
+		`only ${titles.length} section titles rendered; the component exists to be used`);
+	// The scale is the POINT. A section title that computes to the same
+	// size as the page title is the defect the class was added to fix, and
+	// it is invisible to a test that only checks the class is present.
+	const rule = /^\.cm-section__title\s*\{([^}]*)\}/m.exec(compSrc);
+	assert(rule, '.cm-section__title is not defined');
+	const size = /font-size:\s*([^;]+)/.exec(rule[1]);
+	assert(size, '.cm-section__title declares no font-size, so it inherits the page scale');
+	// It must NOT be --head-h1, and must not be the bare h2 rule's value.
+	// Assert the REFERENCE, not the property's presence: a declaration of
+	// `font-size: 1.15rem` next to the token would satisfy a presence test
+	// while the token drift went unnoticed.
+	assert(!/var\(--head-h1\)/.test(size[1]),
+		'.cm-section__title wears --head-h1, which is the PAGE title size; that is the bug it replaced');
+	assert(/--cm-h2|--head-h2/.test(size[1]),
+		`.cm-section__title sizes itself from a literal (${size[1]}) rather than a heading token, ` +
+		'so the scale step cannot be retuned in one place');
+});
+
+check('SectionHead: the sub is the SECTION sub, not the page-head class', () => {
+	// `.cm-head__sub` is a page-head class. The showcase used it for every
+	// section lede too, so a section subtitle and a page lede were the same
+	// declaration for two different jobs - the second implementation this
+	// component replaced.
+	assert(built, 'dist/index.html is missing');
+	const subs = [...built.matchAll(/<p class="cm-section__sub">/g)];
+	assert(subs.length >= 20, `only ${subs.length} section subs rendered`);
+	// And the sub must be INSIDE the title's row, or the two are siblings
+	// by accident and the row layout has nothing to hold.
+	assert(/class="cm-head-row__text">\s*<h2 class="cm-section__title">[^<]*<\/h2>\s*<p class="cm-section__sub">/
+		.test(built.replace(/\s+/g, ' ')),
+	'the title and its sub are not siblings inside .cm-head-row__text');
+});
+
+check('SectionHead: the action slot renders the control, and the title keeps its row', () => {
+	// rpm hand-writes this block 18 times with a button in it. Without a
+	// demonstrated action, the slot is an untested branch and the component
+	// does not cover the shape that motivated it.
+	assert(/class="cm-head-row__action"><span><button[^>]*class="cm-btn/.test(built),
+		'the action slot never renders a control on the built page');
+	// A section title beside an action must not push the action under
+	// itself: the action is pushed to the far end with margin-left:auto.
+	const rule = /^\.cm-head-row__action\s*\{([^}]*)\}/m.exec(compSrc);
+	assert(rule, '.cm-head-row__action is not defined');
+	assert(/margin-left:\s*auto/.test(rule[1]),
+		'.cm-head-row__action does not push to the far end, so a title and its button share a line instead of opposing');
+});
+
+check('SectionHead: the slot renders the caller markup, and does not escape it', () => {
+	// The reason `sub` is a slot and not a string prop. 14 of the 22 section
+	// subs on the page carry a real <code> element for a class name; a
+	// string prop would print the tag as visible text. Assert both
+	// directions: the markup is LIVE, and no escaped tag text leaked in.
+	const subs = [...built.matchAll(/<p class="cm-section__sub">([\s\S]*?)<\/p>/g)]
+		.map(m => m[1]);
+	assert(subs.some(s => s.includes('<code>')),
+		'no section sub renders a real <code> element - the slot is escaping the caller markup');
+	assert(!subs.some(s => /&lt;code&gt;|class=&quot;/.test(s)),
+		'a section sub contains literal escaped markup, so a caller string reached a slot as text');
+	// And the component must not hardcode an identity, like every other
+	// component in the library.
+	const src = read('src/astro/SectionHead.astro');
+	assert(!/omiinaya|mrxlab/.test(src), 'SectionHead must not hardcode site identity');
 });
 
 

@@ -25,6 +25,14 @@
 	--gutter: 1.25rem;
 	--head-top: 3rem;
 	--head-h1: 2rem;
+	/* The SECOND step of the heading scale, and the one an application
+	   page uses most. It was a raw 1.15rem inside `.cm-section__title`,
+	   so the step between a panel heading and a page title could not be
+	   retuned without editing a rule rather than a scale. The gap is what
+	   matters: MEASURED on rpm's Dashboard, the page title and a panel
+	   heading both computed 32px / w700, which is why the scale looked
+	   like it had only one step. */
+	--head-h2: 1.15rem;
 	--radius: 10px;
 	--radius-sm: 6px;
 
