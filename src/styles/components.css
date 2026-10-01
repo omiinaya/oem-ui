@@ -87,6 +87,36 @@
 }
 .cm-head-row__text { min-width: 0; }
 .cm-head-row__action { margin-left: auto; flex: 0 0 auto; }
+
+/* ---------- section heading ----------
+   The page head owns `--head-h1`. A section inside the page does NOT:
+   `.cm-head__title` only takes its size inside `.cm-head`, so an `h2`
+   wearing that class outside one falls through to the base heading rule
+   and comes out at the SAME 2.1rem as the page title. Measured on rpm:
+   "Dashboard" and "Certificate Expiry Summary" both computed 32px /
+   w700, so every panel heading competed with the page heading and the
+   type scale was invisible in the one page that should show it.
+
+   This is the second step of the scale, and the one an application page
+   actually uses most. `.cm-section__title` is that step; the page head
+   stays the only place a page title belongs. */
+.cm-section__title {
+	margin: 0;
+	font-size: 1.15rem;
+	font-weight: 700;
+	line-height: 1.25;
+	letter-spacing: -0.01em;
+	color: var(--ink);
+	min-width: 0;
+	overflow-wrap: break-word;
+}
+.cm-section__sub {
+	margin: 0;
+	font-size: max(var(--min-font), 0.78rem);
+	line-height: 1.5;
+	color: var(--ink-faint);
+	min-width: 0;
+}
 /* At 320px a badge + a long title + a full-word button cannot share one
    line honestly. The action drops below rather than squeezing the title to
    three words per line. */
