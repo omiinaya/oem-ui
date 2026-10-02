@@ -5,6 +5,81 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **A table for prose, because every article-shaped consumer hand-rolled
+  one — and got a scrollbar under every table in the article.**
+  `.cm-prose-table` — the table that lives *inside* a paragraph, as
+  distinct from `.cm-table`, which is a data grid. This is not an
+  imagined component: `hermes-articles` renders **397 markdown
+  pipe-tables across 34 of its 35 articles** and had no library
+  component for them, so its `index.css` carries a second implementation,
+  `.article-content .table-wrapper`, with `min-width: max-content` —
+  which forces horizontal scrolling on **every** table whether or not it
+  needs one. Three decisions are measured rather than chosen, all in
+  WebKit:
+
+  1. **`table-layout: fixed`.** `width: 100%` on a table is *advisory*
+     against the cells' intrinsic min-content width. On the six-column
+     showcase fixture, `table-layout: auto` laid the table out at
+     **1074px inside a 739px column** — 335px past the edge, at both
+     860px and 1100px viewports. This is the one that matters: it is
+     invisible in a screenshot of a narrow table.
+  2. **`overflow-wrap: break-word`, and specifically NOT
+     `word-break: break-word`.** The two sound interchangeable and are
+     opposites in practice — `word-break: break-word` breaks *eagerly* at
+     every character, producing rows of **44 lines**, one word per line,
+     and a URL cell 60px wide and 1071px tall. Verified by A/B in the
+     live page rather than reasoned about, because reading the source
+     proves nothing about the cascade.
+  3. **Below 760px each row stacks** into a labelled block, with the
+     column name read from `data-label` via `content: attr()`. The
+     breakpoint came from geometry rather than taste: the table has 0px
+     of overflow of its own column at *every* width tested, so overflow
+     is not the reason to stack — but six columns share 96px each at
+     700px, and a sentence in a 96px column is a single unreadable line.
+
+  Measured at 393 / 375 / 320 / 900px: **0px of overflow of the section's
+  own column at every width**, stacking on the three phone widths, a real
+  table at desktop, all 24 fixture cells labelled, and the long-URL cell
+  broken inside its row rather than dragging the page wide.
+
+  Two details that are load-bearing rather than decorative. The `thead` is
+  **clipped**, not `display: none`d — a hidden `<th>` leaves a table of
+  values with no headers for a screen reader — which is why `data-label`
+  must be on every cell, and why the contract test that forbids `nowrap`
+  everywhere else *skips the rule that clips it*, since `nowrap` is
+  correct and necessary there. And there is **no `max-height`**: the
+  article page owns the vertical scroll, so the data grid's 30rem cap
+  would put a second scrollbar inside a paragraph and cut a table off
+  mid-row.
+
+  Twelve contract tests and **nine mutations, all nine killed, 0 no-op,
+  0 survived**. The mutation harness is
+  `scripts/mutate-prose-table.mjs` (`node scripts/mutate-prose-table.mjs`).
+  Three of its safeguards exist because of defects it caught in the tests
+  rather than in the component:
+
+  1. **An unscoped mutation pattern rewrites the wrong rule.**
+     `overflow-wrap: break-word` appears in five rules across
+     `components.css` and `String.replace` only rewrites the first — so
+     the mutation was landing on a different component and the
+     `word-break` guard it was meant to exercise **never ran at all**.
+     Every pattern is now scoped to a declaration only this component
+     has, and the harness **refuses** to run a scoped pattern that does
+     not match exactly once rather than reporting it as a kill.
+  2. **A single-replace mutation cannot fail.** Stripping one of four
+     `data-label`s still leaves three, so the check — which asks that
+     *none* are missing — passed and the mutation looked harmless. It is
+     now an explicit all-sites mutation.
+  3. **A suite can go red for the wrong reason.** Each mutation names the
+     substring of the expected check's failure, so a kill that happened
+     to come from an unrelated failing assertion is reported as such
+     instead of counting as proof. (The first version of mutation 3 did
+     exactly that: the right check fired, but an earlier assertion inside
+     it tripped first.)
+
+  The kill counter is incremented in the same branch that prints `KILLED`,
+  and the summary line is derived from that counter alone.
+
 - **A breadcrumb, because two consumers each hand-rolled one and got it
   wrong three ways.**
   `.cm-crumbs` / `.cm-crumbs__link` / `.cm-crumbs__sep` /

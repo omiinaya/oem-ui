@@ -818,6 +818,67 @@ Four decisions that are easy to get wrong:
   string visibly left of centre, because the trailing gap after the last
   glyph has no counterpart at the start. Measured: 6.4px each way.
 
+### Prose tables — `.cm-prose-table` vs `.cm-table`
+
+Two different tables, and picking the wrong one is a real defect in each
+direction:
+
+| | `.cm-table` | `.cm-prose-table` |
+|---|---|---|
+| for | a log you scan **across** | a comparison **inside** a paragraph |
+| cells | `white-space: nowrap` | wrap |
+| header | `position: sticky` | not sticky |
+| height cap | `30rem` scrollport | none — the page scrolls |
+| below 760px | scrolls sideways | rows **stack** into labelled blocks |
+
+```html
+<table class="cm-prose-table">
+  <caption>Benchmarks on the same host.</caption>
+  <thead>
+    <tr><th scope="col">Engine</th><th scope="col">Feasibility</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td data-label="Engine">Signal generation</td>
+      <td data-label="Feasibility">Hard but achievable.</td>
+    </tr>
+  </tbody>
+</table>
+```
+
+**`data-label` on every body cell is required, not optional.** Below
+760px each row becomes a block and each cell prints its column name from
+`content: attr(data-label)`, so a consumer cannot switch the layout on
+without the text being there. The `thead` is **clipped**, not
+`display: none`d, so it stays in the accessibility tree — which is
+exactly why the labels have to exist.
+
+```css
+/* What you want for the size, not just the look */
+.cm-prose-table { table-layout: fixed; }  /* width:100% is advisory without it */
+```
+
+Three things that are measured, not chosen:
+
+- **`table-layout: fixed` is load-bearing.** `width: 100%` on a table is
+  advisory against the cells' intrinsic min-content width. With
+  `auto`, a six-column sentence table lays out at 1074px inside a 739px
+  column — 335px past the edge, invisible in a screenshot of a narrow
+  table.
+- **`overflow-wrap: break-word`, never `word-break: break-word`.** The
+  latter breaks *eagerly* at every character: measured rows of **44
+  lines**, one word per line. The suite bans the `anywhere` value of
+  `overflow-wrap` file-wide for the same class of reason (it splits
+  identifiers mid-token), so the layout property does the sizing job.
+- **The 760px stack breakpoint came from geometry.** Overflow is *not*
+  the trigger — the table has 0px of overflow of its column at every
+  width. It is legibility: at 700px six columns share 96px each, and a
+  sentence in a 96px column is one unreadable line.
+
+Verified in WebKit at 393 / 375 / 320 / 900px: 0px overflow of the
+section's own column at every width, all cells labelled, and a long URL
+broken inside its row rather than dragging the page wide.
+
 ### Page shapes
 
 ```html
