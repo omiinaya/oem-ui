@@ -5,6 +5,56 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **`install.sh --astro`: the components are now installable at all.**
+  Until this flag existed, `install.sh` shipped the three CSS layers and
+  the two JS files — and **nothing from `src/astro/`**. The components are
+  the largest part of this library and they carry the fixes that matter to
+  a consumer: the 18×44 tap floor on the header's icon link, the phone
+  burger, and the generated footer separator that cannot strand at the end
+  of a wrapped line. The installer shipped the stylesheet that *styles*
+  them without ever shipping them, so a consumer had no supported way to
+  adopt them and hand-rolled a parallel implementation instead.
+
+  That is not theoretical. `links.oem.ngo` — live, in production — is
+  carrying the exact shape this library deleted in the entry below. Its
+  footer emits separators as **elements** (`<span class="dot">·</span>`)
+  inside a `flex-wrap: wrap` row. MEASURED in WebKit against the live site
+  at 320/360/390/402/430 × {667,844}: **a line ends with a stranded `·` at
+  10 of 12 phone widths**, and at 320×667 the footer renders three lines
+  for three fragments. Its header is equally hand-rolled: the theme toggle
+  measures **32×32** against this library's 44px floor, and the `<header>`
+  carries **no `.cm-*` class at all**, so the scroll-spy and
+  `[aria-current='page']` rules cannot see it.
+
+  The drift checker could not name any of it, and that is the real lesson.
+  `check-design-sync.sh` compares the five vendored files byte-for-byte and
+  they genuinely are in sync where they exist — the defect lives in files
+  the checker does not know exist. A check that only verifies what it can
+  see is green precisely when the divergence moves somewhere it cannot
+  reach.
+
+  ```
+  scripts/install.sh <project> --astro     # -> <project>/src/astro/
+  ```
+
+  **`config.ts` is the one file the installer will not overwrite.** A
+  component copy is a vendored artifact: re-syncing it is the point, and
+  drift is a bug. `config.ts` is the opposite — it holds the site's own
+  title, author and email, so overwriting it would republish the
+  library's placeholder identity over a real site on the next routine sync.
+  It is kept, and the skip is **reported by name**, so "the installer ran"
+  never reads as "the installer overwrote my site".
+
+  **`CodeBlock.astro` was shipping untested.** The suite's shipped-file
+  list was the only place the component set was written down, and
+  `CodeBlock.astro` was missing from it — so it was invisible to the tests
+  while the new installer copied it into every consumer. Both directions
+  are now asserted: each listed component exists and is non-empty, **and**
+  every `.astro`/`.ts` file in `src/astro/` is claimed by the list. Nine
+  mutations in `scripts/mutate-install-astro.mjs` (8 killed, 1 documented
+  expected survivor) cover the flag, the copy, the config protection, the
+  re-sync and the completeness check.
+
 - **A footer separator that cannot strand itself at the end of a wrapped
   line.**
   `.cm-footer__meta` is `flex-wrap: wrap`, and the separator between meta

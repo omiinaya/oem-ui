@@ -15,6 +15,42 @@
 #   <target>/src/js/cli-mono.js
 #   <target>/src/js/cli-mono-theme-guard.js
 #
+# --astro additionally installs src/astro/ into the target:
+#
+#   <target>/src/astro/*.astro  +  <target>/src/astro/config.ts
+#
+# THE COMPONENTS ARE THE LARGEST PART OF THE LIBRARY, AND UNTIL THIS FLAG
+# EXISTED NO DOCUMENTED INVOCATION COULD INSTALL THEM. The five files above
+# are CSS and JS; every measured fix that matters to a consumer - the
+# 18x44 tap floor on the header's icon link, the phone burger, the
+# generated footer separator that cannot strand at the end of a wrapped
+# line - lives in an .astro file. install.sh shipped the stylesheet that
+# STYLES those components without ever shipping the components, so a
+# consumer had no supported way to adopt them and hand-rolled a parallel
+# implementation instead. That is not a preference, it is a measured
+# regression, live in production at the time of writing:
+#
+#   links.oem.ngo emits its footer separators as ELEMENTS
+#   (`<span class="dot">·</span>`) inside a `flex-wrap: wrap` row, which is
+#   precisely the shape this library deleted in d2ec654. MEASURED in WebKit
+#   against the LIVE site at 320/360/390/402/430 x {667,844}: a line
+#   ENDS with a stranded `·` at 10 of 12 phone widths, and at 320x667 the
+#   footer renders three lines for three fragments. Its header is equally
+#   hand-rolled: the theme toggle measures 32x32 against the library's
+#   44px floor, and the header carries NO .cm-* class at all, so the
+#   library's scroll-spy and `[aria-current='page']` rules cannot see it.
+#
+# The drift checker could not name any of this. It compares the five
+# vendored files byte-for-byte and they ARE in sync where they exist - the
+# defect is in the files the checker never looks at, in a directory it
+# does not know exists. A check that only verifies what it can see is
+# green precisely when the divergence moved somewhere it cannot reach.
+#
+# So this flag closes the gap from BOTH ends: it makes the components
+# installable, and check-design-sync.sh --astro names any consumer whose
+# copy of a library component has drifted, which is the only way the next
+# one gets caught before it reaches a phone.
+#
 # For a project that serves static files from elsewhere (a plain
 # web/index.html, an mkdocs site), pass --flat to get them at the top level:
 #
@@ -87,20 +123,23 @@ PUBLIC=0
 EMBED=""
 EMBED_RENAME=""
 
+ASTRO=0
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --from) FROM="${2:-}"; shift 2 ;;
     --flat) FLAT=1; shift ;;
     --public) PUBLIC=1; shift ;;
+    --astro) ASTRO=1; shift ;;
     --embed) EMBED="${2:-}"; shift 2 ;;
     --embed-rename) EMBED_RENAME="${2:-}"; shift 2 ;;
-    -h|--help) sed -n '2,74p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,110p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) die "unknown flag: $1" ;;
     *) TARGET="$1"; shift ;;
   esac
 done
 
-[ -n "$TARGET" ] || die "usage: install.sh <target-project-dir> [--from <oem-ui-path>] [--flat | --public | --embed <dir> | --embed-rename <dir>]"
+[ -n "$TARGET" ] || die "usage: install.sh <target-project-dir> [--from <oem-ui-path>] [--flat | --public | --astro | --embed <dir> | --embed-rename <dir>]"
 [ -n "$EMBED" ] && [ -n "$EMBED_RENAME" ] && die "--embed and --embed-rename are alternatives, not a pair"
 
 # Default source: the checkout this script lives in, resolved through any
@@ -164,6 +203,40 @@ say "components.css -> $CSS_DIR/components.css"
 say "cli-mono.js    -> $JS_DEST"
 say "guard          -> $GUARD_DEST"
 
+# --astro: the COMPONENTS. Additive, so it composes with every layout above
+# rather than being a seventh competing shape.
+#
+# It installs .astro files but NOT config.ts over an existing one, and that
+# asymmetry is deliberate. A component copy is a VENDORED artifact: the
+# consumer is expected to re-sync it and never edit it, so overwriting is
+# correct and drift is a bug. config.ts is the opposite - it is the one
+# file the consumer OWNS and edits with its own title, author and email,
+# so overwriting it would silently republish the library's placeholder
+# identity over a real site. A consumer that has not adopted it gets a
+# fresh copy, because there is nothing there to destroy.
+#
+# Skipping config.ts is not silent either: it is reported on stdout by name,
+# so "the installer ran" never reads as "the installer overwrote my site".
+ASTRO_DEST=""
+if [ "$ASTRO" -eq 1 ]; then
+  ASTRO_DEST="$TARGET/src/astro"
+  [ -d "$FROM/src/astro" ] || die "this checkout has no src/astro to install"
+  mkdir -p "$ASTRO_DEST"
+  # Everything the library ships: every .astro in src/astro plus config.ts.
+  # Driven by the directory, NOT by a second hand-kept list, so a component
+  # added to the library cannot reach a consumer without a test asserting it
+  # exists (CodeBlock.astro did exactly that until this flag existed).
+  # config.ts is listed explicitly because it is not an .astro file.
+  for f in $(cd "$FROM/src/astro" && ls *.astro config.ts 2>/dev/null | sort); do
+    if [ "$f" = "config.ts" ] && [ -f "$ASTRO_DEST/$f" ]; then
+      say "config.ts     -> $ASTRO_DEST/config.ts (KEPT - the consumer owns its site identity)"
+      continue
+    fi
+    install -m 0644 "$FROM/src/astro/$f" "$ASTRO_DEST/$f"
+    say "$(printf '%-14s' "$f") -> $ASTRO_DEST/$f"
+  done
+fi
+
 # --public: the verbatim-serve copy. Kept INSIDE this script on purpose - if
 # it lived in a README, every consumer would hand-maintain it and drift,
 # which is the failure this flag exists to remove. Both files come from the
@@ -209,5 +282,11 @@ else
     printf '  <script is:inline src={base + "cli-mono.js"}></script>\n'
     printf 'check-design-sync.sh now compares BOTH copies, so neither can drift.\n'
   fi
+fi
+if [ "$ASTRO" -eq 1 ]; then
+  printf '\nAstro components -> %s\n' "$ASTRO_DEST"
+  printf '  import Header from "../astro/Header.astro";   // default export\n'
+  printf 'A component copy is VENDORED: do not edit it in place, re-run this\n'
+  printf 'script to pick up a library fix. config.ts is yours to edit.\n'
 fi
 printf '\nStyle with the .cm-* classes; tokens are the contract.\n'

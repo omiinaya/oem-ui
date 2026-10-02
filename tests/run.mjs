@@ -337,7 +337,17 @@ check('emits a FOUC guard snippet that only applies saved light', () => {
 
 /* ================= astro components ================= */
 console.log('\nastro components');
-const astroFiles = ['Head.astro', 'Header.astro', 'HeaderLink.astro', 'Footer.astro', 'PageHead.astro', 'PostHead.astro', 'PostRow.astro', 'StatusStrip.astro', 'Card.astro', 'Meter.astro', 'Stat.astro', 'SectionHead.astro', 'TimelineItem.astro', 'config.ts'];
+// This list is the CONTRACT: every name here is installed into consumers
+// by `install.sh --astro` and is asserted to exist on disk below.
+//
+// It used to be the only place the shipped set was written down, which
+// let `CodeBlock.astro` sit in src/astro/ shipping to every consumer with
+// no test naming it at all - the file was invisible to the suite, so it
+// could have been deleted or emptied and every check would still pass.
+// scripts/install.sh now installs whatever is IN the directory, so the
+// list has to be derived the other way round or the two drift apart again:
+// this check fails when a component exists on disk but is not claimed here.
+const astroFiles = ['Head.astro', 'Header.astro', 'HeaderLink.astro', 'Footer.astro', 'PageHead.astro', 'PostHead.astro', 'PostRow.astro', 'StatusStrip.astro', 'Card.astro', 'CodeBlock.astro', 'Meter.astro', 'Stat.astro', 'SectionHead.astro', 'TimelineItem.astro', 'config.ts'];
 for (const f of astroFiles) {
 	check(`ships src/astro/${f}`, () => {
 		// Assert the file is ON DISK, not merely named in this list. A list
@@ -349,6 +359,106 @@ for (const f of astroFiles) {
 		assert(s.trim().length > 0, `src/astro/${f} is empty`);
 	});
 }
+check('every component on disk is claimed by the shipped list', () => {
+	// The inverse of the check above, and the one that closes the
+	// CodeBlock.astro hole: the installer walks the DIRECTORY, so a
+	// component nobody listed here is still copied into every consumer -
+	// untested, and therefore trusted by nobody.
+	for (const f of readdirSync(join(root, 'src/astro'))) {
+		if (!/\.(astro|ts)$/.test(f)) continue;
+		assert(
+			astroFiles.includes(f),
+			`src/astro/${f} exists and install.sh --astro will ship it, but no test ` +
+				'claims it; add it to astroFiles so it is asserted to be non-empty',
+		);
+	}
+});
+check('install.sh can actually install the components', () => {
+	// The claim this cycle rests on. Before --astro existed, install.sh
+	// installed five CSS/JS files and NOTHING from src/astro, so a
+	// consumer had no supported way to obtain the components its own
+	// vendored stylesheet was written to style - and hand-rolled a
+	// parallel implementation instead. Assert the flag exists AND that it
+	// produces real files, because a flag that parses and installs nothing
+	// reports success.
+	const inst = read('scripts/install.sh');
+	assert(/--astro\)/.test(inst), 'install.sh has no --astro flag');
+	const dir = mkdtempSync(join(tmpdir(), 'oemui-astro-'));
+	try {
+		const r = spawnSync('bash', [join(root, 'scripts/install.sh'), dir, '--astro'], {
+			encoding: 'utf8',
+		});
+		assert(r.status === 0, `install.sh --astro exited ${r.status}: ${r.stderr}`);
+		// The two components whose fixes are the measured ones, plus the
+		// config a consumer must be able to edit.
+		for (const f of ['Header.astro', 'Footer.astro', 'HeaderLink.astro', 'config.ts']) {
+			const p = join(dir, 'src/astro', f);
+			assert(existsSync(p), `--astro did not install src/astro/${f}`);
+			assert(
+				readFileSync(p, 'utf8').trim().length > 0,
+				`--astro installed an empty src/astro/${f}`,
+			);
+		}
+		// Without --astro nothing is installed, so the flag is what does it.
+		const bare = mkdtempSync(join(tmpdir(), 'oemui-bare-'));
+		try {
+			spawnSync('bash', [join(root, 'scripts/install.sh'), bare], { encoding: 'utf8' });
+			assert(
+				!existsSync(join(bare, 'src/astro', 'Header.astro')),
+				'install.sh without --astro also wrote src/astro; the flag would prove nothing',
+			);
+		} finally {
+			rmSync(bare, { recursive: true, force: true });
+		}
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+check('--astro never overwrites the consumer\'s own site identity', async () => {
+	// The asymmetry, and it has to be asymmetric. A .astro copy is a
+	// vendored artifact: re-syncing it is the whole point, and drift is a
+	// bug. config.ts is the one file the consumer OWNS - it holds the
+	// site's own title, author and email. An installer that overwrote it
+	// would republish the library's placeholder identity over a real site
+	// on the next routine sync, and nothing would say so.
+	//
+	// So: components are overwritten, config.ts is kept, and the skip is
+	// REPORTED by name rather than happening silently.
+	const dir = mkdtempSync(join(tmpdir(), 'oemui-cfg-'));
+	try {
+		spawnSync('bash', [join(root, 'scripts/install.sh'), dir, '--astro'], {
+			encoding: 'utf8',
+		});
+		const cfg = join(dir, 'src/astro/config.ts');
+		const MINE = 'export const SITE = { title: "not-the-library" };\n';
+		writeFileSync(cfg, MINE);
+
+		// A component edit MUST be reverted: that is the vendored contract.
+		const hdr = join(dir, 'src/astro/Header.astro');
+		writeFileSync(hdr, 'EDITED BY CONSUMER\n');
+		const r = spawnSync('bash', [join(root, 'scripts/install.sh'), dir, '--astro'], {
+			encoding: 'utf8',
+		});
+		assert(r.status === 0, `second install exited ${r.status}: ${r.stderr}`);
+		assert(
+			readFileSync(hdr, 'utf8') === readFileSync(join(root, 'src/astro/Header.astro'), 'utf8'),
+			'--astro did not re-sync an edited component; a vendored copy that is never ' +
+				'overwritten is a fork, and a fork is what this flag exists to remove',
+		);
+		assert(
+			readFileSync(cfg, 'utf8') === MINE,
+			'--astro OVERWROTE the consumer\'s config.ts, destroying its site identity',
+		);
+		// And the skip is visible, so "the installer ran" never reads as
+		// "the installer overwrote my site".
+		assert(
+			/KEPT/.test(r.stdout),
+			'--astro kept config.ts silently; the operator must be able to see that a file was spared',
+		);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
 check('config.ts is the single site-identity source', () => {
 	const c = read('src/astro/config.ts');
 	for (const k of ['title', 'description', 'author', 'email', 'github', 'url']) {
