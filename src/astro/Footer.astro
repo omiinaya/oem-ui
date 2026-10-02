@@ -24,18 +24,10 @@ const {
 	<div class="cm-footer__inner">
 		<div class="cm-footer__meta">
 			<span>© <span data-cm-year>{new Date().getFullYear()}</span> {SITE.author}</span>
-			{items.map((it) => (
-				<>
-					<span class="cm-footer__bar" aria-hidden="true">·</span>
-					<span>{it}</span>
-				</>
-			))}
+			{items.map((it) => <span>{it}</span>)}
 			{
 				contactHref && (
-					<>
-						<span class="cm-footer__bar" aria-hidden="true">·</span>
-						<a href={contactHref}>{contactLabel}</a>
-					</>
+					<a href={contactHref}>{contactLabel}</a>
 				)
 			}
 		</div>

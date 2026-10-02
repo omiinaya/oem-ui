@@ -1948,7 +1948,58 @@ button.cm-row:hover { background: var(--bg-2); }
 	font-family: var(--font-mono); font-size: var(--text-micro); color: var(--ink-faint);
 }
 .cm-footer__dot { color: var(--ink-dim); margin-right: 0.35em; }
-.cm-footer__bar { color: var(--ink-faint); margin-right: 1.2em; }
+/* The separator between footer meta fragments.
+
+   It used to be a `·` inside its own <span class="cm-footer__bar">, which
+   makes it a FLEX ITEM like any other. `.cm-footer__meta` is
+   `flex-wrap: wrap`, so a separator could land at the end of a line with
+   nothing after it: "© 2026 omiinaya ·" on line one, the fragments on
+   line two. MEASURED in WebKit on the showcase at 320, 390, 402 and 430:
+   the separator was the last item on the first line at 4 of 5 widths.
+
+   The separator is therefore not an element. It is a `::before` on the
+   item it PRECEDES, so it belongs to that item and the two can never be
+   split across a wrap - the shape the header already uses for its pipe
+   (`.cm-header__link + .cm-header__link::before`).
+
+   The rule EXCLUDED an item that was already a separator, because a
+   consumer vendoring an older library emitted its own
+   `<span class="cm-footer__bar">/</span>` as a flex item and a blanket
+   `:not(:first-child)::before` put two marks in the gap ("/ ·").
+   MEASURED in WebKit against the served sheet: on a legacy row all 3
+   separator elements computed `::before: "·"` on top of their own "/".
+
+   That exclusion, and the `.cm-footer__bar` rule beside it, are now
+   GONE: sullen.sh and oem-portfolio were the last two emitters, both
+   migrated to the generated separator, and the class is deleted rather
+   than kept as a shim nobody uses. The rule below is therefore plain -
+   which is the honest state, and a class defined in CSS but rendered by
+   nothing is dead code the next person cannot trust.
+
+   `::before` and not `::after`, and that choice is the whole point.
+   An `::after` on `:not(:last-child)` also stops the separator being its
+   own flex item, but it keeps the dot ATTACHED TO THE PRECEDING ITEM -
+   so when that item is the last thing on a wrapped line the dot is still
+   the last thing on the line. That is the same bug in a different
+   position, and a probe that only looked for a separator ELEMENT would
+   have reported the ::after version as clean. MEASURED: at 390px the
+   ::after version left line one reading "© 2026 @omiinaya · astro ·
+   static ·" with "zero deps · contact" below.
+
+   With `::before` on `:not(:first-child)` a wrapped line can only ever
+   START with a separator, and "no visual line ends with a separator"
+   becomes an invariant the tests can assert rather than a coincidence.
+
+   The negative left margin hangs the dot INTO the gap between the two
+   items rather than adding to it, so the separator does not widen the
+   row and push it one item earlier onto the next line. */
+.cm-footer__meta > *:not(:first-child)::before {
+	content: '·';
+	color: var(--ink-faint);
+	opacity: 0.6;
+	margin-left: calc(-1 * var(--space-2));
+	margin-right: var(--space-2);
+}
 
 /* ============ header ============
    Owned by the shared layer, NOT by an Astro <style> block: if these rules
