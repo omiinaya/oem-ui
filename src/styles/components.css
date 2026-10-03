@@ -4723,6 +4723,8 @@ button.cm-link:focus-visible {
 	   against 220px of available space, so it cut off mid-word with nothing
 	   to say more text followed. The real fix is a shorter string; this is
 	   the floor under that, not a substitute for it. */
+	overflow: hidden;
+	white-space: nowrap;
 	text-overflow: ellipsis;
 }
 /* MEASURED in WebKit at 390/375/1440: this rule shipped
