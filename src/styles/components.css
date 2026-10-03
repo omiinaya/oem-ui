@@ -101,7 +101,20 @@
 	   the width away from the content underneath. */
 	flex-wrap: wrap;
 }
-.cm-head-row__action { margin-left: auto; flex: 0 0 auto; }
+/* `gap` and `align-items` were missing here, so the row fell back to
+   `gap: normal` and stretch alignment. MEASURED on rpm's Dashboard in
+   WebKit at 390px: a 22px `.cm-chip` and two 44px `.cm-btn` sat flush
+   with zero space between them, their tops landing at 239 / 227 / 225 -
+   three baselines for one row. `align-items: center` lines them up;
+   `gap: var(--space-2)` gives them the same breathing room as the rest
+   of the sheet. */
+.cm-head-row__action {
+	margin-left: auto;
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
 /* A trailing METADATA chip - a count, a total - belongs to the right
    edge of the header row, not floating beside the title.
 
@@ -4599,6 +4612,60 @@ button.cm-link:focus-visible {
    colour. The one thing they must agree on is that the two are the same
    object: a block you read and a block you edit, in the same type and
    the same frame, so switching between them does not move the text. */
+/* A search field. Distinct from .cm-inline, which styles a value being edited
+   in place: a search box is a filter control with a persistent border on all
+   four sides and no dotted underline. Before this existed, six rpm pages
+   reached for .cm-inline to wrap a search input and inherited the dotted
+   underline plus the inline-editable affordance, which read as "edit me in
+   place" rather than "type to filter". */
+.cm-search { display: inline-flex; align-items: center; position: relative; width: 100%; min-width: 0; }
+.cm-search__input {
+	width: 100%;
+	min-width: 0;
+	font-family: var(--font-body);
+	font-size: max(var(--min-font), var(--text-sm));
+	color: var(--ink);
+	background: var(--panel);
+	border: 1px solid var(--ink-dim);
+	border-radius: var(--radius-sm);
+	/* Left gutter is DERIVED from the icon, not guessed: the glyph is
+	   `position: absolute; left: var(--space-3)` and 16px wide, so it ends
+	   at space-3 + 16px. Adding space-2 lands the text one step past it.
+	   Measured in WebKit at 390px: without the icon allowance the
+	   placeholder ran UNDER the magnifier by 16px; with an earlier
+	   `1.25em` fudge it sat 9px too far right and squeezed the hint. */
+	/* Right gutter clears .cm-search__clear (right: 2px, 32px wide) so a
+	   typed value never runs under it. */
+	padding: var(--space-2) calc(var(--space-3) + var(--space-2) + 16px) var(--space-2) calc(var(--space-3) + 16px + var(--space-2));
+	min-height: 44px;
+	appearance: none;
+}
+.cm-search__input::placeholder { color: var(--ink-dim); }
+.cm-search__input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.cm-search__icon {
+	position: absolute;
+	/* Anchored to the same space-3 as the input's left padding, so the glyph
+	   and the text gutter can never drift apart. */
+	left: var(--space-3);
+	pointer-events: none;
+	display: inline-flex;
+	color: var(--ink-dim);
+}
+.cm-search__clear {
+	position: absolute;
+	right: 2px;
+	width: 32px;
+	height: 32px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+	border: 0;
+	color: var(--ink-dim);
+	cursor: pointer;
+}
+.cm-search__clear:hover { color: var(--ink); }
+
 .cm-code {
 	width: 100%;
 	font-family: var(--font-mono);

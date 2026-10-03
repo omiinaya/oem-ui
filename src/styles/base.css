@@ -280,9 +280,18 @@ button {
    has to step aside for the one input the library itself sizes.
    `:not()` adds specificity, it does not remove it, so this is a
    matter of the subject, not the weight. */
-input:not([type='checkbox']):not([type='radio']):not([type='range']),
-textarea,
-select {
+/* `.cm-search__input` is excluded here for the SAME reason
+   `.cm-inline__input` is, and the comment above says so: this block is
+   (0,6,1) and beats every plain class in the sheet. A search field is
+   one of the two inputs the library sizes itself. Measured in WebKit at
+   390px before the exclusion: padding-left computed to 11.2px instead of
+   the 39px the component declares, so the placeholder ran UNDER the
+   magnifier glyph by 16px. `:not()` adds specificity, it does not remove
+   it, so the subject has to step aside -- no amount of doubling the
+   component class helps. */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not(.cm-search__input),
+textarea:not(.cm-search__input),
+select:not(.cm-search__input) {
 	font-family: var(--font-mono);
 	font-size: max(var(--min-font), 1rem);
 	color: var(--ink);
@@ -322,9 +331,9 @@ select {
    carrying a class of its own. `width` in the block above is (0,6,1);
    declared here and nowhere else, it applies to everything that has no
    component class, which is exactly the intent. */
-input:not([type='checkbox']):not([type='radio']):not([type='range']):not(.cm-inline__input),
-textarea:not(.cm-inline__input),
-select:not(.cm-inline__input) {
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not(.cm-inline__input):not(.cm-search__input),
+textarea:not(.cm-inline__input):not(.cm-search__input),
+select:not(.cm-inline__input):not(.cm-search__input) {
 	width: 100%;
 }
 
