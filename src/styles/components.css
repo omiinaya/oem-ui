@@ -506,15 +506,44 @@
 }
 
 /* The small variant is for a dense row (a toolbar, a table cell), not for
-   the primary action on a phone. It steps back below the tap floor on
-   purpose; on a touch viewport use the base button. */
-/* --tap-sm, NOT 0. `min-height: 0` here cancelled the tap floor the
-   base `.cm-btn` sets, and MEASURED on rpm at 390px every `cm-btn--sm`
-   rendered 58x28 - the Edit Rate Limit / Edit Force SSL Domain buttons,
-   two per card - which is 44% of the minimum in both axes. A smaller
-   label is a legitimate reason to shrink a button's chrome; it is not a
-   reason to make it harder to hit. */
-.cm-btn--sm { padding: 0.4em 0.9em; font-size: var(--text-xs); min-height: var(--tap-sm); }
+   the primary action on a phone. On a FINE pointer it steps below the tap
+   floor on purpose - density is the entire point of the variant. */
+.cm-btn--sm { padding: 0.4em 0.9em; font-size: var(--text-xs); min-height: 0; }
+
+/* On a TOUCH viewport the small variant takes the full floor, because a
+   thumb is the thing that has to hit it.
+
+   MEASURED in WebKit, and this rule replaces `--tap-sm: 44px`, which was
+   added to force the floor unconditionally and made a mistake worth
+   recording:
+
+     - `.cm-btn--sm { min-height: var(--tap-sm) }` with `--tap-sm: 44px`
+       computed 44px - EXACTLY `.cm-btn`'s height - at 402 and at 375 and
+       at desktop 1280. A modifier that renders the same box as its base is
+       not a modifier; the variant was dead, and every existence test was
+       green because the class was still DEFINED and still RENDERED. A
+       token whose value can only equal another token's is a no-op knob.
+     - `min-height: 0` alone (the behaviour before that token) rendered 28px
+       on a PHONE: rpm's Edit Rate Limit / Edit Force SSL Domain buttons,
+       two per card, 64% of the 44px floor, measured on a real handset
+       viewport. That one was the original defect and it was real.
+
+   Both measurements are true at once, and they disagree because the answer
+   is not a property of the LABEL's size - it is a property of the POINTER
+   and the control's ROLE. Same mechanism `.cm-copy` uses one block down,
+   and the same one `.cm-state__actions .cm-btn` uses at the empty state.
+
+   So the floor is asserted per pointer, and the dense-row decision
+   survives where it belongs: 28px next to its neighbours on a mouse, 44px
+   for a thumb on a phone.
+
+   It must live in THIS file and not in base.css's coarse-pointer block:
+   base.css loads first, and `.cm-btn--sm { min-height: 0 }` is declared
+   later at equal specificity, so a base.css rule would lose the cascade
+   silently and this whole decision would vanish with a green suite. */
+@media (pointer: coarse) {
+	.cm-btn--sm { min-height: var(--tap); }
+}
 .cm-btn--block { width: 100%; }
 
 .cm-btn-group { display: flex; gap: var(--space-3); flex-wrap: wrap; }

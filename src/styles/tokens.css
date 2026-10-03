@@ -164,15 +164,22 @@
 	   smallest text we will ever render, because a 10px monospace
 	   label is unreadable on a phone at arm's length. */
 	--tap: 44px;
-	/* A smaller label may shrink a control's CHROME; it may not shrink
-	   its hit area. MEASURED on rpm: `.cm-btn--sm` carried
-	   `min-height: 0` and rendered 28px tall - the Edit Rate Limit and
-	   Edit Force SSL Domain buttons, two per card, on a phone. There is
-	   no "small" tap target: this is `--tap`, deliberately, because a
-	   token that allowed a smaller floor would be used to defeat the
-	   floor. The difference between a small button and a large one is
-	   its padding and its label, not how hard it is to press. */
-	--tap-sm: 44px;
+	/* There is deliberately no `--tap-sm`.
+
+	   One was added here -- `--tap-sm: 44px` -- to say "a small label may
+	   shrink a control's chrome, never its hit area". The principle is
+	   right and the token made it a no-op: with `--tap` also 44px, every
+	   `.cm-btn--sm` computed EXACTLY `.cm-btn`'s height, MEASURED in WebKit
+	   at 402, at 375 and at desktop 1280. The dense-row decision the
+	   variant exists for was gone, and the variant was a second name for
+	   the base button.
+
+	   A token whose only legal value equals another token's is a knob that
+	   cannot be turned. Whether a control takes the floor is a question
+	   about the POINTER and the control's ROLE, so it is answered in
+	   components.css - `.cm-btn--sm` steps below the floor on a fine
+	   pointer and takes `var(--tap)` under `@media (pointer: coarse)`.
+	   Both halves are measured; neither is a default. */
 	--min-font: 12px;
 
 	/* ---- switch geometry ----
