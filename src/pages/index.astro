@@ -1318,8 +1318,46 @@ The monospace surface for structured text, in the two forms it is always used: a
 								<input class="cm-inline__input cm-inline__input--tight" value="10.0.0.7" aria-label="Forward IP" />
 								<span class="cm-row__meta">:</span>
 								<input class="cm-inline__input cm-inline__input--tight" value="8443" aria-label="Forward port" />
-							</div>
+						</div>
 
+						<p class="cm-head__sub" style="margin:var(--space-6) 0 var(--space-5)">
+						<code>cm-row__meta--nowrap</code> is the other direction from
+						<code>--wrap</code>: a meta slot carrying ONE value that must not
+						split, given its own line by <code>cm-row__body--wrap</code> rather
+						than being starved of one. <code>cm-row__meta--tight</code> takes
+						the gap back to zero and restores a single space at the first
+						boundary, because the parts of <code>&rarr; host:port</code> are
+						ONE value, and a flex gap puts a space on <em>both</em> sides of
+						the colon. MEASURED in WebKit at 402 and 375: the tight row's colon
+						sits 0px from the address and 0px from the port, and the only
+						space in the value is the 0.35em in front of the address.
+						</p>
+						<ul class="cm-rows" style="max-width:34rem;border:1px solid var(--line);border-radius:var(--radius-sm)">
+						<li>
+						<div class="cm-row">
+						<span class="cm-row__body cm-row__body--wrap">
+						<span class="cm-row__title">app.example.com</span>
+						<span class="cm-row__meta cm-row__meta--nowrap">
+						<span aria-hidden="true">&rarr;</span>
+						<span class="cm-inline">192.168.1.104:8443</span>
+						</span>
+						</span>
+						</div>
+						</li>
+						<li>
+						<div class="cm-row">
+						<span class="cm-row__body cm-row__body--wrap">
+						<span class="cm-row__title">api.example.com</span>
+						<span class="cm-row__meta cm-row__meta--nowrap cm-row__meta--tight">
+						<span aria-hidden="true">&rarr;</span>
+						<span>192.168.1.104</span>
+						<span>:</span>
+						<span>80</span>
+						</span>
+						</span>
+						</div>
+						</li>
+						</ul>
 						</section>
 						<section id="switch" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
 							<SectionHead title="switch">
