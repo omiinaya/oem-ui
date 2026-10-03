@@ -109,8 +109,16 @@ const MUTATIONS = [
 	{
 		name: 'the table replaced by a div pile, losing table semantics',
 		file: PAGE,
-		from: '<table class="cm-prose-table">',
-		to: '<div class="cm-prose-table">',
+		// Scoped to the paragraph ABOVE the tag. `.cm-prose-table` is now
+		// rendered TWICE in the showcase - the hand-written fixture and
+		// the generated-labels one - so the bare tag matches twice and an
+		// unscoped replace would rewrite whichever came first. The harness
+		// refusing an ambiguous pattern is CORRECT; the fix is to name
+		// which fixture the mutation is about, not to relax the check.
+		from: `four rows of sentences:</p>
+												<table class="cm-prose-table">`,
+		to: `four rows of sentences:</p>
+												<div class="cm-prose-table">`,
 		expect: 'rendered as a <table>',
 	},
 ];

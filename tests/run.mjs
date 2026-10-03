@@ -111,16 +111,24 @@ const showcase = read('src/pages/index.astro');
    below already does for the same reason. The class has to be ONE of the
    selectors; that is the whole contract.
 
-   `want` is a full selector (e.g. '.cm-alert--ok .cm-alert__mark::before'),
-   matched as a substring of each trimmed selector, not as a regex, so a
-   caller cannot accidentally hand us a pattern with a stray metacharacter. */
-function declForSelector(want, src = compSrc) {
-  for (const m of src.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
-    if (!m[1].split(',').some((s) => s.trim().includes(want))) continue;
-    return m[2];
-  }
-  return null;
-}
+   // `want` is a full selector (e.g. '.cm-alert--ok .cm-alert__mark::before'),
+      matched as a substring of each trimmed selector, not as a regex, so a
+      caller cannot accidentally hand us a pattern with a stray metacharacter.
+
+      `exact` turns that off and compares for EQUALITY instead. The substring
+      reading is right for a compound selector and WRONG for a bare one:
+      `.cm-btn` is a substring of `.cm-head-row__action .cm-btn`, so asking
+      "what does the rule for .cm-btn declare?" returned whatever the
+      descendant rule declared, and the answer was confidently about a rule
+      the caller never named. Pass exact when `want` is the whole selector. */
+   function declForSelector(want, src = compSrc, exact = false) {
+     for (const m of src.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+       const hit = m[1].split(',').some((s) => (exact ? s.trim() === want : s.trim().includes(want)));
+       if (!hit) continue;
+       return m[2];
+     }
+     return null;
+   }
 
 /* ================= contrast math (WCAG 2.1) ================= */
 const srgb = (h) => {
@@ -9071,17 +9079,49 @@ for (const [name, fn] of pending.splice(0)) {
 		// `.cm-btn` sets min-height: var(--tap) and `.cm-btn--sm` sets
 		// min-height: 0, so the two differ unless a token makes them equal.
 		//
-		// Scoped to the FIRST `.cm-btn {` rule, and that scoping is the whole
-		// point. `/\.cm-btn\s*\{[^}]*min-height:\s*var\(--tap\)/` searches the
-		// whole file, and there are TWO rules matching `.cm-btn` that carry a
+		// Scoped to the rule whose selector IS `.cm-btn`, and that scoping
+		// is the whole point, twice over.
+		//
+		// `/\.cm-btn\s*\{([^}]*)\}/` searches the whole file, and there are
+		// TWO rules matching `.cm-btn` that carry a
 		// `min-height: var(--tap)` - the base at line 441 and the copy-button
 		// composition further down. A mutation that flattened the BASE to
 		// `min-height: 0` left this assertion green, because the regex
 		// matched the second one and never looked at the first. That is the
 		// last-in-source-order read the skill warns about, in a place nobody
 		// would think to look for it.
-		const baseBtn = /\.cm-btn\s*\{([^}]*)\}/.exec(css);
-		assert(baseBtn && /min-height:\s*var\(--tap\)/.test(baseBtn[1]),
+		//
+		// The SECOND half is subtler and bit anyway: the regex above matches
+		// the TAIL of any selector that ends in `.cm-btn`, so
+		// `.cm-head-row__action .cm-btn { white-space: nowrap }` - added
+		// later, by a different cycle, for an unrelated fix - became "the
+		// first `.cm-btn` rule" and carried no min-height at all. The suite
+		// went red on a component that was correct. So walk the rule's whole
+		// SELECTOR LIST and require `.cm-btn` to be one of the selectors,
+		// which is the only reading that means "the base button rule".
+		//
+		// `want` is the WHOLE selector, compared as an EQUALITY against each
+		// selector in the rule's list - not a substring, and not with the
+		// trailing brace attached. Both of those looser readings fail
+		// here, and both failed for real:
+		//
+		//   `.cm-btn {` never matches, because the matcher's captured
+		//   "selector" group is everything between the previous `}` and
+		//   this `{`, so a `{` inside it never appears.
+		//
+		//   `.cm-btn` as a SUBSTRING matches `.cm-head-row__action .cm-btn`
+		//   - a rule added by a later cycle for an unrelated fix - and
+		//   `includes` reported the BASE button as having whatever that
+		//   rule declares. The suite went red on a correct component.
+		//   "The rule whose selector IS `.cm-btn`" is the only reading
+		//   that means what the check claims.
+		//
+		// Read from the COMMENT-STRIPPED source: a `{` or `}` inside a CSS
+		// comment desyncs this matcher, so a rule boundary lands in the
+		// wrong place and a correct rule reads as absent. Same reason
+		// every other block here strips comments before asserting.
+		const baseBtn = declForSelector('.cm-btn', compSrc, true);
+		assert(baseBtn && /min-height:\s*var\(--tap\)/.test(baseBtn),
 			'.cm-btn no longer takes its height from the --tap token, so the small variant has nothing to differ from');
 		// And --tap must not have acquired a twin that a consumer could set
 		// to the same value and silently flatten the variant.
@@ -9485,6 +9525,214 @@ for (const [name, fn] of pending.splice(0)) {
 			'the prose table has no thead/tbody, so row and column association is lost');
 		assert(/<caption>/.test(sec[0]),
 			'the prose table has no caption, so a table read out of context has no name');
+	});
+}
+
+/* ================= generated table labels =================
+   `data-label` on every body cell is what `.cm-prose-table` renders
+   beside a stacked value, and the check above makes sure the SHOWCASE's
+   own table carries it. It cannot make a GENERATED table carry it: the
+   consumer that needs this renders 397 markdown pipe-tables from a
+   converter that emits `<th scope="col">` and nothing else.
+
+   So the runtime derives the labels from the header row, and these
+   checks execute the real runtime against a DOM strict enough to fail
+   if the code drifts onto an API the probe does not implement - a mock
+   that quietly returns [] for an unknown selector is how a probe ends
+   up asserting that a broken function is fine. */
+console.log('\ngenerated table labels');
+	{
+		/* `page2` is scoped to the prose-table block above, and reading the
+		   showcase again here is one `read()` call - cheaper than hoisting a
+		   variable that six other blocks do not need. */
+		const pageLbl = read('src/pages/index.astro');
+		/* A DOM built from a literal spec. Every accessor the runtime can
+		   reach is implemented; anything else is a hard error, so the probe
+		   cannot silently answer a question the DOM does not have. */
+		const mkCell = (tag, text, attrs = {}) => ({
+			tag,
+			textContent: text,
+			attrs: { ...attrs },
+			children: [],
+			// The runtime's idempotence guard reads `dataset`, not
+			// getAttribute: `table.dataset.cmLabels` is `data-cm-labels`.
+			// A mock without `dataset` throws on the FIRST line of the
+			// function, which looks like a broken runtime and is really a
+			// broken probe.
+			dataset: {},
+			hasAttribute(n) { return n in this.attrs; },
+			setAttribute(n, v) { this.attrs[n] = v; },
+			getAttribute(n) { return n in this.attrs ? this.attrs[n] : null; },
+			// Cell-level lookups. The runtime asks the header ROW for its
+			// `th, td` and the TABLE for its `tbody tr`, so both live one
+			// level down from what a bare cell would answer - and a mock
+			// that only implements the top level throws halfway through
+			// the function, which reads as a broken runtime.
+			querySelector: () => null,
+			querySelectorAll(sel) {
+				if (sel === 'th, td') return this.children.filter((c) => c.tag === 'th' || c.tag === 'td');
+				return [];
+			},
+		});
+	const mkTable = (headers, rows, opt = {}) => {
+		const head = mkCell('tr', '');
+		head.children = headers.map((h) => mkCell('th', h));
+		const thead = mkCell('thead', '');
+		thead.children = [head];
+		const tbody = mkCell('tbody', '');
+		tbody.children = rows.map((r) => {
+			const tr = mkCell('tr', '');
+			tr.children = r.map((c) => (typeof c === 'object' ? mkCell('td', c.text ?? '', c.attrs ?? {}) : mkCell('td', c)));
+			return tr;
+		});
+		const table = mkCell('table', '');
+		table.attrs = { class: 'cm-prose-table' };
+		table.children = opt.noHead ? [tbody] : [thead, tbody];
+		if (!opt.noHead) table.querySelector = (s) => (s === 'thead tr' ? head : null);
+		table.querySelectorAll = (s) => {
+			if (s === 'th, td' && opt.noHead !== undefined) return head.children;
+			if (s === 'tbody tr') return opt.noHead ? [] : tbody.children;
+			return [];
+		};
+		table.__head = head;
+		table.__tbody = tbody;
+		return table;
+	};
+	const labelsOf = (table) =>
+		table.__tbody.children.map((tr) => tr.children.map((c) => c.getAttribute('data-label')));
+
+	const harness = (tables, opt = {}) => {
+		const tablesInScope = tables.filter(() => !(opt.unopted ?? false));
+		const doc = {
+			documentElement: {
+				attrs: {},
+				style: { setProperty: () => {} },
+				getAttribute(n) { return this.attrs[n] ?? null; },
+				setAttribute(n, v) { this.attrs[n] = v; },
+			},
+			readyState: 'complete',
+			addEventListener: () => {},
+			querySelector: () => null,
+			// The REAL selector the runtime uses. If the runtime drifts to a
+			// different selector this returns [] and the labels come back
+			// empty, so the assertion below fails - it does not pass on a
+			// mock that answers "no tables" the same way it answers
+			// "labelled every table".
+			querySelectorAll: (sel) => {
+				if (sel === '[data-cm-table-labels] .cm-prose-table') return tablesInScope;
+				return [];
+			},
+		};
+		const ctx = {
+			module: { exports: {} },
+			document: doc,
+			window: { addEventListener: () => {}, scrollY: 0, innerHeight: 800, requestAnimationFrame: () => {} },
+			localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
+		};
+		ctx.globalThis = ctx;
+		vm.createContext(ctx);
+		vm.runInContext(runtimeSrc, ctx);
+		return ctx;
+	};
+
+	check('a generated table gets its column names from the header row', () => {
+		const t = mkTable(['Model', 'Input', 'Output'], [['a', '1', '2'], ['b', '3', '4']]);
+		harness([t]);
+		const labels = labelsOf(t);
+		assert(labels[0].join('|') === 'Model|Input|Output',
+			`row 1 labelled ${JSON.stringify(labels[0])}, expected the header row's own text`);
+		assert(labels[1].join('|') === 'Model|Input|Output',
+			`row 2 labelled ${JSON.stringify(labels[1])}`);
+	});
+
+	check("an author's own data-label is never overwritten by the derived one", () => {
+		const t = mkTable(
+			['Model', 'Input', 'Output'],
+			[[{ text: 'a', attrs: { 'data-label': 'CHOSEN' } }, '1', '2']],
+		);
+		harness([t]);
+		const labels = labelsOf(t);
+		assert(labels[0][0] === 'CHOSEN',
+			`the hand-written label was rewritten to ${JSON.stringify(labels[0][0])}`);
+		assert(labels[0][1] === 'Input' && labels[0][2] === 'Output',
+			`the UNLABELLED cells beside it were not derived: ${JSON.stringify(labels[0])}`);
+	});
+
+	check('a gapped row is labelled by INDEX, not shifted by the missing cell', () => {
+		// A markdown row can have an EMPTY cell in the MIDDLE
+		// (`| a |  | c |`), which renders three <td>s with a blank one -
+		// or, for a short row, fewer <td>s than the header has <th>s.
+		// Both are the same trap: any implementation that drops the empty
+		// cell before labelling shifts every later cell's name one column
+		// left, so `c` renders under a heading called 'Output'.
+		//
+		// MUTATION: filter the row's empty cells out before labelling, and
+		// this fails. A short-row-only fixture does NOT catch it - the gap
+		// at the end shifts nothing after it - which is why the gapped row
+		// is here and not instead of it.
+		const short = mkTable(['A', 'B', 'C'], [['only-a']]);
+		const gapped = mkTable(['Engine', 'Cold start', 'Verdict'], [['a', '', 'ship it']]);
+		harness([short, gapped]);
+		assert(labelsOf(short)[0][0] === 'A', `short row: ${JSON.stringify(labelsOf(short)[0])}`);
+		// The EMPTY cell still gets its column's name. It is a value that
+		// happens to be blank, not a missing value - so the renderer draws
+		// "Cold start" with nothing under it, which is honest. Skipping it
+		// is what breaks the layout: that is the shift this asserts against.
+		assert(labelsOf(gapped)[0][2] === 'Verdict',
+			`the cell AFTER an empty one was labelled ${JSON.stringify(labelsOf(gapped)[0][2])}, want 'Verdict' - ` +
+			`the labels shifted by the empty cell, so a value renders under the wrong heading`);
+	});
+
+	check('the derivation is opt-in, so a table a person wrote is left alone', () => {
+		const t = mkTable(['Model', 'Input'], [['a', '1']]);
+		harness([t], { unopted: true });
+		assert(labelsOf(t)[0][0] === null,
+			`a table outside [data-cm-table-labels] was rewritten anyway: ${JSON.stringify(labelsOf(t)[0])}`);
+	});
+
+	check('a table with no header row is not labelled from nothing', () => {
+		// A headerless table has no source of truth, so deriving from an
+		// absent header would put a WRONG name on a cell. Skip it.
+		const t = mkTable([], [['a', '1']], { noHead: true });
+		harness([t]);
+		assert(labelsOf(t)[0][0] === null,
+			`a headerless table was given labels: ${JSON.stringify(labelsOf(t)[0])}`);
+	});
+
+	check('the showcase demonstrates the derivation on a table with no data-label', () => {
+		// A specimen that already carries data-label proves nothing: it
+		// would look correct with the runtime deleted. Assert the NEGATIVE
+		// - the section's table carries none - so the only thing that can
+		// put a label on it is the runtime.
+		const sec = /<section id="tablelabels"[\s\S]*?<\/section>\s*<\/section>/.exec(pageLbl);
+		assert(sec, 'no generated-table-labels section in the showcase');
+		/* The attribute must be on the OPENING TAG, not merely somewhere in
+		   the section. The section's own lede names `[data-cm-table-labels]`
+		   in prose, so a `/data-cm-table-labels/.test(section)` check is
+		   satisfied by the EXPLANATION and goes green with the opt-in
+		   deleted - the specimen then demos nothing and the check passes,
+		   which is a test that cannot fail. MUTATION: drop the attribute
+		   from <section>, and this fails. */
+		const openTag = /<section id="tablelabels"[^>]*>/.exec(sec[0]);
+		assert(openTag, 'the section has no opening tag to carry the opt-in');
+		assert(/data-cm-table-labels/.test(openTag[0]),
+			`the opt-in is not on the <section> element, so nothing in the specimen is labelled: ${openTag[0].slice(0, 120)}`);
+		const table = /<table class="cm-prose-table">[\s\S]*?<\/table>/.exec(sec[0]);
+		assert(table, 'the section has no .cm-prose-table');
+		const bodyCells = table[0].split(/<tbody>/)[1] ?? '';
+		const cells = (bodyCells.match(/<td/g) || []).length;
+		const labelled = (bodyCells.match(/data-label/g) || []).length;
+		assert(cells > 0, 'the specimen has no body cells to label');
+		assert(labelled === 0,
+			`${labelled} of the specimen's ${cells} cells carry data-label, so it demonstrates the hand-written form and not the derivation`);
+	});
+
+	check('the runtime reaches generated tables from init, not only from a helper', () => {
+		// `labelTable` existing and `initTableLabels` calling it is worth
+		// nothing if init() never calls initTableLabels: nothing runs on a
+		// real page and every unit test above still passes.
+		assert(/initTableLabels\(root\)/.test(runtimeSrc),
+			'init() does not call initTableLabels, so no page ever gets its labels');
 	});
 }
 

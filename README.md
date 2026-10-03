@@ -853,6 +853,47 @@ without the text being there. The `thead` is **clipped**, not
 `display: none`d, so it stays in the accessibility tree — which is
 exactly why the labels have to exist.
 
+#### Generated tables — `[data-cm-table-labels]`
+
+A table a person hand-wrote carries `data-label` in the markup, as above.
+A table a **program** wrote cannot: a markdown converter emits the header
+row and the body rows and has nowhere to put a label it did not compute.
+That is not a hypothetical gap — the consumer that motivated
+`.cm-prose-table` (hermes-articles) renders **397 markdown pipe-tables
+across 34 articles**, and every one of them would have stacked on a phone
+into a list of values with no column names.
+
+The header row is already in the markup, and it is the only source of
+truth there is, so the runtime copies its text onto the body cells **by
+index**:
+
+```html
+<section data-cm-table-labels>
+  <table class="cm-prose-table">
+    <thead><tr><th scope="col">Engine</th><th scope="col">Cold start</th></tr></thead>
+    <tbody><tr><td>vLLM</td><td>~400ms</td></tr></tbody>
+  </table>
+</section>
+```
+
+Below 760px the `td`s print "Engine" and "Cold start" with no
+`data-label` anywhere in the source. Three properties worth knowing:
+
+- **It is opt-in.** `[data-cm-table-labels]` scopes the derivation,
+  because rewriting cells in a document behind someone's back is not
+  something to do to a table a person wrote.
+- **It never overwrites.** An author's own `data-label` wins over
+  anything derived, so a mixed table is fine.
+- **Index, not position-matching.** A markdown row with an empty cell
+  (`| a |  | c |`) still renders three `<td>`s, and a short row renders
+  fewer than the header has columns. Walking the header in step with the
+  row shifts every later label one column left — `c` renders under
+  "Output". Indexing cannot.
+
+Zero bytes of CSS: this is the runtime doing the only thing CSS cannot
+(copy a sibling's text onto an attribute), and it runs from `init()`, so a
+client-side route change re-labels.
+
 ```css
 /* What you want for the size, not just the look */
 .cm-prose-table { table-layout: fixed; }  /* width:100% is advisory without it */

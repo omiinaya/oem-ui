@@ -503,6 +503,68 @@
 		else btn.textContent = text;
 	}
 
+	/* ---------- generated table labels ----------
+	   `.cm-prose-table` stacks below 760px, and a stacked cell reads its
+	   column name from `data-label` via `content: attr(data-label)`. That
+	   is load-bearing: without it a stacked row is a list of VALUES with
+	   no column names, which is not a table at all.
+
+	   A table a person hand-wrote carries `data-label` in the markup, and
+	   the library's own showcase does. A table a program WROTE cannot.
+	   The consumer that motivated this component (hermes-articles) renders
+	   397 markdown pipe-tables across 34 articles from a hand-rolled
+	   markdown->HTML function that emits `<thead><th scope="col">` and
+	   nothing else - so every one of those tables stacked into
+	   unlabelled values on a phone, and the only fix available to it was
+	   for a person to hand-edit 397 tables, which is not a fix.
+
+	   So the runtime derives it. The header row is the only source of
+	   truth in the markup, and it is already there; copying its text onto
+	   the body cells by INDEX is the whole job.
+
+	   Opt-in via [data-cm-table-labels], because deriving attributes on
+	   every table in a document is not something to do behind someone's
+	   back: a consumer with a hand-authored table and a slightly
+	   different header text may not want its attributes rewritten.
+
+	   Index, not position-matching: a row with a MISSING cell (a `| a |  |`
+	   gap in a markdown table) would shift every later label if the code
+	   walked siblings in step. indexOf in the row gives the right
+	   column for a cell whose own position is short of the header's,
+	   because `children` contains only the cells that EXIST.
+
+	   Never overwrite an author's own `data-label`. The attribute is the
+	   documented hand-written form and wins over anything derived. */
+	function labelTable(table) {
+		if (!table || table.dataset.cmLabels === '1') return;
+		var head = table.querySelector('thead tr');
+		if (!head) return;
+		var names = Array.prototype.slice.call(head.querySelectorAll('th, td'))
+			.map(function (cell) {
+				return (cell.textContent || '').trim();
+			})
+			.filter(function (t) {
+				return t.length > 0;
+			});
+		if (!names.length) return;
+		table.dataset.cmLabels = '1';
+		table.querySelectorAll('tbody tr').forEach(function (row) {
+			var cells = Array.prototype.slice.call(row.children).filter(function (c) {
+				return (c.textContent || '').trim().length > 0;
+			});
+			for (var i = 0; i < cells.length && i < names.length; i++) {
+				if (cells[i].hasAttribute('data-label')) continue;
+				cells[i].setAttribute('data-label', names[i]);
+			}
+		});
+	}
+
+	function initTableLabels(root) {
+		(root || document)
+			.querySelectorAll('[data-cm-table-labels] .cm-prose-table')
+			.forEach(labelTable);
+	}
+
 	/* ---------- external link hardening ---------- */
 	function initExternalLinks() {
 		document.querySelectorAll('a[href^="http"]').forEach(function (a) {
@@ -883,6 +945,7 @@
 		initTooltipClamp(root);
 		initYears();
 		initMeasureReadout();
+		initTableLabels(root);
 		if (!root || root === document) initExternalLinks();
 	}
 

@@ -262,7 +262,23 @@
    three words per line. */
 @media (max-width: 420px) {
 	.cm-head-row { flex-wrap: wrap; }
-	.cm-head-row__action { margin-left: 0; width: 100%; }
+	.cm-head-row__action {
+		margin-left: 0;
+		width: 100%;
+		/* The action row can itself hold three controls, and on its own
+		   310px line a search + two buttons cannot share it honestly.
+		   MEASURED on rpm's Certificates in WebKit at 390px: the
+		   `.cm-search` shrank to 75px (flex `0 1 auto`, min-width 0)
+		   while the two `.cm-btn` beside it wrapped their labels to two
+		   lines and grew to 49px, so one row carried 44px and 49px
+		   controls side by side and the search box was unusable. Letting
+		   the row wrap gives the search its own line. */
+		flex-wrap: wrap;
+	}
+	/* A search is the one control that becomes useless when squeezed, so
+	   it keeps a real floor and wraps rather than shrinking. */
+	.cm-head-row__action .cm-search { flex: 1 1 100%; }
+	.cm-head-row__action .cm-btn { white-space: nowrap; }
 }
 
 /* ---------- post / article head ----------
@@ -516,6 +532,23 @@
 	text-decoration: underline;
 	text-underline-offset: 4px;
 	text-decoration-color: var(--ink-faint);
+}
+/* Ghost is defined by what it does NOT have: no fill, and a transparent
+   border, so it reads as text beside a real button. That works only while
+   hover exists. On a touch device there is no hover, so the control stays
+   invisible for its whole life.
+
+   MEASURED on rpm's Certificates in WebKit at 390px: `.cm-btn--ghost`
+   "Upload Custom" computed to `border: 1px solid transparent`,
+   `background: transparent`, `color: #9c9c9c` on a near-black surface -
+   a 162x44 button that looked exactly like a sentence, sitting next to a
+   filled primary button. Giving it the border the hover state would have
+   given it restores the affordance without changing the desktop look. */
+@media (pointer: coarse) {
+	.cm-btn--ghost {
+		border-color: var(--line);
+		color: var(--ink);
+	}
 }
 
 /* The small variant is for a dense row (a toolbar, a table cell), not for
@@ -4624,7 +4657,12 @@ button.cm-link:focus-visible {
 	align-items: center;
 	position: relative;
 	width: 100%;
-	min-width: 0;
+	/* A floor, not a floor of zero. MEASURED on rpm's Certificates in
+	   WebKit at 390px: sharing a row with two buttons, this box shrank to
+	   75px - wide enough to show the magnifier and nothing else. Inside
+	   the narrow-viewport header row it takes `flex: 1 1 100%` instead;
+	   everywhere else this is the guard. */
+	min-width: 11rem;
 }
 /* rpm's SearchField.tsx emits this modifier and the library never defined
    it, so the wide variant silently rendered at the default measure.
@@ -4668,7 +4706,17 @@ button.cm-link:focus-visible {
 	min-height: var(--tap);
 	appearance: none;
 }
-.cm-search__input::placeholder { color: var(--ink-dim); }
+.cm-search__input::placeholder {
+	color: var(--ink-dim);
+	/* A placeholder longer than the field is CLIPPED mid-glyph by WebKit -
+	   an input cannot ellipsize its own placeholder, and the half-drawn
+	   letter reads as a rendering fault. MEASURED on rpm's Certificates at
+	   390px: "Search name, domain, provider..." measured 289px of text
+	   against 220px of available space, so it cut off mid-word with nothing
+	   to say more text followed. The real fix is a shorter string; this is
+	   the floor under that, not a substitute for it. */
+	text-overflow: ellipsis;
+}
 /* MEASURED in WebKit at 390/375/1440: this rule shipped
    `outline: 2px solid var(--focus)` and --focus was NOT a declared token.
    An undefined custom property inside a shorthand makes the WHOLE

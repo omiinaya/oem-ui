@@ -39,7 +39,7 @@ import SectionHead from '../astro/SectionHead.astro';
 const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'crumbs', 'lists', 'states', 'surface',
   'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'choice',
-	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'prosetable', 'layout',
+	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'prosetable', 'tablelabels', 'layout',
 	'forms', 'search', 'auth', 'readme',
 ] as const;
 
@@ -2052,9 +2052,62 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 														</tr>
 													</tbody>
 												</table>
-											</div>
-										</section>
-									</section>
+																					</div>
+																		</section>
+
+																		<!-- ====================================================
+																		     generated table labels. The prose table above
+																		     is HAND-WRITTEN: every cell carries its own
+																		     data-label, because a person typed it. The
+																		     consumer that motivated the component
+																		     (hermes-articles) cannot do that - it renders
+																		     397 markdown pipe-tables from a converter
+																		     that emits <th scope="col"> and nothing
+																		     else - so on a phone every one of those
+																		     tables stacked into unlabelled values, and
+																		     the stacked layout's whole point was gone.
+
+																		     `data-cm-table-labels` derives them from the
+																		     header row at runtime. The specimen below is
+																		     deliberately UNLABELLED in the markup, so it
+																		     proves the derivation rather than restating
+																		     it: shrink the window to see the labels
+																		     appear at the same moment the rows stack. -->
+																		<section id="tablelabels" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)" data-cm-table-labels>
+																			<SectionHead title="generated table labels">
+												<code>[data-cm-table-labels]</code> copies each header's text onto the body cells as <code>data-label</code>, which is what <code>.cm-prose-table</code> reads with <code>content: attr(data-label)</code> once it stacks. Below 760px this table has <strong>no</strong> <code>data-label</code> anywhere in its markup, and the labels on the right of each value are derived. An author's own <code>data-label</code> is never overwritten, and the attribute is opt-in because rewriting cells behind someone's back is not something to do to a table a person wrote.
+																			</SectionHead>
+
+																			<div class="cm-prose">
+																				<p>A generated table keeps its column names on a phone:</p>
+																				<table class="cm-prose-table">
+																					<caption>Costs per million tokens, published 2026-10-03.</caption>
+																					<thead>
+																						<tr>
+																							<th scope="col">Model</th>
+																							<th scope="col">Input</th>
+																							<th scope="col">Output</th>
+																							<th scope="col">Measured on this host</th>
+																						</tr>
+																					</thead>
+																					<tbody>
+																						<tr>
+																							<td>big-pickle</td>
+																							<td>$0.40</td>
+																							<td>$1.20</td>
+																							<td>31 t/s, first token 380ms</td>
+																						</tr>
+																						<tr>
+																							<td>qwen3.8-27b</td>
+																							<td>local</td>
+																							<td>local</td>
+																							<td>18 t/s with thinking disabled</td>
+																						</tr>
+																					</tbody>
+																				</table>
+																			</div>
+																		</section>
+																	</section>
 			<!-- ==================================================== layout
 			     The two page shapes that are not a single column: a lede
 			     under the head, and a main block with a metadata aside.
