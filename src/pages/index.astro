@@ -40,7 +40,7 @@ const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'crumbs', 'lists', 'states', 'surface',
   'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'choice',
 	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'prosetable', 'layout',
-	'forms', 'auth', 'readme',
+	'forms', 'search', 'auth', 'readme',
 ] as const;
 
 /* The log specimen. Long enough to actually scroll, because a sticky
@@ -2310,6 +2310,60 @@ inputs are element defaults, so a bare <code>&lt;input&gt;</code> is already on-
 						<button type="submit" class="cm-btn cm-btn--primary">save</button>
 					</div>
 				</form>
+			</section>
+
+			<!-- ====================================================== search
+			     Filtering a list is not editing a value, so it is not
+			     .cm-inline. Ten rpm pages ship exactly this markup today
+			     (SearchField.tsx), which is why the surface exists at all -
+			     and why the section below is a demonstration of markup a
+			     CONSUMER already emits, not one invented here.
+
+			     Two states, because the clear button only exists once
+			     there is something to clear: it is not a permanently
+			     mounted control that greys out. The wide modifier is
+			     demonstrated too, because rpm emits it and the library
+			     never defined it until this cycle. -->
+			<section id="search" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+				<SectionHead title="search">
+A filter control, not an inline edit. <code>.cm-inline</code> styles a value being changed in place; this is a four-sided bordered field with a leading glyph and a clear button that appears only once there is a value.
+				</SectionHead>
+
+				<div class="cm-spec">
+					<div class="cm-field">
+						<label class="cm-field__label" for="q-empty">filter</label>
+						<div class="cm-search">
+							<span class="cm-search__icon" aria-hidden="true">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+									<circle cx="11" cy="11" r="7" />
+									<line x1="16.5" y1="16.5" x2="21" y2="21" />
+								</svg>
+							</span>
+							<input id="q-empty" class="cm-search__input" type="search" placeholder="search hosts…" autocomplete="off" />
+						</div>
+						<span class="cm-field__help">empty: no clear button, and nothing is mounted to be pressed.</span>
+					</div>
+
+					<div class="cm-field">
+						<label class="cm-field__label" for="q-filled">filter</label>
+						<div class="cm-search cm-search--wide">
+							<span class="cm-search__icon" aria-hidden="true">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+									<circle cx="11" cy="11" r="7" />
+									<line x1="16.5" y1="16.5" x2="21" y2="21" />
+								</svg>
+							</span>
+							<input id="q-filled" class="cm-search__input" type="search" placeholder="search hosts…" value="proxy" autocomplete="off" />
+							<button type="button" class="cm-search__clear" aria-label="clear filter">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+									<line x1="6" y1="6" x2="18" y2="18" />
+									<line x1="18" y1="6" x2="6" y2="18" />
+								</svg>
+							</button>
+						</div>
+						<span class="cm-field__help">filled: the right gutter is derived from <code>--search-clear</code>, so the value never runs under the X.</span>
+					</div>
+				</div>
 			</section>
 
 			<!-- ====================================================== auth

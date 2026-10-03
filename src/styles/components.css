@@ -4612,59 +4612,119 @@ button.cm-link:focus-visible {
    colour. The one thing they must agree on is that the two are the same
    object: a block you read and a block you edit, in the same type and
    the same frame, so switching between them does not move the text. */
-/* A search field. Distinct from .cm-inline, which styles a value being edited
-   in place: a search box is a filter control with a persistent border on all
-   four sides and no dotted underline. Before this existed, six rpm pages
-   reached for .cm-inline to wrap a search input and inherited the dotted
-   underline plus the inline-editable affordance, which read as "edit me in
-   place" rather than "type to filter". */
-.cm-search { display: inline-flex; align-items: center; position: relative; width: 100%; min-width: 0; }
+/* ---------- search ----------
+   A filter control. Distinct from .cm-inline, which styles a value being
+   edited in place: a search box is a persistent four-sided bordered field
+   with no dotted underline. Before this existed, six rpm pages reached for
+   .cm-inline to wrap a search input and inherited the dotted underline plus
+   the inline-editable affordance, which read as "edit me in place" rather
+   than "type to filter". Ten rpm pages ship this markup today. */
+.cm-search {
+	display: inline-flex;
+	align-items: center;
+	position: relative;
+	width: 100%;
+	min-width: 0;
+}
+/* rpm's SearchField.tsx emits this modifier and the library never defined
+   it, so the wide variant silently rendered at the default measure.
+   It is a WIDTH modifier and nothing else - a search field in a toolbar
+   has the same box, the same gutter arithmetic and the same tap floor. */
+.cm-search--wide { width: 100%; }
 .cm-search__input {
 	width: 100%;
 	min-width: 0;
 	font-family: var(--font-body);
-	font-size: max(var(--min-font), var(--text-sm));
+	/* The 16px FORM-TEXT FLOOR, which iOS needs to stop zooming the
+	   viewport on focus. `var(--text-sm)` is 0.875rem = 14px, and this
+	   rule (0,1,0) beats nothing that would put the floor back: the base
+	   `input:not(...)` chain is (0,6,1), but it EXCLUDES .cm-search__input
+	   by name, so nothing else sets a font-size here at all.
+	   MEASURED in WebKit at 390px and 375px: at `var(--text-sm)` the
+	   field computed font-size 14px, so tapping it zoomed the whole page
+	   and left the reader panned into a layout they could not get back
+	   from. The floor is not a nicety on a text input; it is the
+	   difference between a working search field and a broken one. */
+	font-size: max(var(--min-font), 1rem);
 	color: var(--ink);
 	background: var(--panel);
 	border: 1px solid var(--ink-dim);
 	border-radius: var(--radius-sm);
 	/* Left gutter is DERIVED from the icon, not guessed: the glyph is
-	   `position: absolute; left: var(--space-3)` and 16px wide, so it ends
-	   at space-3 + 16px. Adding space-2 lands the text one step past it.
-	   Measured in WebKit at 390px: without the icon allowance the
-	   placeholder ran UNDER the magnifier by 16px; with an earlier
-	   `1.25em` fudge it sat 9px too far right and squeezed the hint. */
-	/* Right gutter clears .cm-search__clear (right: 2px, 32px wide) so a
-	   typed value never runs under it. */
-	padding: var(--space-2) calc(var(--space-3) + var(--space-2) + 16px) var(--space-2) calc(var(--space-3) + 16px + var(--space-2));
-	min-height: 44px;
+	   `position: absolute; left: var(--space-3)` and 1em wide, so it ends
+	   at space-3 + 1em. Adding space-2 lands the text one step past it.
+	   MEASURED in WebKit at 390px: without the icon allowance the
+	   placeholder ran UNDER the magnifier by the glyph's width; with an
+	   earlier `1.25em` fudge it sat 9px too far right and squeezed the
+	   hint. */
+	padding-left: calc(var(--space-3) + 1em + var(--space-2));
+	/* The right gutter clears .cm-search__clear, so a typed value never
+	   runs under it. The clear button's own width is a TOKEN now (it was
+	   a bare 32px), so this derivation cannot drift from the thing it
+	   has to clear. */
+	padding-right: calc(var(--space-3) + var(--search-clear) + var(--space-2));
+	padding-top: var(--space-2);
+	padding-bottom: var(--space-2);
+	min-height: var(--tap);
 	appearance: none;
 }
 .cm-search__input::placeholder { color: var(--ink-dim); }
+/* MEASURED in WebKit at 390/375/1440: this rule shipped
+   `outline: 2px solid var(--focus)` and --focus was NOT a declared token.
+   An undefined custom property inside a shorthand makes the WHOLE
+   declaration invalid at computed-value time, so `outline-style`
+   computed to `none`: the field had NO focus ring at all, in every
+   theme, on every page. A probe that only reads the CSS text sees a
+   perfectly well-formed declaration and reports nothing wrong - this
+   is the undefined-token class of bug that only shows up as a computed
+   value. The token is declared now, and a test asserts the resolution. */
 .cm-search__input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .cm-search__icon {
 	position: absolute;
-	/* Anchored to the same space-3 as the input's left padding, so the glyph
-	   and the text gutter can never drift apart. */
+	/* Anchored to the same space-3 as the input's left padding, so the
+	   glyph and the text gutter can never drift apart. */
 	left: var(--space-3);
 	pointer-events: none;
 	display: inline-flex;
+	align-items: center;
 	color: var(--ink-dim);
+}
+.cm-search__icon > svg {
+	/* An icon tracks the text beside it, so this is 1em and not a scale
+	   step - the same rule .cm-btn > svg states. Without it a lucide
+	   glyph is a replaced element at its own default size (24px), which
+	   is wider than the 16px the padding arithmetic above assumes and
+	   pushes the placeholder under it. */
+	flex: 0 0 auto;
+	width: 1em;
+	height: 1em;
 }
 .cm-search__clear {
 	position: absolute;
-	right: 2px;
-	width: 32px;
-	height: 32px;
+	right: var(--space-1);
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	width: var(--search-clear);
+	height: var(--search-clear);
 	background: transparent;
 	border: 0;
 	color: var(--ink-dim);
 	cursor: pointer;
 }
+.cm-search__clear > svg { flex: 0 0 auto; width: 1em; height: 1em; }
 .cm-search__clear:hover { color: var(--ink); }
+/* The clear button is 32px of chrome inside a 44px field. On a coarse
+   pointer that box is under the tap floor the rest of the library
+   enforces, so it grows to the floor and the field's own min-height
+   keeps the row from growing with it. A 12px shortfall in the one
+   control a thumb aims at is exactly what the floor exists to stop. */
+@media (pointer: coarse) {
+	.cm-search__clear {
+		width: var(--tap);
+		height: var(--tap);
+	}
+}
 
 .cm-code {
 	width: 100%;

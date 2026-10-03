@@ -164,6 +164,35 @@
 	   smallest text we will ever render, because a 10px monospace
 	   label is unreadable on a phone at arm's length. */
 	--tap: 44px;
+	/* The chrome size of an inline clear button - the X inside a search
+	   field, a tag's remove, an uploaded file's dismiss. It is NOT a tap
+	   target, which is why it is not --tap: on a fine pointer a mouse
+	   aims at a 32px box comfortably, and a 44px X inside a 32px-tall row
+	   is a control bigger than the thing it clears. On a coarse pointer
+	   it takes the floor instead (see the @media (pointer: coarse) block
+	   in components.css), so the two numbers are never confused.
+
+	   The token exists because the input's padding-right has to CLEAR this
+	   box: a typed value running under the X is the bug that made a
+	   search field unusable. Deriving both from one number means they
+	   cannot drift apart. */
+	--search-clear: 32px;
+	/* The focus ring colour, declared as an ALIAS of --accent-dim rather
+	   than a second literal.
+
+	   This token was USED and never DECLARED. `.cm-search__input:focus-visible`
+	   shipped `outline: 2px solid var(--focus)` and `--focus` existed in
+	   no layer, so the declaration was invalid at computed-value time and
+	   the whole `outline` shorthand collapsed: MEASURED in WebKit at 390,
+	   375 and 1440, `outline-style` computed to `none`. The search field
+	   had no focus ring at all, on every page, in every theme - and a CSS
+	   text scan reads that line as perfectly well-formed.
+
+	   It is an alias, not a copy, on purpose: `var()` is substituted at
+	   computed-value time, so each theme's own --accent-dim is what a
+	   ring actually paints with. Duplicating the hex here would be a
+	   second value to keep in step with the first. */
+	--focus: var(--accent-dim);
 	/* There is deliberately no `--tap-sm`.
 
 	   One was added here -- `--tap-sm: 44px` -- to say "a small label may

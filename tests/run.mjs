@@ -6997,7 +6997,28 @@ check('the code field cannot re-break the 16px form-text floor', () => {
 	assert(!/font-size/.test(body),
 		'cm-code-input declares a font-size; it is (0,1,0) and loses to the base (0,3,1) input rule, so it is dead');
 	// And the floor it inherits must still be the 16px form one.
-	const base = baseNoComment.match(/input:not\(\[type='checkbox'\]\):not\(\[type='radio'\]\):not\(\[type='range'\]\)\s*,\s*textarea\s*,\s*select\s*\{([^}]*)\}/);
+	//
+	// The selector is matched with the `:not(...)` chain REDUCED to a
+	// wildcard-per-argument form, because the chain is not fixed: it
+	// grows every time a component claims an input the base layer sizes
+	// (`--inline__input`, then `--search__input`). Hard-coding the exact
+	// chain made this test fail the moment the search field was added,
+	// which is the signature of a probe watching a shape rather than a
+	// rule. `(?:...)*` keeps the invariant (still the base INPUT rule,
+	// still the one carrying the floor) while tolerating a longer chain.
+	// The char class MUST include `_` and digits: BEM element names carry a
+	// double underscore (`.cm-search__input`), and `[a-z-]` silently stops
+	// at the first one, so the pattern fails on the very selector this
+	// rewrite exists to tolerate. That is a probe that reads as "the base
+	// rule is gone" when the base rule is fine.
+	//
+	// Every repeated group needs its OWN colon inside the `(?:` - the form
+	// is `(?::not\(...\))*`, not `(?:not\(...\))*`. The latter is a
+	// well-formed regex that simply matches the literal text "not(", so the
+	// pattern returns null and the check reports "the base rule is gone"
+	// with the rule sitting right there in the file. Measured: this exact
+	// typo cost three rebuild cycles before it was read out char by char.
+	const base = baseNoComment.match(/input:not\(\[type='checkbox'\]\):not\(\[type='radio'\]\):not\(\[type='range'\]\)(?::not\(\.[a-z0-9_-]+\))*\s*,\s*textarea(?::not\(\.[a-z0-9_-]+\))*\s*,\s*select(?::not\(\.[a-z0-9_-]+\))*\s*\{([^}]*)\}/);
 	assert(base, 'the base input selector was not found; this test is watching the wrong rule');
 	assert(/font-size:\s*max\(var\(--min-font\),\s*1rem\)/.test(base[1]),
 		'the base input rule no longer carries the 16px form-text floor the code field inherits');
@@ -8425,6 +8446,189 @@ check('the focus ring is heavy enough to see on a coarse pointer', () => {
 	assert(dw && Number(dw[1]) < 2,
 		'the desktop focus ring was changed; it is the house style and only '
 		+ 'the coarse pointer was in scope');
+});
+
+/* ---------- search ---------- */
+
+// Every var() in a rule must RESOLVE. An undefined custom property inside a
+// declaration invalidates it at computed-value time, and in a SHORTHAND that
+// takes the whole shorthand with it - so `outline: 2px solid var(--focus)`
+// with `--focus` undeclared does not paint a ring in the wrong colour, it
+// paints NO ring, and the computed outline-style is `none`.
+//
+// This is the one defect class in this library that every existing check
+// structurally cannot see: a regex over the CSS reads
+// `outline: 2px solid var(--focus)` as perfectly well-formed, and the
+// "focus ring is not none" checks read base.css, which is a different rule.
+// It shipped. MEASURED in WebKit at 390, 375 and 1440 before the fix:
+// outlineStyle was `none` on the search field in all three.
+//
+// So this asserts RESOLUTION, not presence: every var() referenced by a
+// component rule must name a token that some layer actually declares.
+check('every var() a component rule names resolves to a declared token', () => {
+	const tokens = new Set(
+		[...read('src/styles/tokens.css').matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1])
+	);
+	// 139 DECLARATIONS but ~69 unique NAMES: the dark and light blocks each
+	// redeclare the same names with different values, which is the point of
+	// a theme pair. Assert against the declaration count, not the name count,
+	// or this self-check fires on a perfectly healthy sheet.
+	assert([...read('src/styles/tokens.css').matchAll(/^\s*--[a-z0-9-]+\s*:/gm)].length > 100,
+		'the token declaration scan found suspiciously few declarations');
+	assert(tokens.size > 40, `only ${tokens.size} unique token names parsed; the regex is wrong`);
+	const bare = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, ' ');
+	// A var() WITH a fallback is not a dangling reference - `var(--x, 4rem)`
+	// is a documented pattern in this sheet (the header height, the table cap,
+	// the meter fill, the grid column counts), where the consumer sets the
+	// property and the default is the sane answer when they do not. So the
+	// scan only flags a var() with NO fallback: that one is genuinely
+	// unresolved and invalidates its declaration. Getting this wrong in
+	// either direction is bad - flagging the fallbacks cries wolf on 5
+	// correct rules, and ignoring every var() would miss the real defect.
+	const refs = [...bare.matchAll(/var\(\s*(--[a-z0-9-]+)(\s*,)/g)]
+		.filter((m) => m[2])
+		.map(() => true);
+	const dangling = [...bare.matchAll(/var\(\s*(--[a-z0-9-]+)\s*\)/g)].map((m) => m[1]);
+	assert(refs.length + dangling.length > 50,
+		'the var() scan found suspiciously few uses, so it is scanning too little');
+	const missing = [...new Set(dangling)].filter((v) => !tokens.has(v));
+	assert(missing.length === 0,
+		`components.css references ${missing.length} undeclared token(s) with NO `
+		+ `fallback: ${missing.join(', ')}. An undefined var() invalidates its `
+		+ 'declaration, and inside a shorthand it takes the whole declaration with it.');
+	// base.css too: the same trap in the layer that owns element defaults,
+	// with the same fallback carve-out.
+	//
+	// `--cm-box` is declared in base.css, NOT tokens.css, so the set has to
+	// include custom properties declared in EITHER layer - a token is
+	// declared wherever it is declared, not only where the palette lives.
+	const baseBare = baseSrc.replace(/\/\*[\s\S]*?\*\//g, ' ');
+	const baseDeclares = new Set(
+		[...baseBare.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1])
+	);
+	for (const m of baseBare.matchAll(/var\(\s*(--[a-z0-9-]+)\s*\)/g)) {
+		assert(tokens.has(m[1]) || baseDeclares.has(m[1]),
+			`base.css references undeclared token ${m[1]}`);
+	}
+});
+
+// A search field is a TEXT input, so iOS zooms the viewport on focus for
+// anything under 16px and leaves the reader panned into a layout they
+// cannot get back from. The base layer enforces max(var(--min-font), 1rem)
+// for every input - but base.css now EXCLUDES .cm-search__input by name
+// (to win the padding fight at (0,6,1)), which means that exclusion also
+// removed the ONLY font-size the field would otherwise have inherited.
+//
+// The two exclusions are coupled and a change to either one can silently
+// remove the floor. Proven: at `var(--text-sm)` (14px) the field computed
+// 14px in WebKit at 390 and 375, and the floor was gone with nothing else
+// reporting it.
+check('the search field keeps the 16px form-text floor the base rule gives up', () => {
+	const inp = declsFor(compSrc, '.cm-search__input');
+	assert(inp, '.cm-search__input has no rule of its own');
+	assert(/font-size:\s*max\(var\(--min-font\),\s*1rem\)/.test(inp),
+		'the search field does not carry the 16px form-text floor. base.css '
+		+ 'excludes .cm-search__input from its input rule to win the padding '
+		+ 'specificity fight, and that exclusion also removes the floor this '
+		+ 'class has to declare for itself. iOS zooms the viewport under 16px.');
+	// And the exclusion really is there - if someone "simplifies" base.css
+	// back, the field would be fine but the PADDING would break, which is a
+	// different bug. Assert the pairing so the two cannot be half-reverted.
+	const baseBare = baseSrc.replace(/\/\*[\s\S]*?\*\//g, ' ');
+	assert(/:not\(\.cm-search__input\)/.test(baseBare),
+		'base.css no longer excludes .cm-search__input from its (0,6,1) input '
+		+ 'rule; the component is (0,1,0) and will lose the padding battle');
+	// The focus ring, asserted as a RESOLVABLE reference and at a weight a
+	// thumb can see. This is the one the shipped bug hid behind: the rule
+	// read `outline: 2px solid var(--focus)` and --focus was never declared,
+	// so the whole shorthand went invalid at computed-value time and
+	// `outline-style` computed to `none` - MEASURED in WebKit at 390, 375
+	// and 1440. A hairline is the same failure at lower severity: the token
+	// resolves but the ring is invisible on a phone.
+	const infocus = (compSrc.match(/\.cm-search__input:focus-visible\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(/outline[^;]*var\(--focus\)/.test(infocus),
+		'the search focus ring no longer references --focus, so an undefined '
+		+ 'token can silently drop the entire outline');
+	const rw = /outline(?:-width)?:\s*([\d.]+)px/.exec(infocus);
+	assert(rw && Number(rw[1]) >= 2,
+		`the search focus ring is ${rw ? rw[1] + 'px' : 'unreadable'} - a 1px ring `
+		+ 'against a 1px border is not a focus indicator a reader can see');
+	// The glyph must be SIZED in the CSS, not left to the replaced-element
+	// default. `.cm-search__input`'s left gutter is derived from a 1em
+	// glyph; a default-size svg is 24px, which is wider than the gutter
+	// assumes and pushes the placeholder back under it. Same rule
+	// `.cm-btn > svg` already states.
+	const svg = (compSrc.match(/\.cm-search__icon > svg\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(/width:\s*1em/.test(svg) && /height:\s*1em/.test(svg),
+		'the search glyph is not sized in em, so it renders at the '
+		+ 'replaced-element default and the gutter arithmetic is wrong');
+});
+
+// The clear button sits INSIDE the field, over its right edge, so the input
+// needs a right gutter big enough to keep a typed value from running under
+// the X. Both numbers come from one token precisely so they cannot drift.
+check('the search gutter is derived from the clear button, not guessed', () => {
+	const inp = declsFor(compSrc, '.cm-search__input');
+	assert(inp, '.cm-search__input has no rule of its own');
+	assert(/padding-right:[^;]*var\(--search-clear\)/.test(inp),
+		'padding-right is not derived from --search-clear, so the value can '
+		+ 'run under the X as soon as the button changes size');
+	const clr = declsFor(compSrc, '.cm-search__clear');
+	assert(clr, '.cm-search__clear has no rule of its own');
+	assert(/width:\s*var\(--search-clear\)/.test(clr) && /height:\s*var\(--search-clear\)/.test(clr),
+		'the clear button does not take its size from --search-clear, so the '
+		+ 'gutter and the button it clears are two independent numbers');
+	// The token must be a length, and not a tap floor: a 44px X inside a
+	// 44px field is the whole field, which is a control the reader aims at
+	// nowhere. It grows to the floor under `pointer: coarse` instead.
+	const tok = /--search-clear:\s*([^;]+);/.exec(read('src/styles/tokens.css'));
+	assert(tok, '--search-clear is not declared in tokens.css');
+	assert(!/var\(--tap\)/.test(tok[1]),
+		'--search-clear aliases --tap, so the clear button IS the tap floor '
+		+ 'and a token that can only equal another token is a knob that '
+		+ 'cannot be turned');
+	assert(/px/.test(tok[1]), `--search-clear is not a length: ${tok[1].trim()}`);
+});
+
+// 32px of chrome is a fine mouse target and under the tap floor a thumb can
+// aim at. Same doctrine as .cm-btn--sm: the floor is a property of the
+// POINTER, so it is answered in a media query, not in the token.
+check('the clear button takes the tap floor on a coarse pointer only', () => {
+	const coarse = allAtRuleBodies(read('src/styles/components.css'), '@media (pointer: coarse)');
+	const c = /\.cm-search__clear\s*\{([^}]*)\}/.exec(coarse);
+	assert(c,
+		'no coarse-pointer rule for .cm-search__clear; it is --search-clear '
+		+ '(32px) of chrome, which is under the --tap floor a thumb needs');
+	assert(/width:\s*var\(--tap\)/.test(c[1]) && /height:\s*var\(--tap\)/.test(c[1]),
+		'the coarse clear button does not take the tap floor in BOTH axes - a '
+		+ 'wide-but-short target is still a short target');
+});
+
+// Ten rpm pages emit this exact class quartet. A library component that no
+// page demonstrates is dead CSS the next person cannot trust, and this one
+// was defined, wrong, and undemonstrated for a cycle.
+check('the search family is demonstrated on the page before it is trusted', () => {
+	assert(built, 'dist/index.html is missing - run `npm run build` first');
+	for (const cls of ['cm-search', 'cm-search__input', 'cm-search__icon',
+		'cm-search__clear', 'cm-search--wide']) {
+		assert(renderedClasses.has(cls),
+			`.${cls} is defined in the library but never rendered on the built `
+			+ 'page. rpm emits all five; the showcase has to show the markup a '
+			+ 'consumer actually ships.');
+	}
+	// The glyph is decorative AND it carries a shape: without aria-hidden a
+	// screen reader announces "magnifying glass" before every field.
+	const icon = /<span class="cm-search__icon"([^>]*)>/.exec(built);
+	assert(icon, 'the search icon is not a span in the built markup');
+	assert(/aria-hidden="true"/.test(icon[1]),
+		'the search glyph is not aria-hidden, so it is announced before every '
+		+ 'field it labels');
+	// The clear button needs a name, since a bare X is announced as "button".
+	const clr = /<button[^>]*class="cm-search__clear"([^>]*)>/.exec(built);
+	assert(clr, 'the clear button is not in the built markup');
+	assert(/aria-label="[^"]{3,}"/.test(clr[1]),
+		'the clear button has no aria-label; an icon-only control is announced '
+		+ 'as just "button"');
 });
 
 // An affordance that acts ON a control (a reveal toggle, a clear button)

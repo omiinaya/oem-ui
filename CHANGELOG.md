@@ -5,6 +5,109 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **`.cm-search` is demonstrated, tokenised and — for the first time —
+  actually focusable. Three of the ten rpm pages that ship it had no
+  working focus ring at all.**
+  The previous cycle added the component's CSS and shipped it with three
+  defects that no test could see, because there were no tests and no
+  showcase section. Ten `spacetime-rpm` pages (`web/src/components/
+  SearchField.tsx` plus nine raw inputs) already emit this markup.
+
+  **1. The focus ring did not exist.** `.cm-search__input:focus-visible`
+  declared `outline: 2px solid var(--focus)` and `--focus` was never
+  declared in any layer. An undefined custom property inside a shorthand
+  invalidates the declaration at computed-value time, so the entire
+  `outline` shorthand collapsed. MEASURED in WebKit at 390×844, 375×667 and
+  1440×900 before the fix: `outline-style` computed to **`none`**. There
+  was no ring to see, in either theme, on any page. A CSS-text scan reads
+  that line as perfectly well-formed, which is why it survived. `--focus`
+  is now declared in `:root` as an **alias** of `--accent-dim` — `var()`
+  substitutes at computed-value time, so each theme paints its own value
+  and there is no second hex to keep in step.
+
+  **2. The field was under the 16px form-text floor.** `font-size:
+  max(var(--min-font), var(--text-sm))` computed to **14px**. iOS zooms the
+  viewport on focus for any form text under 16px, so tapping the search
+  field zoomed the whole page and left the reader panned into a layout
+  they could not get back from. The base `input:not(...)` rule carries the
+  16px floor, but it now *excludes* `.cm-search__input` by name (to win the
+  padding specificity fight), so nothing else was setting it. MEASURED
+  16px after the fix.
+
+  **3. A modifier rpm ships and the library never defined.**
+  `SearchField.tsx` emits `cm-search cm-search--wide`; there was no such
+  rule, so the wide variant silently rendered at the default measure.
+
+  Also fixed while measuring:
+
+  - The glyph had no `width/height`, so a lucide icon rendered at the
+    replaced-element default (24px) — wider than the 16px the left-gutter
+    arithmetic assumes. Now `1em`, the same rule `.cm-btn > svg` states.
+  - The clear button's `32px` and the input's `padding-right` were two
+    independent literals. Both now derive from a new token,
+    **`--search-clear: 32px`**, so a typed value cannot run under the X the
+    moment the button changes size. The input's bare `44px` became
+    `var(--tap)`.
+  - The clear button was 32px of chrome on a phone too. It now takes
+    `var(--tap)` under `@media (pointer: coarse)` and stays 32px on a fine
+    pointer — measured 44px coarse / 32px fine at 390px, 375px and 1440px.
+  - **The showcase section omitted `cm-search__input` from its own inputs**,
+    so four of the classes it demonstrated were unreachable on the built
+    page. Caught by the reachability test, not by a screenshot.
+
+  The showcase now has a `search` section demonstrating both states (empty
+  and filled, since the clear button only exists once there is something to
+  clear) and the `--wide` modifier. 15 mutations, all killed:
+  `python3 tests/mutate-search.py`.
+
+- **Three tests that were watching a SHAPE, not a rule, all failed the moment
+  a real rule changed shape. Fixed so they watch the invariant.**
+  HEAD arrived red at 453 passed / 3 failed. None of the three was a
+  regression in the library; all three were probes that had grown too
+  specific to notice a legitimate change.
+
+  1. `the code field cannot re-break the 16px form-text floor` hard-coded the
+     base input selector's exact `:not()` chain. Adding
+     `.cm-search__input` to that chain — a correct fix for a real
+     specificity bug — made the test report *"the base input selector was not
+     found; this test is watching the wrong rule"*, which is exactly what it
+     says, and what it was doing. The chain is now matched as a repeated
+     `(?::not\(\.[a-z0-9_-]+\))*`, so the invariant survives the chain
+     growing. Two traps inside that rewrite, both measured:
+     - the char class must include `_` and digits, or it stops at
+       `.cm-search__**input**` — a probe reading as "the rule is gone" while
+       the rule is right there;
+     - every repeated group needs its **own** colon: `(?::not\(...\))*`, not
+       `(?:not\(...\))*`. The second is a well-formed regex that matches the
+       literal text `not(` and returns null. That single typo cost three
+       rebuild cycles before it was read out character by character.
+  2. `every var() a component rule names resolves to a declared token` read
+     `var(--x)` and flagged every fallback as dangling. The sheet uses
+     `var(--x, default)` deliberately in five places (`--header-h`,
+     `--table-max-h`, `--cm-stat-cols`, `--cm-cards-cols`, `--cm-meter-fill`),
+     so the check cried wolf on five correct rules. It now separates the two
+     cases: only a var() with **no** fallback is unresolved. Its self-check
+     also compared the unique-name count (69) against a threshold of 100,
+     when tokens.css holds 139 *declarations* and ~69 *names* — the dark and
+     light blocks redeclare the same names, which is the point of a theme
+     pair. The assertion now counts declarations and separately floors the
+     name count.
+  3. A stray `declsFor(...)[0]` in this cycle's own new test indexed the
+     *first character* of a joined string, so a passing rule read as a
+     failing one. Worth recording because the failure is silent and looks
+     like a CSS defect.
+
+- **`--search-clear` (32px) is the chrome size of an inline clear button,
+  and it is deliberately not `--tap`.**
+  Whether a control takes the tap floor is a question about the POINTER and
+  the control's ROLE, so it is answered in `components.css`
+  (`.cm-search__clear` steps to `var(--tap)` under
+  `@media (pointer: coarse)`), while the *chrome* size is a token so the
+  input's `padding-right` can be derived from it. A `--tap-sm` was tried
+  once before and deleted: with `--tap` also 44px it made `.cm-btn--sm`
+  compute exactly `.cm-btn`'s height, so a "small" variant rendered at
+  44px and the dense-row decision it exists for was gone.
+
 - **`<Footer status>` takes fragments now, because a site that wanted a
   sequenced status had to hand-build its separators — and built the ones this
   library had already deleted.**
