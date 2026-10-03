@@ -4920,7 +4920,22 @@ check('cm-card never hardcodes a colour the palette does not have', () => {
 	const raw = read('src/styles/components.css');
 	const from = raw.indexOf('/* ---------- cards ----------');
 	assert(from !== -1, 'the card block is not marked, so this check scans nothing');
-	const block = raw.slice(from);
+	// Slice on RAW so the marker comment is findable, then STRIP COMMENTS
+	// from the slice before scanning for colour literals.
+	//
+	// Both halves are load-bearing and they pull in opposite directions.
+	// Locating the marker needs the comment, because the marker IS a
+	// comment - a stripped read cannot find it and the check silently
+	// scans nothing. Scanning needs the comments gone, because the block's
+	// own measurement notes CITE hex values: "a badge filled --bg-2
+	// (#101010) sitting on a --panel (#111111) is one 255th of a"
+	// is a comment explaining why a token exists, and the hex scan
+	// read it as a hardcoded colour.
+	//
+	// Deleting the note to make the test green would be the wrong repair:
+	// the note is why the rule exists, and a rebrand bug left unmeasured
+	// is worse than a red suite. The scan is about DECLARATIONS.
+	const block = raw.slice(from).replace(/\/\*[\s\S]*?\*\//g, ' ');
 	assert(/^\.cm-meter--faint/.test(block.trim()) || block.includes('.cm-meter--faint'),
 		'the card block does not actually contain the meter family, so the scan is too narrow');
 	assert(!/#[0-9a-f]{3,8}\b/i.test(block), 'the card/meter block contains a hex literal');
@@ -5446,10 +5461,19 @@ for (const sel of INTERACTIVE) {
 check('the small button is the one documented exception, and says so', () => {
 	const sm = compSrc.match(/\.cm-btn--sm\s*\{([^}]*)\}/);
 	assert(sm, '.cm-btn--sm is missing');
-	// It steps below the floor on purpose, but only if it resets the
-	// min-height it would otherwise inherit from .cm-btn.
+	// It steps below the floor on purpose on a FINE pointer - but only if it
+	// resets the min-height it would otherwise inherit from .cm-btn. On a
+	// coarse pointer it takes var(--tap), in a media query that lives in the
+	// same file (see the note there about cascade order).
 	assert(/min-height:\s*0/.test(sm[1]),
 		'.cm-btn--sm inherits the 44px floor, so the small variant is not small');
+	// ...and the coarse half has to exist, or the fine-pointer half is a
+	// phone regression: `min-height: 0` alone measured 28px on rpm at 390px,
+	// which is 64% of the floor.
+	const coarse = /@media\s*\(pointer:\s*coarse\)\s*\{[^}]*\}/.test(compSrc);
+	const coarseRule = /\.cm-btn--sm\s*\{[^}]*min-height:\s*var\(--tap\)/.test(compSrc);
+	assert(coarse && coarseRule,
+		'.cm-btn--sm never takes the tap floor back on a coarse pointer');
 });
 // A component that reaches the floor by hardcoding 44 instead of the token
 // passes the rule above and is still wrong: a consumer that retunes --tap
@@ -8777,13 +8801,40 @@ for (const [name, fn] of pending.splice(0)) {
 			throw new Error("no (pointer: coarse) rule giving .cm-state__actions .cm-btn min-height: var(--tap)");
 	});
 
-	check("the tap floor rule is scoped to the empty state, not to every small button", () => {
-		// Scoping it to .cm-btn--sm would resize every dense toolbar row on a
-		// phone, which is the exact thing .cm-btn--sm exists to avoid.
-		const block = /@media\s*\(pointer:\s*coarse\)\s*\{([\s\S]*?)\n\}/.exec(css);
-		const body = block ? block[1] : "";
-		if (/\.cm-btn--sm\s*\{[^}]*min-height/.test(body))
-			throw new Error("the coarse-pointer floor leaks onto .cm-btn--sm itself");
+	check("the coarse-pointer floor on the small variant is the one the phone owes", () => {
+		// THIS TEST USED TO ASSERT THE OPPOSITE, and the reversal was the
+		// right call on a measurement, so the reasoning is recorded here
+		// rather than in a commit message someone will have to dig for.
+		//
+		// It previously forbade any `(pointer: coarse)` min-height on
+		// `.cm-btn--sm`, on the grounds that doing so "resizes every dense
+		// toolbar row on a phone". MEASURED in WebKit at 402 and 375: the
+		// floor costs 16px of extra height in one `.cm-btn-group` and adds
+		// ZERO extra wrap lines - every group wraps to the same 3 lines
+		// either way. So the density the variant protects does not
+		// actually collapse, and the test was defending a cost that is
+		// 16px against a benefit that is a 28px target on a phone.
+		//
+		// Worse, it had become unfalsifiable in the dangerous direction: the
+		// suite went red only because the previous cycle's CSS disagreed
+		// with it, and the cheapest way to green it was to delete the fix.
+		// What it should have guarded is SCOPE - a floor that leaks onto
+		// every button in the library. So it now asserts the rule is
+		// pinned to `.cm-btn--sm` alone and comes from the token.
+		const coarseBlocks = [...css.matchAll(/@media\s*\(pointer:\s*coarse\)\s*\{([\s\S]*?)\n\}/g)]
+			.map(m => m[1]);
+		assert(coarseBlocks.length > 0, 'there is no coarse-pointer block to inspect');
+		const leaky = coarseBlocks.filter(b => /\.cm-btn--sm\s*\{[^}]*min-height/.test(b));
+		assert(leaky.length === 1,
+			`exactly one coarse-pointer block may set .cm-btn--sm min-height, found ${leaky.length} ` +
+			'- a floor that reached more than the small variant would resize every button in the library');
+		assert(/\.cm-btn--sm\s*\{[^}]*min-height:\s*var\(--tap\)/.test(leaky[0]),
+			'the coarse-pointer floor on .cm-btn--sm must come from var(--tap), not a literal');
+		// And the fine-pointer half has to be the one that steps below, or
+		// the coarse rule is overriding a base that never opted out.
+		const base = /\.cm-btn--sm\s*\{([^}]*)\}/.exec(css);
+		assert(base && /min-height:\s*0/.test(base[1]),
+			'.cm-btn--sm no longer steps below the floor on a fine pointer, so the coarse rule has nothing to restore');
 	});
 
 	check("the tap floor is a token, not a literal", () => {
@@ -8792,10 +8843,56 @@ for (const [name, fn] of pending.splice(0)) {
 	});
 
 	check("the small variant still documents that it steps below the floor", () => {
+		// The dense-row decision, asserted as TEXT because it is a decision
+		// about a media query rather than a declaration: `.cm-btn--sm` sets
+		// min-height:0 for a fine pointer and takes var(--tap) for a thumb.
+		//
 		// If this ever silently becomes 44px everywhere the dense-row decision
-		// is gone and nobody will notice, because the page still looks fine.
+		// is gone and nobody will notice, because the page still looks fine -
+		// which is exactly what `--tap-sm: 44px` did: every `.cm-btn--sm`
+		// measured EXACTLY `.cm-btn`'s 44px while the class stayed defined,
+		// stayed rendered, and every existence test stayed green.
 		if (!/\.cm-btn--sm\s*\{[^}]*min-height:\s*0/.test(css))
-			throw new Error(".cm-btn--sm no longer steps below the tap floor");
+			throw new Error(".cm-btn--sm no longer steps below the tap floor on a fine pointer");
+	});
+
+	check("the small variant is not the same size as the button it modifies", () => {
+		// The invariant that would have caught `--tap-sm: 44px`, and the
+		// reason a modifier has to differ from its base at all.
+		//
+		// Asserted in the SOURCE, because the geometry is asserted in WebKit
+		// by tests/verify-btn-variant-webkit.py: a test here cannot know which
+		// pointer the reader is on, and the failure this guards is a claim
+		// ("this variant changes something") that source can check directly.
+		// `.cm-btn` sets min-height: var(--tap) and `.cm-btn--sm` sets
+		// min-height: 0, so the two differ unless a token makes them equal.
+		//
+		// Scoped to the FIRST `.cm-btn {` rule, and that scoping is the whole
+		// point. `/\.cm-btn\s*\{[^}]*min-height:\s*var\(--tap\)/` searches the
+		// whole file, and there are TWO rules matching `.cm-btn` that carry a
+		// `min-height: var(--tap)` - the base at line 441 and the copy-button
+		// composition further down. A mutation that flattened the BASE to
+		// `min-height: 0` left this assertion green, because the regex
+		// matched the second one and never looked at the first. That is the
+		// last-in-source-order read the skill warns about, in a place nobody
+		// would think to look for it.
+		const baseBtn = /\.cm-btn\s*\{([^}]*)\}/.exec(css);
+		assert(baseBtn && /min-height:\s*var\(--tap\)/.test(baseBtn[1]),
+			'.cm-btn no longer takes its height from the --tap token, so the small variant has nothing to differ from');
+		// And --tap must not have acquired a twin that a consumer could set
+		// to the same value and silently flatten the variant.
+		//
+		// Comments are stripped first, and this is the same trap the card
+		// block hit in the other direction: the note in tokens.css that
+		// explains WHY --tap-sm was deleted has to name it, so the raw text
+		// contains `--tap-sm: 44px` and the check fired on the explanation
+		// of the fix rather than on the thing being fixed.
+		const tokens = read('src/styles/tokens.css').replace(/\/\*[\s\S]*?\*\//g, ' ');
+		if (/--tap-sm\s*:/.test(tokens))
+			throw new Error(
+				"--tap-sm exists again; a token that can only equal --tap is a no-op knob, " +
+				"and it made .cm-btn--sm render the same 44px box as .cm-btn"
+			);
 	});
 }
 
