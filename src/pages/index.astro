@@ -2432,7 +2432,13 @@ Astro: import Header/Footer/Head/PageHead/PostHead from 'oem-ui/astro'.</pre>
 		<Footer
 			items={['astro', 'static', 'zero deps']}
 			contactHref="mailto:omar@mrx.sh"
-			status="all systems nominal — sig: static only"
+			/* Three fragments, not two, on purpose. The invariant under test
+			   is "no wrapped line ENDS with a separator", and a two-fragment
+			   status fits on one line at every width down to 320 - so the
+			   case that matters never occurs and the suite is measuring a row
+			   that cannot fail. A fixture that does not WRAP proves nothing;
+			   this one does at 320x667. Measured, not assumed. */
+			status={['all systems nominal', 'sig: static only', 'no trackers, no cookies']}
 		/>
 
 	<!-- Runtime. Use a real script tag: a frontmatter import of a

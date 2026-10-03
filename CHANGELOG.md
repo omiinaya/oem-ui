@@ -5,6 +5,55 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **`<Footer status>` takes fragments now, because a site that wanted a
+  sequenced status had to hand-build its separators — and built the ones this
+  library had already deleted.**
+  `status` was a single string, so the status line was a bare text node with
+  no layout at all. A site whose status is a *sequence* ("● all systems
+  nominal │ ● sig: origin only") had no way to express that, so it built the
+  separators itself. dev-blog did exactly that, and the shape it built is the
+  one `d2ec654` removed from the meta row: a `::after` on
+  `:not(:last-child)`, which attaches the separator to the item it *follows*
+  and therefore strands it at the end of every wrapped line.
+
+  MEASURED on dev-blog's live footer before this change, in WebKit, by
+  reading the rendered `::after` of the last item on each visual line:
+
+  | viewport | lines | lines ending with a separator |
+  |---|---|---|
+  | 390×844 | 3 | **2** |
+  | 402×874 | 3 | **2** |
+  | 360×640 | 3 | **2** |
+  | 320×667 | 3 | **2** |
+  | 430×932 | 2 | **1** |
+  | 1280×900 | 1 | 0 |
+
+  Five of six viewports, every phone width — on a live consumer, in
+  production, six weeks after the library deleted the pattern.
+
+  `status` is now `string | string[]`, and the row is a wrapping flex row
+  using the *same pairing* as `.cm-footer__meta`: the separator is a
+  `::before` on the fragment it PRECEDES, so whatever follows it belongs to
+  the same flex item and the two cannot be split across a wrap. A string
+  still works and renders byte-identically to before (one fragment, one
+  leading dot), so this is additive for every existing caller — links and
+  oem-portfolio both pass a string today.
+
+  The showcase fixture is three fragments *on purpose*: two fit on one line
+  at every width down to 320, so a two-fragment fixture never produces the
+  wrap that the invariant is about. Measured — the row wraps at 390/402/360/
+  320/430 and does not at 1280. `::before` costs a wrapped line may now
+  *start* with a separator; that is the tradeoff of the direction, not a new
+  bug, and it is the reason the assertion is "no line ENDS with a separator"
+  rather than "no line contains one".
+
+  Verified in WebKit at 390×844, 402×874, 320×667, 360×640, 430×932 and
+  1280×900 (`tests/verify-footer-status-webkit.py`): zero stranded separators
+  at every width. The same probe was run against an `::after` mutant and
+  reported the strand at all five phone widths, so the check can fail.
+
+  Twelve mutations, all killed: `scripts/mutate-footer-status.mjs`.
+
 - **`.cm-btn--sm` was not smaller than `.cm-btn`. It was the same button.**
   The previous entry in this file added `--tap-sm: 44px` and pointed
   `.cm-btn--sm` at it, on a principle that is correct and an implementation

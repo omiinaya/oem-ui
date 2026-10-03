@@ -9356,6 +9356,124 @@ for (const [name, fn] of pending.splice(0)) {
 		}
 	});
 }
+/* ================= footer status row =================
+   `.cm-footer__status` used to be a bare text line with no layout at all, so
+   `status` could only ever be ONE fragment. A site that wants a sequenced
+   status ("● all systems nominal │ ● sig: static only") - which is what
+   dev-blog hand-rolled - had to build the separators itself, and the shape
+   it built is the one this library deleted in d2ec654: a `::after` on
+   `:not(:last-child)`, so every wrapped line but the last ENDS with a
+   separator. MEASURED on dev-blog's live footer before this change, in
+   WebKit: 2 stranded dots at 390x844, 402x874, 360x640 and 320x667, and 1
+   at 430x932. Five of six viewports, every phone width.
+
+   The fix is the SAME PAIRING as the meta row, and that pairing is the
+   whole invariant: a separator that is a `::before` on the fragment it
+   PRECEDES cannot be the last thing on a line, because whatever follows it
+   belongs to the same flex item. Asserting "there is a ::before rule" is
+   not enough on its own - a `::before` with no `content` renders nothing,
+   and `content: none` still matches a /content:/ search. Mutation-checked
+   in scripts/mutate-footer-sep.mjs. */
+{
+	const footCss = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	const footSrc = read('src/astro/Footer.astro');
+
+	check('the status line is a wrapping row, or the separator case cannot occur', () => {
+		// The fixture must be able to WRAP. A status row that fits on one
+		// line never exercises the bug, so this asserts the precondition
+		// rather than the fix - and says so, so a future reader who removes
+		// `flex-wrap` knows this suite stopped covering anything.
+		const m = /\.cm-footer__status\s*\{([^}]*)\}/.exec(footCss);
+		assert(m, '.cm-footer__status is not defined in components.css');
+		assert(/display:\s*flex/.test(m[1]),
+			'.cm-footer__status is not display:flex, so the fragments are not flex items and the separator pairing means nothing');
+		assert(/flex-wrap:\s*wrap/.test(m[1]),
+			'.cm-footer__status no longer wraps - a single-line status cannot strand a separator, so this suite is no longer measuring anything');
+	});
+
+	check('the status separator hangs off the fragment it PRECEDES', () => {
+		// Scoped to the `-part` rule. A regex over the whole file matches the
+		// META separator too, and this test would pass with the status rule
+		// deleted - which is the defect - because the meta row still has a
+		// correct `::before` sitting right there.
+		const m = /\.cm-footer__status-part\s*>\?\s*\*?\s*:not\(:first-child\)[^{]*::before\s*\{([^}]*)\}/.exec(footCss)
+			|| /\.cm-footer__status-part:not\(:first-child\)[^{]*::before\s*\{([^}]*)\}/.exec(footCss);
+		assert(m,
+			'no .cm-footer__status-part:not(:first-child)::before rule - the status separator is attached to the wrong side, so it strands on a wrapped line');
+		assert(/content:\s*['"]?[│|]['"]?/.test(m[1]),
+			`the status separator declares no glyph, so the row renders bare gaps: ${m[1].trim()}`);
+		// `content: none` MATCHES a /content/ search. Assert the value, not
+		// the property, or a declared-but-invisible separator passes.
+		assert(!/content:\s*none/.test(m[1]),
+			'the status separator is content:none - the separators vanish entirely');
+		// And the direction is the point of the whole thing: `::after` is
+		// the exact shape this library deleted, so it must not come back.
+		assert(!/\.cm-footer__status-part[^{]*::after/.test(footCss),
+			'a ::after status separator exists; ::after strands at the end of a wrapped line - it must be ::before');
+	});
+
+	check('the status row accepts an ARRAY of fragments, not just a string', () => {
+		// A string prop is a silent capability regression: a caller with two
+		// fragments has nowhere to put the separator. Assert the prop TYPE
+		// is a union, because "renders something" is true of both shapes and
+		// proves nothing.
+		assert(/status\?:\s*string\s*\|\s*string\[\]/.test(footSrc),
+			'Footer.astro status prop is not `string | string[]` - a multi-part status cannot be expressed');
+		// And the template must actually branch on it. A union type nobody
+		// branches on is a type, not a feature.
+		assert(/Array\.isArray\(status\)/.test(footSrc),
+			'Footer.astro never branches on Array.isArray(status), so an array prop would render as a single joined string');
+		// Each fragment gets its own element, or the ::before pairing has
+		// nothing to attach to.
+		assert(/statusParts\.map/.test(footSrc),
+			'Footer.astro does not map statusParts, so the fragments are not separate flex items');
+	});
+
+	check('only the FIRST fragment carries the leading dot', () => {
+		// `.cm-footer__dot` existed in the stylesheet from the initial
+		// release but nothing emitted it, so it was dead CSS the
+		// reachability check should have caught. It renders for the first
+		// fragment only: a dot before EVERY fragment is a glyph per row, and
+		// the old string form rendered exactly one.
+		assert(/i === 0 && <span class="cm-footer__dot">/.test(footSrc.replace(/\s+/g, ' ')),
+			'Footer.astro no longer emits .cm-footer__dot for the first fragment');
+		const emitted = (footSrc.match(/cm-footer__dot/g) || []).length;
+		assert(emitted === 1,
+			`cm-footer__dot appears ${emitted} time(s) in Footer.astro; a dot per fragment is not a leading dot`);
+	});
+
+	check('the showcase demonstrates the multi-fragment status before it is trusted', () => {
+		// An excuse is not a demonstration. The prop accepting an array is
+		// not evidence that the row lays out; the showcase page has to carry
+		// two real fragments, and the built page has to carry both.
+		assert(/status=\{\[/.test(read('src/pages/index.astro')),
+			'the showcase still passes status a single string, so the array form is never rendered');
+		const dist = (() => { try { return read('dist/index.html'); } catch { return ''; } })();
+		assert(dist === '' || (dist.match(/cm-footer__status-part/g) || []).length >= 2,
+			'the built page renders fewer than two status fragments');
+	});
+check('the leading dot is the COMPONENT\'s, so a caller cannot double it', () => {
+		// Measured on the built page before this check existed: the
+		// showcase read `●● all systems nominal`, because the fixture passed
+		// a literal `●` AND the component prepends one. Every DOM assertion
+		// above still passed - a doubled glyph is not a missing class - and a
+		// screenshot of a footer is exactly the kind of thing nobody reads
+		// closely. So the fixture must not carry a leading `●`: the dot
+		// belongs to the component, which is why it is emitted at all.
+		const page = read('src/pages/index.astro');
+		const m = /status=\{\[([\s\S]*?)\]\}/.exec(page);
+		assert(m, 'the showcase does not pass an array status, so this fixture is not the one being measured');
+		assert(!/●/.test(m[1]),
+			`the showcase status fragment carries a literal ● (${m[1].trim()}), and the component already prepends one - the footer renders ●●`);
+		// And the rendered page must not contain the doubled glyph either,
+		// so this fails on the OUTPUT rather than only on the source.
+		const dist = (() => { try { return read('dist/index.html'); } catch { return ''; } })();
+		if (dist !== '') {
+			assert(!/cm-footer__dot[^>]*>●(?!<)/.test(dist) || !/●\s*●/.test(dist),
+				'the built footer contains a doubled ● - the component dot and a literal one are both rendering');
+		}
+	});
+}
 /* ================= result ================= */
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length) {

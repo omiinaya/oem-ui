@@ -9,7 +9,13 @@ interface Props {
 	items?: string[]; // meta fragments, e.g. ['astro', 'static', 'no tracking']
 	contactHref?: string;
 	contactLabel?: string;
-	status?: string;
+	/**
+	 * The status line. A STRING keeps the common one-fragment case, and an
+	 * ARRAY renders the same non-stranding separator row the meta uses, so
+	 * a multi-part status ("● all systems nominal │ ● sig: origin only")
+	 * cannot strand a dot at the end of a wrapped line.
+	 */
+	status?: string | string[];
 }
 
 const {
@@ -18,8 +24,11 @@ const {
 	contactLabel = 'contact',
 	status,
 } = Astro.props;
----
 
+// Normalised once, so the template never has to branch on the prop's shape.
+const statusParts =
+	status === undefined ? [] : Array.isArray(status) ? status : [status];
+---
 <footer class="cm-footer">
 	<div class="cm-footer__inner">
 		<div class="cm-footer__meta">
@@ -32,9 +41,21 @@ const {
 			}
 		</div>
 		{
-			status && (
+			statusParts.length > 0 && (
 				<div class="cm-footer__status" aria-hidden="true">
-					<span class="cm-footer__dot">●</span> {status}
+					{statusParts.map((part, i) => (
+						<span class="cm-footer__status-part">
+							{/*
+								The dot belongs to the fragment it PRECEDES, and
+								only the FIRST fragment gets one. A single-part
+								`status="..."` therefore renders exactly the bare
+								text it rendered before this row existed, which is
+								what keeps the string form a no-op upgrade.
+							*/}
+							{i === 0 && <span class="cm-footer__dot">●</span>}
+							{part}
+						</span>
+					))}
 				</div>
 			)
 		}

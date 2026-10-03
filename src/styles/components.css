@@ -2056,8 +2056,32 @@ button.cm-row:hover { background: var(--bg-2); }
 	margin: 1.4rem auto 0; padding-top: var(--space-4);
 	border-top: 1px dashed var(--line);
 	font-family: var(--font-mono); font-size: var(--text-micro); color: var(--ink-faint);
+	/* The status line is a ROW for the same reason the meta row is: a
+	   status is read as a sequence ("● nominal │ ● sig: origin only"), and
+	   a sequence needs a separator that cannot strand. A single-part
+	   `status="..."` is one flex item and lays out exactly as the old bare
+	   text did - the row only earns its keep when there are two or more
+	   fragments to separate. */
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0 var(--space-2);
 }
 .cm-footer__dot { color: var(--ink-dim); margin-right: 0.35em; }
+/* The SAME pairing as `.cm-footer__meta`: the separator is a `::before` on
+   the part it PRECEDES, so it is impossible for a wrapped line to END with
+   one. The alternative (`::after` on `:not(:last-child)`, which is what the
+   hand-rolled footer in dev-blog shipped) strands a dot on every line but
+   the last - MEASURED live at 390/360/320/402px, two stranded dots each.
+   Same negative-left-margin trick, for the same reason: hang the dot INTO
+   the gap so it does not widen the row and push a part onto a new line. */
+.cm-footer__status-part:not(:first-child)::before {
+	content: '│';
+	color: var(--ink-faint);
+	opacity: 0.6;
+	margin-left: calc(-1 * var(--space-2));
+	margin-right: var(--space-2);
+}
 /* The separator between footer meta fragments.
 
    It used to be a `·` inside its own <span class="cm-footer__bar">, which
