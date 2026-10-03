@@ -1847,6 +1847,14 @@ button.cm-row:hover { background: var(--bg-2); }
 	border: 1px solid var(--line);
 	border-radius: var(--radius-sm);
 	-webkit-overflow-scrolling: touch;
+	/* A wide table that scrolls horizontally has no scrollbar affordance
+	   on many phone touch UIs. A subtle left edge fade hints the content
+	   extends beyond the viewport, while preserving the clean look.
+	   MEASURED on rpm: access-log is 806px inside a 308px scroll box
+	   (over by 498px) with no visible scrollbar — no hint it scrolls.
+	   Applied to the wrapper so every table page benefits. */
+	-webkit-mask-image: linear-gradient(to right, #000 0%, #000 92%, transparent 100%);
+	mask-image: linear-gradient(to right, #000 0%, #000 92%, transparent 100%);
 }
 .cm-table { width: 100%; border-collapse: collapse; font-size: var(--text-xs); }
 /* Sticky needs the wrapper to be the scroll box, not the page. */

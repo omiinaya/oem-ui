@@ -549,9 +549,7 @@
 		if (!names.length) return;
 		table.dataset.cmLabels = '1';
 		table.querySelectorAll('tbody tr').forEach(function (row) {
-			var cells = Array.prototype.slice.call(row.children).filter(function (c) {
-				return (c.textContent || '').trim().length > 0;
-			});
+			var cells = row.children;
 			for (var i = 0; i < cells.length && i < names.length; i++) {
 				if (cells[i].hasAttribute('data-label')) continue;
 				cells[i].setAttribute('data-label', names[i]);
