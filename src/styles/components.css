@@ -91,6 +91,15 @@
 	display: flex;
 	align-items: center;
 	gap: var(--space-3);
+	/* A head row is a title plus whatever flags that host carries. At 390px
+	   rpm puts a domain and eight chips on this line, and because nothing
+	   here could wrap, the row stayed one line at whatever width the flags
+	   happened to take - and the ip:port slot below it was measured at
+	   48px, ellipsising `192.168.1.104` to `192.168…`. The slot was not
+	   overflowing the card (that was already fixed); it was being starved.
+	   Wrapping lets the flags use their own lines instead of auctioning
+	   the width away from the content underneath. */
+	flex-wrap: wrap;
 }
 .cm-head-row__action { margin-left: auto; flex: 0 0 auto; }
 /* A trailing METADATA chip - a count, a total - belongs to the right
@@ -440,7 +449,13 @@
 	   has to measure and hardcode. */
 	min-height: var(--tap);
 	padding: 0.6em 1.3em;
-	border-radius: 0;
+	/* --radius-sm, the same corner the inputs use. MEASURED on rpm's
+	   login at 390px: `.cm-btn--primary` computed `border-radius: 0px`
+	   while every input beside it computed 6px, so the primary action
+	   was the only sharp-cornered thing on the page. A lone square
+	   control reads as an unstyled <button> that got a background and
+	   missed its CSS - it was the loudest defect on the screen. */
+	border-radius: var(--radius-sm);
 	font-family: var(--font-mono);
 	font-size: var(--text-xs);
 	line-height: 1.2;
@@ -493,7 +508,13 @@
 /* The small variant is for a dense row (a toolbar, a table cell), not for
    the primary action on a phone. It steps back below the tap floor on
    purpose; on a touch viewport use the base button. */
-.cm-btn--sm { padding: 0.4em 0.9em; font-size: var(--text-xs); min-height: 0; }
+/* --tap-sm, NOT 0. `min-height: 0` here cancelled the tap floor the
+   base `.cm-btn` sets, and MEASURED on rpm at 390px every `cm-btn--sm`
+   rendered 58x28 - the Edit Rate Limit / Edit Force SSL Domain buttons,
+   two per card - which is 44% of the minimum in both axes. A smaller
+   label is a legitimate reason to shrink a button's chrome; it is not a
+   reason to make it harder to hit. */
+.cm-btn--sm { padding: 0.4em 0.9em; font-size: var(--text-xs); min-height: var(--tap-sm); }
 .cm-btn--block { width: 100%; }
 
 .cm-btn-group { display: flex; gap: var(--space-3); flex-wrap: wrap; }
@@ -817,6 +838,16 @@ button.cm-row:hover { background: var(--bg-2); }
 	font-size: var(--text-micro);
 	white-space: nowrap;
 	flex: 0 0 auto;
+	/* MEASURED on rpm's Proxy Hosts at 390px: a meta strip holding an
+	   EDITABLE control overflowed its card by 46-101px and was hard
+	   clipped, because `flex: 0 0 auto` + `nowrap` makes the strip
+	   unshrinkable while its content is not. The fix belongs here
+	   rather than at each call site: a meta strip must never be able
+	   to paint outside its parent. `min-width: 0` lets the flex item
+	   shrink; the strip keeps its intrinsic size when it fits, which
+	   is the whole point of a fixed meta slot. */
+	min-width: 0;
+	max-width: 100%;
 }
 
 /* A meta slot is a fixed, unshrinkable strip by default - correct for a
@@ -838,8 +869,41 @@ button.cm-row:hover { background: var(--bg-2); }
 	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--space-2);
+
 }
 .cm-row__meta--wrap > * { min-width: 0; }
+.cm-row__meta--wrap > * { min-width: 0; }
+/* The other direction: a meta slot whose contents are ONE string that
+   must not break across lines. MEASURED on rpm in WebKit at 390px:
+   the `→ ip : port` slot was left wrappable and broke into two rows -
+   the address and port on the first, the arrow and a stranded colon
+   on the second - which reads as a layout fault rather than a value.
+   The slot is given its own full line by `.cm-row__body--wrap`, so
+   here it only has to refuse to split itself. */
+.cm-row__meta--nowrap {
+	white-space: nowrap;
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	flex-wrap: nowrap;
+	align-items: baseline;
+	gap: var(--space-1);
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+/* The same slot when its parts make ONE value - `→ 192.168.1.104:80`.
+   A flex gap applies between EVERY child, so with `--space-1` the
+   punctuation picked up a space on each side and the address rendered
+   `192.168.1.104 : 80`. MEASURED in WebKit at 390px on rpm. The gap
+   belongs between the arrow and the address, not inside the address. */
+/* The arrow and the ADDRESS get one space. Nothing else does: the colon
+   and the port are punctuation inside a single value, and MEASURED at
+   390px a blanket `* + *` margin put 4px on each side of the colon, so
+   the address read `192.168.1.104 : 80`. The first child is the arrow
+   and the second is the address; everything after that is inside the
+   value and must be flush. */
+.cm-row__meta--tight { gap: 0; }
+.cm-row__meta--tight > *:first-child + * { margin-left: 0.35em; }
 
 /* A row body is a nowrap flex line by default - title, desc and meta on
    one line, which is right when the row is a summary. It has to give way
@@ -1754,9 +1818,18 @@ button.cm-row:hover { background: var(--bg-2); }
    row as wide as the worst one. Truncate with an ellipsis so the value
    is still identifiable on hover. */
 .cm-table__truncate {
-	max-width: 20rem;
+	/* A chip inside a card is not a table cell: 20rem is wider than a
+	   390px phone, so a long value ran to the card edge and was guil-
+	   lotined by the viewport with no ellipsis. MEASURED on rpm:
+	   `mrxlab-net-le` cut mid-word with nothing to show it was cut.
+	   `min-width: 0` is load-bearing: as a flex item the default
+	   `min-width: auto` floors it at its content width, so the max-width
+	   below never applied and the text was cut with no marker at all. */
+	max-width: 12rem;
+	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 /* The control inside a table cell.
 
@@ -1882,7 +1955,15 @@ button.cm-row:hover { background: var(--bg-2); }
 	padding: 0.15em 0.6em;
 	border: 1px solid var(--line);
 	border-radius: 4px;
-	background: var(--bg-3);
+	/* --panel-nested, NOT --bg-3. MEASURED on rpm at 390px: a chip
+	   filled --bg-3 (#161616) sits INSIDE a card filled
+	   --panel-nested (#1a1a1a) and is therefore DARKER than the
+	   container holding it - luminance 22 against 26. The page's most
+	   common element ranked below its own parent: 49 chips against 25
+	   cards on the certificates view, all advertising themselves first.
+	   A chip is a label, and a label inside a surface is raised off it,
+	   never recessed into it. */
+	background: var(--surface-raised);
 	font-family: var(--font-mono);
 	font-size: max(var(--min-font), var(--text-micro));
 	line-height: 1.4;
@@ -4297,7 +4378,14 @@ button.cm-link:focus-visible {
 	flex: 0 0 auto;
 	border-radius: var(--radius-sm);
 	border: 1px solid var(--ink-dim);
-	background: var(--bg-2);
+	/* --panel-nested, NOT --bg-2. MEASURED on rpm at 390px: a badge
+	   filled --bg-2 (#101010) sitting on a --panel (#111111) is one
+	   255th of a difference apart - luminance 16 against 17, a
+	   contrast ratio of 1.008. The border was carrying the entire
+	   edge and the fill did none, so a badge and the panel that
+	   holds it read as the same plane. In a dark UI a nested
+	   surface is RAISED: it must be LIGHTER than its parent. */
+	background: var(--panel-nested);
 	box-shadow: inset 3px 0 0 var(--ink);
 	color: var(--ink);
 }
@@ -4324,7 +4412,9 @@ button.cm-link:focus-visible {
 	display: inline-flex;
 	border: 1px solid var(--line);
 	border-radius: var(--radius-sm);
-	background: var(--bg-3);
+	/* Same rule as .cm-chip: a segmented control lives ON a card, so
+	   it must sit above that card's fill, not below it. */
+	background: var(--surface-raised);
 	overflow: hidden;
 	max-width: 100%;
 	/* A long option set wraps onto a second line rather than running

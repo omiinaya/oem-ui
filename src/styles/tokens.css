@@ -164,6 +164,15 @@
 	   smallest text we will ever render, because a 10px monospace
 	   label is unreadable on a phone at arm's length. */
 	--tap: 44px;
+	/* A smaller label may shrink a control's CHROME; it may not shrink
+	   its hit area. MEASURED on rpm: `.cm-btn--sm` carried
+	   `min-height: 0` and rendered 28px tall - the Edit Rate Limit and
+	   Edit Force SSL Domain buttons, two per card, on a phone. There is
+	   no "small" tap target: this is `--tap`, deliberately, because a
+	   token that allowed a smaller floor would be used to defeat the
+	   floor. The difference between a small button and a large one is
+	   its padding and its label, not how hard it is to press. */
+	--tap-sm: 44px;
 	--min-font: 12px;
 
 	/* ---- switch geometry ----
@@ -203,6 +212,13 @@
 	   the same plane. In a dark UI a nested surface is RAISED, so it is
 	   LIGHTER than the panel that holds it. */
 	--panel-nested: #1a1a1a;
+		/* The step ABOVE --panel-nested: a control drawn ON a card (a chip, a
+	   segmented control, an inline edit) must be distinguishable from the
+	   card without competing with it. MEASURED on rpm at 390px: with a
+	   chip on --panel-nested, the control and its own container painted
+	   the identical fill and the control vanished into the card. One
+	   more step, and no more - a control is not a region. */
+	--surface-raised: #222222;
 	--line: #262626;
 	--line-soft: #1c1c1c;
 
@@ -252,6 +268,13 @@
 	/* The same logic inverts in a light UI: a nested surface is
 	   RECESSED, so it is darker than the panel that holds it. */
 	--panel-nested: #ececec;
+		/* The step ABOVE --panel-nested: a control drawn ON a card (a chip, a
+	   segmented control, an inline edit) must be distinguishable from the
+	   card without competing with it. MEASURED on rpm at 390px: with a
+	   chip on --panel-nested, the control and its own container painted
+	   the identical fill and the control vanished into the card. One
+	   more step, and no more - a control is not a region. */
+	--surface-raised: #f5f5f5;
 	--line: #d6d6d6;
 	--line-soft: #e2e2e2;
 
@@ -310,6 +333,13 @@
 	   the same plane. In a dark UI a nested surface is RAISED, so it is
 	   LIGHTER than the panel that holds it. */
 	--panel-nested: #1a1a1a;
+		/* The step ABOVE --panel-nested: a control drawn ON a card (a chip, a
+	   segmented control, an inline edit) must be distinguishable from the
+	   card without competing with it. MEASURED on rpm at 390px: with a
+	   chip on --panel-nested, the control and its own container painted
+	   the identical fill and the control vanished into the card. One
+	   more step, and no more - a control is not a region. */
+	--surface-raised: #222222;
 	--line: #262626;
 	--line-soft: #1c1c1c;
 	--ink: #e8e8e8;
@@ -340,6 +370,13 @@
 	/* The same logic inverts in a light UI: a nested surface is
 	   RECESSED, so it is darker than the panel that holds it. */
 	--panel-nested: #ececec;
+		/* The step ABOVE --panel-nested: a control drawn ON a card (a chip, a
+	   segmented control, an inline edit) must be distinguishable from the
+	   card without competing with it. MEASURED on rpm at 390px: with a
+	   chip on --panel-nested, the control and its own container painted
+	   the identical fill and the control vanished into the card. One
+	   more step, and no more - a control is not a region. */
+	--surface-raised: #f5f5f5;
 	--line: #d6d6d6;
 	--line-soft: #e2e2e2;
 	--ink: #111111;
