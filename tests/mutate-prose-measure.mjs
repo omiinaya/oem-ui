@@ -45,10 +45,13 @@ const MEASURE_RULE = '.cm-prose-measure { max-width: var(--measure); }';
 const FIRST_CHILD = '.cm-prose-measure > :first-child { margin-top: 0; }';
 const INLINE_RULE = [
 	'.cm-inline-link {',
-	'\tdisplay: inline-block;',
-	'\tmin-height: var(--tap);',
-	'\tpadding: var(--space-3) 0;',
-	'\tmargin: calc(var(--space-3) * -1) 0;',
+	'	display: inline-block;',
+	'	min-height: var(--tap);',
+	'	padding: var(--space-3) 0;',
+	'	margin: calc(var(--space-3) * -1) 0;',
+	'	text-decoration: underline;',
+	'	text-decoration-color: var(--ink-faint);',
+	'	text-underline-offset: 0.18em;',
 	'}',
 ].join('\n');
 
@@ -100,6 +103,18 @@ const MUTATIONS = [
 		'components.css: .cm-inline-link takes a literal 44px instead of the token',
 		CSS,
 		[[INLINE_RULE, INLINE_RULE.replace('min-height: var(--tap);', 'min-height: 44px;')]],
+		false,
+	],
+	[
+		'components.css: .cm-inline-link loses its underline (2.24:1 against its own paragraph)',
+		CSS,
+		[[INLINE_RULE, INLINE_RULE.replace('	text-decoration: underline;\n', '')]],
+		false,
+	],
+	[
+		'components.css: .cm-inline-link takes a solid underline instead of a tinted one',
+		CSS,
+		[[INLINE_RULE, INLINE_RULE.replace('text-decoration-color: var(--ink-faint);', 'text-decoration-color: currentColor;')]],
 		false,
 	],
 	[

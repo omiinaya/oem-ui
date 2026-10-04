@@ -64,10 +64,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and a test that checks one half cannot see the other.
 
   Contract tests for both, and a mutation harness
-  (`tests/mutate-prose-measure.mjs`): 11 mutations, 11 killed, 0 survived,
-  0 harness errors. Three of them target the inline-link invariant alone —
-  `display: inline`, a deleted `min-height`, and a deleted negative margin
-  are each killed on their own.
+  (`tests/mutate-prose-measure.mjs`): 13 mutations, 13 killed, 0 survived,
+  0 harness errors. Six of them target the inline-link invariant alone —
+  `display: inline`, a deleted `min-height`, a deleted negative margin, a
+  literal `44px`, a deleted underline and an untinted one are each killed
+  on their own.
+
+  **3. The affordance, found by looking at the screenshot.** Vision
+  reported the specimen as showing no link affordance, and it was right.
+  `base.css` gives bare `a` `--ink-dim` with no underline while
+  `.cm-prose` sets its body to `--ink`, so a link inside a paragraph
+  measured **2.24:1 against the text around it** in dark and **2.13:1** in
+  light — a link quieter than its own sentence. It still clears AA against
+  the *page* (7.21:1 / 8.49:1), and that is the trap: both numbers are
+  true, and only one of them describes whether a reader sees a link,
+  because the comparison that decides that is the paragraph rather than
+  the page. An AA-against-the-background check cannot see this class of
+  defect at all. `.cm-inline-link` is now underlined, tinted
+  `--ink-faint` — which is how a link reads without relying on colour.
 
 - **`.cm-search` is demonstrated, tokenised and — for the first time —
   actually focusable. Three of the ten rpm pages that ship it had no

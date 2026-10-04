@@ -10371,6 +10371,21 @@ check('the leading dot is the COMPONENT\'s, so a caller cannot double it', () =>
 		// and it still passes both assertions above.
 		assert(/margin:\s*calc\(var\(--space-3\)\s*\*\s*-1\)/.test(card),
 			`.cm-inline-link must cancel its vertical padding with a matching negative margin; got \`${card.trim()}\``);
+		// The affordance. MEASURED in WebKit: bare `a` is --ink-dim and
+		// `.cm-prose` is --ink, so a link inside a paragraph sat at 2.24:1
+		// against the text around it in dark (2.16:1 in light) - quieter than
+		// its own sentence - while still clearing AA against the PAGE at
+		// 7.21:1 / 8.36:1. Both readings pass; only the first describes
+		// whether a reader sees a link, because the comparison that matters
+		// is the paragraph, not the page. Underline is the fix: it reads as a
+		// link without relying on colour at all.
+		assert(/text-decoration:\s*underline/.test(card),
+			`.cm-inline-link must be underlined - inheriting base.css leaves it quieter than its own paragraph; got \`${card.trim()}\``);
+		// And the underline is TINTED, not the link's own colour: a solid
+		// underline at the link's weight draws a line as heavy as the text it
+		// sits under, which is the reason this system tints every other one.
+		assert(/text-decoration-color:\s*var\(--ink-faint\)/.test(card),
+			`.cm-inline-link must tint its underline with --ink-faint; got \`${card.trim()}\``);
 		assert(/class="[^"]*cm-inline-link/.test(showcase),
 			'the showcase renders no .cm-inline-link, so it is unreachable surface');
 	});

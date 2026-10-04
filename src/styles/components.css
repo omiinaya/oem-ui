@@ -1106,13 +1106,27 @@ button.cm-row:hover { background: var(--bg-2); }
 
    This was discovered as a dead rule in oem-portfolio (zero emitters)
    carrying a comment explaining a real measurement. The rule went, the
-   measurement came here: a lesson with no markup is not surface. */
+   measurement came here: a lesson with no markup is not surface.
+
+   It also carries an AFFORDANCE, which is the part the tap floor does
+   not buy. `base.css` sets bare `a` to `--ink-dim` with no underline,
+   and `.cm-prose` sets its own body to `--ink`, so a link inside a
+   paragraph measured 2.24:1 against the text AROUND it in dark
+   (2.16:1 in light) - a link quieter than its own sentence, while
+   still clearing AA against the page at 7.21:1 / 8.36:1. Both numbers
+   are true and only the first one matters here: the comparison that
+   decides whether a reader sees a link is the paragraph, not the page.
+   So the link is underlined, which is how a link reads without colour
+   at all. */
 .cm-prose a.cm-inline-link,
 .cm-inline-link {
 	display: inline-block;
 	min-height: var(--tap);
 	padding: var(--space-3) 0;
 	margin: calc(var(--space-3) * -1) 0;
+	text-decoration: underline;
+	text-decoration-color: var(--ink-faint);
+	text-underline-offset: 0.18em;
 }
 
 /* ---------- prose table ----------

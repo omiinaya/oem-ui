@@ -975,6 +975,58 @@ declared once in `:root` and is the same in both themes. Writing
 consumer that invents its own measure is a second implementation no
 library fix can reach.
 
+### Prose beside an aside — `.cm-prose-measure` and `.cm-inline-link`
+
+Two classes for prose that has company, both moved into the library from
+oem-portfolio this cycle.
+
+```html
+<div class="cm-split">
+  <div class="cm-prose cm-prose-measure">
+    <p>A link inside a sentence <a href="/x/" class="cm-inline-link">stays tappable</a>
+       and the line rhythm does not move.</p>
+  </div>
+  <aside class="cm-split__aside">…</aside>
+</div>
+```
+
+`.cm-prose-measure` bounds the reading column to `--measure`. Without it,
+prose in a `.cm-split` inherits `--maxw` — sized for a full-width column —
+so the line length is set by the **page** rather than by the reader's
+column. That is the case the measure token could not express on its own,
+and it is why a consumer was found hardcoding `68ch`.
+
+`.cm-inline-link` is a link that runs inside a sentence, and it exists
+because of a measured bug rather than a style. `base.css` puts
+`min-height: var(--tap)` on bare `a` — and **min-height does nothing on
+an inline box**, so every link inside running prose escaped the tap
+floor. Measured in WebKit at an iPhone viewport: **34px**.
+
+```css
+.cm-inline-link {
+  display: inline-block;   /* the only display that honours the height */
+  min-height: var(--tap);
+  padding: var(--space-3) 0;
+  margin: calc(var(--space-3) * -1) 0;  /* cancel it out of the line box */
+  text-decoration: underline;
+  text-decoration-color: var(--ink-faint);
+}
+```
+
+Two things here are easy to get wrong, and both are invisible to a
+value-shaped test:
+
+- **The negative margin is load-bearing.** Measured on the showcase at
+  390px, paragraph height ÷ line-height is `10.9988` with the margin and
+  `11.8321` without — 4.83px of padding pushed past the last line. Both
+  builds wrap to eleven lines, so a line-count assertion passes the
+  broken one.
+- **The underline is the affordance.** `a` is `--ink-dim` and `.cm-prose`
+  is `--ink`, so the link measured **2.24:1 against its own paragraph**
+  (2.13:1 in light) while clearing AA against the *page* at 7.21:1. Only
+  the first number describes whether a reader sees the link, and an
+  AA-against-the-background check cannot see this at all.
+
 ### Everything else
 
 ```html
