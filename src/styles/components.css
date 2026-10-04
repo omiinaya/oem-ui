@@ -1112,8 +1112,8 @@ button.cm-row:hover { background: var(--bg-2); }
    not buy. `base.css` sets bare `a` to `--ink-dim` with no underline,
    and `.cm-prose` sets its own body to `--ink`, so a link inside a
    paragraph measured 2.24:1 against the text AROUND it in dark
-   (2.16:1 in light) - a link quieter than its own sentence, while
-   still clearing AA against the page at 7.21:1 / 8.36:1. Both numbers
+   (2.13:1 in light) - a link quieter than its own sentence, while
+   still clearing AA against the page at 7.21:1 / 8.49:1. Both numbers
    are true and only the first one matters here: the comparison that
    decides whether a reader sees a link is the paragraph, not the page.
    So the link is underlined, which is how a link reads without colour
