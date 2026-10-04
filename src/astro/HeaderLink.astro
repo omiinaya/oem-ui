@@ -23,6 +23,7 @@
  * one the library documents.
  */
 import type { HTMLAttributes } from 'astro/types';
+import { isCurrentPage } from './current';
 
 type Props = HTMLAttributes<'a'> & {
 	/** Match the first path segment too, so `/blog` stays current on `/blog/a-post`. */
@@ -40,38 +41,16 @@ const {
 } = Astro.props;
 
 /* Astro.url is the page being rendered; the href is where the link goes.
-   Both are reduced to a comparable shape before anything is compared, so
-   trailing slashes, the query, the hash and the site base cannot make two
-   references to the same page compare unequal. */
+   The matcher is SHARED with <Header>, so a nav that renders one component
+   and a nav that renders the other cannot disagree about which link is
+   current. `import.meta.env?.BASE_URL` is optional-chained because this file
+   is also read by the contract tests, outside a build. */
 const base = (import.meta.env?.BASE_URL ?? '/').replace(/\/$/, '');
 
-const strip = (p: string) => {
-	let out = p.split('#')[0].split('?')[0];
-	// An external link (or a protocol-relative one) is never "this page".
-	if (/^[a-z][a-z0-9+.-]*:/i.test(out) || out.startsWith('//')) return null;
-	if (base && out.startsWith(base)) out = out.slice(base.length);
-	out = out.replace(/\/+$/, '');
-	// Both sides are compared as absolute paths, so a relative remainder must
-	// get its leading slash back. Without this, stripping `/blog/` left `blog`,
-	// which then never equalled `/blog` and NO link was ever current.
-	if (out === '') return '/';
-	return out.startsWith('/') ? out : `/${out}`;
-};
-
-const here = strip(Astro.url.pathname);
-const there = strip(String(href));
-
-/* `matchSegment` is opt-in because the two behaviours are genuinely
-   different: a "docs" link should usually stay lit while you read
-   /docs/install, but a "/v2/" version link must light only on v2. The
-   default is the stricter exact match, so opting in is a deliberate act. */
 const isActive =
 	active !== undefined
 		? active
-		: there !== null &&
-			here !== null &&
-			(there === here ||
-				(matchSegment && there !== '/' && here.startsWith(there + '/')));
+		: isCurrentPage(String(href), Astro.url.pathname, base, matchSegment);
 ---
 
 <a

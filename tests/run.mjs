@@ -355,7 +355,7 @@ console.log('\nastro components');
 // scripts/install.sh now installs whatever is IN the directory, so the
 // list has to be derived the other way round or the two drift apart again:
 // this check fails when a component exists on disk but is not claimed here.
-const astroFiles = ['Head.astro', 'Header.astro', 'HeaderLink.astro', 'Footer.astro', 'PageHead.astro', 'PostHead.astro', 'PostRow.astro', 'StatusStrip.astro', 'Card.astro', 'CodeBlock.astro', 'Meter.astro', 'Stat.astro', 'SectionHead.astro', 'TimelineItem.astro', 'config.ts'];
+const astroFiles = ['Head.astro', 'Header.astro', 'HeaderLink.astro', 'Footer.astro', 'PageHead.astro', 'PostHead.astro', 'PostRow.astro', 'StatusStrip.astro', 'Card.astro', 'CodeBlock.astro', 'Meter.astro', 'Stat.astro', 'SectionHead.astro', 'TimelineItem.astro', 'config.ts', 'current.ts'];
 for (const f of astroFiles) {
 	check(`ships src/astro/${f}`, () => {
 		// Assert the file is ON DISK, not merely named in this list. A list
@@ -3640,10 +3640,24 @@ check('Header can express the current page', () => {
 	// The library has shipped `.cm-header__link[aria-current='page']` from the
 	// start, and NOTHING could reach it: no component emitted the attribute.
 	// Dead CSS that builds, ships and renders is invisible by construction.
+	//
+	// The `active` prop is now only an ESCAPE HATCH. The prop is still
+	// required to exist, but a Header that only honours it is a trap: a
+	// multi-page consumer must then hand-write one boolean per page, which is
+	// what dev-blog did by forking this file. The nav derives the attribute
+	// from the URL instead, so `active` stays optional.
 	const h = read('src/astro/Header.astro');
 	assert(/active\?:\s*boolean/.test(h), 'Link needs an `active` prop');
-	assert(/aria-current=\{l\.active\s*\?\s*'page'\s*:\s*undefined\}/.test(h),
-		'Header must render aria-current="page" for an active link');
+	// Scope to the nav link block: `aria-current={...}` appears elsewhere in
+	// the file, so a bare /aria-current=/ proves nothing about the NAV.
+	const navLink = /aria-current=\{\s*l\.active\s*!==\s*undefined[\s\S]*?isCurrentPage\([\s\S]*?\}/.exec(h);
+	assert(navLink,
+		'Header must render aria-current="page" from its own URL match when no `active` was passed');
+	assert(/isCurrentPage\(/.test(h),
+		'Header must use the shared matcher so it cannot disagree with <HeaderLink>');
+	// A link with `active: false` is not current even when the URL says it is.
+	assert(/l\.active\s*!==\s*undefined\s*\?\s*l\.active/.test(h),
+		'an explicit `active: false` must win over the URL match');
 });
 
 check('Header hands its links to the runtime scroll-spy', () => {
@@ -3708,33 +3722,253 @@ check('HeaderLink normalises before it compares', () => {
 	// above it matches the same pattern. A test that can be satisfied by a
 	// different line of code is decoration.
 	//
-	// The TS annotations are stripped because `new Function` compiles plain
-	// JS. If the extraction ever fails to find the function, that is a FAIL,
-	// never a silent skip.
-	const src = read('src/astro/HeaderLink.astro');
-	const stripSrc = /const strip = \(p(?::\s*string)?\) => \{[\s\S]*?^\};/m.exec(src);
-	assert(stripSrc, 'could not find the strip() normaliser in HeaderLink.astro');
+	// The normaliser MOVED to src/astro/current.ts when <Header> started
+	// sharing it with <HeaderLink>. That is the point: two components that
+	// each reduced a path their own way is how a nav ends up lighting the
+	// wrong link. So the extraction target changed with the code, and the
+	// assertion about WHERE it lives moves with it - if the module is
+	// deleted, this fails rather than skipping.
+	const src = read('src/astro/current.ts');
+	const stripSrc = /export const normalise = \(raw(?::\s*string)?,\s*base(?::\s*string)?\)(?::\s*string\s*\|\s*null)?\s*=>\s*\{[\s\S]*?^\};/m.exec(src);
+	assert(stripSrc, 'could not find the normalise() reducer in current.ts');
 	const js = stripSrc[0]
-		.replace(/\(p(?::\s*string)?\)/, '(p)')
-		.replace(/^const strip = /, 'return ');
+		.replace(/\(raw(?::\s*string)?,\s*base(?::\s*string)?\)/, '(raw, base)')
+		.replace(/:\s*string\s*\|\s*null/g, '');
+	// `export const` cannot appear in a `new Function` BODY at all - it is a
+	// syntax error there, the constructor throws, and the harness comes back
+	// with `undefined` rather than a failure. Rewritten to a plain
+	// declaration so the extracted source is the thing actually executed.
+	// Assert it: an extraction that silently produced nothing is exactly the
+	// "test that passes for the wrong reason" this suite keeps rediscovering.
+	const runnable = js.replace(/^export const normalise =/, 'const normalise =');
+	assert(!/^\s*(export|import)\s/m.test(runnable),
+		'the extracted source still carries a module-level keyword, so new Function cannot run it');
+	assert(/const normalise\s*=/.test(runnable),
+		'the extracted source does not define normalise, so the harness below would test nothing');
 	// One normaliser, two builds: the site root, and a site served under a
 	// `base` prefix. The prefix case is the one that silently disables the
 	// whole component, so it gets its own instance.
-	const atRoot = new Function('base', `${js}\nreturn strip;`)('/');
-	const prefixed = new Function('base', `${js}\nreturn strip;`)('/dev-blog');
-	const strip = atRoot;
-	assert(strip('/blog/') === '/blog', `trailing slash: /blog/ -> ${strip('/blog/')}`);
-	assert(strip('/blog/?q=1') === '/blog', `query string: /blog/?q=1 -> ${strip('/blog/?q=1')}`);
-	assert(strip('/blog/#x') === '/blog', `hash: /blog/#x -> ${strip('/blog/#x')}`);
-	assert(strip('/') === '/', `root: / -> ${strip('/')}`);
+	//
+	// The normaliser takes `base` as a PARAMETER, so the harness has to BIND
+	// it rather than hand back a closure over a same-named variable. Handing
+	// back the bare function passes the path as `raw` and leaves `base`
+	// undefined, which silently degrades every case to the no-prefix build -
+	// a green prefix assertion that never exercised a prefix. That is why
+	// these two lines bind:
+	const atRoot = new Function('siteBase', `${runnable}\nreturn (raw) => normalise(raw, siteBase);`)('/');
+	const prefixed = new Function('siteBase', `${runnable}\nreturn (raw) => normalise(raw, siteBase);`)('/dev-blog');
+	const normalise = atRoot;
+	assert(normalise('/blog/') === '/blog', `trailing slash: /blog/ -> ${normalise('/blog/')}`);
+	assert(normalise('/blog/?q=1') === '/blog', `query string: /blog/?q=1 -> ${normalise('/blog/?q=1')}`);
+	assert(normalise('/blog/#x') === '/blog', `hash: /blog/#x -> ${normalise('/blog/#x')}`);
+	assert(normalise('/') === '/', `root: / -> ${normalise('/')}`);
 	// Under a base prefix, BOTH sides carry it, so both must lose it.
 	assert(prefixed('/dev-blog/about/') === '/about',
 		`base prefix: -> ${prefixed('/dev-blog/about/')}`);
 	assert(prefixed('/about/') === '/about',
 		`base prefix, already-stripped href: -> ${prefixed('/about/')}`);
 	// an external link is not this page, whatever its path looks like
-	assert(strip('https://example.com/blog/') === null, 'an external href was treated as a local path');
-	assert(strip('//example.com/blog/') === null, 'a protocol-relative href was treated as a local path');
+	assert(normalise('https://example.com/blog/') === null, 'an external href was treated as a local path');
+	assert(normalise('//example.com/blog/') === null, 'a protocol-relative href was treated as a local path');
+});
+
+/* Extract BOTH reducers out of current.ts and execute them. `isCurrentPage`
+   calls `normalise` by module-scope binding, so the extracted source is
+   evaluated once and the pair is read off the same scope - handing back
+   `normalise` alone and then re-implementing the comparison here would test
+   a copy in this file, which is the exact "two copies that disagree" bug
+   the module was created to end. */
+const loadCurrentModule = () => {
+	const src = read('src/astro/current.ts');
+	const body = src
+		// strip comments FIRST: a prose mention of the function name in the
+		// doc comment must not satisfy the extraction and yield an empty body
+		.replace(/\/\*[\s\S]*?\*\//g, '')
+		.replace(/^\s*\/\/.*$/gm, '');
+	// Both arrows, from `export const NAME =` to its own closing `};` at
+	// column 0. `export` is illegal in a `new Function` body, so it is
+	// rewritten; the colon annotations are stripped the same way.
+	const grab = (name) => {
+		const m = new RegExp(
+			`export const ${name} = [\\s\\S]*?\\n};`,
+		).exec(body);
+		assert(m, `could not extract ${name}() from current.ts`);
+		return m[0]
+			.replace(`export const ${name} =`, `const ${name} =`)
+			.replace(/:\s*string/g, '')
+			.replace(/:\s*boolean/g, '')
+			.replace(/=\s*false/g, '= false')
+			.replace(/\):\s*boolean/g, ')')
+			.replace(/\|\s*null/g, '');
+	};
+	const js = `${grab('normalise')}\n${grab('isCurrentPage')}`;
+	assert(!/^\s*(export|import)\s/m.test(js),
+		'the extracted source still carries a module-level keyword, so new Function cannot run it');
+	assert(/\bconst normalise\s*=/.test(js) && /\bconst isCurrentPage\s*=/.test(js),
+		'the extracted source defines neither reducer, so the harness would test nothing');
+	// bind `base` per-build, exactly as the sibling test does: returning the
+	// bare function would pass the path as `raw` and leave `base` undefined.
+	return {
+		normalise: (b) => new Function('siteBase', `${js}\nreturn (raw) => normalise(raw, siteBase);`)(b),
+		isCurrentPage: (b) => new Function('siteBase', `${js}\nreturn (href, p, ms) => isCurrentPage(href, p, siteBase, ms);`)(b),
+	};
+};
+
+check('isCurrentPage decides WHERE YOU ARE, and never lights an in-page link', () => {
+	// `normalise` is tested on its own above. This is the BEHAVIOUR the whole
+	// nav depends on, and before this check `isCurrentPage` had no test at
+	// all: it shipped a fix - a hash-only href is not a page - with nothing
+	// that could fail if the guard were deleted.
+	//
+	// MEASURED pre-fix, by running the reducer with the guard removed: on the
+	// ROOT page, `#nav`, `#`, `#buttons` and `#tables` EVERY returned true,
+	// because `normalise` drops the fragment and `/#nav` reduces to `/`,
+	// which equals `/`. A single-page site - which is what the showcase is -
+	// rendered with `#section` links lit its ENTIRE nav at once, and no
+	// screenshot of that reads as broken.
+	const { isCurrentPage } = loadCurrentModule();
+	const atRoot = isCurrentPage('/');
+	const prefixed = isCurrentPage('/dev-blog');
+
+	// --- the bug under test: an in-page link is not the current page ---
+	for (const href of ['#nav', '#', '#buttons', '#tables']) {
+		assert(atRoot(href, '/') === false,
+			`an in-page href lit aria-current on the root page: ${href}`);
+	}
+	// ...and on a subpage, where it was already false - the all-links-lit bug
+	// was specific to the root, because only there does the fragment strip to
+	// the same path. Asserting both sides keeps the test from being satisfied
+	// by a matcher that is simply broken everywhere.
+	assert(atRoot('#nav', '/blog/') === false,
+		'an in-page href lit aria-current on a subpage');
+
+	// --- the ordinary cases, so the guard cannot be "fixed" by returning
+	//     false for everything ---
+	assert(atRoot('/blog', '/blog/') === true, 'a real link is not current on its own page');
+	assert(atRoot('/blog/', '/blog') === true, 'trailing slash, both directions');
+	assert(atRoot('/', '/') === true, 'the root link is current on the root page');
+	assert(atRoot('/', '/blog/') === false, 'the root link is current on EVERY path');
+	assert(atRoot('/blog', '/about/') === false, 'a link is current on a different page');
+	assert(atRoot('/blog/?q=1', '/blog/') === true, 'a query string is not part of a page');
+	// an external href is never this page
+	assert(atRoot('https://example.com/blog/', '/blog/') === false,
+		'an external href was treated as this page');
+	assert(atRoot('//example.com/blog/', '/blog/') === false,
+		'a protocol-relative href was treated as this page');
+
+	// --- under a base prefix, both sides carry it and both lose it. A
+	//     consumer served from `/dev-blog/` with NO link ever current is the
+	//     failure this whole component exists to prevent. ---
+	assert(prefixed('/dev-blog/about/', '/dev-blog/about/') === true,
+		'base prefix: a real link is not current on its own page');
+	assert(prefixed('/about/', '/dev-blog/about/') === true,
+		'base prefix: an already-stripped href did not match');
+	assert(prefixed('/blog/', '/dev-blog/about/') === false,
+		'base prefix: a link is current on a different page');
+
+	// --- the defensive clauses, which the first version of this check
+	//     could not reach and the mutation sweep proved it. Both were
+	//     reported as SURVIVED; `tests/probe-current-diff.mjs` then showed
+	//     both are OBSERVABLE, over exactly the inputs below. Recording how
+	//     they were found, because the obvious way to find them - reading
+	//     the guard and concluding it is dead - is what produced a false
+	//     "DEAD" reading first.
+	//
+	// `there !== '/'`: without it, a DOUBLE-SLASH pathname makes the root
+	// link current on an unrelated path. `normalise('/dev-blog//x',
+	// '/dev-blog')` returns `//x` - the base strip plus the leading-slash
+	// repair can emit two slashes - and `here.startsWith('//')` is true.
+	// MEASURED: false before, true with the guard removed.
+	assert(atRoot('/', '/dev-blog//x', true) === false,
+		'the root link lit on a double-slash path via matchSegment');
+	// Under a base prefix, the same inputs must behave: a prefixed root link
+	// is not current on a prefixed page that is not its own child.
+	assert(prefixed('/dev-blog', '/dev-blog//x', true) === false,
+		'the base root link lit on a double-slash path under its own prefix');
+	// the same input WITHOUT matchSegment must still be false, or the
+	// assertion above would pass for the wrong reason
+	assert(atRoot('/', '/dev-blog//x') === false,
+		'the root link lit on a double-slash path without matchSegment');
+
+	// `here === null`: without it, an external/protocol-relative PATHNAME
+	// reaches `here.startsWith` and THROWS, because normalise returns null
+	// for one. A nav that throws while rendering is a blank header, and the
+	// throw only happens on a pathname a real browser cannot even produce -
+	// so the only way to see it is to call the reducer directly. MEASURED:
+	// returns false with the guard, TypeError without it.
+	assert(atRoot('/a', '//x', true) === false,
+		'a protocol-relative pathname threw instead of returning false');
+	assert(atRoot('/a', 'https://example.com/x', true) === false,
+		'an external pathname was treated as a local path');
+	// ...and with matchSegment OFF the same inputs must not throw either
+	assert(atRoot('/a', '//x') === false, 'a protocol-relative pathname threw without matchSegment');
+
+	// `href.trimStart()`: the guard must tolerate a leading space, which is
+	// what a templated href produces (`href={` ${slug}`}`, a CMS field
+	// with a stray character). Without it, the fragment guard MISSES, and
+	// `normalise` turns ` #` into `/ ` - so an in-page link becomes
+	// current on any pathname that happens to normalise the same way.
+	// MEASURED: orig false, guard-removed true, for href=" #" against
+	// pathname " /".
+	assert(atRoot(' #', ' /') === false,
+		'a space-prefixed fragment href was treated as a page link');
+	// Both matchSegment settings, because the guard sits ABOVE the segment
+	// branch and a mutation that only moves it below would survive otherwise.
+	assert(atRoot(' #', ' /', true) === false,
+		'a space-prefixed fragment href was treated as a page link under matchSegment');
+
+		// --- matchSegment is opt-in, and the opt-in is a decision about the
+		//     LINK, not a default. dev-blog needs `/blog` lit on `/blog/a-post`
+		//     and `/v2/` lit only on v2, which is the pair that proves it. ---
+	assert(atRoot('/blog', '/blog/a-post') === false,
+		'a child page must NOT light the section link by default');
+	assert(atRoot('/blog', '/blog/a-post', true) === true,
+		'matchSegment did not keep the section link lit on its child page');
+	// The DEFAULT is the stricter exact match, and that is what a version
+	// link needs: `/v2` must light only on `/v2`, not on `/v2/api`. Both
+	// halves are asserted, because either one alone is satisfiable by a
+	// matcher that just always returns false (or always true).
+	assert(atRoot('/v2', '/v2') === true,
+		'a version link is not current on its own version');
+	assert(atRoot('/v2', '/v2/api') === false,
+		'a version link lit on its own children without opting in');
+	// ...and with the opt-in it does, so the pair pins the default instead of
+	// accidentally hard-coding the answer.
+	assert(atRoot('/v2', '/v2/api', true) === true,
+		'matchSegment did not opt a link into its children');
+	// the root is never a segment parent: `/` must not light on every path
+	assert(atRoot('/', '/blog', true) === false,
+		'the root link lit on an unrelated path via matchSegment');
+	// ...but the root IS the current page on itself, even with matchSegment on
+	assert(atRoot('/', '/', true) === true,
+		'the root link is not current on the root page when matchSegment is on');
+});
+
+check('the fragment guard lives INSIDE isCurrentPage, before it normalises', () => {
+	// A guard placed AFTER the normalise is a guard that cannot work:
+	// normalising is exactly what erases the difference between `#nav` and
+	// `/`. This asserts the ORDER, because both orderings type-check, build
+	// and render - and the wrong one silently reintroduces the all-links-lit
+	// bug the sibling test measures.
+	const src = read('src/astro/current.ts');
+	const fn = /export const isCurrentPage = [\s\S]*?^};/m.exec(src);
+	assert(fn, 'could not find isCurrentPage() in current.ts');
+	const body = fn[0];
+	const guard = body.indexOf('startsWith(\'#\')');
+	const norm = body.indexOf('normalise(');
+	assert(guard !== -1, 'isCurrentPage no longer special-cases a fragment-only href');
+	assert(norm !== -1, 'isCurrentPage no longer normalises at all');
+	assert(guard < norm,
+		'the fragment guard runs AFTER normalise(), which strips the very fragment it is testing for');
+	// and the callers must actually route through the shared matcher rather
+	// than each re-deriving it - that duplication is what forked dev-blog.
+	for (const f of ['src/astro/Header.astro', 'src/astro/HeaderLink.astro']) {
+		const s = read(f);
+		assert(/from '\.\/current'/.test(s),
+			`${f} does not import the shared matcher from ./current`);
+		assert(!/aria-current=\{l\.active\s*\?/.test(s) && !/pathname\s*===\s*l?\.?href/.test(s),
+			`${f} re-derives the current-page match instead of calling isCurrentPage()`);
+	}
 });
 
 check('HeaderLink decides only the attribute; the library owns the look', () => {

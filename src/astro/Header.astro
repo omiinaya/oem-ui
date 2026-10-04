@@ -4,6 +4,7 @@
  * Copy this file into your project as-is. All site data comes from props.
  */
 import { SITE } from './config';
+import { isCurrentPage } from './current';
 
 /**
  * Built-in marks for the well-known icon links a header carries.
@@ -35,6 +36,13 @@ interface Link {
 	 * library ships for it is unreachable.
 	 */
 	active?: boolean;
+	/**
+	 * Keep this link lit while you read a CHILD of the page it points at, so
+	 * `/docs` stays current on `/docs/install`. Off by default, because a
+	 * version link (`/v2/`) must light only on v2 - opting in is a decision
+	 * about the link, not a default.
+	 */
+	matchSegment?: boolean;
 	/**
 	 * The id of the section this link points at. Hands the link to the
 	 * runtime's scroll-spy, which marks it `is-active` as the reader moves
@@ -89,6 +97,15 @@ const navLinks = links.map((l) => ({
 }));
 const anySpy = navLinks.some((l) => l.spyId);
 
+/* The nav uses the same matcher as HeaderLink, so a nav written with the
+   primitive <a> cannot disagree with a nav written with <HeaderLink>. This
+   removes the hand-written `active: true` trap that forced dev-blog to fork
+   this file: it inlined the library's matcher as
+   `matchSegment={l.label === 'notes' || l.href === base + 'blog/'}`, which is
+   a boolean per page that goes stale the moment a path changes. */
+const base = (import.meta.env?.BASE_URL ?? '/').replace(/\/$/, '');
+const currentPath = Astro.url.pathname;
+
 // NOT emitted here. A guard in <header> lives in <body> and runs AFTER the
 // stylesheets have painted, which is the flash it exists to prevent. The
 // snippet belongs in <head>, before the first stylesheet - see the
@@ -136,7 +153,13 @@ const anySpy = navLinks.some((l) => l.spyId);
 						<a
 							href={l.href}
 							class="cm-header__link"
-							aria-current={l.active ? 'page' : undefined}
+							aria-current={
+								l.active !== undefined
+									? l.active
+									: isCurrentPage(l.href, currentPath, base, l.matchSegment)
+										? 'page'
+										: undefined
+							}
 							data-cm-spy={l.spyId}
 						>
 							{l.label}
