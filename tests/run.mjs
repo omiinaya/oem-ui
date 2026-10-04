@@ -10329,6 +10329,51 @@ check('the leading dot is the COMPONENT\'s, so a caller cannot double it', () =>
 		const sec = showcase.slice(showcase.indexOf('id="cards"'), showcase.indexOf('id="tiles"'));
 		assert(/class="cm-back"/.test(sec), 'the showcase renders no back link, so the coarse floor is unreachable');
 	});
+
+	check('the prose measure column takes the token, not a typed 68ch', () => {
+		// The consumer that needed this (oem-portfolio's project page) wrote
+		// `max-width: 68ch` by hand, which is exactly what `--measure` already
+		// holds. A class that hardcodes the number is a class that cannot be
+		// re-themed, so assert the var() REFERENCE - `max-width: 68ch` is
+		// DECLARED and a value-shaped assertion would sail past it.
+		const card = declForSelector('.cm-prose-measure', compSrc, true);
+		assert(card, '.cm-prose-measure is not defined in components.css');
+		assert(/max-width:\s*var\(--measure\)/.test(card),
+			`.cm-prose-measure must take var(--measure), got \`${card.trim()}\``);
+		// Exactly one declaration of the column, or the effective width is a
+		// question of source order.
+		const all = [...compSrc.matchAll(/^\.cm-prose-measure\s*\{([^}]*)\}/gm)];
+		assert(all.length === 1,
+			`expected one .cm-prose-measure rule, found ${all.length}`);
+		// The first-child reset is load-bearing, not tidiness: MEASURED 40px of
+		// dead space above the first paragraph on the migrated page without it.
+		assert(/\.cm-prose-measure\s*>\s*:first-child\s*\{[^}]*margin-top:\s*0/.test(compSrc),
+			'.cm-prose-measure must zero the first child\'s top margin');
+		assert(/class="[^"]*cm-prose-measure/.test(showcase),
+			'the showcase renders no .cm-prose-measure, so it is unreachable surface');
+	});
+
+	check('the inline prose link takes the tap floor on a box that can hold it', () => {
+		// A measured bug: the coarse block in base.css puts
+		// `min-height: var(--tap)` on bare `a`, and min-height does NOTHING on
+		// an inline box. Every link inside running prose escaped the floor -
+		// MEASURED 34px in WebKit at an iPhone viewport. So this asserts BOTH
+		// halves of one invariant: the floor is declared, and the display is
+		// one that honours it. Either alone passes and together the bug returns.
+		const card = declForSelector('.cm-inline-link', compSrc, false);
+		assert(card, '.cm-inline-link is not defined in components.css');
+		assert(/display:\s*inline-block/.test(card),
+			`.cm-inline-link must be inline-block - an inline box ignores min-height, so the floor would be dead; got \`${card.trim()}\``);
+		assert(/min-height:\s*var\(--tap\)/.test(card),
+			`.cm-inline-link must take min-height: var(--tap), got \`${card.trim()}\``);
+		// The negative margin is what stops the fix loosening the paragraph.
+		// A plain `padding` here is a page of visibly looser prose on a phone,
+		// and it still passes both assertions above.
+		assert(/margin:\s*calc\(var\(--space-3\)\s*\*\s*-1\)/.test(card),
+			`.cm-inline-link must cancel its vertical padding with a matching negative margin; got \`${card.trim()}\``);
+		assert(/class="[^"]*cm-inline-link/.test(showcase),
+			'the showcase renders no .cm-inline-link, so it is unreachable surface');
+	});
 }
 /* ================= result ================= */
 console.log(`\n${passed} passed, ${failures.length} failed`);

@@ -39,7 +39,7 @@ import SectionHead from '../astro/SectionHead.astro';
 const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'crumbs', 'lists', 'states', 'surface',
   'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'choice',
-	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'prosetable', 'tablelabels', 'layout',
+	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'prosetap', 'prosetable', 'tablelabels', 'layout',
 	'forms', 'search', 'auth', 'readme',
 ] as const;
 
@@ -2108,22 +2108,39 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 						</p>
 											</article>
 
-											<!-- ====================================================
-											     prose table: a table INSIDE prose. The library had
-											     `.cm-table`, which is a data grid - nowrap cells,
-											     a sticky header, a capped scrollport. It is the
-											     wrong component for an article, and the consumer
-											     that needed one (hermes-articles, 397 markdown
-											     pipe-tables across 34 articles) hand-rolled
-											     `.article-content .table-wrapper` with
-											     `min-width: max-content`, which puts a
-											     horizontal scrollbar under EVERY table in the
-											     article whether or not it needed one.
+											<section id="prosetap" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+												<SectionHead title="prose measure + inline link">
+													<code>.cm-prose-measure</code> is a narrower reading column for prose that shares a page with an aside; <code>.cm-inline-link</code> gives a link inside a sentence its tap floor (34px → 44px) without breaking the line rhythm. Both were measured on oem-portfolio before being moved into the library.
+												</SectionHead>
 
-											     The fixture below is deliberately SIX columns of
-											     sentences - the case that forces the decision.
-											     Three columns would fit and prove nothing. -->
-										<section id="prosetable" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+												<div class="cm-split">
+													<div class="cm-prose cm-prose-measure">
+														<p>A link that runs inside a sentence <a href="#prosetap" class="cm-inline-link">stays tappable on a phone</a> without adding a stray line of whitespace between the lines it sits in. The vertical padding is offset by a negative margin, so the hit area grows to the floor while the paragraph's line box does not move.</p>
+														<p>The line length here is <code>var(--measure)</code> (68ch) — the value a consumer was re-typing as a literal before this class existed.</p>
+													</div>
+													<aside class="cm-split__aside">
+														<div class="cm-rule"><span class="cm-rule__label">aside</span></div>
+														<p class="cm-lede">A long unbreakable string in the aside stays constrained here because <code>.cm-split__aside</code> gives it a <code>min-width: 0</code> to stop it from widening the grid.</p>
+																		</aside>
+																	</div>
+																</section>
+
+																				<!-- ====================================================
+																			     prose table: a table INSIDE prose. The library had
+																			     `.cm-table`, which is a data grid - nowrap cells,
+																			     a sticky header, a capped scrollport. It is the
+																			     wrong component for an article, and the consumer
+																			     that needed one (hermes-articles, 397 markdown
+																			     pipe-tables across 34 articles) hand-rolled
+																			     `.article-content .table-wrapper` with
+																			     `min-width: max-content`, which puts a
+																			     horizontal scrollbar under EVERY table in the
+																			     article whether or not it needed one.
+
+																			     The fixture below is deliberately SIX columns of
+																			     sentences - the case that forces the decision.
+																			     Three columns would fit and prove nothing. -->
+																			<section id="prosetable" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
 											<SectionHead title="prose table">
 						<code>.cm-prose-table</code> is for a table that is part of a sentence-paragraph - a comparison, a set of facts. <code>.cm-table</code> is for a grid you scan across. The cells WRAP here instead of holding <code>nowrap</code>, so a six-column table in a 68ch measure degrades into readable rows rather than a scrollbar the reader has to discover mid-article, and there is no <code>max-height</code>, because the article page owns the vertical scroll and a cap would put a second scrollbar inside a paragraph. The last row shows the one thing that cannot wrap: a long unbreakable URL, which breaks rather than dragging the page wide with it.
 											</SectionHead>

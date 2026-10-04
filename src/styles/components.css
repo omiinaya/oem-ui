@@ -1062,6 +1062,59 @@ button.cm-row:hover { background: var(--bg-2); }
 .cm-prose a { color: var(--ink-dim); }
 .cm-prose a:hover { color: var(--ink); }
 
+/* ---------- prose measure ----------
+   A reading column NARROWER than the default one, for the case the
+   library kept missing: prose that shares a page with an aside.
+
+   `body` gets `--maxw`, which is sized for a single column of prose
+   across the full page. Put prose in a `.cm-split` beside an aside and
+   the prose column is still the full page width, so the line length is
+   set by the PAGE rather than by the reader's column - measured on
+   oem-portfolio's project page at 1440px, whose record block ran to
+   roughly 1500px of line.
+
+   The consumer that hit this hardcoded `max-width: 68ch`, which is
+   exactly `--measure`. That is the whole argument for the class: the
+   value was already a token, and a token the library already owns was
+   being re-typed as a literal by the one consumer that needed it.
+
+   The `> :first-child` reset is not tidiness: a `.cm-head` above this
+   column carries its own top margin, and inside a grid item that
+   margin lands the whole block off the rhythm the rest of the page
+   sets. MEASURED on the migrated page: 40px of dead space above the
+   first paragraph without it. */
+.cm-prose-measure { max-width: var(--measure); }
+.cm-prose-measure > :first-child { margin-top: 0; }
+
+/* ---------- prose inline link ----------
+   A link that RUNS INSIDE a sentence. This one is a measured bug, not
+   a style choice, and it is the reason the class exists.
+
+   The tap floor is applied to bare `a` by the coarse-pointer block in
+   base.css. `min-height` does nothing on an inline box, so every link
+   inside running prose silently escaped that floor: MEASURED in WebKit
+   at an iPhone viewport on oem-portfolio, the words "projects page"
+   came out 34px tall against a 44px floor meant to be unreachable from
+   inside a paragraph.
+
+   `inline-block` is the only display that honours the height while
+   still flowing inside the sentence. The vertical padding is then
+   REMOVED from the line box with a matching negative margin, so the hit
+   area grows to the floor without the paragraph gaining a line of space
+   around it - a plain `padding` here is what makes a page of prose
+   visibly looser on a phone.
+
+   This was discovered as a dead rule in oem-portfolio (zero emitters)
+   carrying a comment explaining a real measurement. The rule went, the
+   measurement came here: a lesson with no markup is not surface. */
+.cm-prose a.cm-inline-link,
+.cm-inline-link {
+	display: inline-block;
+	min-height: var(--tap);
+	padding: var(--space-3) 0;
+	margin: calc(var(--space-3) * -1) 0;
+}
+
 /* ---------- prose table ----------
    A table that lives INSIDE a paragraph of prose, not a data grid. The
    library owned `.cm-table` and nothing else, so every article-shaped

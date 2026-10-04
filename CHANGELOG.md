@@ -5,6 +5,70 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **oem-portfolio adopts the library's project cards, and two gaps it hit
+  on the way come back as `.cm-prose-measure` and `.cm-inline-link`.**
+  `218ac5b` promoted oem-portfolio's project cards into the library as
+  `.cm-projects` / `.cm-project` — but the promotion copied the CSS and
+  never migrated the emitter, so the site kept shipping its own
+  `project-grid` / `project__*` alongside. Two implementations of one
+  component, and the consumer's copy is the one that cannot receive a fix.
+  This cycle migrates the markup and deletes the duplicate rules.
+
+  Measured before and after in WebKit (390×844 and 1440×900), the grid is
+  unchanged: `276px 276px 276px` / `350px` columns, 16px gap, 120px cards,
+  left edges 290/582/874 at desktop and 20 on a phone. The one intended
+  delta is the card's fill, `rgb(17,17,17)` → `rgb(26,26,26)`: the library
+  paints a card on `--panel-nested` because `--panel` on `--panel` is a
+  1.008 contrast ratio — one 255th of a difference — which is why three
+  levels of enclosure used to read as the same plane.
+
+  The consumer's copy had already drifted where the library had moved on.
+  Its `.split` was missing `.cm-split__aside { min-width: 0 }`, and its
+  hover rule was scoped `a.project:hover` while the library's is
+  `.cm-project:hover` — the library version is right, because the reserved
+  slot is a `<div>` that must not carry a hover state at all.
+
+  Four rules went with the migration because nothing emitted them:
+  `.project__stack li` (the page emits `<span class="cm-tag">` children,
+  not `<li>`), `.project__private`, `.project-page__links`, and
+  `.inline-link`. `src/styles/global.css` goes from 306 lines to 56, and
+  the only rule left in it is the underline treatment on bare links.
+
+  **1. `.cm-prose-measure` — new.** Prose beside an aside was still sized
+  by the page rather than by the reader's column: `body` sets `--maxw` for
+  a full-width column, so a `.cm-split`'s prose block inherits the whole
+  page width. oem-portfolio's project page hardcoded `max-width: 68ch` to
+  work around it — which is exactly what `--measure` already holds. A
+  consumer re-typing a token as a literal is how a token quietly stops
+  being a token, so the value becomes a class that references it. The
+  `> :first-child { margin-top: 0 }` reset is load-bearing, not tidiness:
+  MEASURED 40px of dead space above the first paragraph without it.
+
+  **2. `.cm-inline-link` — new, and it is a measured bug rather than a
+  style.** The coarse-pointer block in `base.css` puts
+  `min-height: var(--tap)` on bare `a`, and **min-height does nothing on
+  an inline box** — so every link inside running prose escaped the floor.
+  MEASURED in WebKit at an iPhone viewport: 34px tall. `inline-block` is
+  the only display that honours the height while still flowing inside the
+  sentence; the vertical padding is then cancelled by a matching negative
+  margin so the hit area grows without the paragraph gaining space.
+
+  That last part is the one worth keeping, because the naive fix is
+  invisible to every other check. MEASURED differential on the showcase at
+  390px, paragraph height ÷ line-height: **10.9988** with the negative
+  margin, **11.8321** without it — 4.83px of padding pushed the block past
+  its own last line. Both builds wrap to eleven lines, so a line-count
+  assertion passes the broken one. `tests/verify-inline-link-webkit.py`
+  asserts the ratio is a whole number, and separately that the link reaches
+  44px and is not `display: inline` — because those two are the same bug,
+  and a test that checks one half cannot see the other.
+
+  Contract tests for both, and a mutation harness
+  (`tests/mutate-prose-measure.mjs`): 11 mutations, 11 killed, 0 survived,
+  0 harness errors. Three of them target the inline-link invariant alone —
+  `display: inline`, a deleted `min-height`, and a deleted negative margin
+  are each killed on their own.
+
 - **`.cm-search` is demonstrated, tokenised and — for the first time —
   actually focusable. Three of the ten rpm pages that ship it had no
   working focus ring at all.**
