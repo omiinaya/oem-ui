@@ -39,7 +39,7 @@ import SectionHead from '../astro/SectionHead.astro';
 const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'crumbs', 'lists', 'states', 'surface',
   'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'choice',
-	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'prosetap', 'prosetable', 'tablelabels', 'layout',
+	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'proselists', 'prosetap', 'prosetable', 'tablelabels', 'layout',
 	'forms', 'search', 'auth', 'readme',
 ] as const;
 
@@ -2108,7 +2108,72 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 						</p>
 											</article>
 
-											<section id="prosetap" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+					<!-- ===================================================
+					     The ARTICLE BODY, which is markup a PROGRAM emits.
+					     Everything above is a heading or a paragraph somebody
+					     typed. An article body is different: it is rendered
+					     from markdown by a function, so it arrives as bare
+					     <ul>, <ol> and <table class="cm-prose-table"> with
+					     not one class on it.
+
+					     This section is the specimen for the two element
+					     defaults that exist for exactly that case, and both
+					     were nearly lost:
+
+					       - `list-style-type` on ul/ol. MEASURED in WebKit at
+					         390px: library alone -> disc/decimal; the same
+					         sheet behind a Tailwind v3 preflight -> none/none.
+					         The indent survived at 1.4em, so it still LOOKED
+					         like a list while carrying nothing. Across
+					         hermes-articles' corpus that is 1,772 bullet items
+					         and 818 numbered ones.
+					       - `font-weight` on th. Same page, same preflight:
+					         700 -> 400. The cell kept its background, so the
+					         header kept looking like a header while every
+					         cell in the table weighed the same.
+
+					     Both properties are inherited from the user agent
+					     unless declared, and EVERY reset in existence
+					     declares them to nothing. A design system that a
+					     consumer can only adopt if it first deletes a reset
+					     is not adoptable.
+					     =================================================== -->
+					<section id="proselists" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+						<SectionHead title="article body">
+							<code>&lt;ul&gt;</code>, <code>&lt;ol&gt;</code> and a bare <code>&lt;th&gt;</code> carry no class, because a markdown renderer emits them without one. Those three element defaults are declared in <code>base.css</code> rather than left to the user agent, so the article body survives a CSS reset - which is how every Tailwind, Bootstrap and framework stack starts.
+						</SectionHead>
+
+						<div class="cm-prose">
+							<h3>What an article body arrives as</h3>
+							<p>The markup below is what <code>renderMarkdown()</code> emits. Nothing here has a class, and nothing here should need one:</p>
+							<ul>
+								<li>A bullet. <code>ul &#123; list-style-type: disc &#125;</code> is declared, not inherited.</li>
+								<li>A second bullet, to show the marker's colour step from <code>li::marker</code>.</li>
+							</ul>
+							<ol>
+								<li>A numbered item. <code>ol &#123; list-style-type: decimal &#125;</code>, the same declaration for the same reason.</li>
+								<li>A second numbered item.</li>
+							</ol>
+							<p>And the one element whose whole job is to differ from the row beneath it:</p>
+							<table>
+								<thead>
+									<tr>
+										<th scope="col">Consumer</th>
+										<th scope="col">Renders the library</th>
+										<th scope="col">Reset-safe</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr><td>dev-blog</td><td>yes</td><td>yes</td></tr>
+									<tr><td>links</td><td>yes</td><td>yes</td></tr>
+									<tr><td>hermes-articles</td><td class="cm-row__meta">pending</td><td class="cm-row__meta">pending</td></tr>
+								</tbody>
+							</table>
+							<p>The <code>th</code> above is bold because <code>base.css</code> says so. Behind a Tailwind v3 preflight it measured 400 - the same weight as every <code>td</code> beside it, so the header row became a row.</p>
+						</div>
+					</section>
+
+					<section id="prosetap" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
 												<SectionHead title="prose measure + inline link">
 													<code>.cm-prose-measure</code> is a narrower reading column for prose that shares a page with an aside; <code>.cm-inline-link</code> gives a link inside a sentence its tap floor (34px → 44px) without breaking the line rhythm. Both were measured on oem-portfolio before being moved into the library.
 												</SectionHead>

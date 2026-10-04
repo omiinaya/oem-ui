@@ -5,6 +5,35 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **Three element defaults an article body needs were inherited from the
+  user agent, and every CSS reset in existence erases that.** An article body
+  is the one surface whose markup is not written by hand: it comes out of a
+  markdown renderer as bare `<ul>`, `<ol>` and `<th>`. `list-style-type` on
+  the lists and `font-weight` on the header cell are UA defaults, so a
+  consumer adopting this library on any reset-based stack — Tailwind,
+  Bootstrap, most frameworks — loses them.
+
+  MEASURED in WebKit at 390 and 375, this `base.css` with a Tailwind v3
+  preflight ahead of it: `ul` and `ol` computed `none` instead of `disc` /
+  `decimal`, and `th` computed `400` — identical to every `td` beside it.
+
+  Both failures are silent, which is what made them worth fixing. The bullet
+  list keeps its `padding-left: 1.4em`, so it still reads as a deliberate
+  indent with nothing in it. The header cell keeps its background and its
+  colour, so it still reads as a header while every cell in the table weighs
+  the same. Across hermes-articles' real corpus: 1,772 bullet items and 818
+  numbered ones in 35 articles.
+
+  Nothing regresses, checked rather than assumed: `.cm-rows`, `.cm-cards`,
+  `.cm-stats`, `.cm-meters` stay markerless at (0,1,0), `.cm-table th` keeps
+  its deliberate 400 and `.cm-prose-table th` its 600.
+
+  Demonstrated by a new `#proselists` showcase section holding exactly what
+  a renderer emits — a classless `<ul>`, a classless `<ol>` and a bare
+  `<th>` table. 483 tests pass (4 new), 12 mutations all caught, and the
+  WebKit verifiers report 18 measurements for the declaration and 54 for the
+  rendered section.
+
 - **oem-portfolio adopts the library's project cards, and two gaps it hit
   on the way come back as `.cm-prose-measure` and `.cm-inline-link`.**
   `218ac5b` promoted oem-portfolio's project cards into the library as

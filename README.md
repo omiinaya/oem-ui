@@ -818,6 +818,60 @@ Four decisions that are easy to get wrong:
   string visibly left of centre, because the trailing gap after the last
   glyph has no counterpart at the start. Measured: 6.4px each way.
 
+### Article body — the three element defaults a reset erases
+
+An article body is the one place the library's markup is **not written by
+hand**: it comes out of a markdown renderer, so it arrives as bare `<ul>`,
+`<ol>` and `<th>` with not one class on it. Three properties those elements
+need are UA defaults, and every CSS reset in existence declares them to
+nothing:
+
+```css
+ul, ol { list-style-type: disc; }
+ol { list-style-type: decimal; }
+th { font-weight: 700; }
+```
+
+MEASURED in WebKit at 390 and 375, this library's `base.css` with a Tailwind
+v3 preflight loaded ahead of it:
+
+| | library alone | behind a reset |
+|---|---|---|
+| `ul { list-style-type }` | `disc` | **`none`** |
+| `ol { list-style-type }` | `decimal` | **`none`** |
+| `th { font-weight }` | `700` | **`400`** |
+| `td { font-weight }` | `400` | `400` |
+
+Both failures are silent. The bullet list keeps its `padding-left: 1.4em`, so
+it still reads as a deliberate indent with nothing in it; the header cell
+keeps its background and its colour, so it still reads as a header while
+every cell in the table weighs the same. Across hermes-articles' real corpus
+that is 1,772 bullet items and 818 numbered ones in 35 articles.
+
+What is *not* affected, checked rather than assumed:
+
+- `.cm-rows`, `.cm-cards`, `.cm-stats`, `.cm-meters`, `.cm-chips` and friends
+  are `list-style: none` at (0,1,0) and stay markerless — measured `none`
+  at every width, library-only and behind a reset.
+- `.cm-table th` keeps its deliberate `400` and `.cm-prose-table th` its
+  `600`; both outrank this (0,0,1) element rule.
+- `li { margin-bottom }` and `li::marker` are untouched.
+
+`revert` is deliberately not used: it resolves per-property against the
+cascaded origin, so on a reset-based stack it hands the bullet back to
+nothing. A declared value is what survives a reset.
+
+Verified two ways, because the two answer different questions:
+
+- `tests/verify-article-defaults-webkit.py` — the **declaration** survives a
+  reset (18 measurements, 390/375).
+- `tests/measure-article-body-webkit.py` — the **section renders**, at the
+  live LAN preview (54 measurements, 390/375/430). Its marker assertion is
+  a differential (`list-style-position: inside` minus `outside`) rather than
+  a computed keyword, because `outside` hangs the marker in the ul's padding
+  where it shifts nothing: measured `markerDelta: 15` with the bullet, `0`
+  without.
+
 ### Prose tables — `.cm-prose-table` vs `.cm-table`
 
 Two different tables, and picking the wrong one is a real defect in each

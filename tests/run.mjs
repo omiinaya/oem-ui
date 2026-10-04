@@ -130,6 +130,29 @@ const showcase = read('src/pages/index.astro');
      return null;
    }
 
+/* The rule that OWNS a property, for an exact bare-element selector.
+ *
+ * `declForSelector` returns the FIRST matching rule, which is not the same
+ * thing. `th, td` is declared before `th`, so the first match for 'th' is
+ * the padding rule and the header's weight rule is never seen. Two of the
+ * three "element defaults" checks read the wrong rule because of it.
+ *
+ * In the cascade the value that wins is the one declared LAST at the
+ * highest specificity, so this walks every exactly-matching rule in source
+ * order and returns the final declaration of `prop` it finds - or null if
+ * no matching rule declares it at all (which is the real bug: the value is
+ * inherited from the user agent and any reset erases it).
+ */
+function owningDecl(sel, prop, src = compSrc) {
+  let found = null;
+  for (const m of src.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+    if (!m[1].split(',').some((s) => s.trim() === sel)) continue;
+    const d = new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`, 'm').exec(m[2]);
+    if (d) found = d[1].trim();
+  }
+  return found;
+}
+
 /* ================= contrast math (WCAG 2.1) ================= */
 const srgb = (h) => {
 	const x = h.replace('#', '');
@@ -10388,6 +10411,94 @@ check('the leading dot is the COMPONENT\'s, so a caller cannot double it', () =>
 			`.cm-inline-link must tint its underline with --ink-faint; got \`${card.trim()}\``);
 		assert(/class="[^"]*cm-inline-link/.test(showcase),
 			'the showcase renders no .cm-inline-link, so it is unreachable surface');
+	});
+
+	/* ================= article body: reset-safe element defaults =========
+	 * Two element defaults existed only as a UA default, which every CSS
+	 * reset in existence declares to `none`/`inherit`. Measured in WebKit at
+	 * 390px with a Tailwind v3 preflight loaded ahead of base.css:
+	 *
+	 *     ul  list-style-type: disc     ->  none
+	 *     ol  list-style-type: decimal  ->  none
+	 *     th  font-weight: 700          ->  400
+	 *
+	 * The indent survived at 1.4em, so a bulleted list still LOOKED like a
+	 * list while carrying nothing. Across hermes-articles' corpus that is
+	 * 1,772 bullet items and 818 numbered ones in 35 articles. The header
+	 * cell kept its background, so it still looked like a header while every
+	 * cell in the table weighed the same.
+	 *
+	 * These assert the DECLARATION, because that is the thing that survives a
+	 * reset. Asserting the computed value would need a browser, and
+	 * computed style with no reset present is exactly the state that hid the
+	 * bug.
+	 */
+	check('a list keeps its marker without a class, because a reset erases the UA default', () => {
+		// The OWNING declaration, via owningDecl. Both halves of that
+		// matter and both were got wrong first:
+		//   - declForSelector's default is `includes`, which resolved 'th'
+		//     against `.switch` - the first selector in the sheet merely
+		//     CONTAINING those letters - so the test read a switch's
+		//     border-radius as a header's weight.
+		//   - switching to EXACT then reads `th, td`, declared before `th`,
+		//     which carries padding and no weight at all.
+		const ulType = owningDecl('ul', 'list-style-type', baseSrc);
+		assert(ulType === 'disc',
+			`a bare ul must DECLARE list-style-type: disc. Inherited from the user agent, every reset in existence erases it - measured none behind a Tailwind preflight at 390px, with the indent still at 1.4em so it looked like a list. Got \`${ulType}\``);
+		const olType = owningDecl('ol', 'list-style-type', baseSrc);
+		assert(olType === 'decimal',
+			`a bare ol must DECLARE list-style-type: decimal. Inheriting it from the shared ul, ol rule gives it disc - bullets on a numbered list, and resets it to none. Got \`${olType}\``);
+		// The named element, not a substring. `ul` appears inside the
+		// comment directly above this rule explaining exactly why it exists,
+		// so a loose test scores that prose as the definition - which is
+		// what happened the first time this was written.
+		assert(isElementDeclared(baseSrc, 'ul') && isElementDeclared(baseSrc, 'ol'),
+			'ul/ol must be bare ELEMENT selectors: a markdown renderer emits them with no class, and that is the case these defaults exist for');
+	});
+
+	check('a header cell keeps its weight without a class, because a reset erases the UA default', () => {
+		const weight = owningDecl('th', 'font-weight', baseSrc);
+		assert(weight === '700',
+			`a bare th must DECLARE font-weight: 700. Inherited from the UA, a Tailwind preflight measured it at 400 - identical to every td beside it, so the header row became a row of equal cells while still looking like a header. Got \`${weight}\``);
+		// And the data cells must NOT have been dragged along: bolding th
+		// is only a header cue while the body stays regular.
+		assert(owningDecl('td', 'font-weight', baseSrc) === null,
+			'td must not declare a font-weight - bolding the data cells removes the distinction the header weight exists to make');
+		assert(isElementDeclared(baseSrc, 'th'),
+			'th must stay a bare ELEMENT selector; .cm-prose-table th and .cm-table th carry their own weight deliberately');
+	});
+
+	check('the article-body specimen renders what the defaults are for', () => {
+		const sec = /<section id="proselists"[\s\S]*?<\/section>/.exec(showcase);
+		assert(sec, 'the showcase has no #proselists section, so these defaults are unproven surface');
+		assert(/<ul>[\s\S]*?<li>/.test(sec[0]),
+			'the specimen has no classless <ul><li>, so it proves nothing about a bare list');
+		assert(/<ol>[\s\S]*?<li>/.test(sec[0]),
+			'the specimen has no classless <ol>, so the decimal default is unproven');
+		assert(/<th scope="col">/.test(sec[0]),
+			'the specimen has no bare <th>, so the header weight is unproven');
+		// A specimen that puts a class on the element stops testing the
+		// element default, which is the whole claim.
+		assert(!/<ul class=/.test(sec[0]) && !/<ol class=/.test(sec[0]) && !/<th class=/.test(sec[0]),
+			'the specimen must leave <ul>/<ol>/<th> unclassed - that is the case the defaults exist for');
+		// And the section is in the nav, or a reader cannot reach it.
+		assert(/'proselists'/.test(showcase) && /SECTION_ORDER/.test(showcase),
+			'#proselists is not registered in SECTION_ORDER, so the section is unreachable from the page nav');
+	});
+
+	check('the library still ships its own markerless lists', () => {
+		// The fix must not put bullets on a component that is a list for
+		// layout. `.cm-rows` and friends declare `list-style: none` at
+		// (0,1,0) against the new (0,0,1) rule, so they win - but a rule
+		// that silently depends on a specificity gap is exactly the kind
+		// of thing a later edit removes, so it is asserted rather than
+		// assumed.
+		for (const c of ['.cm-rows', '.cm-cards', '.cm-stats']) {
+			const decls = ruleBodies(compSrc, c);
+			assert(decls.length, `${c} is not defined in components.css`);
+			assert(decls.some((b) => /list-style:\s*none/.test(b)),
+				`${c} must keep list-style: none - the bare-list default would otherwise put a bullet on every row of every list component`);
+		}
 	});
 }
 /* ================= result ================= */
