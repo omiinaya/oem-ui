@@ -1292,6 +1292,22 @@ button.cm-row:hover { background: var(--bg-2); }
 }
 .cm-back:hover .cm-back__arrow,
 .cm-back:focus-visible .cm-back__arrow { transform: translateX(-0.2em); }
+/* MEASURED in WebKit against an isolated control host (not against the
+   siblings it happened to sit beside): `.cm-back` computed to 27.19px tall
+   at 390px AND at 1440px, against a --tap floor of 44px. The comment above
+   had claimed it took the floor on a coarse pointer for as long as the
+   rule existed, and no such rule existed anywhere in the sheet - the
+   claim was true in the comment and false in the cascade. A back link is
+   the FIRST thing a thumb touches on a detail page, so this is the row
+   where the floor matters most, the same case `.cm-crumbs` was promoted
+   into the library for.
+
+   It is `inline-flex`, so `min-height` does apply (an inline box would
+   ignore it), and the extra height sits ABOVE the baseline rather than
+   pushing the surrounding prose down. */
+@media (pointer: coarse) {
+	.cm-back { min-height: var(--tap); }
+}
 
 @media (max-width: 680px) {
 	.cm-rows--inline .cm-row__desc,
@@ -3790,6 +3806,150 @@ button.cm-row:hover { background: var(--bg-2); }
 	inset: 0;
 }
 .cm-card__link:hover { text-decoration: underline; }
+
+/* ---------- project card: an entry in a WORK index ----------
+   The one thing oem/work had that nothing in this system owned: a card
+   whose WHOLE surface is the link (no `.cm-card__link` child to stretch),
+   whose blurb and note sit in the middle and whose stack of `.cm-tag`s is
+   pinned to the BOTTOM of every card in a row, so a row of cards with
+   different blurb lengths still reads as one band.
+
+   It was 100 lines of hand-rolled CSS living in one consumer
+   (`oem-portfolio/src/styles/global.css`), which is exactly the shape
+   `.cm-crumbs` was promoted out of gantree for: a second implementation
+   no library fix can reach. It is NOT a `.cm-card` modifier, because a
+   card here has no head/body/foot nesting and no footer bar - a modifier
+   would carry `overflow: hidden` and `position: relative` rules the shape
+   never wants, and the consumer would have to cancel each one.
+
+   `.cm-cards` is deliberately NOT reused for the grid: it resolves to
+   `minmax(20rem, 1fr)` with `align-items: start`, and a project row
+   needs the children to STRETCH (`align-items: stretch`, the default) so
+   `height: 100%` and the bottom-pinned stack have something to fill. At
+   17rem the cards also stay two-up at the tablet widths where a 20rem
+   floor drops to one. */
+
+.cm-projects {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	/* auto-fit, not a fixed 2: the project count is data. A fixed pair
+	   strands a card on an odd count and `1fr` alone stretches a lone
+	   card across the whole page. */
+	grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr));
+	gap: var(--space-4);
+}
+.cm-projects > li { margin: 0; min-width: 0; display: flex; }
+.cm-projects > li > * { flex: 1 1 auto; min-width: 0; }
+
+.cm-project {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	height: 100%;
+	padding: var(--space-5);
+	background: var(--panel-nested);
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	text-decoration: none;
+	transition: border-color var(--cm-t) var(--cm-ease);
+}
+.cm-project:hover, .cm-project:focus-visible { border-color: var(--ink-dim); }
+
+.cm-project__top {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--space-3);
+}
+.cm-project__name {
+	font-weight: 700;
+	color: var(--ink);
+	/* A long repo name must not push the period off the card and widen
+	   the grid - the same failure the stat tile guards against. */
+	overflow-wrap: break-word;
+	min-width: 0;
+}
+.cm-project__period {
+	font-size: max(var(--min-font), 0.72rem);
+	color: var(--ink-faint);
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+.cm-project__blurb {
+	font-size: max(var(--min-font), 0.9rem);
+	color: var(--ink-dim);
+	line-height: 1.6;
+	margin: 0;
+}
+/* The em dash is generated, so a caller cannot render one themselves and
+   produce "— — blurb". It is the one separator in this system still
+   emitted by CSS rather than by the runtime, because it is a single
+   character attached to a single optional slot and there is no wrapped
+   line for it to strand on (see the footer-separator note for why that
+   distinction matters). */
+.cm-project__blurb::before {
+	content: '\2014\00a0';
+	color: var(--ink-faint);
+}
+.cm-project__note {
+	font-size: max(var(--min-font), 0.78rem);
+	color: var(--ink-faint);
+	line-height: 1.6;
+	margin: 0;
+	padding-top: var(--space-2);
+	border-top: 1px dashed var(--line);
+}
+/* The stack line, pushed to the bottom of every card in a row so the
+   cards read as one band even when the blurbs differ in length.
+   `margin-top: auto` is the whole trick, and it only works because
+   `.cm-projects > li` stretches and `.cm-project` is `height: 100%`. */
+.cm-project__stack {
+	margin: auto 0 0;
+	padding-top: var(--space-3);
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-1) var(--space-2);
+	align-items: center;
+	font-size: max(var(--min-font), 0.72rem);
+	color: var(--ink-faint);
+}
+
+/* A reserved slot. Dashed border and faint ink, deliberately: it has to
+   read as "nothing here yet" rather than as a card that failed to load.
+   It is a `<div>`, not an `<a>`, so it carries no hover state and no
+   focus stop - there is nothing to go to, and a focusable placeholder is
+   a tab stop that goes nowhere. */
+.cm-project--pending {
+	border-style: dashed;
+	border-color: var(--line);
+	min-height: 7.5rem;
+	justify-content: space-between;
+}
+.cm-project--pending .cm-project__name { color: var(--ink-faint); font-weight: 400; }
+/* A lone em-dash at the top of a reserved card reads as a broken glyph
+   rather than as "no title yet", so the LABEL is the only text and it
+   carries the whole meaning - which is why the blurb keeps --ink-dim
+   here instead of following the name down to --ink-faint. */
+.cm-project--pending .cm-project__blurb {
+	color: var(--ink-dim);
+	letter-spacing: 0.04em;
+}
+
+/* A project page's own stack of tags, in the aside. NOT a variant of
+   `.cm-project__stack`: that one is bottom-pinned inside a flex card and
+   pins itself with `margin-top: auto`, which would be inert - and
+   confusing - in a static aside. */
+.cm-project-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+	list-style: none;
+	margin: 0 0 var(--space-5);
+	padding: 0;
+}
+.cm-project-tags li { margin: 0; }
 
 /* ---------- meter ----------
    A labelled proportion bar. The system had no honest way to show

@@ -9941,6 +9941,161 @@ check('the leading dot is the COMPONENT\'s, so a caller cannot double it', () =>
 		}
 	});
 }
+/* ================= project card =================
+   The last component promoted out of a consumer (oem-portfolio). It is the
+   clearest case yet of the class this repo keeps hitting: a shape one site
+   needed, hand-rolled, and shipped - 100 lines of CSS no library fix could
+   ever reach.
+
+   Each check below is scoped to the rule that OWNS the property, because
+   three of these selectors are prefixes of each other (`.cm-project`,
+   `.cm-project__stack`, `.cm-project--pending`) and a loose scan picks up
+   the sibling. That is not hypothetical: `.cm-card__link:hover` and
+   `.cm-project:hover` both match /cm-project/, and the reachability test
+   already failed once here by reading a build that predated the markup. */
+{
+	const projCss = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+
+	check('the project grid counts its columns rather than fixing a pair', () => {
+		const body = declForSelector('.cm-projects', compSrc, true);
+		assert(body, '.cm-projects is not defined');
+		assert(/display:\s*grid/.test(body), '.cm-projects must be a grid');
+		// auto-fit, not a hardcoded `repeat(2, ...)`: the project count is
+		// data. A fixed pair strands a card on an odd total, and `1fr` alone
+		// stretches a lone card across the whole page.
+		const t = /grid-template-columns:\s*([^;}]+)/.exec(body);
+		assert(t, '.cm-projects sets no grid-template-columns');
+		assert(/auto-fit/.test(t[1]),
+			`.cm-projects must resolve columns with auto-fit, got \`${t[1].trim()}\``);
+		// The floor is in `rem` and capped by `min(…, 100%)`. Without the
+		// min() a 17rem floor is 272px, which is wider than a 320px phone
+		// once the gutter is in, and the grid overflows the page.
+		assert(/minmax\(\s*min\(/.test(t[1]),
+			`the column floor must be min(Xrem, 100%), got \`${t[1].trim()}\``);
+	});
+
+	check('the project card fills its cell, so the stack has something to pin to', () => {
+		// The pairing is the invariant. `height: 100%` on the card with a
+		// `li` that does NOT stretch is inert and reads as pinned in the CSS
+		// while the cards end at three different heights - which is the whole
+		// reason this component exists. Either half alone is the bug.
+		const li = declForSelector('.cm-projects > li', compSrc, true);
+		assert(li, '.cm-projects does not style its own <li>');
+		assert(/display:\s*flex/.test(li),
+			'.cm-projects > li must be flex, or the card cannot fill the cell');
+		const card = declForSelector('.cm-project', compSrc, true);
+		assert(card, '.cm-project is not defined');
+		assert(/height:\s*100%/.test(card),
+			'.cm-project needs height: 100% - without it the tag stack has no row height to pin to');
+		assert(/flex-direction:\s*column/.test(card),
+			'.cm-project must be a column, or `margin-top: auto` pushes down nothing');
+		// And the pin itself, in the stack rule and nowhere else. `margin-top: auto`
+		// in `.cm-project` would push the BLURB down and pin nothing.
+		const stack = declForSelector('.cm-project__stack', compSrc, true);
+		assert(stack, '.cm-project__stack is not defined');
+		assert(/margin:\s*auto\s+0\s+0/.test(stack),
+			`the tag stack must pin itself with \`margin: auto 0 0\`, got \`${(/margin:[^;}]*/.exec(stack) || [''])[0].trim()}\``);
+	});
+
+	check('the project blurb owns its em dash, so a caller cannot double it', () => {
+		// Same failure class as the footer separator and the status row: a
+		// literal in the markup next to a generated one renders twice. Read
+		// the ::before rule through declForSelector - the generated content
+		// lives on the element, so an anchored /::before\s*{/ matches nothing
+		// and reports "no glyph" against a rule that renders one.
+		const before = declForSelector('.cm-project__blurb::before', compSrc, true);
+		assert(before, '.cm-project__blurb has no ::before rule');
+		const c = /content:\s*'([^']*)'/.exec(before);
+		assert(c, '.cm-project__blurb::before declares no content:');
+		// The trailing \00a0 is the deliberate non-breaking space that keeps
+		// the dash attached to its first word; the visible glyph is the em dash.
+		assert(c[1].replace(/\\00a0/g, '').trim() === '\\2014',
+			`the blurb's leading glyph must be an em dash, got ${JSON.stringify(c[1])}`);
+		// And the showcase must not carry a literal one.
+		const lits = (showcase.slice(showcase.indexOf('id="cards"'),
+			showcase.indexOf('id="tiles"')).match(/cm-project__blurb">\s*[—–-]/g) || []);
+		assert(lits.length === 0,
+			`a project blurb carries a literal dash in the markup (${lits.length}), and the component prepends one - it renders twice`);
+	});
+
+	check('the reserved project slot is not a link, so it is not a tab stop', () => {
+		const pending = declForSelector('.cm-project--pending', compSrc, true);
+		assert(pending, '.cm-project--pending is not defined');
+		// Dashed, because it has to read as "nothing here yet" rather than as
+		// a card that failed to load. A solid border reads as a broken card.
+		assert(/border-style:\s*dashed/.test(pending),
+			'.cm-project--pending must be dashed; a solid border reads as a broken card');
+		// The markup is a <div> and carries aria-hidden: a focusable
+		// placeholder is a tab stop that goes nowhere.
+		const sec = showcase.slice(showcase.indexOf('id="cards"'), showcase.indexOf('id="tiles"'));
+		const m = /<div class="cm-project cm-project--pending"[^>]*>/.exec(sec);
+		assert(m, 'the showcase renders no reserved project slot');
+		assert(/aria-hidden="true"/.test(m[0]),
+			'the reserved project slot must be aria-hidden - it holds no information');
+		assert(!/<a class="[^"]*cm-project--pending/.test(sec),
+			'the reserved project slot is an <a>: a placeholder that is focusable is a tab stop that goes nowhere');
+	});
+
+	check('the project card and the aside tag list are NOT one rule', () => {
+		// `.cm-project__stack` pins itself to the bottom of a flex card.
+		// Reusing it in a detail-page aside would carry an inert
+		// `margin-top: auto` that reads as pinned in the CSS while the list
+		// sits at the top. Two names, two rules, and the reason is recorded
+		// in both - otherwise the next person "simplifies" it back.
+		const aside = declForSelector('.cm-project-tags', compSrc, true);
+		assert(aside, '.cm-project-tags is not defined');
+		assert(!/margin:\s*auto/.test(aside),
+			'.cm-project-tags must not inherit the card stack\'s bottom pin');
+		const stack = declForSelector('.cm-project__stack', compSrc, true);
+		assert(stack && /margin:\s*auto/.test(stack),
+			'.cm-project__stack lost its bottom pin');
+		// Both must actually be rendered, or one of them is dead CSS. The
+		// reachability test proves the CLASS is on the page; this proves the
+		// shape is the one the rule describes.
+		const sec = showcase.slice(showcase.indexOf('id="cards"'), showcase.indexOf('id="tiles"'));
+		assert(/<ul class="cm-projects">/.test(sec), 'the showcase renders no project grid');
+		assert(/<ul class="cm-project-tags">/.test(sec),
+			'the showcase renders no detail-page tag list, so .cm-project-tags is dead CSS');
+		// The grid is a <ul> of <li>, not a div soup: it is a list of works
+		// and a screen reader should be able to say how many.
+		assert(/<ul class="cm-projects">\s*<li>/.test(sec),
+			'the project grid is not a <ul> of <li>');
+	});
+
+	check('the back link takes the tap floor it claims to take', () => {
+		// The comment on `.cm-back` had claimed it took the --tap floor on a
+		// coarse pointer since the day it shipped. MEASURED in WebKit against
+		// an ISOLATED control host - not against the siblings it happened to
+		// sit beside, since align-items:normal would fill the row from the
+		// tallest sibling and hide the defect - `.cm-back` computed to
+		// 27.19px at BOTH 390px and 1440px against a 44px floor, and no such
+		// rule existed anywhere in the sheet. The claim was true in a comment
+		// and false in the cascade.
+		//
+		// Assert the var() REFERENCE inside the coarse block, not the bare
+		// property: `min-height: 0` would be DECLARED and a value-shaped
+		// test would pass it while shipping the exact bug this fixes.
+		const blocks = [...projCss.matchAll(/@media[^{]*pointer:\s*coarse[^{]*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g)]
+			.map(m => m[1]).join('\n');
+		assert(blocks, 'no coarse-pointer block found - is the parse stale?');
+		const rules = [...blocks.matchAll(/([^{}]*cm-back[^{}]*)\{([^{}]*)\}/g)];
+		assert(rules.length === 1,
+			`expected exactly one coarse-pointer rule for .cm-back, found ${rules.length} - a second one makes the effective value a question of source order`);
+		const sel = rules[0][1];
+		assert(!/__|--/.test(sel), `the coarse rule must target .cm-back itself, got \`${sel.trim()}\``);
+		assert(/min-height:\s*var\(--tap\)/.test(rules[0][2]),
+			`the coarse .cm-back rule must set min-height: var(--tap), got \`${rules[0][2].trim()}\``);
+		// And the display has to be one min-height applies to. An `inline`
+		// box ignores min-height entirely, so this is the second half of the
+		// same invariant: a floor declared on a box that cannot honour it.
+		const card = declForSelector('.cm-back', compSrc, true);
+		assert(card && /display:\s*inline-flex/.test(card),
+			'.cm-back must be inline-flex - an inline box ignores min-height, so the floor would be dead');
+		// The showcase must render one, or the rule is unreachable surface.
+		const sec = showcase.slice(showcase.indexOf('id="cards"'), showcase.indexOf('id="tiles"'));
+		assert(/class="cm-back"/.test(sec), 'the showcase renders no back link, so the coarse floor is unreachable');
+	});
+}
 /* ================= result ================= */
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length) {
