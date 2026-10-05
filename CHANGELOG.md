@@ -103,6 +103,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pass; `check-design-sync.sh` now sees it, which is the point — a
   consumer the checker cannot see is a consumer nobody migrates.
 
+- **The stack primitive shipped a 204px sideways scroll to every project
+  that adopted it.** Measured in WebKit at a 320px viewport:
+  `documentElement.scrollWidth` was **524px**, against a 320px client —
+  204px of sideways scroll on the showcase and on `oem-portfolio` and
+  dev-blog both, all three of which had adopted `.cm-stack`.
+
+  It was invisible in the source because the stack only changed the
+  CONTAINER. Every over-wide child was already there and previously
+  harmless, because block layout lets a child overflow instead of
+  propagating. A column flex container does not: it lays children out on
+  the cross axis, and a flex item's automatic minimum size is its content's
+  min-content size, so the child pushes the container, and the container
+  pushes the page.
+
+  Four separate causes, each isolated by measurement rather than by
+  reading the stylesheet:
+
+  - the flex cross-axis minimum (`.cm-stack > *` needs `min-width: 0`);
+  - `.cm-rows--inline .cm-row__title` had `flex: 0 0 var(--measure-title)`
+    at 42ch — measured 328.72px — inside a row 240px wide. The basis is now
+    `min(var(--measure-title), 100%)`: the same token, capped at the width
+    the row actually has, so both promises hold at once (no silent shrink
+    at 681-780px, no overflow at 320px);
+  - `.cm-row__meta` had `min-width: 0` and `max-width: 100%` but no clip,
+    so its `nowrap` content's scrollWidth (484px) propagated up through
+    `overflow: visible` ancestors. `overflow: hidden` is the other half of
+    that pair;
+  - a table typed inside `.cm-prose` had no rules at all, so it fell back
+    to UA defaults. `#prose` alone accounted for the last 4px; hiding any
+    single `th` in it removed them.
+
+  Also: the stack had **two** definitions that disagreed on `--tight`, so
+  which step a page received depended on the cascade. One owner now.
+
+  MEASURED after, at 320/360/402/480px: `scrollWidth` equals the viewport
+  width at every one, against 524px at all of them before.
+
+- **A `position: sticky; bottom: 0` action bar with nothing above it
+  covered the page for its whole length.** `.cm-toolbar` is correct — a bar
+  acting on a selection belongs where the thumb already is — but the
+  showcase specimen was a bare child of a 48,000px section, so `bottom: 0`
+  parked it on the viewport bottom for the entire document. Measured over
+  the "spacing" prose and every section after it, at every scroll position,
+  on all three viewports. The specimen now has the bounded container and
+  the list a real selection acts on.
+
+  `tests/verify-chrome-covers.py` walks the document in 400px steps at
+  three viewports and fails if sticky or fixed chrome covers text or a
+  control. Three of its own readings were wrong first and are documented
+  in the probe: `scroll-behavior: smooth` makes `scrollTo` return before
+  the scroll applies; sticky table headers and sticky columns legitimately
+  overlap each other; and a chrome element trivially overlaps the elements
+  inside it, so every bar "covers" its own buttons.
+
 - **The library had tokens but no owner for the space between blocks, so
   five projects disagreed about it.** Measured at 390px in WebKit, the gap
   between the heading block and the content under it was **exactly 0.0px**

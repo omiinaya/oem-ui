@@ -113,7 +113,37 @@ The scale is theme-independent and lives in `:root` only. `em`, `calc()`,
 `var()`, `auto` and `0` are exempt: those are relative to a font size or
 a computed value, not to the rhythm.
 
+### A sticky bar needs a bounded parent
+
+`.cm-toolbar` is `position: sticky; bottom: 0`. That is correct — a bar
+that acts on a selection belongs where the thumb already is. But sticky
+positions resolve against their **containing block**, so a bar with
+nothing above it inside a very tall parent pins to the viewport bottom for
+the whole document. On the showcase that was measured over the prose and
+every section below it, at every scroll position.
+
+Give it a bounded box and the content it acts on:
+
+```astro
+<div class="cm-stack cm-stack--tight" style="min-height: 22rem; overflow: hidden">
+  <ul class="cm-rows cm-rows--inline" style="flex: 1">
+    <li class="cm-row"><span class="cm-row__title">api.example.com</span></li>
+    <!-- ... -->
+  </ul>
+  <div class="cm-toolbar">
+    <span class="cm-toolbar__count">3 items selected</span>
+    <button class="cm-btn cm-btn--sm">enable all</button>
+  </div>
+</div>
+```
+
+`tests/verify-chrome-covers.py` checks the general case: it walks the
+document in 400px steps and fails if any sticky or fixed element covers
+text or a control.
+
 ## Keeping a consumer in sync
+
+
 
 Vendored files go stale silently — the site still builds, still renders,
 and just quietly keeps whatever bugs the library has already fixed. Check
