@@ -296,17 +296,41 @@ Two states, two different questions. <code>active</code> marks the page you are 
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>nested list</code></span>
-						<span class="cm-spec__sample" style="display:flex;flex-direction:column;gap:var(--space-2);min-width:15rem">
-							<div class="cm-header__links" data-cm-grouped-rail-fixture>
-								<div class="cm-header__group">
-									<span class="cm-header__group-label">hosting</span>
-									<div class="cm-header__links">
-										<a href="#nav" class="cm-header__link" aria-current="page">proxy hosts</a>
-										<a href="#nav" class="cm-header__link">streams</a>
-									</div>
-								</div>
-							</div>
-						</span>
+						<span class="cm-spec__sample" style="display:block;width:15rem;position:relative;overflow:hidden">
+												<!-- The specimen must be a REAL rail. The geometry is declared
+												     under `.cm-header--rail`, so a fixture that merely
+												     *nests* the shape renders the old 14px inline links and
+												     demonstrates nothing: measured at 1280x900, the first
+												     version of this row measured min-height `auto`,
+												     display `block` and height 14.3px while the paragraph
+												     beside it claimed the rail geometry was visible.
+												     `.cm-header--rail` is `position: fixed` at desktop, so
+												     the rail-specific fixed positioning is neutralised
+												     here and the class is kept - the SELECTOR is the
+												     thing being demonstrated, not the position. -->
+												<div class="cm-header cm-header--rail" data-cm-grouped-rail-fixture
+												     style="position:static;width:100%;border-right:0;inset:auto">
+													<div class="cm-header__nav">
+														<div class="cm-header__links">
+															<div class="cm-header__group">
+																<span class="cm-header__group-label">hosting</span>
+																<div class="cm-header__links">
+																	<a href="#nav" class="cm-header__link" aria-current="page">proxy hosts</a>
+																	<a href="#nav" class="cm-header__link">streams</a>
+																	<a href="#nav" class="cm-header__link">databases</a>
+																</div>
+															</div>
+															<div class="cm-header__group">
+																<span class="cm-header__group-label">delivery</span>
+																<div class="cm-header__links">
+																	<a href="#nav" class="cm-header__link">webhooks</a>
+																	<a href="#nav" class="cm-header__link">logs</a>
+																</div>
+															</div>
+														</div>
+													</div>
+												</div>
+											</span>
 						<span class="cm-spec__val"><code>the shape rpm ships</code></span>
 					</div>
 				</div>
@@ -317,9 +341,15 @@ Two states, two different questions. <code>active</code> marks the page you are 
 					carries a second selector for the group. It used to be
 					<code>&gt; .cm-header__link</code> alone, and a grouped rail matched
 					nothing: no tap floor and no current marker, measured in WebKit at
-					1280&times;900 at 34&nbsp;px rows with <code>border-left-width: 0</code>. The
-					specimen above is that nest, so the geometry is visible above 1000px rather
-					than only on a consumer.
+					1280&times;900 at 34&nbsp;px rows with <code>border-left-width: 0</code>.
+				</p>
+				<p class="cm-head__sub" style="margin-top:var(--space-2)">
+					The specimen above is that nest inside a real <code>.cm-header--rail</code>
+					&mdash; nesting alone is not enough, because every rail rule is keyed on that
+					class &mdash; with two labelled groups and five rows, so the marker is visibly
+					one row and not five. The rail is a <code>min-width: 1000px</code> layout, so
+					read it on a desktop window; below that the rail collapses into the header's
+					disclosure, and the rows are measured there instead.
 				</p>
 
 				<h3 class="cm-kicker cm-kicker--plain">mobile disclosure</h3>

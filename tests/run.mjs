@@ -6716,13 +6716,68 @@ check('the showcase demonstrates the NESTED list a consumer actually writes', ()
 		'the nav section has no nested-list fixture, so a grouped rail is never ' +
 		'rendered in the shape a consumer writes');
 	const fixture = showcase.slice(showcase.indexOf('data-cm-grouped-rail-fixture'));
-	const after = fixture.slice(0, fixture.indexOf('</div>\n								</div>') > 0
-		? fixture.indexOf('</div>\n								</div>')
+	const after = fixture.slice(0, fixture.indexOf('</div>\n							</div>') > 0
+		? fixture.indexOf('</div>\n							</div>')
 		: fixture.length);
 	assert(/cm-header__group/.test(after) && /cm-header__links/.test(after),
 		'the fixture does not nest a .cm-header__links inside a .cm-header__group');
 	assert(/aria-current="page"/.test(after),
 		'the fixture has no current link, so the marker cannot be demonstrated');
+});
+
+check('the grouped-rail fixture is a REAL rail, not just the nest', () => {
+	// Nesting the shape is NECESSARY and not SUFFICIENT, and the first version
+	// of this fixture got that wrong in a way every source-level check
+	// accepted. The rail geometry is declared under `.cm-header--rail`, so a
+	// fixture that is only `<div class=cm-header__links><div class=
+	// cm-header__group>` matches NO rail rule and renders the 14px inline
+	// links it was built to prove were fixed. MEASURED in WebKit at
+	// 1280x900 on the nest-only version: computed min-height `auto`,
+	// display `block`, rendered height 14.3px, border-left-width 0px - while
+	// the paragraph directly above it claimed the geometry was visible.
+	//
+	// So the fixture must carry the rail CLASS, and the class is the point:
+	// it is what both selectors key on. Asserting the class in the markup is
+	// what makes the rendered specimen worth reading.
+	const at = showcase.indexOf('data-cm-grouped-rail-fixture');
+	assert(at > 0, 'no grouped-rail fixture in the showcase');
+	const open = showcase.slice(Math.max(0, at - 400), at);
+	const tag = open.slice(open.lastIndexOf('<div'));
+	assert(/cm-header--rail/.test(tag),
+		'the grouped-rail fixture does not carry .cm-header--rail, so no rail ' +
+		'rule applies to it and it renders the unstyled inline links it was ' +
+		'added to disprove (measured 14.3px at 1280x900)');
+	// And it needs enough rows to look like the labelled rail a consumer
+	// ships: a single two-link group cannot show the group separator or a
+	// marker that is distinguishable from a neighbour.
+	const fixture = showcase.slice(at, showcase.indexOf('cm-spec__val', at) > 0
+		? showcase.indexOf('cm-spec__val', at) : showcase.length);
+	const groups = (fixture.match(/cm-header__group"/g) || []).length;
+	assert(groups >= 2,
+		`the fixture has ${groups} group(s); two are needed to demonstrate a ` +
+		'rail of labelled groups');
+	// A heading wearing a link's class inherits the 44px tap floor and
+	// becomes a dead target for a screen reader. The specimen should not
+	// quietly demonstrate that.
+	assert(/cm-header__group-label/.test(fixture),
+		'the fixture renders groups with no label element, so the rail it ' +
+		'demonstrates is not the shape a consumer writes');
+	// Without a current link the fixture cannot show the MARKER, which is
+	// half of what the grouped selector fixes: the active rule set
+	// `border-left-color` while the base rule's `border-left: 2px solid
+	// transparent` never applied, so the marker measured 0px wide. A fixture
+	// with no current page renders five identical rows and hides that.
+	//
+	// Asserted HERE, on a slice bounded by the specimen's OWN `cm-spec__val`,
+	// because the older nest check looks for `aria-current` in a window
+	// delimited by a closing-div sequence that its own markup no longer
+	// produces. The boundary index then returns -1, the slice runs to the end
+	// of the page, and the assertion passes off OTHER specimens' aria-current.
+	// MUTATION-VERIFIED: deleting `aria-current="page"` from this fixture
+	// survived that check (500 passed / 0 failed) and is killed by this one.
+	assert(/aria-current="page"/.test(fixture),
+		'the grouped-rail fixture has no current link, so the rail it ' +
+		'demonstrates cannot show the marker the grouped selector exists to fix');
 });
 
 /* A brace-balanced file is the one property a CSS consumer cannot recover

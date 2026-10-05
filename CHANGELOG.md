@@ -44,8 +44,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   plain `<div>`, so its links stayed direct children and every rail rule
   applied to them. The demo was passing because the demo was wrong. The
   specimen now nests a real `.cm-header__links` inside the group —
-  rpm's shape — so the rail geometry is visible above 1000px rather than
-  only on a consumer's screen.
+  rpm's shape — inside a real `.cm-header--rail`, with two labelled groups
+  and five rows so the marker is visibly one row and not five. Nesting is
+  **necessary and not sufficient**: every rail rule is keyed on
+  `.cm-header--rail`, and a nest-only fixture matched no rail rule at all
+  and measured `min-height: auto`, `display: block`, height 14.3px at
+  1280×900 — a specimen demonstrating the unstyled links it was added to
+  disprove, which is the same failure as the original one wearing a
+  passing check. There is now a check for that too
+  (`the grouped-rail fixture is a REAL rail, not just the nest`), and its
+  `aria-current` assertion was added only after the first mutation sweep
+  showed the older nest check surviving its deletion: the slice was
+  delimited by a closing-div sequence the new markup no longer produced,
+  the boundary index returned −1, and the assertion passed off *other*
+  specimens' `aria-current`. 6 mutations, 6 killed.
 
   One existing test is **reversed in part**, and the reason is worth the
   space: `the rail link rules are scoped to direct children of the list`
