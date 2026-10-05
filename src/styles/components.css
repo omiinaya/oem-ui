@@ -19,7 +19,20 @@
 	letter-spacing: 0.18em;
 	text-transform: uppercase;
 	color: var(--ink-faint);
-	margin: 0;
+	/* A kicker is a LABEL for the thing under it, so it must not sit
+	   flush against that thing. This was `margin: 0` and the separation
+	   lived in an opt-in modifier (`.cm-kicker--plain`) instead - which
+	   MEASURED as two spellings of one element at two sizes: 31 kickers
+	   at 12px because they carried the modifier, 5 at 0px or 24px
+	   because they did not, on the same page, at the same width.
+
+	   That is the defect the stack exists to remove, wearing a different
+	   hat: a rhythm the consumer has to remember to apply. The base rule
+	   owns the gap now, and a label that genuinely wants to sit flush
+	   against its specimen (`.cm-crumbs`, `.cm-state` - a breadcrumb and
+	   an empty-state panel ARE the thing being labelled) opts out by
+	   name, which is reviewable. */
+	margin: 0 0 var(--stack-tight);
 }
 /* The parent's letter-spacing is inherited by generated content, so
    '~/' renders as '~ /' with a tracking gap between the two glyphs.
@@ -33,7 +46,13 @@
 	margin-right: 0.18em;
 }
 .cm-kicker--plain::before { content: none; }
-/* A `--plain` kicker is a subheading used STANDALONE - no .cm-head around
+/* `--plain` means "no `~/` prefix", NOT "no bottom margin". Those were
+   two different ideas sharing one modifier: the prefix suppression above
+   is what the name describes and what the rule does, while the spacing
+   half of it was the thing that made 31 of 36 kickers differ from the
+   other 5. The spacing now lives on the base rule, so the modifier is
+   back to meaning exactly one thing, which is what its name says.
+   A `--plain` kicker is a subheading used STANDALONE - no .cm-head around
    it, no card to separate it from what it introduces. Measured 0px under
    15 of them on the showcase: kicker -> .cm-head__sub, kicker -> .cm-spec,
    kicker -> .cm-state, kicker -> .cm-kv. The label and its own description
@@ -41,7 +60,19 @@
 
    Only the plain variant: inside .cm-head the block owns the space, and
    doubling it there is what `--stack-head` avoids. */
-.cm-kicker--plain { margin-bottom: var(--stack-tight); }
+/* A kicker that labels a SPECIMEN rather than a paragraph sits flush
+   against it, because the specimen is the thing being labelled: a gap
+   between "empty" and an empty-state panel makes them two unrelated
+   blocks. `.cm-kicker--flush` says that out loud.
+
+   The modifier this replaces was `cm-kicker--plain`, which did not mean
+   plain - it carried the ONLY bottom margin, and 31 of 36 kickers needed
+   it while 5 did not. Measured on one page at one width that is three
+   different kicker-to-next-block gaps (0, 12, 24px) for one element, and
+   a consumer had to know which spelling to use. The base rule owns the
+   gap now; the modifier is only for the flush case, and it is named for
+   that case. */
+.cm-kicker--flush { margin-bottom: 0; }
 
 /* ---------- layout: the stack ----------
    THE fix for "sections are mashed together".

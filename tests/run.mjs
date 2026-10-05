@@ -8192,6 +8192,55 @@ check('the drift checker names surface built inside a vendored layer', () => {
 	}
 });
 
+/* ================= one element, one spacing, one spelling ================= */
+
+check('a kicker owns its own gap, and one modifier means one thing', () => {
+	const comp = read("src/styles/components.css");
+	const page = read("src/pages/index.astro");
+
+	// The kicker bug, in the shape it had: a MODIFIER carried the only
+	// bottom margin, so whether a label had space under it depended on
+	// which spelling the author typed. Measured on the showcase at 402px:
+	// 31 kickers at 12px, 5 at 0px or 24px, on one page.
+	const kicker = comp.match(/^\.cm-kicker\s*\{([^}]*)\}/m);
+	assert(kicker, 'no base .cm-kicker rule');
+	const kBody = kicker[1];
+	assert(/margin-bottom:\s*var\(--/.test(kBody) || /margin:\s*0 0 var\(--/.test(kBody),
+		`the BASE kicker must own its bottom margin from a token; if the gap lives in a modifier, a consumer that forgets it gets a flush label. Got: ${kBody.trim()}`);
+
+	// The flush case is allowed, and only for a label sitting directly on a
+	// SPECIMEN (a breadcrumb, an empty-state panel). Named, so it is
+	// reviewable in markup rather than implied by which class was omitted.
+	const flush = comp.match(/^\.cm-kicker--flush\s*\{([^}]*)\}/m);
+	assert(flush, 'a kicker that labels a specimen needs a named flush variant');
+	assert(/margin-bottom:\s*0/.test(flush[1]),
+		`--flush must zero the gap it opts out of, got: ${flush[1].trim()}`);
+
+	// A modifier must mean ONE thing. `--plain` suppresses the `~/`
+	// prefix; it must not also carry spacing, or the two ideas drift
+	// apart again the moment someone edits one of them.
+	const plain = comp.match(/^\.cm-kicker--plain\s*\{([^}]*)\}/m);
+	if (plain) {
+		assert(!/margin/.test(plain[1]),
+			`--plain means "no ~/ prefix"; spacing on it is the defect this block exists to catch. Got: ${plain[1].trim()}`);
+	}
+	assert(!/^\.cm-kicker--plain\s*\{[^}]*margin-bottom/m.test(comp),
+		'no rule may give a kicker its gap through the --plain modifier');
+
+	// And the page must not need the modifier for spacing: a bare kicker
+	// is the normal case, and --flush is the only spacing opt-out.
+	const kickers = [...page.matchAll(/<h3 class="([^"]*cm-kicker[^"]*)">([^<]*)<\/h3>/g)];
+	assert(kickers.length > 20, `expected many kickers on the showcase, found ${kickers.length}`);
+	for (const [, cls, txt] of kickers) {
+		const tokens = cls.split(/\s+/);
+		assert(tokens.every(t => t === 'cm-kicker' || t.startsWith('cm-kicker--')),
+			`a kicker must be one class plus optional modifiers, got "${cls}" on "${txt.trim()}"`);
+		const mods = tokens.filter(t => t.startsWith('cm-kicker--'));
+		assert(new Set(mods).size === mods.length,
+			`a kicker repeats a modifier, which means two spellings of one state: "${cls}" on "${txt.trim()}"`);
+	}
+});
+
 /* ---------- record stack: the contract, asserted on the real rule ---------- */
 
 check('the record stack is a flex column whose gap is off the scale', () => {

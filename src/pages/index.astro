@@ -352,7 +352,7 @@ Two states, two different questions. <code>active</code> marks the page you are 
 					disclosure, and the rows are measured there instead.
 				</p>
 
-				<h3 class="cm-kicker cm-kicker--plain">mobile disclosure</h3>
+				<h3 class="cm-kicker">mobile disclosure</h3>
 				<p class="cm-head__sub">
 					Twelve links do not fit a phone, so under 640px the nav collapses
 					behind a burger &mdash; the one in the header above. Narrow this
@@ -385,7 +385,7 @@ Two states, two different questions. <code>active</code> marks the page you are 
 					rather than leaking it into the next phone view.
 				</p>
 
-				<h3 class="cm-kicker cm-kicker--plain">bare glyph on a header surface</h3>
+				<h3 class="cm-kicker">bare glyph on a header surface</h3>
 				<p class="cm-head__sub">
 					<em>boxed</em> is the default: a button that needs to read as a
 					control on its own, sitting on a surface with no other chrome.
@@ -434,7 +434,7 @@ Two states, two different questions. <code>active</code> marks the page you are 
 					height check, still too narrow to hit.
 				</p>
 
-				<h3 class="cm-kicker cm-kicker--plain">HeaderLink</h3>
+				<h3 class="cm-kicker">HeaderLink</h3>
 				<p class="cm-head__sub">
 					Path matching is the part of a nav every consumer gets wrong, so the library
 					owns it. The first link points at this page, so it marks itself current; the
@@ -470,14 +470,14 @@ Two states, two different questions. <code>active</code> marks the page you are 
 					The trail above a detail page: how deep am I, and how do I get out. It is the first thing a thumb touches, so every crumb is a <code>--tap</code> target; the separator is a <code>.cm-crumbs__sep</code> carrying <code>aria-hidden="true"</code> so a screen reader never speaks it; and the last crumb is marked <code>aria-current="page"</code>, the same attribute the header nav uses, so "you are here" survives greyscale print and a screen reader.
 				</SectionHead>
 
-				<h3 class="cm-kicker">three levels</h3>
+				<h3 class="cm-kicker cm-kicker--flush">three levels</h3>
 				<nav class="cm-crumbs" aria-label="Breadcrumb">
 					<a class="cm-crumbs__link" href="#lists">plugins<span class="cm-crumbs__sep" aria-hidden="true">&rsaquo;</span></a>
 					<a class="cm-crumbs__link" href="#lists">terminal<span class="cm-crumbs__sep" aria-hidden="true">&rsaquo;</span></a>
 					<span class="cm-crumbs__here" aria-current="page">cli-mono</span>
 				</nav>
 
-				<h3 class="cm-kicker cm-kicker--plain">deep trail, wraps on a phone</h3>
+				<h3 class="cm-kicker">deep trail, wraps on a phone</h3>
 				<p class="cm-head__sub">
 					A trail grows with its depth. Five levels at 390px overflows the
 					column, so this one wraps. Each separator lives <em>inside</em> the
@@ -495,7 +495,7 @@ Two states, two different questions. <code>active</code> marks the page you are 
 					<span class="cm-crumbs__here" aria-current="page">cli-mono-embed</span>
 				</nav>
 
-				<h3 class="cm-kicker cm-kicker--plain">the rules</h3>
+				<h3 class="cm-kicker">the rules</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row" role="listitem">
 						<span class="cm-spec__label"><code>cm-crumbs</code></span>
@@ -545,7 +545,7 @@ Two states, two different questions. <code>active</code> marks the page you are 
 What a surface shows before it has data, and after it fails. Status is carried by a glyph and a word, never by hue: this system has no chroma to carry it, and greyscale print still reads correctly.
 				</SectionHead>
 
-				<h3 class="cm-kicker">empty</h3>
+				<h3 class="cm-kicker cm-kicker--flush">empty</h3>
 				<div class="cm-state">
 					<span class="cm-state__mark" aria-hidden="true">Ø</span>
 					<p class="cm-state__title">Nothing here yet</p>
@@ -558,7 +558,7 @@ What a surface shows before it has data, and after it fails. Status is carried b
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain">loading</h3>
+				<h3 class="cm-kicker">loading</h3>
 				<p class="cm-head__sub">
 					Two different jobs. A <strong>skeleton</strong> is for a surface whose
 					shape you already know; a <strong>spinner</strong> is for an action in
@@ -595,7 +595,7 @@ What a surface shows before it has data, and after it fails. Status is carried b
 					</button>
 				</p>
 
-				<h3 class="cm-kicker cm-kicker--plain">alerts</h3>
+				<h3 class="cm-kicker">alerts</h3>
 				<div style="display:grid;gap:var(--space-3);max-width:34rem">
 					<div class="cm-alert cm-alert--ok" role="status">
 						<span class="cm-alert__mark" aria-hidden="true"></span>
@@ -620,7 +620,7 @@ What a surface shows before it has data, and after it fails. Status is carried b
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain">table</h3>
+				<h3 class="cm-kicker">table</h3>
 				<p class="cm-head__sub">
 					Data, not prose. The scroll wrapper is part of the component: a wide table
 					that overflows the page is the most common way a mono layout breaks on a
@@ -657,7 +657,7 @@ What a surface shows before it has data, and after it fails. Status is carried b
 Each row is one modifier against its own base, so the difference is the thing being reviewed. A variant that computed identically to its base would be a class that looks right in this table and does nothing anywhere else.
 				</SectionHead>
 
-				<h3 class="cm-kicker cm-kicker--plain">tags</h3>
+				<h3 class="cm-kicker">tags</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>plain</code></span>
@@ -676,7 +676,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain">labelled rule</h3>
+				<h3 class="cm-kicker">labelled rule</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>--rule</code></span>
@@ -689,7 +689,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain">state chip</h3>
+				<h3 class="cm-kicker">state chip</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>default</code></span>
@@ -725,7 +725,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain">status</h3>
+				<h3 class="cm-kicker">status</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>--ok</code></span>
@@ -759,7 +759,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain">toast</h3>
+				<h3 class="cm-kicker">toast</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>--ok</code></span>
@@ -805,7 +805,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain">terminal</h3>
+				<h3 class="cm-kicker">terminal</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>lines</code></span>
@@ -823,7 +823,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain">spinner + rows</h3>
+				<h3 class="cm-kicker">spinner + rows</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>--lg</code></span>
@@ -868,7 +868,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain">media</h3>
+				<h3 class="cm-kicker">media</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>--media</code></span>
@@ -884,7 +884,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain">head title hook</h3>
+				<h3 class="cm-kicker">head title hook</h3>
 				<p class="cm-head__sub">
 					<code>.cm-head h1</code> already sizes the title, so
 					<code>.cm-head__title</code> is the hook for a title
@@ -1567,7 +1567,7 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 </head>`}
 				/>
 
-				<h3 class="cm-kicker cm-kicker--plain">states</h3>
+				<h3 class="cm-kicker">states</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>idle</code></span>
@@ -1612,7 +1612,7 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 Five surfaces that sit on top of the page. Four of the five are native elements doing native things &mdash; a <code>&lt;dialog&gt;</code>, a <code>[popover]</code>, a hover, a <code>hidden</code> attribute. Only the tablist needs script, because the platform ships no tab widget and the roving tabindex is the one part of the ARIA contract CSS cannot express.
 				</SectionHead>
 
-				<h3 class="cm-kicker cm-kicker--plain">tabs</h3>
+				<h3 class="cm-kicker">tabs</h3>
 				<p class="cm-head__sub">
 					Tab with the keyboard to leave the row, then use the arrows: one tab
 					is in the tab order at a time, which is the WAI-ARIA pattern. The
@@ -1661,7 +1661,7 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain">dialog</h3>
+				<h3 class="cm-kicker">dialog</h3>
 				<p class="cm-head__sub">
 					A native <code>&lt;dialog&gt;</code> opened with
 					<code>showModal()</code>, so focus trapping, Escape, the top layer and
@@ -1694,7 +1694,7 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 					</div>
 				</dialog>
 
-				<h3 class="cm-kicker cm-kicker--plain">toast</h3>
+				<h3 class="cm-kicker">toast</h3>
 				<p class="cm-head__sub">
 					A transient <code>.cm-alert</code>: the same border weights, the same
 					glyphs, the same words. A second, prettier alert component is how one
@@ -1708,7 +1708,7 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 				</div>
 				<div class="cm-toast-region" data-cm-toasts role="status" aria-live="polite"></div>
 
-				<h3 class="cm-kicker cm-kicker--plain">dropdown</h3>
+				<h3 class="cm-kicker">dropdown</h3>
 				<p class="cm-head__sub">
 					The native Popover API. The trigger carries
 					<code>popovertarget</code> and the panel carries <code>popover</code>,
@@ -1727,7 +1727,7 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain">tooltip</h3>
+				<h3 class="cm-kicker">tooltip</h3>
 				<p class="cm-head__sub">
 					A real element rather than generated content, because
 					<code>aria-describedby</code> has to resolve to something in the
@@ -1789,7 +1789,7 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 Stat tiles and a dated timeline. The tile count is data, so <code>.cm-stats</code> sizes its columns with <code>auto-fit</code> rather than a fixed number, and the timeline rail is drawn on the <em>item</em> so it stops at the last record on its own, with no script. (<code>auto-fit</code> fits the count to the width; it cannot balance a ragged last row — see the balanced band below for that.)
 				</SectionHead>
 
-				<h3 class="cm-kicker cm-kicker--plain">stat tiles</h3>
+				<h3 class="cm-kicker">stat tiles</h3>
 				<ul class="cm-stats">
 					<Stat value="8+" label="years in IT" note="since 2014" />
 					<Stat value="5,000+" label="users and devices" note="global estate" />
@@ -1801,7 +1801,7 @@ Stat tiles and a dated timeline. The tile count is data, so <code>.cm-stats</cod
 					the estate” is a fact.
 				</p>
 
-				<h3 class="cm-kicker cm-kicker--plain";margin-bottom:var(--space-3)>
+				<h3 class="cm-kicker";margin-bottom:var(--space-3)>
 					balanced bands, and a header row with a trailing chip
 				</h3>
 				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
@@ -1879,7 +1879,7 @@ Stat tiles and a dated timeline. The tile count is data, so <code>.cm-stats</cod
 					a breakpoint; a class can do both.
 				</p>
 
-				<h3 class="cm-kicker cm-kicker--plain";margin-bottom:var(--space-3)>timeline</h3>
+				<h3 class="cm-kicker";margin-bottom:var(--space-3)>timeline</h3>
 				<ul class="cm-timeline">
 					<TimelineItem
 						period="2014 – 2017"
@@ -2494,14 +2494,14 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain">lede</h3>
+				<h3 class="cm-kicker">lede</h3>
 				<p class="cm-lede">
 					Read this before the rest. It is wider and dimmer than the
 					body text, so the eye takes the sentence in once and then
 					moves down to the content instead of reading the page twice.
 				</p>
 
-				<h3 class="cm-kicker cm-kicker--plain">key-value, wrapped pairs</h3>
+				<h3 class="cm-kicker">key-value, wrapped pairs</h3>
 				<p class="cm-head__sub" style="margin-bottom:var(--space-4)">
 					HTML lets you group <code>dt</code>/<code>dd</code> inside a
 					<code>div</code> when a row needs a control of its own - a link
@@ -2518,7 +2518,7 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 				</p>
 				<div class="cm-split">
 					<div>
-						<h4 class="cm-kicker cm-kicker--plain">direct</h4>
+						<h4 class="cm-kicker">direct</h4>
 						<dl class="cm-kv">
 							<dt>role</dt><dd>engineer</dd>
 							<dt>since</dt><dd>2014</dd>
@@ -2526,7 +2526,7 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 						</dl>
 					</div>
 					<div>
-						<h4 class="cm-kicker cm-kicker--plain">wrapped</h4>
+						<h4 class="cm-kicker">wrapped</h4>
 						<dl class="cm-kv">
 							<div><dt>role</dt><dd>engineer</dd></div>
 							<div><dt>since</dt><dd>2014</dd></div>
@@ -2535,7 +2535,7 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 					</div>
 				</div>
 					<div>
-						<h4 class="cm-kicker cm-kicker--plain">flush</h4>
+						<h4 class="cm-kicker">flush</h4>
 						<dl class="cm-kv cm-kv--flush">
 							<div><dt>rows</dt><dd>4</dd></div>
 							<div><dt>stack</dt><dd>v1.12</dd></div>
@@ -2549,7 +2549,7 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 						</p>
 					</div>
 
-				<h3 class="cm-kicker cm-kicker--plain">key-value, whole row is the link</h3>
+				<h3 class="cm-kicker">key-value, whole row is the link</h3>
 				<p class="cm-head__sub" style="margin-bottom:var(--space-4)">
 					<code>.cm-kv--link</code> is the case above where the
 					per-row control is an <code>&lt;a&gt;</code>. Link only
@@ -2583,7 +2583,7 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 					</div>
 				</dl>
 
-				<h3 class="cm-kicker cm-kicker--plain">split</h3>
+				<h3 class="cm-kicker">split</h3>
 				<p class="cm-head__sub" style="margin-bottom:var(--space-4)">
 					The main block and the aside below are the same DOM at every
 					width; only the column count changes. Narrow the window past
