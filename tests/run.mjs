@@ -2539,22 +2539,47 @@ check('the rail width is a token, not a literal', () => {
 	assert(!/width: 2\d\dpx/.test(RAIL), 'a raw px width crept into the rail');
 });
 
-check('the rail link rules are scoped to direct children of the list', () => {
+check('the rail link rules reach a grouped link without styling a SPECIMEN', () => {
 	// The showcase demonstrates the link style with bare .cm-header__link
-	// elements. A descendant selector restyled those specimens as rail rows.
-	assert(/\.cm-header--rail \.cm-header__links > \.cm-header__link\s*\{/.test(RAIL),
-		'the rail link rule is not scoped to `>` children, so demo links are rail rows');
-	assert(!/\.cm-header--rail \.cm-header__link\s*\{/.test(RAIL),
-		'a descendant .cm-header__link rule will style the showcase specimens');
+	// elements. A descendant-of-the-list selector restyled those specimens
+	// as rail rows.
+	//
+	// REVERSED IN PART (2026-10-05, adopting kanban). This used to require
+	// the rail link rule to be `>`-scoped. That was true for the SPECIMEN
+	// reason above and false for the CONSUMER reason below: a rail whose
+	// links are grouped nests a second `.cm-header__links` inside each
+	// `.cm-header__group`, so a `>`-only rule matches nothing and the
+	// grouped rail loses the tap floor AND the current-page marker
+	// (measured 34px rows and border-left-width 0px in WebKit at
+	// 1280x900, against 44px and 2px for a flat rail).
+	//
+	// So the guarantee is now split into two claims, and both matter:
+	//   1. a SPECIMEN-safe rule: nothing under `.cm-header--rail` matches a
+	//      bare `.cm-header__link` with NO list and no group between them.
+	//   2. a GROUPED-safe rule: `.cm-header__group .cm-header__link` is
+	//      styled, which is what the `>` was silently excluding.
+	// The old single assertion could not tell those apart, which is why it
+	// was happy for years against a rail that did not work.
+	assert(/^\.cm-header--rail \.cm-header__link\s*\{/m.test(RAIL) === false,
+		'a bare .cm-header--rail .cm-header__link rule will style the showcase specimens');
+	assert(ruleBodies(comp, '.cm-header--rail .cm-header__group .cm-header__link').length > 0,
+		'no rail rule styles a link inside .cm-header__group, so a grouped rail ' +
+		'gets no tap floor and no current-page marker');
 });
 
 check('a rail link keeps the tap floor', () => {
-	const m = RAIL.match(/\.cm-header--rail \.cm-header__links > \.cm-header__link\s*\{([^}]*)\}/);
+	// Read the rule that owns the property, and read it by SELECTOR LIST
+	// rather than by the `>` alone: after the fix the grouped case is a
+	// second selector on the SAME rule, and a regex pinned to the flat
+	// selector plus `\s*\{` no longer matches a comma-joined rule. The
+	// mutation this must still catch is flattening `min-height` to `0` on
+	// the rail link rule.
+	const m = RAIL.match(/\.cm-header--rail \.cm-header__links > \.cm-header__link[^{]*\{([^}]*)\}/);
 	assert(m, 'the rail link rule is missing');
 	// Declaration-anchored: the rail block explains the 44px floor in a
 	// comment, so a bare `min-height: var(--tap)` search was satisfied by
 	// the prose describing it.
-	assert(/^[ \t]*min-height:\s*var\(--tap\);/m.test(m[1]),
+	assert(/^[ 	]*min-height:\s*var\(--tap\);/m.test(m[1]),
 		'a rail link drops the 44px tap floor');
 });
 
@@ -6609,6 +6634,85 @@ check('groups are separated by a token step, not a raw rem', () => {
 	assert(bodies.length > 0, 'there is no rule separating adjacent groups');
 	assert(/margin-top:\s*var\(--space-/.test(bodies.join('\n')),
 		'group separation must come from the spacing scale, not a raw rem');
+});
+
+/* ---------- a GROUPED rail link is a rail link ----------
+   Found by adopting kanban (2026-10-05), which uses rpm's markup shape:
+   a `.cm-header__links` nested inside a `.cm-header__group`, inside the
+   rail's own list. Every rail link rule was `> .cm-header__link`, so a
+   nested link matched NOTHING - and the showcase could not see it,
+   because the showcase's grouped specimen nests its links in a plain
+   `<div>` and therefore kept them as direct children.
+
+   MEASURED in WebKit at 1280x900, same rail, two nests:
+     flat     min-height 44px, padding 0 20px, current marker 2px solid
+     grouped  min-height 34px, padding 1.6px 11.2px, marker WIDTH 0px
+   Both numbers are asserted below against the SOURCE selector rather
+   than the measurement, because a test that needs a browser to notice
+   a selector is a test nobody runs.
+
+   The assertions name the GROUPED selector specifically. A check that
+   grepped for `.cm-header__link` anywhere in the block would have
+   passed against the broken file, which is precisely the gap this
+   closes: the flat selector was there the whole time. */
+check('the rail row reaches a link nested inside a group', () => {
+	const sel = '.cm-header--rail .cm-header__group .cm-header__link';
+	assert(ruleBodies(comp, sel).length > 0,
+		'no rail rule styles a link inside .cm-header__group, so a GROUPED rail ' +
+		'gets no tap floor, no inset and no current-page marker');
+});
+
+check('the grouped rail row carries the same declarations as the flat one', () => {
+	// ONE rule for both nests, so no declaration can belong to only one of
+	// them. Comparing the two bodies is what catches a later edit that
+	// adds a property to the flat selector alone.
+	const flat = ruleBodies(comp, '.cm-header--rail .cm-header__links > .cm-header__link').join('\n');
+	const grouped = ruleBodies(comp, '.cm-header--rail .cm-header__group .cm-header__link').join('\n');
+	assert(flat && grouped, 'one of the two rail link selectors has no rule body');
+	// Each is the body of the SAME rule (comma-joined), so the strings are
+	// expected to be identical; if a future edit splits them, this fails.
+	assert(flat === grouped,
+		'the flat and grouped rail link rules have DIVERGED - one nest now gets ' +
+		'geometry the other does not');
+	// And the properties that were measurably missing, named explicitly so
+	// the failure says which one went.
+	for (const [prop, why] of [
+		[/min-height:\s*var\(--tap\)/, 'the tap floor'],
+		[/border-left:\s*2px solid transparent/, 'the current-page marker width'],
+		[/margin-inline:\s*var\(--space-2\)/, 'the inset that keeps the tick off the rail edge'],
+	]) {
+		assert(prop.test(grouped), `the grouped rail row is missing ${why}`);
+	}
+});
+
+check('a current link inside a group paints the marker', () => {
+	// The colour alone is a lie: `border-left-color` with no width draws
+	// nothing. Measured 0px while the colour was var(--accent), on the one
+	// rail whose job is to show you where you are.
+	const flat = '.cm-header--rail .cm-header__links > .cm-header__link[aria-current=\'page\']';
+	const grouped = '.cm-header--rail .cm-header__group .cm-header__link[aria-current=\'page\']';
+	assert(ruleBodies(comp, grouped).length > 0,
+		'no rail rule marks the CURRENT link when it sits inside a group');
+	assert(ruleBodies(comp, flat).length > 0,
+		'the flat current-link rule disappeared');
+});
+
+check('the showcase demonstrates the NESTED list a consumer actually writes', () => {
+	// The showcase's own grouped specimen used to nest a plain <div>, so
+	// its links stayed direct children and every rail rule applied to them.
+	// That is the exact reason this class of bug stayed invisible: the demo
+	// was not the shape. The fixture below reproduces rpm's nest.
+	assert(/data-cm-grouped-rail-fixture/.test(showcase),
+		'the nav section has no nested-list fixture, so a grouped rail is never ' +
+		'rendered in the shape a consumer writes');
+	const fixture = showcase.slice(showcase.indexOf('data-cm-grouped-rail-fixture'));
+	const after = fixture.slice(0, fixture.indexOf('</div>\n								</div>') > 0
+		? fixture.indexOf('</div>\n								</div>')
+		: fixture.length);
+	assert(/cm-header__group/.test(after) && /cm-header__links/.test(after),
+		'the fixture does not nest a .cm-header__links inside a .cm-header__group');
+	assert(/aria-current="page"/.test(after),
+		'the fixture has no current link, so the marker cannot be demonstrated');
 });
 
 /* A brace-balanced file is the one property a CSS consumer cannot recover

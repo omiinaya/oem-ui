@@ -3477,13 +3477,44 @@ button.cm-row:hover { background: var(--bg-2); }
 	/* Each link is a full-width row with the tap floor, so the rail obeys
 	   the same 44px rule the phone drawer does. A rail of 20 links at 44px
 	   is 880px, so the column scrolls rather than overflowing off-screen. */
-		/* `>` is load-bearing. The showcase demonstrates the link style with
-	   bare `.cm-header__link` elements inside its `nav` section, and a
-	   descendant selector restyled those SPECIMENS as rail rows: measured,
-	   7 demo links were being laid out as 44px navigation rows at y=2622
-	   and y=3551, three thousand pixels down the page. Only the direct
-	   children of the link list are navigation. */
-	.cm-header--rail .cm-header__links > .cm-header__link {
+		/* `>` was load-bearing for the SPECIMENS and it cost every GROUPED
+	   rail its whole row geometry. The showcase demonstrates the link style
+	   with bare `.cm-header__link` elements inside its `nav` section, and a
+	   plain descendant selector restyled those SPECIMENS as rail rows:
+	   measured, 7 demo links were being laid out as 44px navigation rows at
+	   y=2622 and y=3551, three thousand pixels down the page.
+
+	   But `.cm-header--rail` only appears on the header, and this whole
+	   block is inside `@media (min-width: 1000px)`, so a bare
+	   `.cm-header__link` in the nav SECTION is not under a rail at all and
+	   does not need the `>` to stay out of it. What the `>` really excluded
+	   was the link list a CONSUMER nests inside a `.cm-header__group` -
+	   which is the documented shape of a grouped rail, and the shape rpm
+	   ships today.
+
+	   MEASURED in WebKit at 1280x900, kanban (adopted this cycle, with rpm's
+	   markup shape), same rail, two nests:
+
+	     flat rail     min-height 44px, padding 0 20px, align-items center,
+	                   margin-inline 8px, current marker `2px rgb(232,232,232)`
+	     grouped rail  min-height 34px, padding 1.6px 11.2px, display block,
+	                   margin-inline 0, current marker border-left-WIDTH 0px
+
+	   Two defects in one: the tap floor was GONE (34px here is a fine
+	   pointer's inline row, not the coarse floor), and the current-page
+	   marker was INVISIBLE - the active rule set `border-left-color` but
+	   the base rule's `border-left: 2px solid transparent` never applied,
+	   so the width stayed 0. The one rail whose entire purpose is labelled
+	   groups was the one rail where you could not tell which page you were
+	   on.
+
+	   Both selectors are kept, joined by a comma. One rule for both nests
+	   means there is no declaration that only the flat case gets, which is
+	   how this stayed invisible through every source-level check: both
+	   variants existed, both looked right, and which one applied depended
+	   entirely on the consumer's markup. */
+	.cm-header--rail .cm-header__links > .cm-header__link,
+	.cm-header--rail .cm-header__group .cm-header__link {
 		display: flex;
 		align-items: center;
 		min-height: var(--tap);
@@ -3498,9 +3529,14 @@ button.cm-row:hover { background: var(--bg-2); }
 	}
 	/* The active marker moves to the leading edge, where a vertical rail
 	   has room for it. `border-left` is used rather than a background so it
-	   cannot shift the link's text when it appears. */
+	   cannot shift the link's text when it appears. The grouped variant is
+	   here for the same reason: a current page inside a group would
+	   otherwise carry the accent COLOUR with a 0px width, which reads as a
+	   styling bug rather than as "you are here". */
 	.cm-header--rail .cm-header__links > .cm-header__link.is-active,
-	.cm-header--rail .cm-header__links > .cm-header__link[aria-current='page'] {
+	.cm-header--rail .cm-header__links > .cm-header__link[aria-current='page'],
+	.cm-header--rail .cm-header__group .cm-header__link.is-active,
+	.cm-header--rail .cm-header__group .cm-header__link[aria-current='page'] {
 		border-left-color: var(--accent);
 		padding-left: calc(var(--gutter) - 2px);
 	}
