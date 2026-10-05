@@ -2924,9 +2924,19 @@ check('the inline row names both of its columns with measure tokens', () => {
 	// explains WHY, which is the one worth reading when it goes red.
 	assert(!/flex:\s*0\s+1\s/.test(inline[0]),
 		'the inline title must not shrink; it is the primary label and never truncates');
-	assert(/flex:\s*0 0 var\(--measure-title\)/.test(inline[0]),
-		`the inline title must be flex: 0 0 var(--measure-title), got: ${inline[0]}`);
-	assert(/max-width:\s*var\(--measure-title\)/.test(inline[0]),
+	// The BASIS must still name the token and must still refuse to give
+	// ground (flex-grow 0, flex-shrink 0). It may be wrapped in
+	// `min(..., 100%)`: that is the same token, capped at the width the
+	// row actually has, which is what keeps a 320px viewport from
+	// being widened by a 42ch title the row cannot afford. Asserting the
+	// exact string here would forbid the cap and re-open a 204px
+	// sideways scroll, so the test names the two properties instead.
+	assert(/flex:\s*0 0 (min\(var\(--measure-title\),\s*100%\)|var\(--measure-title\))/.test(inline[0]),
+		`the inline title's basis must be var(--measure-title) with no grow and no shrink, got: ${inline[0]}`);
+	// Same reasoning as the basis above: the cap must come from the
+	// token, and may be `min(token, 100%)` so a narrow row is never
+	// promised width it does not have.
+	assert(/max-width:\s*(min\(var\(--measure-title\),\s*100%\)|var\(--measure-title\))/.test(inline[0]),
 		'the inline title cap must come from --measure-title');
 });
 
@@ -8154,10 +8164,16 @@ check('the record stack is a flex column whose gap is off the scale', () => {
 	// one declaration. What it must NOT be is a literal: a hardcoded rem
 	// here is exactly the per-project number that made five projects
 	// disagree about the same gap.
-	assert(/gap:\s*var\(--(space-\d|stack-[a-z]+)\)/.test(body),
-		`the gap must come off the spacing or rhythm scale, got: ${body.trim()}`);
-	assert(!/[\d.]+(rem|em|px)/.test(body),
-		`the stack carries a hardcoded value; use --space-* or --stack-*: ${body.trim()}`);
+	// Comments are documentation, not declarations. The measured numbers
+	// in this rule's own comment ("320px", "524px") are the evidence for
+	// the rule existing, so a regex that cannot tell a comment from a
+	// declaration would forbid the library from explaining itself.
+	// Strip block and line comments before hunting for a literal value.
+	const bodyNoComments = body.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+	assert(/gap:\s*var\(--(space-\d|stack-[a-z]+)\)/.test(bodyNoComments),
+		`the gap must come off the spacing or rhythm scale, got: ${bodyNoComments.trim()}`);
+	assert(!/[\d.]+(rem|em|px)/.test(bodyNoComments),
+		`the stack carries a hardcoded value; use --space-* or --stack-*: ${bodyNoComments.trim()}`);
 });
 
 check('a stack is opt-in, so a list that never asked for one is still flush', () => {

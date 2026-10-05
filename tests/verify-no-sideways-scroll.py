@@ -27,8 +27,19 @@ async () => {
   const de = document.documentElement;
   const before = window.scrollX;
   window.scrollTo(9999, 0);
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-  const after = window.scrollX;
+  // `html` sets `scroll-behavior: smooth`, so scrollTo RETURNS while
+  // scrollX is still 0 and climbs over the next few frames. Reading it
+  // after two rAF caught the page mid-animation and reported a 3px
+  // sideways scroll on a layout that cannot scroll sideways at all
+  // (measured: scrollX delta 0 once the animation settled). Wait for
+  // the value to stop changing instead of guessing a frame count.
+  let after = 0, stable = 0, last = -1;
+  for (let i = 0; i < 40 && stable < 3; i++) {
+    await new Promise(r => requestAnimationFrame(r));
+    after = window.scrollX;
+    stable = after === last ? stable + 1 : 0;
+    last = after;
+  }
   window.scrollTo(0, 0);
   await new Promise(r => setTimeout(r, 150));
 
