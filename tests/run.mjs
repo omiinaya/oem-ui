@@ -10,8 +10,8 @@
  * checks execute the actual cli-mono.js runtime against a minimal fake DOM so a
  * regression in the theme logic fails the build.
  */
-import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, appendFileSync, statSync, rmSync, readdirSync, renameSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { readFileSync, writeFileSync, existsSync, mkdtempSync, mkdirSync, copyFileSync, appendFileSync, statSync, rmSync, readdirSync, renameSync } from 'node:fs';
+import { spawnSync, execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, isAbsolute, join } from 'node:path';
@@ -10666,6 +10666,203 @@ check('the leading dot is the COMPONENT\'s, so a caller cannot double it', () =>
 			'#proselists-order is not registered in SECTION_ORDER, so the section is unreachable from the page nav');
 	});
 }
+/* These tests RUN the generator and assert on its real output.
+   The first draft of them matched the generator's SOURCE TEXT, and the
+   mutation sweep killed 4 of 8: a source-shaped assertion goes stale the
+   moment the generator is refactored without changing what it emits, so it
+   reports a kill or a pass that has nothing to do with the guarantee.
+
+   The invariant is about the EMITTED FILE: what a consumer's build will
+   see. So the tests run the generator into a temp dir with a real
+   components.css beside it and read the result.
+
+   A fixture that cannot fail is a test that cannot fail. The temp dir
+   gets a REAL components.css (copied from the library, so the import
+   resolves) and a real tokens.css, because the generator reads
+   tokens.css from ITS OWN repo - the fixture only has to satisfy the
+   --components path check.
+*/
+const GENERATOR = join(root, 'scripts/make-scoped-entry.mjs');
+
+/** Run the generator into a throwaway tree; returns {out, err, code}. */
+function runGenerator(genPath, { components = 'cli-mono/components.css', extraArgs = [], make = false } = {}) {
+	const dir = mkdtempSync(join(tmpdir(), 'cm-scoped-'));
+	try {
+		mkdirSync(join(dir, 'cli-mono'), { recursive: true });
+		copyFileSync(join(root, 'src/styles/components.css'), join(dir, 'cli-mono', 'components.css'));
+		// `make: true` is for a path the generator is supposed to ACCEPT.
+		// The default fixture only satisfies the default path; without this
+		// a custom-path probe asks the generator to bless a file that does
+		// not exist and fails on the guard instead of on the property under
+		// test - a probe that reports the thing you already believed.
+		if (make) {
+			mkdirSync(join(dir, components, '..'), { recursive: true });
+			copyFileSync(join(root, 'src/styles/components.css'), join(dir, components));
+		}
+		const out = join(dir, 'entry.css');
+		let code = 0;
+		let stdout = '';
+		let stderr = '';
+		try {
+			stdout = execFileSync('node', [genPath, '--out', out, '--components', components, ...extraArgs], {
+				cwd: root,
+				stdio: 'pipe',
+				encoding: 'utf8',
+			});
+		} catch (e) {
+			code = e.status === undefined ? 1 : e.status;
+			stdout = e.stdout || '';
+			stderr = e.stderr || '';
+		}
+		let text = null;
+		try {
+			text = readFileSync(out, 'utf8');
+		} catch {}
+		return { dir, out, text, code, stdout, stderr };
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+}
+
+check('the scoped entry generator emits an @import that actually resolves', () => {
+	const r = runGenerator(GENERATOR);
+	assert(r.code === 0,
+		`the generator exited ${r.code} on a valid path: ${r.stderr}`);
+	assert(r.text, 'the generator wrote no file');
+	// The path in the emitted @import must be the one that was asked for,
+	// and it must name components.css - the file whose rules the consumer
+	// is adopting.
+	const imports = [...r.text.matchAll(/@import\s+"([^"]+)"/g)].map((m) => m[1]);
+	assert(imports.length >= 1,
+		'the generated entry contains no @import at all, so it ships no library rules');
+	assert(imports.some((p) => p.endsWith('components.css')),
+		`the generated entry imports ${JSON.stringify(imports)} but never components.css`);
+	// A hardcoded path is what broke the real migration: the vendored copy
+	// is at web/cli-mono/, not web/src/cli-mono/. The generator must take
+	// the path as an argument.
+	const custom = runGenerator(GENERATOR, { components: 'somewhere/else/components.css', make: true });
+	assert(custom.code === 0, `the generator rejected a valid custom path: ${custom.stderr}`);
+	assert(custom.text && /@import\s+"somewhere\/else\/components\.css"/.test(custom.text),
+		'the emitted @import is not the --components path that was passed. A hardcoded path is the silent failure: the vendored location differs per consumer, and a wrong guess drops the import with only a warning');
+});
+
+check('a scoped entry whose @import cannot resolve is a LOUD failure', () => {
+	// The whole reason the path is verified: PostCSS drops an @import whose
+	// target is missing, with only a warning, so the consumer's build stays
+	// green and ships none of the library. Measured on the real migration:
+	// the built CSS contained 0 occurrences of `cm-prose-table`.
+	const r = runGenerator(GENERATOR, { components: 'cli-mono/NOT-HERE.css' });
+	assert(r.code !== 0,
+		'the generator wrote a file whose @import points at a path that does not exist. Vite/PostCSS drops such an import with a warning, so the build stays green and the page renders the consumer\'s own styles - the library silently does not ship');
+	assert(/NOT FOUND/.test(r.stderr),
+		`the failure must SAY which path was missing, or it is a bare non-zero exit: ${JSON.stringify(r.stderr)}`);
+});
+
+check('the scoped entry emits its @import BEFORE any declaration block', () => {
+	// PostCSS: `@import must precede all other statements (besides @charset
+	// or empty @layer)`. An @import emitted after a rule is DROPPED with a
+	// warning - a green build that ships nothing. Measured here: with the
+	// import last, the built CSS held 0 occurrences of `cm-prose-table`.
+	const r = runGenerator(GENERATOR);
+	assert(r.text, 'the generator wrote no file');
+	const importAt = r.text.indexOf('@import');
+	assert(importAt !== -1, 'the generated entry has no @import');
+	// The first DECLARATION - a selector followed by `{` - must come after.
+	const firstRule = /[^{}]*\{[^{}]*\}/.exec(r.text);
+	assert(firstRule, 'the generated entry has no rule at all, so the probe is vacuous');
+	const ruleAt = firstRule.index + (firstRule[0].indexOf('{'));
+	// Comments are not statements, so compare against the first real rule.
+	assert(importAt < ruleAt,
+		`the @import sits at offset ${importAt} and the first rule at ${ruleAt}. `
+		+ 'An @import after a declaration block is dropped by PostCSS with only a warning');
+});
+
+check('the scoped entry GENERATES its colour tokens rather than importing tokens.css', () => {
+	// Importing tokens.css is the obvious way to get --ink and it is wrong:
+	// tokens.css's bare `:root` then applies to the DOCUMENT, overwriting
+	// the consumer's own --accent (a neutral grey against the app's blue)
+	// and --radius (10px against 0.5rem). MEASURED on the migration: with
+	// tokens.css imported, the document root resolved the library's --ink
+	// too, so the app's own subtree read library colours.
+	const r = runGenerator(GENERATOR);
+	assert(r.text, 'the generator wrote no file');
+	assert(!/@import\s+"[^"]*tokens\.css"/.test(r.text),
+		'the scoped entry imports tokens.css. Its bare :root block leaks onto the consumer\'s document root and overwrites the consumer\'s own --accent and --radius; the colour blocks must be GENERATED, scoped');
+	// And they must actually be there, or the prose resolves var(--ink) to
+	// nothing: measured, --ink came back an empty string on the element.
+	for (const theme of ['dark', 'light']) {
+		const sel = `[data-cm-theme='${theme}']`;
+		assert(r.text.includes(sel),
+			`the generated entry has no ${sel} block, so the scoped subtree resolves no colours`);
+	}
+	const inkDecls = [...r.text.matchAll(/--ink:\s*([^;]+);/g)].map((m) => m[1].trim());
+	assert(inkDecls.length === 2,
+		`expected one --ink per theme, found ${inkDecls.length}: ${JSON.stringify(inkDecls)}`);
+	assert(new Set(inkDecls).size === 2,
+		`both themes declare the same --ink (${JSON.stringify(inkDecls)}), so the light theme is a second dark theme`);
+});
+
+check('a scoped adoption still gets the reset-safe list markers', () => {
+	// base.css is NOT imported in a scoped adoption - it is the bare-element
+	// layer and the reason this path exists - so its
+	// `.cm-prose ul:not([class])` never arrives. The generator reproduces it
+	// as a scoped twin, and the guarantee is the SPECIFICITY, not the
+	// presence of the value: preflight's `ol,ul,menu{list-style:none}` is
+	// also (0,0,1), so only the selector outranks it.
+	const r = runGenerator(GENERATOR);
+	assert(r.text, 'the generated entry has no file');
+	assert(/\[data-cm-theme\][^{}]*:not\(\[class\]\)[^{}]*\{/.test(r.text),
+		'the scoped twin lost its :not([class]). That selector is (0,2,1) and is what beats the consumer\'s preflight in either load order; without it every bullet in every article renders at list-style-type: none with padding-left intact');
+	assert(/\[[^{}]*:not\(\[class\]\)[^{}]*\{[^{}]*list-style-type:\s*disc/.test(r.text),
+		'the scoped twin declares no disc marker on a classless list');
+	// Anchor on the RULE's own selector, not on a bare `ol` substring: the
+	// combined rule above reads `[data-cm-theme] :is(ul, ol):not([class])`,
+	// and a loose /ol[^{]*:not\(\[class\]\)/ matches the `ol)` INSIDE that
+	// :is() and then reads `list-style-type: disc` as the ordered-list rule.
+	// That is a probe reporting a defect that does not exist, which is worse
+	// than no probe.
+	const olRule = /^\[data-cm-theme\][ 	]+ol:not\(\[class\]\)[ 	]*\{([^{}]*)\}/m.exec(r.text);
+	assert(olRule, 'no top-level scoped `ol:not([class])` rule');
+	assert(/list-style-type:\s*decimal/.test(olRule[1]),
+		`the scoped ol rule does not declare decimal (it reads ${JSON.stringify(olRule[1])}) - sharing the ul declaration leaves ordered lists bulleted`);
+});
+
+check('the scoped entry and the library tokens cannot drift apart', () => {
+	// A hand-typed scale was measured wrong in 17 of 44 values, which is why
+	// the file is generated. But a generated file still drifts the moment
+	// someone edits it, so `--check` re-derives and must fail on a
+	// difference. This asserts the CHECK, by mutating the emitted file and
+	// requiring a non-zero exit.
+	const r = runGenerator(GENERATOR);
+	assert(r.code === 0 && r.text, 'the generator did not produce a file to check');
+	// Re-run against a doctored copy in the same fixture layout.
+	const dir = mkdtempSync(join(tmpdir(), 'cm-scoped-drift-'));
+	try {
+		mkdirSync(join(dir, 'cli-mono'), { recursive: true });
+		copyFileSync(join(root, 'src/styles/components.css'), join(dir, 'cli-mono', 'components.css'));
+		const entry = join(dir, 'entry.css');
+		writeFileSync(entry, r.text.replace('--space-3: 0.75rem;', '--space-3: 0.9rem;'));
+		let code = 0;
+		let stderr = '';
+		try {
+			execFileSync('node', [GENERATOR, '--check', entry, '--components', 'cli-mono/components.css'], {
+				cwd: root,
+				stdio: 'pipe',
+				encoding: 'utf8',
+			});
+		} catch (e) {
+			code = e.status === undefined ? 1 : e.status;
+			stderr = e.stderr || '';
+		}
+		assert(code !== 0,
+			'--check passed a scoped entry whose --space-3 was hand-edited. The whole point of generating this file is that a rebrand reaches every consumer; a check that cannot see the difference makes the generation pointless');
+		assert(/STALE/.test(stderr),
+			`--check failed without saying STALE: ${JSON.stringify(stderr)}`);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
 /* ================= result ================= */
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length) {

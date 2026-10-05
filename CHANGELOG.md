@@ -5,6 +5,51 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **A new adoption path for consumers that cannot import the library
+  globally: `scripts/make-scoped-entry.mjs`.** `install.sh` covers the easy
+  case — a static site that can link `tokens.css`, `base.css` and
+  `components.css` and let them reach `:root`. It cannot cover a consumer
+  whose bundler inlines Tailwind into `@layer`s, and that consumer is real:
+  hermes-articles (React + Vite + Tailwind) vendored four library files and
+  imported none of them, so its 385 markdown tables kept a second,
+  hand-rolled implementation of surface the library already owns.
+
+  Two of the three stylesheets cannot simply be imported there, and the
+  reasons are worth stating because both are silent:
+
+  - `base.css` carries **52 bare-element rules**, and unlayered CSS outranks
+    every Tailwind `@layer` regardless of specificity. Importing it whole
+    overrides the consumer's own utilities.
+  - `tokens.css` declares its entire scale on a bare `:root`. Importing it
+    leaks the library palette to the document root — and this consumer's
+    `--accent` (library grey vs app blue) and `--radius` (10px vs 0.5rem)
+    collide on the way in.
+
+  What is safe to import is `components.css`: every rule in it is either
+  `.cm-*`-scoped or a non-`cm-` class only ever emitted as a compound under
+  a `.cm-` parent, plus `html` and a media-query `pre`. That was measured,
+  not assumed.
+
+  So the generator emits a scoped entry point instead: the `@import` of the
+  consumer's own vendored `components.css` **first**, then the
+  theme-independent scale copied verbatim from `tokens.css :root` and the
+  two `[data-cm-theme]` colour blocks copied verbatim from the themed ones,
+  all re-scoped to `[data-cm-theme]`. The consumer opts in with the
+  library's own documented scoped hook, so nothing reaches the document
+  root. Copying rather than importing is what makes it drift-proof, and it
+  has to be copied: a hand-written scale was measured **wrong in 17 of 44
+  values** on the first attempt at exactly this.
+
+  `--check` is the anti-rot guarantee and is what the two drift mutations
+  kill: a rebrand that changes `tokens.css` fails the check rather than
+  silently missing the consumer.
+
+  Three defects this path reproduced, each of which shipped a green build:
+  the `@import` emitted after a declaration block (PostCSS drops it — the
+  built CSS then held **0** occurrences of `cm-prose-table` while the build
+  still succeeded), a vendored path guessed wrong with no warning at all,
+  and a vendored `cli-mono.js` so stale it predated `initTableLabels`.
+
 - **The reset-safe list marker only worked in one of two load orders.** The
   `ul, ol { list-style-type: disc }` default added in f679a8b is `(0,0,1)`, and
   Tailwind v3 preflight's `ol,ul,menu{list-style:none}` is *also* `(0,0,1)`.

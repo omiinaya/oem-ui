@@ -3,6 +3,9 @@ dist/
 .astro/
 .DS_Store
 *.log
+# The mutation harness snapshots the files it mutates next to them; those
+# backups are cycle debris, never commits.
+*.mutbak
 
 # The SAME-PATH symlink this repo's own tooling uses to reach itself.
 /oem-ui

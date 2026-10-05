@@ -146,6 +146,73 @@ cp -r src/styles <your-project>/src/
 cp src/js/cli-mono.js <your-project>/src/js/
 ```
 
+### Option C — a consumer that cannot import the library globally
+
+Some consumers cannot take `tokens.css` and `base.css` at all, and the
+reasons are structural rather than preference:
+
+- **`base.css` carries 52 bare-element rules** (`a`, `h1`, `table`…), and
+  unlayered CSS outranks every Tailwind `@layer` *regardless of specificity*.
+  A bundler that inlines `@tailwind base` into your stylesheet will let the
+  library's `a` rules override your own utilities.
+- **`tokens.css` declares its whole scale on a bare `:root`.** Import it and
+  the library palette reaches your document root — where it collides with a
+  consumer's own `--accent` and `--radius`.
+
+That is the shape of a React + Vite + Tailwind app. For those, generate a
+**scoped** entry point:
+
+```bash
+# vendor first, so the generator's import path resolves
+./scripts/install.sh <your-project> --flat
+
+node scripts/make-scoped-entry.mjs \
+  --out <your-project>/src/cm-prose.css \
+  --components ../cli-mono/components.css
+```
+
+That emits the consumer's `@import` of its own vendored `components.css`
+**first**, then the theme-independent scale and the two `[data-cm-theme]`
+colour blocks copied verbatim from `tokens.css`, all re-scoped to
+`[data-cm-theme]`. `components.css` is the one stylesheet that is safe to
+import directly — every rule in it is `.cm-*`-scoped or a non-`cm-` class only
+ever emitted as a compound under a `.cm-` parent.
+
+Then opt the subtree in, and **the generated file must be the first
+statement in your main stylesheet**:
+
+```html
+<!-- 1. the @import, above every other statement -->
+@import "./cm-prose.css";
+
+@tailwind base;      <!-- 2. your own reset, after it -->
+```
+
+```jsx
+// the library's own documented scoped hook: this subtree only
+<div className="cm-prose article-content" data-cm-theme="dark"
+     data-cm-table-labels>
+```
+
+Two things here fail *silently*, so both are worth stating:
+
+- **`@import` after any other statement is dropped by PostCSS** with a
+  warning. The build stays green and your CSS holds none of the library.
+  Measured: `grep -c 'cm-prose-table' dist/assets/*.css` returned **0**.
+  A comment above the `@import` still counts as a statement.
+- **The generated file must not be hand-edited.** Re-run it; `--check`
+  fails when it has drifted, which is what keeps a rebrand from silently
+  missing the consumer:
+
+```bash
+node scripts/make-scoped-entry.mjs --check <your-project>/src/cm-prose.css \
+  --components ../cli-mono/components.css
+```
+
+A SPA also has to call the runtime explicitly: it self-initialises on
+`DOMContentLoaded` and `astro:page-load`, and a React tree renders long
+after both have fired.
+
 ### Not available yet
 
 - `curl https://raw.githubusercontent.com/...` returns **404** — a private
@@ -850,9 +917,11 @@ that is 1,772 bullet items and 818 numbered ones in 35 articles.
 
 What is *not* affected, checked rather than assumed:
 
-- `.cm-rows`, `.cm-cards`, `.cm-stats`, `.cm-meters`, `.cm-chips` and friends
-  are `list-style: none` at (0,1,0) and stay markerless — measured `none`
-  at every width, library-only and behind a reset.
+- `.cm-rows`, `.cm-cards`, `.cm-stats`, `.cm-meters`, `.cm-swatch`,
+  `.cm-projects` and `.cm-timeline` are `list-style: none` at (0,1,0) and stay
+  markerless — measured `none` at every width, library-only and behind a reset.
+  (`.cm-chips` was listed here and no longer exists; the audit's stale-doc
+  check is what caught it.)
 - `.cm-table th` keeps its deliberate `400` and `.cm-prose-table th` its
   `600`; both outrank this (0,0,1) element rule.
 - `li { margin-bottom }` and `li::marker` are untouched.
