@@ -5,6 +5,45 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **The reset-safe list marker only worked in one of two load orders.** The
+  `ul, ol { list-style-type: disc }` default added in f679a8b is `(0,0,1)`, and
+  Tailwind v3 preflight's `ol,ul,menu{list-style:none}` is *also* `(0,0,1)`.
+  Equal specificity means the winner is decided by source order, so the reset
+  wins outright whenever it loads after the library — and a Vite/PostCSS build
+  inlines `@tailwind base` into the same stylesheet as the consumer's own CSS,
+  so which file is imported decides the outcome.
+
+  MEASURED in WebKit at 390px against a real preflight: preflight-first gives
+  `ul { list-style-type: disc }`, preflight-after gives `none`. In the losing
+  ordering every bullet and number in every article disappears while
+  `padding-left` still reads 1.4em, so the paragraph renders as a deliberate
+  list with nothing in it. This is the library's own claimed consumer:
+  hermes-articles renders 1,772 bullet items across 35 articles, and its build
+  currently inlines preflight ahead of nothing at all (it vendors four library
+  files that nothing imports).
+
+  The obvious fix is a regression, and it was measured before being rejected.
+  `.cm-prose ul` is `(0,1,1)`, which beats the reset — and also beats every
+  markerless rule in the library, all of which are `(0,1,0)` (`.cm-rows`,
+  `.cm-cards`, `.cm-projects`, `.cm-timeline`, `.cm-swatch`). A `.cm-rows`
+  nested in prose goes from `none` to `disc`, putting a bullet on every row of
+  every list component.
+
+  What ships is `.cm-prose ul:not([class])` at `(0,2,1)`. It beats the reset in
+  **either** order and cannot match a list that carries a class, because a
+  classed list belongs to whoever gave it the class. Measured, both orders:
+
+  ```
+  prose ul   disc        ol   decimal
+  .cm-rows   none        .list-none  none
+  ```
+
+  The tests assert the **selector**, not the value: a surviving
+  `list-style-type: disc` with the specificity guarantee dropped passes every
+  value-shaped check and reintroduces the bug. The mutation harness carries
+  that inert-value mutant explicitly, and the flat `.cm-prose ul` form that
+  looks equivalent and is not.
+
 - **`install.sh --astro` shipped the components without the module they
   import, so `<Header>` could not be installed and used.** `Header.astro` and
   `HeaderLink.astro` both do `import { isCurrentPage } from './current'`, and

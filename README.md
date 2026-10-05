@@ -861,7 +861,29 @@ What is *not* affected, checked rather than assumed:
 cascaded origin, so on a reset-based stack it hands the bullet back to
 nothing. A declared value is what survives a reset.
 
-Verified two ways, because the two answer different questions:
+**And a declared value is not automatically a surviving value.** `ul, ol` is
+(0,0,1) and Tailwind v3 preflight's `ol,ul,menu{list-style:none}` is *also*
+(0,0,1), so in a build that inlines the reset and the library into one
+stylesheet the winner is decided by **source order**. Measured in WebKit at
+390px: preflight-first → `disc`, preflight-after → `none`. Which file is
+imported first, i.e. nothing the library controls.
+
+`.cm-prose ul:not([class])` is (0,2,1) and closes that hole — it wins in
+either order, and `:not([class])` is what keeps it from reaching a list that
+carries a class. The obvious flat `.cm-prose ul` (0,1,1) also wins the reset
+but **also beats every (0,1,0) markerless component**, measured: a `.cm-rows`
+inside `.cm-prose` goes `none` → `disc`. Classed markup belongs to whoever
+gave it the class, which is why the discriminator is the absence of one.
+
+So the full picture for an article body on a reset-based stack:
+
+| | bare rule | + `.cm-prose` | + `.cm-prose ul:not([class])` |
+|---|---|---|---|
+| reset loads first | `disc` | `disc` | `disc` |
+| reset loads after | **`none`** | `disc` | `disc` |
+| `.cm-rows` in prose | `none` | **`disc`** | `none` |
+
+Verified three ways, each answering a different question:
 
 - `tests/verify-article-defaults-webkit.py` — the **declaration** survives a
   reset (18 measurements, 390/375).
@@ -871,6 +893,11 @@ Verified two ways, because the two answer different questions:
   a computed keyword, because `outside` hangs the marker in the ul's padding
   where it shifts nothing: measured `markerDelta: 15` with the bullet, `0`
   without.
+- `tests/measure-prose-list-webkit.py` — the **both orderings** claim, against
+  a real preflight, with `.cm-rows` and Tailwind's `.list-none` as the
+  counter-examples that a value-shaped test cannot see.
+- `tests/verify-prose-list-webkit.py` — the same two halves on the **served
+  page** at 375/390/402/1024, with `localStorage` cleared before each load.
 
 ### Prose tables — `.cm-prose-table` vs `.cm-table`
 

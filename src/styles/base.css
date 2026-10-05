@@ -192,6 +192,48 @@ blockquote {
    bullet back to nothing; a declared value is what survives a reset. */
 ul, ol { padding-left: 1.4em; margin: 0 0 1.2em; list-style-type: disc; }
 ol { list-style-type: decimal; }
+
+/* The `.cm-prose` twin of the rule above, and the reason the two are not
+   the same declaration.
+
+   `ul, ol` is (0,0,1). Tailwind v3 preflight's `ol,ul,menu{list-style:none}`
+   is ALSO (0,0,1). Equal specificity means the winner is decided by SOURCE
+   ORDER, so the bare rule above survives only when the consumer's reset
+   loads FIRST. That is a real ordering on the page, not a hypothetical:
+   a Vite/PostCSS build inlines `@tailwind base` into the SAME stylesheet
+   as the consumer's own CSS, and where the vendored library file is
+   imported decides the result. MEASURED in WebKit at 390px, this rule
+   against a real preflight, both orderings:
+
+       preflight first   ul { list-style-type: disc }
+       preflight after   ul { list-style-type: none }     <-- the defect
+
+   Scoping to `.cm-prose ul` fixes the order and REGRESSES something else,
+   which is why it is not what shipped. `.cm-prose ul` is (0,1,1) and every
+   markerless list rule in this library is (0,1,0) - `.cm-rows` at 763,
+   `.cm-cards`, `.cm-projects`, `.cm-timeline`, `.cm-swatch`. MEASURED, a
+   `.cm-rows` nested inside a `.cm-prose` grows a bullet it must never have:
+
+       .cm-rows inside .cm-prose    none -> disc
+
+   So the discriminator is not a class at all, it is the ABSENCE of one.
+   `.cm-prose ul:not([class])` is (0,2,1): it beats preflight in either load
+   order, and it cannot match a list that carries a class, because a classed
+   list belongs to whoever gave it the class. Tailwind's own `.list-disc` and
+   `.list-none` keep working. This is the same doctrine the bare rules above
+   follow - the library owns the defaults for elements a markdown renderer
+   emits with no attributes at all, and leaves classed markup to its owner.
+
+   MEASURED, both load orders, all four subjects:
+
+       prose ul   disc        ol   decimal
+       .cm-rows   none        .list-none  none
+
+   `ol` needs its own rule to reach `decimal`: it is the later declaration
+   in the pair, so it wins on order among equally-specific selectors. */
+.cm-prose ul:not([class]),
+.cm-prose ol:not([class]) { list-style-type: disc; }
+.cm-prose ol:not([class]) { list-style-type: decimal; }
 li { margin-bottom: 0.4em; }
 li::marker { color: var(--ink-dim); }
 

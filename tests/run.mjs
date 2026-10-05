@@ -10578,6 +10578,93 @@ check('the leading dot is the COMPONENT\'s, so a caller cannot double it', () =>
 				`${c} must keep list-style: none - the bare-list default would otherwise put a bullet on every row of every list component`);
 		}
 	});
+
+	/* ---- the load-order half ----
+	   The bare `ul, ol` rule is (0,0,1) and Tailwind v3 preflight's
+	   `ol,ul,menu{list-style:none}` is ALSO (0,0,1). Equal specificity means
+	   the winner is decided by source order, so the reset WINS whenever it
+	   loads after the library. MEASURED in WebKit at 390px against a real
+	   preflight: preflight-first -> ul computes `disc`; preflight-after ->
+	   ul computes `none`. One of the two orderings silently erases every
+	   bullet in every article, with the indent still at 1.4em so it looks
+	   like a deliberate list.
+
+	   The fix cannot simply raise specificity. `.cm-prose ul` is (0,1,1) and
+	   beats every markerless rule above at (0,1,0) - MEASURED, it gives a
+	   `.cm-rows` nested in prose a bullet. What ships is
+	   `.cm-prose ul:not([class])` at (0,2,1): it beats the reset in EITHER
+	   order and cannot match a list that carries a class, because a classed
+	   list belongs to whoever gave it the class.
+
+	   These assertions are about the SELECTOR, not the property: a
+	   `list-style-type: disc` that survived while the specificity guarantee
+	   was dropped would pass every value-shaped check and reintroduce the
+	   load-order bug. That is the same shape as the `max-height: none`
+	   mutant the skill records - an inert value that matches the property
+	   name. */
+	check('the prose marker rule outranks a reset by selector, not by load order', () => {
+		const selectors = [
+			'.cm-prose ul:not([class])',
+			'.cm-prose ol:not([class])',
+		];
+		for (const sel of selectors) {
+			const decls = ruleBodies(baseSrc, sel);
+			assert(decls.length,
+				`${sel} is not defined in base.css. Without it the bare \`ul, ol\` rule ties with a Tailwind preflight at (0,0,1) and loses whenever the consumer's reset loads after the library - measured: every ul computes list-style-type: none, with padding-left still at 1.4em so it renders as a deliberate list with nothing in it`);
+			assert(decls.some((b) => /list-style-type:\s*disc/.test(b)),
+				`${sel} must declare list-style-type: disc. Got a rule with the right selector and the wrong value`);
+		}
+		// `:not([class])` is the whole mechanism. A flat `.cm-prose ul` wins
+		// the reset and loses `.cm-rows`; only excluding classed elements
+		// does both.
+		for (const sel of selectors) {
+			assert(/:not\(\[class\]\)/.test(sel),
+				`${sel} must keep :not([class]). A flat .cm-prose ul is (0,1,1), which beats the reset but also beats every (0,1,0) markerless component rule - measured: .cm-rows inside .cm-prose goes from list-style-type none to disc, putting a bullet on every row`);
+		}
+		// And the exclusivity has to hold in the OTHER direction too: a
+		// bare-element descendant selector (`.cm-prose ul`, `.cm-prose li`)
+		// anywhere in the file can undo the whole thing without touching
+		// the rules above. The `(?!\()` after the element name is what
+		// separates them from the shipped rule: `:not([class])` also
+		// matches "a `:`, an element name, then end-of-selector", so a
+		// guard written without it fails on the fix it is meant to police,
+		// and a reader then relaxes the guard instead of the CSS.
+		const bareProseLists = [...baseSrc
+			.replace(/\/\*[\s\S]*?\*\//g, '')
+			.matchAll(/([^{}]+)\{/g)]
+			.flatMap((m) => m[1].split(',').map((s) => s.trim()))
+			.filter((s) => /^\.cm-prose\s+(ul|ol|li)(\s*$|\s+|:not\(|\+|~)/.test(s))
+			.filter((s) => !/^(.*)\b(ul|ol|li):not\(\[class\]\)$/.test(s));
+		assert(bareProseLists.length === 0,
+			`these .cm-prose list selectors are (0,1,1) and will reach lists that carry a class: ${[...new Set(bareProseLists)].join(', ')}. Scope them with :not([class]) like the marker rule, or a .cm-rows inside prose grows bullets`);
+	});
+
+	check('the ordered list reaches decimal through its own :not([class]) rule', () => {
+		// `ul` and `ol` share the disc declaration, so ol needs a later,
+		// equally-specific rule of its own. Inheriting from the pair gives
+		// ol `disc` - bullets on a numbered list.
+		const olBodies = ruleBodies(baseSrc, '.cm-prose ol:not([class])');
+		const decimal = olBodies.find((b) => /list-style-type:\s*decimal/.test(b));
+		assert(decimal,
+			'.cm-prose ol:not([class]) must DECLARE list-style-type: decimal. Sharing the ul declaration leaves ordered lists bulleted - measured: ol computed disc');
+	});
+
+	check('the load-order specimen shows both the rule and what it must not reach', () => {
+		const sec = /<section id="proselists-order"[\s\S]*?<\/section>/.exec(showcase);
+		assert(sec,
+			'the showcase has no #proselists-order section, so the load-order guarantee is unproven surface');
+		assert(/<ul>\s*\n\s*<li>/.test(sec[0]),
+			'the specimen needs a CLASSLESS <ul> inside .cm-prose - that is the element the reset erases and the marker rule claims');
+		assert(/<ol>\s*\n\s*<li>/.test(sec[0]),
+			'the specimen needs a classless <ol> to show the decimal default survives the same fight');
+		// The counter-example is the load-bearing half: a rule that only
+		// proves it can add bullets would also pass with the naive flat
+		// selector that breaks .cm-rows.
+		assert(/<ul class="cm-rows"/.test(sec[0]),
+			'the specimen must render a classed .cm-rows list inside the same .cm-prose column. Without the counter-example, this section demonstrates only that markers can be added - which the rejected flat selector also does, while breaking every markerless component');
+		assert(/'proselists-order'/.test(showcase),
+			'#proselists-order is not registered in SECTION_ORDER, so the section is unreachable from the page nav');
+	});
 }
 /* ================= result ================= */
 console.log(`\n${passed} passed, ${failures.length} failed`);

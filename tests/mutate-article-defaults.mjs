@@ -114,6 +114,97 @@ const MUTANTS = [
 		/'proselists', /,
 		'',
 	],
+
+	/* ---- the load-order half, added when the reset race was fixed ----
+	   Each of these reverts ONE link in the chain that makes the marker
+	   survive a consumer's preflight. The naive scoped selector is the
+	   important one: it is the fix a reasonable person writes, it PASSES
+	   every value-shaped assertion in the file above, and it is wrong -
+	   MEASURED, it gives a .cm-rows nested in prose a bullet. A harness
+	   without it would score the shipped selector as equivalent to a
+	   regression. */
+	[
+		'scope the marker to a flat .cm-prose ul - the obvious fix, which wins the reset and puts bullets on every .cm-rows',
+		'src/styles/base.css',
+		/^\.cm-prose ul:not\(\[class\]\),\n\.cm-prose ol:not\(\[class\]\) \{ list-style-type: disc; \}$/m,
+		'.cm-prose ul, .cm-prose ol { list-style-type: disc; }',
+	],
+	[
+		'drop :not([class]) from the ul selector only, so a classed list in prose gains a marker',
+		'src/styles/base.css',
+		/^\.cm-prose ul:not\(\[class\]\),$/m,
+		'.cm-prose ul,',
+	],
+	[
+		'drop :not([class]) from the ol selector only',
+		'src/styles/base.css',
+		/^\.cm-prose ol:not\(\[class\]\) \{ list-style-type: decimal; \}$/m,
+		'.cm-prose ol { list-style-type: decimal; }',
+	],
+	[
+		// The inert-value mutant for a SELECTOR-shaped guarantee: the rule
+		// keeps its name and its `list-style-type: disc`, and the load-order
+		// bug comes straight back. Every /list-style-type/ presence test
+		// still passes, which is the whole reason the tests assert the
+		// selector rather than the value.
+		'replace the whole scoped pair with the bare reset-order rule the fix replaced',
+		'src/styles/base.css',
+		/^\.cm-prose ul:not\(\[class\]\),\n\.cm-prose ol:not\(\[class\]\) \{ list-style-type: disc; \}$/m,
+		'ul, ol { list-style-type: disc; }',
+	],
+	[
+		'delete the prose decimal rule, so a numbered list inside prose computes disc',
+		'src/styles/base.css',
+		/^\.cm-prose ol:not\(\[class\]\) \{ list-style-type: decimal; \}$/m,
+		'',
+	],
+	[
+		// Anchored in base.css, which is where the marker rule lives. The
+		// first version of this mutant anchored on `.cm-prose { color: ...`,
+		// a rule that only exists in components.css - so it reported NO-OP
+		// and would have scored a pattern that can never match as a pass.
+		// The point of the mutant is that an unscoped `.cm-prose ul` ANYWHERE
+		// reaches classed lists, which is why the guard in run.mjs scans the
+		// whole file rather than the two rules it wrote.
+		'add a flat .cm-prose ul rule elsewhere, which reaches classed lists the scoped one cannot',
+		'src/styles/base.css',
+		/^\.cm-prose ul:not\(\[class\]\),$/m,
+		'.cm-prose ul { margin-bottom: 1em; }\n.cm-prose ul:not([class]),',
+	],
+	[
+		'remove the classless <ul> from the load-order specimen',
+		'src/pages/index.astro',
+		/<ul>\s*\n\s*<li><code>ul<\/code>/,
+		'<ul class="cm-rows">\n														<li><code>ul</code>',
+	],
+	[
+		'remove the classless <ol> from the load-order specimen',
+		'src/pages/index.astro',
+		/<ol>\s*\n\s*<li><code>ol<\/code>/,
+		'<ol class="cm-rows">\n														<li><code>ol</code>',
+	],
+	[
+		// The counter-example mutant. Removing it leaves a specimen that
+		// still shows two classless lists, so it still "demonstrates the
+		// rule" - and would pass a suite that only checks that. The rule
+		// under test is EXCLUSIVE, and only the counter-example shows it.
+		'remove the classed .cm-rows counter-example, so the specimen proves only that markers can be added',
+		'src/pages/index.astro',
+		/<ul class="cm-rows">\s*\n\s*<li class="cm-row">\s*\n\s*<span class="cm-row__idx">&mdash;<\/span>\s*\n\s*<span class="cm-row__body">\s*\n\s*<span class="cm-row__title">\.cm-rows<\/span>/,
+		'<ul>\n															<li class="cm-row">\n															<span class="cm-row__idx">&mdash;</span>\n															<span class="cm-row__body">\n																<span class="cm-row__title">.cm-rows</span>',
+	],
+	[
+		'remove the whole #proselists-order section, so the load-order guarantee is unproven surface',
+		'src/pages/index.astro',
+		/<section id="proselists-order"[\s\S]*?<\/section>/,
+		'',
+	],
+	[
+		'unregister the load-order section from SECTION_ORDER',
+		'src/pages/index.astro',
+		/'proselists-order', /,
+		'',
+	],
 ];
 
 let noop = 0;

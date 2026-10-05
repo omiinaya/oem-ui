@@ -39,7 +39,7 @@ import SectionHead from '../astro/SectionHead.astro';
 const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'crumbs', 'lists', 'states', 'surface',
   'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'choice',
-	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'proselists', 'prosetap', 'prosetable', 'tablelabels', 'layout',
+	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'proselists', 'proselists-order', 'prosetap', 'prosetable', 'tablelabels', 'layout',
 	'forms', 'search', 'auth', 'readme',
 ] as const;
 
@@ -2170,8 +2170,42 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 								</tbody>
 							</table>
 							<p>The <code>th</code> above is bold because <code>base.css</code> says so. Behind a Tailwind v3 preflight it measured 400 - the same weight as every <code>td</code> beside it, so the header row became a row.</p>
-						</div>
-					</section>
+														</div>
+													</section>
+
+													<section id="proselists-order" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+														<SectionHead title="marker rules and load order">
+															A bare <code>ul, ol</code> rule is <code>(0,0,1)</code> and a Tailwind v3 preflight is also <code>(0,0,1)</code>, so the winner is decided by source order - the reset wins outright when it loads later. <code>.cm-prose ul:not([class])</code> is <code>(0,2,1)</code>: it beats the reset in either order and cannot match a list that carries a class.
+														</SectionHead>
+
+														<div class="cm-prose">
+															<p>These two lists are classless, so the marker rule owns them:</p>
+															<ul>
+																<li><code>ul</code> &rarr; <code>disc</code></li>
+															</ul>
+															<ol>
+																<li><code>ol</code> &rarr; <code>decimal</code></li>
+															</ol>
+
+															<p>And this one carries a class, so its own <code>list-style: none</code> still wins and the prose rule never reaches it:</p>
+															<ul class="cm-rows">
+																								<li class="cm-row">
+																									<span class="cm-row__idx">&mdash;</span>
+																									<span class="cm-row__body">
+																										<span class="cm-row__title">.cm-rows</span>
+																										<span class="cm-row__desc">stays markerless inside prose</span>
+																									</span>
+																								</li>
+																								<li class="cm-row">
+																									<span class="cm-row__idx">&mdash;</span>
+																									<span class="cm-row__body">
+																										<span class="cm-row__title">.list-disc</span>
+																										<span class="cm-row__desc">a Tailwind utility still works here too</span>
+																									</span>
+																								</li>
+																							</ul>
+														</div>
+													</section>
 
 					<section id="prosetap" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
 												<SectionHead title="prose measure + inline link">
