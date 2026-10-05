@@ -33,6 +33,46 @@
 	margin-right: 0.18em;
 }
 .cm-kicker--plain::before { content: none; }
+/* A `--plain` kicker is a subheading used STANDALONE - no .cm-head around
+   it, no card to separate it from what it introduces. Measured 0px under
+   15 of them on the showcase: kicker -> .cm-head__sub, kicker -> .cm-spec,
+   kicker -> .cm-state, kicker -> .cm-kv. The label and its own description
+   read as one run-on block.
+
+   Only the plain variant: inside .cm-head the block owns the space, and
+   doubling it there is what `--stack-head` avoids. */
+.cm-kicker--plain { margin-bottom: var(--stack-tight); }
+
+/* ---------- layout: the stack ----------
+   THE fix for "sections are mashed together".
+
+   The --space-N scale was already enforced everywhere (no raw rem/px in a
+   component), and it still produced five projects with five different
+   answers for the gap between two top-level blocks. A scale says which
+   sizes EXIST. It does not say which one goes WHERE, and with nothing
+   owning that, every site invented its own.
+
+   A stack owns it: one `gap` applies BETWEEN siblings, so there is no
+   first-child/last-child margin to get wrong, no collapsing margins, and
+   no per-site number. Adding a child can never produce a 0px join.
+
+   `.cm-stack`     the primitive: a column with --stack-gap between kids
+   `.cm-stack--section` top-level page rhythm, --stack-section
+   `.cm-stack--tight`     dense peers (spec rows, inline lists)
+   `.cm-stack--flush`     no gap at all, for when the gap IS the content
+
+   Use it on the page, not on every component. Components keep their own
+   internal spacing; the stack owns the rhythm between them. */
+.cm-stack { display: flex; flex-direction: column; gap: var(--stack-gap); }
+.cm-stack--section { gap: var(--stack-section); }
+.cm-stack--tight { gap: var(--stack-tight); }
+.cm-stack--flush { gap: 0; }
+/* The four density steps, named rather than measured: a page that says
+   `gap: var(--space-4)` in markup is a number nobody can review and no
+   guard can see. Naming the step puts the value back in the library. */
+.cm-stack--snug  { gap: var(--space-4); }
+.cm-stack--airy  { gap: var(--space-6); }
+.cm-stack--loose { gap: var(--space-7); }
 
 /* ---------- section shell: flat panel, mono border ---------- */
 .cm-section {
@@ -50,7 +90,27 @@
 /* ---------- page head block ----------
    The single source for the top-of-page vertical start. Use on
    every page's opening block so all routes begin at the same y. */
-.cm-head { padding: var(--head-top) 0 2rem; }
+.cm-head {
+	padding: var(--head-top) 0 2rem;
+	/* The 0px join Omar reported, in all five projects at once.
+
+	   This block sets NO bottom margin, and its last child (the h1 or the
+	   .cm-head__sub) has its own bottom margin reset to 0 by the base
+	   layer. So whatever followed the head sat flush against it:
+	   measured head->content at exactly 0px on oem-ui, oem-portfolio,
+	   dev-blog, links AND log.oem.ngo. `padding-bottom: 2rem` is the
+	   padding ABOVE the title, not below the block - the two never met.
+
+	   A margin here is the fix, not more padding: padding would add to
+	   the 2rem that already owns the inner rhythm and push the following
+	   content down while leaving the 0px join inside the block. The
+	   rhythm token means a consumer can retune this in one place. */
+	margin-bottom: var(--stack-head);
+}
+/* A head that is the LAST thing on the page must not leave a dangling
+   20px before the footer's own padding. `main` is a .cm-stack, so the
+   bottom margin of its last child is the only thing at the boundary. */
+.cm-stack > .cm-head:last-child { margin-bottom: 0; }
 .cm-head .cm-kicker { margin-bottom: var(--space-3); }
 .cm-head h1,
 .cm-head .cm-head__title,
@@ -91,6 +151,12 @@
 	display: flex;
 	align-items: center;
 	gap: var(--space-3);
+	/* A head row is a TITLE for what follows it. With no bottom margin
+	   the thing it titles sat flush against it - measured 0px in 25 places
+	   on the showcase alone (head-row -> spec, -> prose, -> card,
+	   -> kicker, -> codebar, -> table-wrap). Same defect as .cm-head had,
+	   one level down: a heading with no space under it. */
+	margin-bottom: var(--stack-tight);
 	/* A head row is a title plus whatever flags that host carries. At 390px
 	   rpm puts a domain and eight chips on this line, and because nothing
 	   here could wrap, the row stayed one line at whatever width the flags
@@ -5303,3 +5369,23 @@ textarea.cm-code {
 	height: 1px;
 	background: var(--line);
 }
+/* ============ stack ownership (LAST, on purpose) ============
+   These two rules must beat every component's own block margin. They are
+   at the end of the layer for that reason, and `gap` is a single number
+   that cannot drift between projects.
+
+   Placed at the TOP of the layer - the intuitive spot, next to the
+   definition - they silently lost: `.cm-stack > *` and `.cm-section`
+   are both specificity 0-1-0, so source order decides, and every
+   component rule came later. Measured with the reset up top: sections
+   rendered at 48.8px (a 28.8px component margin + a 20px gap) against
+   the 20px rhythm, and `--stack-section` never applied at all because
+   `.cm-stack--section` lost to `.cm-stack` the same way.
+
+   `margin-block: 0` on a direct child is safe because `gap` applies
+   BETWEEN siblings only - the first and last children keep the space
+   the page gives them (.cm-shell padding, --head-top on the head). */
+.cm-stack > * { margin-block: 0; }
+/* `--section` must win over the base `.cm-stack` gap, so it is scoped
+   higher rather than relying on order alone. */
+.cm-stack.cm-stack--section { gap: var(--stack-section); }

@@ -143,6 +143,32 @@
 	--space-9: 4rem;
 	--space-10: 6rem;
 
+	/* ---- rhythm ------------------------------------------------
+	   THE spacing contract for stacked blocks. The --space-N scale says
+	   WHICH sizes exist; these say WHICH ONE GOES WHERE, which is the
+	   thing that was missing and the reason five projects each invented
+	   their own gap between sections.
+
+	   Before this, `.cm-head` had margin-bottom: 0 and no component
+	   owned section-to-section space at all. Measured across oem-ui,
+	   oem-portfolio, dev-blog, links and log: EVERY one of them put
+	   content flush against the head block at exactly 0px, and oem-ui
+	   had 15 such joins internally. A scale without a rhythm is a
+	   palette, not a system.
+
+	   --stack-gap        : the default between siblings in a .cm-stack
+	   --stack-section    : between top-level page sections
+	   --stack-head       : below a page/section head block
+	   --stack-tight      : for a dense list of small peers (spec rows)
+
+	   Override --stack-section ONCE per project to retune the whole
+	   vertical rhythm; every consumer inherits it without touching a
+	   component rule. */
+	--stack-gap: var(--space-5);
+	--stack-section: var(--space-6);
+	--stack-head: var(--space-5);
+	--stack-tight: var(--space-3);
+
 	/* ---- type --------------------------------------------------
 	   everything is mono: that IS the identity */
 	--font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, 'SF Mono',

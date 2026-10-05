@@ -90,7 +90,7 @@ import { SITE } from '../astro/config';
 		extraLinks={[{ href: SITE.github, label: 'github' }]}
 		rail
 	/>
-		<main class="cm-shell cm-shell--rail">
+		<main class="cm-shell cm-shell--rail cm-stack cm-stack--section">
 			<PageHead kicker="design system" title="oem/ui" sub="mono/terminal components. dark default. works anywhere." />
 			<StatusStrip label="status" status="ok">
 				css, js and astro components verified. build-testable.
@@ -102,7 +102,7 @@ import { SITE } from '../astro/config';
 			     hardcoded value pasted alongside. A specimen that disagreed
 			     with its own token would be worse than no specimen, and a
 			     test asserts the wiring. -->
-			<section id="foundation" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+			<section id="foundation" class="cm-section cm-section--pad">
 				<SectionHead title="foundation">
 The design language, shown as specimens. Every value here is rendered from the token it documents, so this page cannot drift away from the system it demos.
 				</SectionHead>
@@ -245,7 +245,7 @@ The design language, shown as specimens. Every value here is rendered from the t
 				</dl>
 			</section>
 
-			<section id="buttons" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
+			<section id="buttons" class="cm-section cm-section--pad">
 				<SectionHead title="buttons" />
 				<div class="cm-btn-group">
 					<a class="cm-btn">Default</a>
@@ -263,7 +263,7 @@ The design language, shown as specimens. Every value here is rendered from the t
 			     says WHAT YOU ARE READING as you scroll. The first nav is
 			     live - it is the one in the header, so its states are real,
 			     not a hand-built mock. -->
-			<section id="nav" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+			<section id="nav" class="cm-section cm-section--pad">
 				<SectionHead title="nav">
 Two states, two different questions. <code>active</code> marks the page you are on and renders <code>aria-current="page"</code>; the scroll-spy marks what you are reading as you scroll. They coexist on a one-page site, so they cannot be the same attribute. Scroll to watch the first nav above change.
 				</SectionHead>
@@ -287,8 +287,8 @@ Two states, two different questions. <code>active</code> marks the page you are 
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">grouped rail</h3>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+				<h3 class="cm-kicker cm-kicker--plain">grouped rail</h3>
+				<p class="cm-head__sub">
 					An application rail has labelled groups. The label is its own element,
 					not a link: a heading wearing a link's class inherits the 44px tap floor
 					and becomes a dead target for a screen reader.
@@ -315,8 +315,8 @@ Two states, two different questions. <code>active</code> marks the page you are 
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">mobile disclosure</h3>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+				<h3 class="cm-kicker cm-kicker--plain">mobile disclosure</h3>
+				<p class="cm-head__sub">
 					Twelve links do not fit a phone, so under 640px the nav collapses
 					behind a burger &mdash; the one in the header above. Narrow this
 					window to see it. The collapse is scoped to the runtime having booted,
@@ -348,8 +348,8 @@ Two states, two different questions. <code>active</code> marks the page you are 
 					rather than leaking it into the next phone view.
 				</p>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">bare glyph on a header surface</h3>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+				<h3 class="cm-kicker cm-kicker--plain">bare glyph on a header surface</h3>
+				<p class="cm-head__sub">
 					<em>boxed</em> is the default: a button that needs to read as a
 					control on its own, sitting on a surface with no other chrome.
 					<em>bare</em> drops the border and the radius for a glyph that shares
@@ -397,8 +397,8 @@ Two states, two different questions. <code>active</code> marks the page you are 
 					height check, still too narrow to hit.
 				</p>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">HeaderLink</h3>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+				<h3 class="cm-kicker cm-kicker--plain">HeaderLink</h3>
+				<p class="cm-head__sub">
 					Path matching is the part of a nav every consumer gets wrong, so the library
 					owns it. The first link points at this page, so it marks itself current; the
 					others do not. Note the trailing slashes and the query string, which it
@@ -428,7 +428,7 @@ Two states, two different questions. <code>active</code> marks the page you are 
 				</div>
 				</section>
 
-			<section id="crumbs" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+			<section id="crumbs" class="cm-section cm-section--pad">
 				<SectionHead title="breadcrumb">
 					The trail above a detail page: how deep am I, and how do I get out. It is the first thing a thumb touches, so every crumb is a <code>--tap</code> target; the separator is a <code>.cm-crumbs__sep</code> carrying <code>aria-hidden="true"</code> so a screen reader never speaks it; and the last crumb is marked <code>aria-current="page"</code>, the same attribute the header nav uses, so "you are here" survives greyscale print and a screen reader.
 				</SectionHead>
@@ -440,8 +440,8 @@ Two states, two different questions. <code>active</code> marks the page you are 
 					<span class="cm-crumbs__here" aria-current="page">cli-mono</span>
 				</nav>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">deep trail, wraps on a phone</h3>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+				<h3 class="cm-kicker cm-kicker--plain">deep trail, wraps on a phone</h3>
+				<p class="cm-head__sub">
 					A trail grows with its depth. Five levels at 390px overflows the
 					column, so this one wraps. Each separator lives <em>inside</em> the
 					crumb it follows, so a wrap can never strand a lone chevron on a
@@ -458,7 +458,7 @@ Two states, two different questions. <code>active</code> marks the page you are 
 					<span class="cm-crumbs__here" aria-current="page">cli-mono-embed</span>
 				</nav>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">the rules</h3>
+				<h3 class="cm-kicker cm-kicker--plain">the rules</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row" role="listitem">
 						<span class="cm-spec__label"><code>cm-crumbs</code></span>
@@ -488,7 +488,7 @@ Two states, two different questions. <code>active</code> marks the page you are 
 				</div>
 			</section>
 
-			<section id="lists" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
+			<section id="lists" class="cm-section cm-section--pad">
 				<SectionHead title="lists / rows" />
 				<div class="cm-list-head" style="margin-bottom:0.4rem">Index / compact</div>
 				<ul class="cm-rows cm-rows--inline">
@@ -503,7 +503,7 @@ Two states, two different questions. <code>active</code> marks the page you are 
 			     Every async surface has to render these three, and a system
 			     that does not own them lets every consumer invent them —
 			     usually in colour, or as an unguarded spinner. -->
-			<section id="states" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+			<section id="states" class="cm-section cm-section--pad">
 				<SectionHead title="states">
 What a surface shows before it has data, and after it fails. Status is carried by a glyph and a word, never by hue: this system has no chroma to carry it, and greyscale print still reads correctly.
 				</SectionHead>
@@ -521,8 +521,8 @@ What a surface shows before it has data, and after it fails. Status is carried b
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">loading</h3>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+				<h3 class="cm-kicker cm-kicker--plain">loading</h3>
+				<p class="cm-head__sub">
 					Two different jobs. A <strong>skeleton</strong> is for a surface whose
 					shape you already know; a <strong>spinner</strong> is for an action in
 					flight. Both stop under <code>prefers-reduced-motion</code>.
@@ -558,7 +558,7 @@ What a surface shows before it has data, and after it fails. Status is carried b
 					</button>
 				</p>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">alerts</h3>
+				<h3 class="cm-kicker cm-kicker--plain">alerts</h3>
 				<div style="display:grid;gap:var(--space-3);max-width:34rem">
 					<div class="cm-alert cm-alert--ok" role="status">
 						<span class="cm-alert__mark" aria-hidden="true"></span>
@@ -583,8 +583,8 @@ What a surface shows before it has data, and after it fails. Status is carried b
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">table</h3>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+				<h3 class="cm-kicker cm-kicker--plain">table</h3>
+				<p class="cm-head__sub">
 					Data, not prose. The scroll wrapper is part of the component: a wide table
 					that overflows the page is the most common way a mono layout breaks on a
 					phone, so the component refuses to let it.
@@ -615,12 +615,12 @@ What a surface shows before it has data, and after it fails. Status is carried b
 			     a modifier nobody can see is a modifier nobody trusts,
 			     and the tag row overflowing its column by 26px at 320
 			     lived here for the whole life of the class. -->
-			<section id="surface" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+			<section id="surface" class="cm-section cm-section--pad">
 				<SectionHead title="variants">
 Each row is one modifier against its own base, so the difference is the thing being reviewed. A variant that computed identically to its base would be a class that looks right in this table and does nothing anywhere else.
 				</SectionHead>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">tags</h3>
+				<h3 class="cm-kicker cm-kicker--plain">tags</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>plain</code></span>
@@ -639,7 +639,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">labelled rule</h3>
+				<h3 class="cm-kicker cm-kicker--plain">labelled rule</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>--rule</code></span>
@@ -652,7 +652,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">state chip</h3>
+				<h3 class="cm-kicker cm-kicker--plain">state chip</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>default</code></span>
@@ -688,7 +688,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">status</h3>
+				<h3 class="cm-kicker cm-kicker--plain">status</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>--ok</code></span>
@@ -722,7 +722,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">toast</h3>
+				<h3 class="cm-kicker cm-kicker--plain">toast</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>--ok</code></span>
@@ -768,7 +768,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">terminal</h3>
+				<h3 class="cm-kicker cm-kicker--plain">terminal</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>lines</code></span>
@@ -786,7 +786,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">spinner + rows</h3>
+				<h3 class="cm-kicker cm-kicker--plain">spinner + rows</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>--lg</code></span>
@@ -831,7 +831,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">media</h3>
+				<h3 class="cm-kicker cm-kicker--plain">media</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>--media</code></span>
@@ -847,8 +847,8 @@ Each row is one modifier against its own base, so the difference is the thing be
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">head title hook</h3>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+				<h3 class="cm-kicker cm-kicker--plain">head title hook</h3>
+				<p class="cm-head__sub">
 					<code>.cm-head h1</code> already sizes the title, so
 					<code>.cm-head__title</code> is the hook for a title
 					that is not an <code>h1</code> &mdash; an
@@ -867,7 +867,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 			     each invented one, in hue - 28 distinct raw colours across
 			     one app. Both are weight and shape here, so they survive a
 			     greyscale print and a colour-blind read. -->
-			<section id="selection" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+			<section id="selection" class="cm-section cm-section--pad">
 				<SectionHead title="selection + state marks">
 A selected row takes a left rule and a faint tint rather than an outline: an outline competes with the row's own border, and the weight belongs on one edge so a column of them scans as a column.
 				</SectionHead>
@@ -896,8 +896,8 @@ A selected row takes a left rule and a faint tint rather than an outline: an out
 				</div>
 			</section>
 
-				<h3 class="cm-kicker" style="margin-top:var(--space-6)">check row</h3>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+				<h3 class="cm-kicker">check row</h3>
+				<p class="cm-head__sub">
 					The box is drawn by the base layer, so the control needs no
 					class. What needs a class is the <strong>row</strong>: it carries
 					the tap floor, so the word and the box are one target.
@@ -908,8 +908,8 @@ A selected row takes a left rule and a faint tint rather than an outline: an out
 					<label class="cm-check"><input type="checkbox" /> HSTS preload</label>
 				</div>
 
-				<h3 class="cm-kicker" style="margin-top:var(--space-6)">action toolbar</h3>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+				<h3 class="cm-kicker">action toolbar</h3>
+				<p class="cm-head__sub">
 					The bar that acts on a selection sticks to the
 					<strong>bottom</strong>: the count lives at the top of the page
 					and the actions belong where the thumb already is.
@@ -922,8 +922,8 @@ A selected row takes a left rule and a faint tint rather than an outline: an out
 					<button class="cm-btn cm-btn--sm cm-btn--ghost">clear</button>
 				</div>
 
-				<h3 class="cm-kicker" style="margin-top:var(--space-6)">inline edit</h3>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+				<h3 class="cm-kicker">inline edit</h3>
+				<p class="cm-head__sub">
 					A data surface is mostly values you want to change in place.
 					The display half is a <strong>dotted underline</strong>, not a
 					box: a box on every cell turns a table into a form.
@@ -944,7 +944,7 @@ A selected row takes a left rule and a faint tint rather than an outline: an out
 			     blocks here, on purpose: the bug that made every copy
 			     button on a page copy the FIRST block only, and the
 			     double-bind, both need a second button to exist. -->
-			<section id="stack" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+			<section id="stack" class="cm-section cm-section--pad">
 				<SectionHead title="record stack">
 A vertical run of records. The stack is opt-in rather than baked into the list, because a ledger of rows can be flush (each row's own border does the separating) or stacked (cards with air between them), and the list element cannot know which one it is.
 				</SectionHead>
@@ -980,7 +980,25 @@ A vertical run of records. The stack is opt-in rather than baked into the list, 
 				</div>
 
 				<div>
-					<p class="cm-row__meta" style="margin-bottom:var(--space-3)">tight, the ledger case</p>
+					<p class="cm-row__meta">flush, when the rows carry their own dividers</p>
+					<ul class="cm-rows cm-stack cm-stack--flush">
+						<li class="cm-row">
+							<span class="cm-row__body">one</span>
+							<span class="cm-row__meta">the border is the separation</span>
+						</li>
+						<li class="cm-row">
+							<span class="cm-row__body">two</span>
+							<span class="cm-row__meta">a gap here would double it</span>
+						</li>
+						<li class="cm-row">
+							<span class="cm-row__body">three</span>
+							<span class="cm-row__meta">so the stack steps aside</span>
+						</li>
+					</ul>
+				</div>
+
+				<div>
+					<p class="cm-row__meta">tight, the ledger case</p>
 					<ul class="cm-rows cm-stack cm-stack--tight">
 						<li class="cm-row">
 							<span class="cm-row__body">app.example.com</span>
@@ -1004,7 +1022,7 @@ A vertical run of records. The stack is opt-in rather than baked into the list, 
 				</div>
 			</section>
 
-					<section id="density" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+					<section id="density" class="cm-section cm-section--pad">
 						<SectionHead title="density and rhythm helpers">
 							These exist because the rhythm was being written by hand in page
 							markup: six call sites each passed `gap: var(--space-N)` inline.
@@ -1018,13 +1036,13 @@ A vertical run of records. The stack is opt-in rather than baked into the list, 
 								<ul class="cm-rows cm-stack cm-stack--tight">
 									<li class="cm-row"><span class="cm-row__body">--tight</span></li>
 								</ul>
-								<ul class="cm-rows cm-stack cm-stack--snug" style="margin-top:var(--space-3)">
+								<ul class="cm-rows cm-stack cm-stack--snug">
 									<li class="cm-row"><span class="cm-row__body">--snug</span></li>
 								</ul>
-								<ul class="cm-rows cm-stack cm-stack--airy" style="margin-top:var(--space-3)">
+								<ul class="cm-rows cm-stack cm-stack--airy">
 									<li class="cm-row"><span class="cm-row__body">--airy</span></li>
 								</ul>
-								<ul class="cm-rows cm-stack cm-stack--loose" style="margin-top:var(--space-3)">
+								<ul class="cm-rows cm-stack cm-stack--loose">
 									<li class="cm-row"><span class="cm-row__body">--loose</span></li>
 								</ul>
 							</div>
@@ -1080,7 +1098,7 @@ A vertical run of records. The stack is opt-in rather than baked into the list, 
 							</div>
 						</div>
 					</section>
-						<section id="badge" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+						<section id="badge" class="cm-section cm-section--pad">
 							<SectionHead title="page head">
 The title row every page starts with: a square glyph, the name, one line of what the page is for, and the page's own action. The badge is an inset square rather than the seven gradients it replaces, because a hue is the only signal that fails in greyscale.
 							</SectionHead>
@@ -1095,7 +1113,7 @@ The title row every page starts with: a square glyph, the name, one line of what
 								<button class="cm-btn cm-btn--sm cm-btn--primary cm-head-row__action">Add Dead Host</button>
 							</div>
 						</section>
-												<section id="tblaction" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+												<section id="tblaction" class="cm-section cm-section--pad">
 							<SectionHead title="table action">
 A row's control, in the table's own visual language. A <code>&lt;tr onClick&gt;</code> is not a control - it is not focusable and Enter does nothing - so this is a real button, drawn as text so the grid does not become a stack of chrome. The tap floor is its own padding box. On a coarse pointer the arrow is always visible, because there is no hover to reveal it.
 							</SectionHead>
@@ -1140,7 +1158,7 @@ A row's control, in the table's own visual language. A <code>&lt;tr onClick&gt;<
 									</tbody>
 								</table>
 							</div>
-							<div class="cm-cols cm-cols--2" style="margin-top:var(--space-6)">
+							<div class="cm-cols cm-cols--2">
 								<div class="cm-block">
 									<h3 class="cm-head__sub">Top paths</h3>
 									<div class="cm-meters">
@@ -1181,7 +1199,7 @@ A row's control, in the table's own visual language. A <code>&lt;tr onClick&gt;<
 								</div>
 							</div>
 						</section>
-						<section id="table" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+						<section id="table" class="cm-section cm-section--pad">
 							<SectionHead title="table">
 For records a person scans <em>across</em> rather than one at a time - a log is the case that cannot be cards, because the columns have to line up. The header is sticky, because row 400 otherwise has no idea which column it is in. Status codes carry a weight and a marker, not a hue: a wall of red and green is unreadable in greyscale and to anyone with colour vision. Five of the seven headers are sort controls. Each is a &#60;button&#62; inside a &#60;th scope="col" aria-sort&#62;, which is the shape a sortable column actually has: the sort state lives on the th, where the accessibility tree reads it, and the dot is drawn by CSS from that same attribute so the visible mark and the announced state cannot drift apart. A &#123;&lt;th onClick&#125;&#125; is not a control - it cannot be focused and Enter does nothing to it.
 							</SectionHead>
@@ -1226,7 +1244,7 @@ For records a person scans <em>across</em> rather than one at a time - a log is 
 								</table>
 							</div>
 						</section>
-						<section id="json" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+						<section id="json" class="cm-section cm-section--pad">
 							<SectionHead title="code: json">
 The monospace surface for structured text, in the two forms it is always used: a block you read and a block you edit. Same type, same frame, so switching between them does not move the text. Not to be confused with <code>cm-code-input</code>, which is the centred one-time-code field.
 							</SectionHead>
@@ -1246,7 +1264,7 @@ The monospace surface for structured text, in the two forms it is always used: a
 								</details>
 							</div>
 						</section>
-						<section id="rowon" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+						<section id="rowon" class="cm-section cm-section--pad">
 							<SectionHead title="selected row">
 <code>cm-row--on</code> is the list-row form of the selected treatment, and <code>button.cm-row</code> is a row that is itself the control. Both mark state with an inset rule rather than a tint: a coloured row is the one signal that disappears in greyscale print, and a selected row is information the reader has to see.
 							</SectionHead>
@@ -1359,7 +1377,7 @@ The monospace surface for structured text, in the two forms it is always used: a
 						</li>
 						</ul>
 						</section>
-						<section id="switch" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+						<section id="switch" class="cm-section cm-section--pad">
 							<SectionHead title="switch">
 							For "this whole behaviour is on or off" - as distinct from <code>cm-check</code>, which is "include this row". The knob's position carries the state, not its colour. The <code>&lt;input&gt;</code> is the control, transparent and on top: it is the tap target, the focus target and the form value, so a keyboard or screen reader reaches a real checkbox rather than a <code>&lt;div&gt;</code> with a click handler.
 								<span slot="action">
@@ -1399,7 +1417,7 @@ The monospace surface for structured text, in the two forms it is always used: a
 								</div>
 							</div>
 						</section>
-						<section id="sheet" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+						<section id="sheet" class="cm-section cm-section--pad">
 							<SectionHead title="dialog, as a side sheet">
 The same native <code>&lt;dialog&gt;</code> as the confirm modal, anchored to the right edge instead of the centre. Only the frame changes, so it keeps the focus trap, Escape, the top layer and the inertness of the page behind it - all of which a hand-rolled <code>position: fixed</code> panel gives up. Full-width and flush below 640px.
 							</SectionHead>
@@ -1418,7 +1436,7 @@ The same native <code>&lt;dialog&gt;</code> as the confirm modal, anchored to th
 								</div>
 							</dialog>
 						</section>
-						<section id="choice" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+						<section id="choice" class="cm-section cm-section--pad">
 				<SectionHead title="choice + disclosure">
 A compact set of exclusive choices, and a summary row that reveals a panel. Both mark their selected / open state with an inset rule, because a thicker border would widen the box and walk the row sideways.
 				</SectionHead>
@@ -1446,7 +1464,7 @@ A compact set of exclusive choices, and a summary row that reveals a panel. Both
 					</details>
 				</div>
 			</section>
-<section id="code" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+<section id="code" class="cm-section cm-section--pad">
 				<SectionHead title="code">
 A <code>&lt;pre&gt;</code> is an element default, so it is on-brand before you add a class. <code>.cm-codebar</code> is the wrapper that gives it a label row and a home for a copy button, and <code>.cm-copy</code> is the button. Press one: the label changes, and the state class is the only feedback &mdash; this system has no chroma, so the change has to be legible in greyscale.
 				</SectionHead>
@@ -1486,7 +1504,7 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 </head>`}
 				/>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">states</h3>
+				<h3 class="cm-kicker cm-kicker--plain">states</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>idle</code></span>
@@ -1526,13 +1544,13 @@ import themeGuard from '../js/cli-mono-theme-guard.js?raw';
 			     them are the platform's element: <dialog>, [popover] and
 			     hover/focus. Nothing here has a runtime that reimplements
 			     what a browser already does correctly. -->
-			<section id="overlays" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+			<section id="overlays" class="cm-section cm-section--pad">
 				<SectionHead title="overlays">
 Five surfaces that sit on top of the page. Four of the five are native elements doing native things &mdash; a <code>&lt;dialog&gt;</code>, a <code>[popover]</code>, a hover, a <code>hidden</code> attribute. Only the tablist needs script, because the platform ships no tab widget and the roving tabindex is the one part of the ARIA contract CSS cannot express.
 				</SectionHead>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">tabs</h3>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+				<h3 class="cm-kicker cm-kicker--plain">tabs</h3>
+				<p class="cm-head__sub">
 					Tab with the keyboard to leave the row, then use the arrows: one tab
 					is in the tab order at a time, which is the WAI-ARIA pattern. The
 					active tab is an <em>inset</em> rule rather than a thicker border,
@@ -1580,8 +1598,8 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">dialog</h3>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+				<h3 class="cm-kicker cm-kicker--plain">dialog</h3>
+				<p class="cm-head__sub">
 					A native <code>&lt;dialog&gt;</code> opened with
 					<code>showModal()</code>, so focus trapping, Escape, the top layer and
 					the inertness of the page behind it are the browser's job, not ours.
@@ -1613,8 +1631,8 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 					</div>
 				</dialog>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">toast</h3>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+				<h3 class="cm-kicker cm-kicker--plain">toast</h3>
+				<p class="cm-head__sub">
 					A transient <code>.cm-alert</code>: the same border weights, the same
 					glyphs, the same words. A second, prettier alert component is how one
 					system quietly becomes two. Each retires itself after six seconds, or
@@ -1627,8 +1645,8 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 				</div>
 				<div class="cm-toast-region" data-cm-toasts role="status" aria-live="polite"></div>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">dropdown</h3>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+				<h3 class="cm-kicker cm-kicker--plain">dropdown</h3>
+				<p class="cm-head__sub">
 					The native Popover API. The trigger carries
 					<code>popovertarget</code> and the panel carries <code>popover</code>,
 					so light-dismiss, Escape and focus return are the browser's &mdash;
@@ -1646,8 +1664,8 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 					</div>
 				</div>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">tooltip</h3>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+				<h3 class="cm-kicker cm-kicker--plain">tooltip</h3>
+				<p class="cm-head__sub">
 					A real element rather than generated content, because
 					<code>aria-describedby</code> has to resolve to something in the
 					accessibility tree and a <code>::after</code> is not there. The trigger
@@ -1703,12 +1721,12 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 			<!-- ==================================================== records
 			     A metric tile is not a key/value row and a work history
 			     is not a link list, so both needed a real component. -->
-			<section id="records" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+			<section id="records" class="cm-section cm-section--pad">
 				<SectionHead title="Records">
 Stat tiles and a dated timeline. The tile count is data, so <code>.cm-stats</code> sizes its columns with <code>auto-fit</code> rather than a fixed number, and the timeline rail is drawn on the <em>item</em> so it stops at the last record on its own, with no script. (<code>auto-fit</code> fits the count to the width; it cannot balance a ragged last row — see the balanced band below for that.)
 				</SectionHead>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-bottom:var(--space-3)">stat tiles</h3>
+				<h3 class="cm-kicker cm-kicker--plain">stat tiles</h3>
 				<ul class="cm-stats">
 					<Stat value="8+" label="years in IT" note="since 2014" />
 					<Stat value="5,000+" label="users and devices" note="global estate" />
@@ -1720,7 +1738,7 @@ Stat tiles and a dated timeline. The tile count is data, so <code>.cm-stats</cod
 					the estate” is a fact.
 				</p>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6);margin-bottom:var(--space-3)">
+				<h3 class="cm-kicker cm-kicker--plain";margin-bottom:var(--space-3)>
 					balanced bands, and a header row with a trailing chip
 				</h3>
 				<p class="cm-head__sub" style="margin-bottom:var(--space-5)">
@@ -1798,7 +1816,7 @@ Stat tiles and a dated timeline. The tile count is data, so <code>.cm-stats</cod
 					a breakpoint; a class can do both.
 				</p>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6);margin-bottom:var(--space-3)">timeline</h3>
+				<h3 class="cm-kicker cm-kicker--plain";margin-bottom:var(--space-3)>timeline</h3>
 				<ul class="cm-timeline">
 					<TimelineItem
 						period="2014 – 2017"
@@ -1821,7 +1839,7 @@ Stat tiles and a dated timeline. The tile count is data, so <code>.cm-stats</cod
 			<!-- ==================================================== cards
 			     One subject that needs more room than a row, and a
 			     number that is a proportion rather than a count. -->
-			<section id="cards" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+			<section id="cards" class="cm-section cm-section--pad">
 				<SectionHead title="Cards and meters">
 A card is a unit of content with a title, so <code>.cm-cards</code> is a grid and <code>.cm-card</code> fills its cell — a two-line card and a six-line card in the same row still share a bottom edge. A meter is a number that happens to be drawn: the bar is <code>aria-hidden</code> and the value is real text, so the chart and the sentence can never disagree.
 				</SectionHead>
@@ -1988,7 +2006,7 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 					     carries it too - it is the first thing a thumb touches on
 					     this page, and it measures 27.19px without the coarse
 					     floor. -->
-					<div class="cm-split" style="margin-top:var(--space-6)">
+					<div class="cm-split">
 						<div>
 							<a class="cm-back" href="#cards">
 								<span class="cm-back__arrow" aria-hidden="true">&#8592;</span>
@@ -2073,7 +2091,7 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 				</div>
 			</section>
 
-			<section id="prose" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+			<section id="prose" class="cm-section cm-section--pad">
 				<SectionHead title="prose">
 <code>.cm-prose</code> for the body of an article and <code>.cm-post-head</code> for the block above it. The post head is the one page head that carries a rule under itself, because the thing below it is prose and not another section.
 				</SectionHead>
@@ -2138,7 +2156,7 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 					     consumer can only adopt if it first deletes a reset
 					     is not adoptable.
 					     =================================================== -->
-					<section id="proselists" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+					<section id="proselists" class="cm-section cm-section--pad">
 						<SectionHead title="article body">
 							<code>&lt;ul&gt;</code>, <code>&lt;ol&gt;</code> and a bare <code>&lt;th&gt;</code> carry no class, because a markdown renderer emits them without one. Those three element defaults are declared in <code>base.css</code> rather than left to the user agent, so the article body survives a CSS reset - which is how every Tailwind, Bootstrap and framework stack starts.
 						</SectionHead>
@@ -2173,7 +2191,7 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 														</div>
 													</section>
 
-													<section id="proselists-order" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+													<section id="proselists-order" class="cm-section cm-section--pad">
 														<SectionHead title="marker rules and load order">
 															A bare <code>ul, ol</code> rule is <code>(0,0,1)</code> and a Tailwind v3 preflight is also <code>(0,0,1)</code>, so the winner is decided by source order - the reset wins outright when it loads later. <code>.cm-prose ul:not([class])</code> is <code>(0,2,1)</code>: it beats the reset in either order and cannot match a list that carries a class.
 														</SectionHead>
@@ -2207,7 +2225,7 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 														</div>
 													</section>
 
-					<section id="prosetap" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+					<section id="prosetap" class="cm-section cm-section--pad">
 												<SectionHead title="prose measure + inline link">
 													<code>.cm-prose-measure</code> is a narrower reading column for prose that shares a page with an aside; <code>.cm-inline-link</code> gives a link inside a sentence its tap floor (34px → 44px) without breaking the line rhythm. Both were measured on oem-portfolio before being moved into the library.
 												</SectionHead>
@@ -2239,7 +2257,7 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 																			     The fixture below is deliberately SIX columns of
 																			     sentences - the case that forces the decision.
 																			     Three columns would fit and prove nothing. -->
-																			<section id="prosetable" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+																			<section id="prosetable" class="cm-section cm-section--pad">
 											<SectionHead title="prose table">
 						<code>.cm-prose-table</code> is for a table that is part of a sentence-paragraph - a comparison, a set of facts. <code>.cm-table</code> is for a grid you scan across. The cells WRAP here instead of holding <code>nowrap</code>, so a six-column table in a 68ch measure degrades into readable rows rather than a scrollbar the reader has to discover mid-article, and there is no <code>max-height</code>, because the article page owns the vertical scroll and a cap would put a second scrollbar inside a paragraph. The last row shows the one thing that cannot wrap: a long unbreakable URL, which breaks rather than dragging the page wide with it.
 											</SectionHead>
@@ -2315,7 +2333,7 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 																		     proves the derivation rather than restating
 																		     it: shrink the window to see the labels
 																		     appear at the same moment the rows stack. -->
-																		<section id="tablelabels" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)" data-cm-table-labels>
+																		<section id="tablelabels" class="cm-section cm-section--pad" data-cm-table-labels>
 																			<SectionHead title="generated table labels">
 												<code>[data-cm-table-labels]</code> copies each header's text onto the body cells as <code>data-label</code>, which is what <code>.cm-prose-table</code> reads with <code>content: attr(data-label)</code> once it stacks. Below 760px this table has <strong>no</strong> <code>data-label</code> anywhere in its markup, and the labels on the right of each value are derived. An author's own <code>data-label</code> is never overwritten, and the attribute is opt-in because rewriting cells behind someone's back is not something to do to a table a person wrote.
 																			</SectionHead>
@@ -2357,7 +2375,7 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 			     each file, so a change to reading measure never reached
 			     any of them. The specimens below are drawn FROM the
 			     tokens they document. -->
-			<section id="layout" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+			<section id="layout" class="cm-section cm-section--pad">
 				<SectionHead title="layout">
 <code>.cm-lede</code> is the opening sentence under a page head, and <code>.cm-split</code> puts a metadata column beside a content block. The measure comes from <code>--measure</code>, not a number typed next to it, so changing the reading width is a token change. The split stacks below 700px on purpose: two columns of text on a phone is two unreadable columns.
 				</SectionHead>
@@ -2420,7 +2438,7 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 					moves down to the content instead of reading the page twice.
 				</p>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">key-value, wrapped pairs</h3>
+				<h3 class="cm-kicker cm-kicker--plain">key-value, wrapped pairs</h3>
 				<p class="cm-head__sub" style="margin-bottom:var(--space-4)">
 					HTML lets you group <code>dt</code>/<code>dd</code> inside a
 					<code>div</code> when a row needs a control of its own - a link
@@ -2468,7 +2486,7 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 						</p>
 					</div>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">key-value, whole row is the link</h3>
+				<h3 class="cm-kicker cm-kicker--plain">key-value, whole row is the link</h3>
 				<p class="cm-head__sub" style="margin-bottom:var(--space-4)">
 					<code>.cm-kv--link</code> is the case above where the
 					per-row control is an <code>&lt;a&gt;</code>. Link only
@@ -2502,7 +2520,7 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 					</div>
 				</dl>
 
-				<h3 class="cm-kicker cm-kicker--plain" style="margin-top:var(--space-6)">split</h3>
+				<h3 class="cm-kicker cm-kicker--plain">split</h3>
 				<p class="cm-head__sub" style="margin-bottom:var(--space-4)">
 					The main block and the aside below are the same DOM at every
 					width; only the column count changes. Narrow the window past
@@ -2537,7 +2555,7 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 				</div>
 			</section>
 
-			<section id="forms" class="cm-section cm-section--pad" style="margin-bottom:1.8rem">
+			<section id="forms" class="cm-section cm-section--pad">
 				<SectionHead title="forms">
 inputs are element defaults, so a bare <code>&lt;input&gt;</code> is already on-brand. <code>.cm-field</code> and friends are the layout around them.
 				</SectionHead>
@@ -2619,7 +2637,7 @@ inputs are element defaults, so a bare <code>&lt;input&gt;</code> is already on-
 			     mounted control that greys out. The wide modifier is
 			     demonstrated too, because rpm emits it and the library
 			     never defined it until this cycle. -->
-			<section id="search" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+			<section id="search" class="cm-section cm-section--pad">
 				<SectionHead title="search">
 A filter control, not an inline edit. <code>.cm-inline</code> styles a value being changed in place; this is a four-sided bordered field with a leading glyph and a clear button that appears only once there is a value.
 				</SectionHead>
@@ -2670,7 +2688,7 @@ A filter control, not an inline edit. <code>.cm-inline</code> styles a value bei
 			     scaled into a frame rather than at 100dvh, because a
 			     100dvh specimen inside a scrolling page pushes every
 			     other section a full screen down. -->
-			<section id="auth" class="cm-section cm-section--pad" style="margin-bottom:var(--space-7)">
+			<section id="auth" class="cm-section cm-section--pad">
 				<SectionHead title="auth">
 Every class below except <code>.cm-auth</code>, <code>.cm-card--auth</code>, <code>.cm-code-input</code> and <code>.cm-divider</code> was already in this system. A sign-in screen is the card, the field, the alert and the button you have just seen, arranged for credentials.
 				</SectionHead>
@@ -2725,7 +2743,7 @@ Every class below except <code>.cm-auth</code>, <code>.cm-card--auth</code>, <co
 				</div>
 
 				<h3 style="margin-top:var(--space-5)">a wider frame</h3>
-				<p class="cm-head__sub" style="margin-bottom:var(--space-3)">
+				<p class="cm-head__sub">
 					<code>.cm-auth--wide</code> is the same frame at a larger
 					measure, for a page that has to fit more than a
 					credential pair - a register form, or a sign-in with

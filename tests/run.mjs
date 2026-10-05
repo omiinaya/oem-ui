@@ -2602,8 +2602,14 @@ check('the showcase opts in, and a mobile reader still gets the burger', () => {
 	// span that whole attribute block. A tight window silently passed.
 	assert(/<Header[\s\S]{0,4000}?\n\s*rail\b[\s\S]{0,400}?\/>/.test(page),
 		'the showcase never sets the rail prop on its <Header>');
-	assert(/<main class="cm-shell cm-shell--rail">/.test(page),
-		'the showcase does not offset its own content');
+	// The INTENT is that <main> carries the rail offset so the sticky header
+	// rail does not sit on top of the content. Pinning the whole class string
+	// broke the moment the page also became a stack (it now reads
+	// `cm-shell cm-shell--rail cm-stack cm-stack--section`), which is a
+	// legitimate change - so assert the rail is PRESENT, not that it is
+	// alone.
+	assert(/<main class="[^"]*\bcm-shell--rail\b/.test(page),
+		'the showcase does not offset its own content for the rail');
 	// The burger is a phone control. In rail mode the links are permanent,
 	// so the button would open something already open.
 	assert(/\.cm-header--rail \.cm-nav-toggle\s*\{\s*display:\s*none/.test(RAIL),
@@ -8038,10 +8044,16 @@ check('the record stack is a flex column whose gap is off the scale', () => {
 	assert(/flex-direction:\s*column/.test(body),
 		`a stack whose flex-direction is not column lays records out in a ROW, got: ${body.trim()}`);
 	// Pin the VALUE. /gap/ alone also matches `gap: 0`, which is not a stack.
-	assert(/gap:\s*var\(--space-\d\)/.test(body),
-		`the gap must come off the spacing scale, got: ${body.trim()}`);
-	assert(!/[\d.]+(rem|em)/.test(body),
-		`the stack carries a hardcoded rem value; use --space-*: ${body.trim()}`);
+	// The gap must come off a token - either the raw scale (--space-N) or a
+	// rhythm token (--stack-gap/--stack-section), which is what the layout
+	// primitive uses so a project can retune the whole vertical rhythm in
+	// one declaration. What it must NOT be is a literal: a hardcoded rem
+	// here is exactly the per-project number that made five projects
+	// disagree about the same gap.
+	assert(/gap:\s*var\(--(space-\d|stack-[a-z]+)\)/.test(body),
+		`the gap must come off the spacing or rhythm scale, got: ${body.trim()}`);
+	assert(!/[\d.]+(rem|em|px)/.test(body),
+		`the stack carries a hardcoded value; use --space-* or --stack-*: ${body.trim()}`);
 });
 
 check('a stack is opt-in, so a list that never asked for one is still flush', () => {
@@ -11087,4 +11099,117 @@ console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length) {
 	for (const [n, m] of failures) console.error(`  FAIL ${n}: ${m}`);
 	process.exit(1);
+}
+
+/* ================= one rhythm, everywhere ================= */
+{
+	// Omar: "some items don't appear to be spaced correctly... many cases
+	// where sections are mashed together and there's no padding or margins
+	// or anything to divide them."
+	//
+	// Measured at 390px across all five consumers, EVERY one put content
+	// flush against its page head at exactly 0.0px. One cause: .cm-head
+	// set no bottom margin and no component owned the space between two
+	// top-level blocks. The --space-N scale was already enforced and still
+	// produced this, because a scale says which sizes EXIST - nothing said
+	// which one goes WHERE, so each project invented its own number.
+	//
+	// tests/verify-vertical-rhythm.py proves it in a real browser; these
+	// pin the source invariants that make it possible.
+	const TOKENS = read("src/styles/tokens.css");
+	const COMP = read("src/styles/components.css");
+
+	check("the rhythm tokens exist, and every one is off the spacing scale", () => {
+		// Four steps, each naming WHERE it goes rather than how big it is.
+		// A literal here is the disease: one project's rem is another
+		// project's bug report.
+		for (const t of ["--stack-gap", "--stack-section", "--stack-head",
+		                 "--stack-tight"]) {
+			const re = new RegExp(t + ":\\s*var\\(--space-\\d\\)");
+			if (!re.test(TOKENS))
+				throw new Error(t + " is missing or is not off the spacing scale");
+		}
+	});
+
+	check("the stack owns the gap between siblings", () => {
+		const base = ruleBodies(COMP, ".cm-stack").join("");
+		if (!/display:\s*flex/.test(base))
+			throw new Error("the stack must be a flex container");
+		if (!/flex-direction:\s*column/.test(base))
+			throw new Error("a stack whose flex-direction is not column lays blocks out in a ROW");
+		if (!/gap:\s*var\(--stack-gap\)/.test(base))
+			throw new Error("the stack carries no gap from the rhythm tokens");
+	});
+
+	check("the stack zeroing rule sits at the END of the layer, where it wins", () => {
+		// Same specificity as every component rule, so source order decides.
+		// Measured with it up top next to the definition: `.cm-stack > *`
+		// lost to `.cm-section` and `.cm-status`, sections rendered at
+		// 48.8px (a 28.8px component margin + a 20px gap) against a 24px
+		// rhythm, and --stack-section never applied at all.
+		const zero = COMP.lastIndexOf(".cm-stack > * {");
+		if (zero < 0)
+			throw new Error("no .cm-stack > * reset exists, so a child's own margin adds to the gap");
+		const head = COMP.indexOf(".cm-head {");
+		const section = COMP.indexOf(".cm-section {");
+		const status = COMP.indexOf(".cm-status");
+		for (const [name, at] of [["cm-head", head], ["cm-section", section],
+		                          ["cm-status", status]]) {
+			if (at < 0) continue;
+			if (zero < at)
+				throw new Error("the .cm-stack reset is before ." + name +
+					", so that component's own margin still wins");
+		}
+	});
+
+	check("a head block separates itself from what it introduces", () => {
+		const head = ruleBodies(COMP, ".cm-head").join("");
+		if (!/margin-bottom:\s*var\(--stack-head\)/.test(head))
+			throw new Error(".cm-head has no bottom margin from the rhythm, so " +
+				"content sits flush against it (the 0px join in all five projects)");
+	});
+
+	check("no DIRECT child of the stack carries a hand-written margin", () => {
+		// The page is the thing that drifted: 128 inline margin
+		// declarations, 29 of them on the sections the stack already
+		// spaces. Each one added to the gap rather than replacing it, which
+		// is how the same page rendered 20px, 24px, 40px, 48.8px and 52px
+		// between sections.
+		//
+		// Scoped to the stack's DIRECT children on purpose. A margin on
+		// something nested four levels down is a specimen's internal
+		// spacing, which is the author's business - and a test that
+		// forbade those would be a test nobody could satisfy honestly, so
+		// it would just get deleted. The rhythm is a page-level contract.
+		const page = read("src/pages/index.astro");
+		const mainAt = page.indexOf("<main");
+		const main = page.slice(mainAt);
+		// Derive the child indent from <main>'s own line rather than
+		// hardcoding it. An earlier version of this test assumed two tabs
+		// and the sections are at three, so the regex matched NOTHING and
+		// the test passed while a hand-written `margin-bottom: 2rem` sat
+		// on the `nav` section - a dead test, which is the one failure
+		// mode this whole file exists to prevent.
+		const mainIndent = page.slice(page.lastIndexOf("\n", mainAt) + 1, mainAt)
+			.match(/^[	 ]*/)[0];
+		const childIndent = mainIndent + "	";
+		const offender = new RegExp(
+			"^" + childIndent.replace(/	/g, "\	") +
+			"<(?!\/)[a-zA-Z][^>]*\\sstyle=\"[^\"]*margin-(?:top|bottom)",
+			"gm",
+		);
+		const offenders = [...main.matchAll(offender)].map((m) => m[0].trim().slice(0, 70));
+		// Guard the guard: if the derived indent matches nothing at all on
+		// a page that plainly has direct children, the regex is wrong again
+		// and would pass vacuously forever.
+		const directChildren = (main.match(new RegExp(
+			"^" + childIndent.replace(/	/g, "\	") + "<(?!\\/)", "gm")) || []).length;
+		if (directChildren === 0)
+			throw new Error("the derived child indent matched no direct children of " +
+				"<main>; this test would pass on anything");
+		if (offenders.length)
+			throw new Error(offenders.length + " direct child/children of <main> " +
+				"carry a hand-written margin, e.g. " + offenders[0] +
+				" - the stack owns this; a number here adds to the gap");
+	});
 }
