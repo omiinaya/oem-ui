@@ -947,6 +947,58 @@
 		if (!root || root === document) initExternalLinks();
 	}
 
+	/* ---------- late-arriving markup ----------
+	   `init()` binds to what exists at the moment it runs, and it is called
+	   once on DOMContentLoaded. In a static page that is the whole document,
+	   so it is correct. In a SPA it is nothing: the framework commits its
+	   tree AFTER this module evaluates, so every querySelector in init()
+	   above returns null and - crucially - nothing ever retries. The result
+	   is not a crash, it is a page that LOOKS wired up and is not:
+	   `.cm-js` is never set, so the header's burger stays display:none, the
+	   sticky header never gets its scrolled shadow, and `initHeader` never
+	   publishes `--header-h` so anchor jumps land under the bar.
+
+	   MEASURED on spacetime-memory's web app (React 19, Vite) in WebKit at
+	   390x844: with auto-init alone the burger measured 0x0 and was not
+	   clickable, and calling `cliMono.init(document)` once after the commit
+	   set `.cm-js`, gave the burger 44x44, and opened the drawer with all 6
+	   links at 781px. So the runtime was always correct and the ORDER was
+	   not - which is why this is a re-run rather than a new feature.
+
+	   A MutationObserver on the subtree re-runs init when `.cm-*` markup
+	   actually appears. Bounded on purpose: a document that already has
+	   library markup arms nothing at all, and an observer disconnects as
+	   soon as one full pass binds, so nothing runs for the life of the page.
+	   `init()` is itself idempotent - every binder guards on a dataset flag -
+	   so a re-run over already-bound nodes is free and cannot double-bind a
+	   click handler. */
+	function watchForLateMarkup() {
+		if (typeof MutationObserver !== 'function') return;
+		if (!document.body) return;
+
+		/* Cheap check first: if the library's own anchors are already in the
+		   DOM there is nothing to wait for, so never attach at all. This is
+		   the static-page path and it stays exactly as fast as before. */
+		if (hasLibraryMarkup()) return;
+
+		var observer = new MutationObserver(function () {
+			if (!hasLibraryMarkup()) return;
+			observer.disconnect();
+			init(document);
+		});
+		observer.observe(document.body, { childList: true, subtree: true });
+	}
+
+	/* Does this document contain any of the hooks `init` binds to? Kept as a
+	   list rather than a single selector so the observer stops on the first
+	   real surface instead of waiting forever for one specific element. */
+	function hasLibraryMarkup() {
+		return !!document.querySelector(
+			'[data-cm-header], [data-cm-nav-toggle], [data-cm-copy], ' +
+			'[data-cm-tabs], [data-cm-toast], .cm-prose-table'
+		);
+	}
+
 	var api = {
 		init: init,
 		applyTheme: applyTheme,
@@ -971,9 +1023,11 @@
 		if (document.readyState === 'loading') {
 			document.addEventListener('DOMContentLoaded', function () {
 				init(document);
+				watchForLateMarkup();
 			});
 		} else {
 			init(document);
+			watchForLateMarkup();
 		}
 		// Astro view transitions / client-side nav
 		document.addEventListener('astro:page-load', function () {

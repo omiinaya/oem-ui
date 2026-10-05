@@ -6102,6 +6102,225 @@ check('the runtime adds .cm-js only when the toggle is present', () => {
 	if (!/if \(!btn \|\| !panel\) return;[\s\S]{0,200}?classList\.add\('cm-js'\)/.test(MC_JS))
 		throw new Error('.cm-js must be set after the guard, or a page with no toggle gets the collapse');
 });
+
+/* The SPA case, executed rather than pattern-matched.
+ *
+ * `init()` binds to whatever exists when it runs and nothing ever re-runs it,
+ * so in a page whose markup arrives AFTER this module - a React/Vue/Svelte
+ * mount, which is every SPA that adopts the library - the burger stays
+ * display:none, the sticky header never gets its scrolled state, and
+ * `--header-h` is never published. Nothing throws. The page simply looks
+ * wired up and is not.
+ *
+ * MEASURED in WebKit at 390x844 on spacetime-memory's web app: with
+ * auto-init alone the burger measured 0x0 and could not be clicked; one
+ * manual `cliMono.init(document)` after the commit set `.cm-js`, gave the
+ * burger 44x44 and opened the drawer with all 6 links at 781px.
+ *
+ * So this runs the real runtime against a document that is EMPTY at boot and
+ * gains its header afterwards, and asserts the runtime noticed on its own. A
+ * regex over the source cannot tell whether the re-run is reachable.
+ *
+ * The shims below are deliberately explicit about what a node must carry. An
+ * earlier draft returned bare `{}` for the button and the suite reported
+ * "Cannot read properties of undefined (reading 'cmNavBound')" - which reads
+ * like the runtime failing when it is the probe's gap, and is exactly the
+ * trap of trusting a failure message without checking the fixture. */
+function fakeEl(over = {}) {
+	return Object.assign(
+		{
+			dataset: {},
+			attrs: {},
+			// initHeader publishes --header-h through documentElement.style
+			style: { setProperty: () => {}, removeProperty: () => {} },
+			classList: { add() {}, remove() {}, contains: () => false, toggle() {} },
+			setAttribute(k, v) {
+				this.attrs[k] = v;
+			},
+			removeAttribute(k) {
+				delete this.attrs[k];
+			},
+			// NOT an arrow: the runtime calls this UNBOUND, as
+			// `documentElement.getAttribute(...)`, so an arrow's `this` is
+			// undefined and it throws on `this.attrs`. That is a shim bug
+			// that reads exactly like a runtime bug.
+			getAttribute(k) {
+				return k in this.attrs ? this.attrs[k] : null;
+			},
+			addEventListener: () => {},
+			focus() {},
+			querySelector: () => null,
+			querySelectorAll: () => [],
+			appendChild: () => {},
+			getBoundingClientRect: () => ({ width: 44, height: 44, top: 0, left: 0 }),
+		},
+		over,
+	);
+}
+
+check('markup that arrives after the runtime boots still gets bound', () => {
+	const html = { attrs: {} };
+	const htmlClasses = new Set();
+	const created = [];
+	const doc = {
+		documentElement: {
+			getAttribute: (k) => (k in html.attrs ? html.attrs[k] : null),
+			setAttribute: (k, v) => {
+				html.attrs[k] = v;
+			},
+			removeAttribute: (k) => {
+				delete html.attrs[k];
+			},
+			style: { setProperty: () => {} },
+			classList: {
+				add: (c) => htmlClasses.add(c),
+				remove: (c) => htmlClasses.delete(c),
+				contains: (c) => htmlClasses.has(c),
+				toggle: (c, on) => (on ? htmlClasses.add(c) : htmlClasses.delete(c)),
+			},
+		},
+		// the runtime builds its nav scrim and appends it here
+		body: { style: {}, appendChild: () => {} },
+		querySelector: () => null,
+		querySelectorAll: () => [],
+		addEventListener: () => {},
+		createElement: () => {
+			const el = fakeEl({ width: 0, height: 0 });
+			created.push(el);
+			return el;
+		},
+		readyState: 'complete',
+		getElementById: () => null,
+	};
+
+	// A MutationObserver shim the test drives by hand, because the runtime
+	// must ASK for one - it is never handed a chance to bind.
+	let observer = null;
+	const MO = function (cb) {
+		this.cb = cb;
+		this.disconnected = false;
+		this.disconnect = () => {
+			this.disconnected = true;
+		};
+		// RECORD what it was asked to watch. A shim that ignores this
+		// argument cannot tell `subtree: true` from `subtree: false`, so
+		// dropping subtree: true would survive as a phantom pass - which is
+		// exactly what the first sweep reported. The option is asserted
+		// because it is load-bearing: without `subtree`, observing <body>
+		// sees only its direct children and a React commit into #root is
+		// invisible, so the SPA fix silently stops working.
+		this.observe = (target, opts) => {
+			this.target = target;
+			this.options = opts;
+		};
+		observer = this;
+	};
+
+	const ctx = {
+		document: doc,
+		window: {
+			addEventListener: () => {},
+			scrollY: 0,
+			innerHeight: 800,
+			requestAnimationFrame: () => {},
+			// initNavToggle subscribes to the phone breakpoint, so a document
+			// that binds the nav needs one.
+			matchMedia: () => ({
+				matches: true,
+				addEventListener: () => {},
+				removeEventListener: () => {},
+				addListener: () => {},
+				removeListener: () => {},
+			}),
+		},
+		localStorage: { getItem: () => null, setItem: () => {} },
+		navigator: {},
+		MutationObserver: MO,
+		ResizeObserver: function () {
+			this.observe = () => {};
+		},
+		module: { exports: {} },
+	};
+	ctx.globalThis = ctx;
+	ctx.self = ctx;
+	vm.createContext(ctx);
+	vm.runInContext(runtimeSrc, ctx);
+
+	assert(typeof ctx.window.cliMono === 'object', 'runtime did not expose its handle');
+
+	// Nothing to bind to yet: this is what a SPA mount looks like from here.
+	assert(
+		!htmlClasses.has('cm-js'),
+		'.cm-js was set on an empty document - it must only follow real library markup',
+	);
+
+	// The runtime must have armed an observer, because the markup is coming.
+	assert(observer, 'the runtime armed no observer, so markup rendered after boot is never bound');
+	assert(
+		observer.options && observer.options.subtree,
+		'the observer must watch the SUBTREE: without it, <body> reports only its direct children and a framework commit into #root is never seen, so the SPA case is not fixed',
+	);
+	assert(
+		observer.target === doc.body,
+		'the observer must watch <body>, which is where a framework mounts its root',
+	);
+
+	// The SPA commits: a [data-cm-nav-toggle] button and its panel appear.
+	const fakeBtn = fakeEl();
+	const fakePanel = fakeEl({ width: 300, height: 780 });
+	doc.querySelector = (sel) => {
+		if (sel.includes('nav-toggle')) return fakeBtn;
+		if (sel.includes('cm-header-links')) return fakePanel;
+		return null;
+	};
+	doc.getElementById = (id) => (id === 'cm-header-links' ? fakePanel : null);
+
+	observer.cb();
+
+	assert(
+		htmlClasses.has('cm-js'),
+		'markup arrived and the runtime did not bind it: .cm-js is still unset, so the burger stays display:none',
+	);
+	assert(observer.disconnected, 'the observer must disconnect once it has bound, not run for the life of the page');
+});
+
+check('a page that already has library markup arms no observer at all', () => {
+	const doc = {
+		// documentElement needs a REAL attrs store: initHeader and the theme
+		// sync write through `setAttribute`/`getAttribute` on it.
+		documentElement: fakeEl(),
+		body: { style: {}, appendChild: () => {} },
+		// A static page: the header is already in the document.
+		querySelector: (sel) => (sel.includes('data-cm-header') ? fakeEl({ width: 1200, height: 61 }) : null),
+		querySelectorAll: () => [],
+		addEventListener: () => {},
+		createElement: () => fakeEl(),
+		readyState: 'complete',
+		getElementById: () => null,
+	};
+	let armed = false;
+	const ctx = {
+		document: doc,
+		window: { addEventListener: () => {}, scrollY: 0, innerHeight: 800, requestAnimationFrame: () => {} },
+		localStorage: { getItem: () => null, setItem: () => {} },
+		navigator: {},
+		MutationObserver: function () {
+			armed = true;
+			this.observe = () => {};
+			this.disconnect = () => {};
+		},
+		ResizeObserver: function () {
+			this.observe = () => {};
+		},
+		module: { exports: {} },
+	};
+	ctx.globalThis = ctx;
+	ctx.self = ctx;
+	vm.createContext(ctx);
+	vm.runInContext(runtimeSrc, ctx);
+
+	assert(!armed, 'a static page must not pay for an observer - the markup is already there');
+});
 check('the runtime toggles aria-expanded and the panel attribute together', () => {
 	const fn = MC_JS.slice(MC_JS.indexOf('function setOpen'));
 	const body = fn.slice(0, fn.indexOf('function isOpen'));
