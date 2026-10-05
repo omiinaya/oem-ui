@@ -65,6 +65,50 @@ other number in `base.css` or `components.css`.
 - `--space-9` `4rem` 64px — above a top-of-page head
 - `--space-10` `6rem` 96px — page-level breathing room
 
+### Vertical rhythm — `.cm-stack`
+
+A token scale on its own does not give consistency; a token says *which
+number*, not *who applies it*. With nothing owning the space between
+blocks, every project picked its own value — and the same 0px gap between
+a heading and the content under it showed up in every one of ours.
+
+`.cm-stack` is the thing that owns that space. Put it on the page's main
+flow element and the separation between its children becomes one value:
+
+```html
+<main class="cm-stack cm-stack--section">
+```
+
+```css
+.cm-stack { display: flex; flex-direction: column; gap: var(--stack-gap); }
+.cm-stack > * { margin-block: 0; }  /* the stack owns it, not the children */
+```
+
+A stack OWNS its spacing, so `gap` and child margins must not both apply —
+hence the margin reset. That reset sits **last** in `components.css` on
+purpose: at equal specificity, order decides, and placing it earlier loses
+every tie to `.cm-head`, `.cm-status` and `.cm-section`.
+
+| class | gap | use |
+| --- | --- | --- |
+| `.cm-stack` | `--stack-gap` (20px) | a plain run of related blocks |
+| `.cm-stack--tight` | `--stack-tight` (12px) | a dense list |
+| `.cm-stack--snug` | `--space-3` 12px | one step tighter |
+| `.cm-stack--section` | `--stack-section` (**24px**) | the top-level rhythm of a page |
+| `.cm-stack--airy` | `--space-7` 32px | a section that wants air |
+| `.cm-stack--loose` | `--space-8` 48px | page-level separation |
+| `.cm-stack--flush` | `0` | children that must touch — a row list whose rows carry their own dividers |
+
+Retune a whole site from one line:
+
+```css
+:root { --stack-section: var(--space-7); }  /* 32px everywhere */
+```
+
+**Use `--flush` where rows carry their own separators.** `cm-rows` draws
+dividers between its rows; stacking it with the default gap pulls the rows
+apart and leaves a stray rule hanging in the margin.
+
 The scale is theme-independent and lives in `:root` only. `em`, `calc()`,
 `var()`, `auto` and `0` are exempt: those are relative to a font size or
 a computed value, not to the rhythm.

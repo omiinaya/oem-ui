@@ -5,6 +5,35 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **The library had tokens but no owner for the space between blocks, so
+  five projects disagreed about it.** Measured at 390px in WebKit, the gap
+  between the heading block and the content under it was **exactly 0.0px**
+  in every project that used this library — oem-ui, oem-portfolio,
+  dev-blog, oem-links and log.oem.ngo. One cause: `.cm-head` set no bottom
+  margin and nothing else claimed it. Inside oem-ui the page had grown
+  **128 hand-written inline margin declarations** to patch around it.
+
+  A token scale cannot fix this. A token says *which* number is correct;
+  it does not say *who applies it*. Without an owner, each project invents
+  its own value and they drift apart by construction.
+
+  `.cm-stack` is that owner. Put it on the page's main flow element and
+  separation between its children becomes one value; `.cm-stack--section`
+  is the top-level rhythm (24px, `--stack-section`). A stack owns its
+  spacing outright, so `gap` and child margins must not both apply — hence
+  `.cm-stack > * { margin-block: 0 }`, deliberately placed **last** in
+  `components.css` because at equal specificity order decides, and earlier
+  it lost every tie to `.cm-head`, `.cm-status` and `.cm-section`. Steps
+  are one family: `--tight`, `--snug`, `--section`, `--airy`, `--loose`,
+  plus `--flush` for children that must touch (a row list whose rows carry
+  their own dividers).
+
+  **MEASURED** after: **37 top-level joins, every one exactly 24.0px**, at
+  320 / 390 / 402 / 768 / 1280px, and the same on the live log.oem.ngo
+  after deploy. Reverting the class off `<main>` fails 20 of 37 joins;
+  reintroducing a single inline `margin-bottom` on one section fails with
+  a message naming the declaration.
+
 - **The runtime now binds markup that arrives after it boots — a library bug
   no existing consumer could have found.** `init()` binds to whatever exists
   when it runs, and it is called once on `DOMContentLoaded`. In a static page
