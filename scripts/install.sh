@@ -222,12 +222,29 @@ if [ "$ASTRO" -eq 1 ]; then
   ASTRO_DEST="$TARGET/src/astro"
   [ -d "$FROM/src/astro" ] || die "this checkout has no src/astro to install"
   mkdir -p "$ASTRO_DEST"
-  # Everything the library ships: every .astro in src/astro plus config.ts.
+  # Everything the library ships: every .astro AND every .ts in src/astro.
+  #
   # Driven by the directory, NOT by a second hand-kept list, so a component
   # added to the library cannot reach a consumer without a test asserting it
   # exists (CodeBlock.astro did exactly that until this flag existed).
-  # config.ts is listed explicitly because it is not an .astro file.
-  for f in $(cd "$FROM/src/astro" && ls *.astro config.ts 2>/dev/null | sort); do
+  #
+  # The .ts glob is the fix for a bug that shipped in the very release that
+  # added the shared current-page matcher. `src/astro/current.ts` is imported
+  # by BOTH Header.astro and HeaderLink.astro, and this loop matched `*.astro
+  # config.ts` only - so the two components were installed WITHOUT the module
+  # they import. `ls` exits 0, the install "succeeded", and check-design-sync
+  # reported the consumer IN SYNC.
+  #
+  # The build stayed green too, for the worst possible reason: the two files
+  # that fail to resolve are only compiled if a consumer imports them, so a
+  # site that had not yet adopted the header (as links.oem.ngo had not) saw
+  # nothing at all. The library's flagship component - the one carrying the
+  # 18x44 tap floor and the phone burger - was uninstallable in practice, and
+  # every green signal agreed it was fine.
+  #
+  # So .ts is installed unconditionally alongside .astro. config.ts is still
+  # singled out below, because it is the one file the consumer OWNS.
+  for f in $(cd "$FROM/src/astro" && ls *.astro *.ts 2>/dev/null | sort -u); do
     if [ "$f" = "config.ts" ] && [ -f "$ASTRO_DEST/$f" ]; then
       say "config.ts     -> $ASTRO_DEST/config.ts (KEPT - the consumer owns its site identity)"
       continue

@@ -404,6 +404,84 @@ check('every component on disk is claimed by the shipped list', () => {
 		);
 	}
 });
+check('--astro installs every file the components IMPORT, not just the .astro files', () => {
+	// The bug this closes shipped in the same release as `current.ts`.
+	// Header.astro and HeaderLink.astro both do
+	//     import { isCurrentPage } from './current';
+	// and the installer's loop matched `*.astro config.ts`, so it copied
+	// both components and NOT the module they import. Every green signal
+	// agreed the installer worked:
+	//
+	//   - `ls` succeeded and the installer exited 0,
+	//   - check-design-sync.sh reported the consumer IN SYNC,
+	//   - the consumer's `astro build` was green.
+	//
+	// The build is green for the worst possible reason: an unresolvable
+	// import only fails when something imports that component, so a site
+	// that had not yet adopted <Header> never compiled it. The library's
+	// flagship component - the one carrying the measured 18x44 tap floor and
+	// the phone burger - could not actually be installed and used, while
+	// every check said it was fine.
+	//
+	// So assert the CLOSURE, derived from the source: parse every relative
+	// import out of every file the installer copies, and require each one to
+	// exist in the installed tree. Listing current.ts by hand would pass
+	// again the moment the next shared helper landed, which is the same
+	// hand-kept list that caused this.
+	const dir = mkdtempSync(join(tmpdir(), 'oemui-closure-'));
+	try {
+		const r = spawnSync('bash', [join(root, 'scripts/install.sh'), dir, '--astro'], {
+			encoding: 'utf8',
+		});
+		assert(r.status === 0, `install.sh --astro exited ${r.status}: ${r.stderr}`);
+
+		const shipped = readdirSync(join(root, 'src/astro')).filter((f) =>
+			/\.(astro|ts)$/.test(f),
+		);
+		const missing = [];
+		for (const f of shipped) {
+			const src = readFileSync(join(root, 'src/astro', f), 'utf8');
+			// Relative specifiers only. `astro/types` and `lucide` resolve
+			// from node_modules and are the consumer's business, not ours.
+			for (const m of src.matchAll(/(?:from|import)\s*['"](\.[^'"]+)['"]/g)) {
+				const spec = m[1];
+				// Resolution must mirror Vite's, not string concatenation.
+				// `import './config'` is a real, WORKING import - the module is
+				// `config.ts` - so `join(...,'./config')` misses it and this
+				// check would report a defect that does not exist. Strip any
+				// explicit extension, drop a Vite `?raw` suffix, then accept
+				// the specifier if ANY candidate extension resolves.
+				const clean = spec.replace(/\?.*$/, '').replace(/\.(astro|ts|js)$/, '');
+				const cands = [clean, `${clean}.ts`, `${clean}.astro`, `${clean}.js`];
+				const resolved = cands.find((c) => existsSync(join(root, 'src/astro', c)));
+				if (!resolved) {
+					missing.push(`${f} imports '${spec}' but nothing resolves it in src/astro`);
+					continue;
+				}
+				const installed = join(dir, 'src/astro', resolved);
+				assert(
+					existsSync(installed),
+					`install.sh --astro copied ${f}, which imports '${spec}' (${resolved}), but ` +
+						`did NOT install that file. A component that cannot resolve its own import is ` +
+						`unbuildable in every consumer that adopts it.`,
+				);
+			}
+		}
+		assert(
+			missing.length === 0,
+			`the library itself has unresolved relative imports:\n  ${missing.join('\n  ')}`,
+		);
+		// And the specific regression, named, so the failure is legible even
+		// if someone later loosens the closure walk above.
+		assert(
+			existsSync(join(dir, 'src/astro', 'current.ts')),
+			'install.sh --astro did not install src/astro/current.ts, which Header.astro ' +
+				'and HeaderLink.astro both import',
+		);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
 check('install.sh can actually install the components', () => {
 	// The claim this cycle rests on. Before --astro existed, install.sh
 	// installed five CSS/JS files and NOTHING from src/astro, so a

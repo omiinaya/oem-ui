@@ -5,6 +5,39 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **`install.sh --astro` shipped the components without the module they
+  import, so `<Header>` could not be installed and used.** `Header.astro` and
+  `HeaderLink.astro` both do `import { isCurrentPage } from './current'`, and
+  the installer's loop matched `*.astro config.ts` — it copied both components
+  and not `current.ts`.
+
+  Every green signal agreed the installer worked: `ls` succeeded, the install
+  exited 0, and `check-design-sync.sh` reported the consumer **in sync**.
+  The consumer's build stayed green too, for the worst possible reason — an
+  unresolvable import only fails when something imports that component, so a
+  site that had not yet adopted `<Header>` never compiled it.
+
+  REPRODUCED against a real Astro consumer (`links.oem.ngo`) on 2026-10-04.
+  With the helper removed, `astro build` exits 0 and emits only `/index.html`.
+  Add one page importing `<Header>` and the build fails:
+  `Module not found. src/astro/HeaderLink.astro:2:30`. So the library's
+  flagship component — the one carrying the measured 18×44 tap floor and the
+  phone burger, the fixes `--astro` exists to deliver — was uninstallable in
+  practice, and `current.ts` is only the first shared helper to land.
+
+  Fixed by installing the whole closure (`*.astro *.ts`), and asserted by a
+  new check that parses every relative import out of every shipped component
+  and requires it to resolve **in the installed tree**. That derivation
+  matters: listing `current.ts` by hand would pass again the moment the next
+  helper landed, which is the same hand-kept list that caused this. The
+  resolver mirrors Vite's (extensionless specifiers, `?raw` suffixes) so it
+  reports a missing module rather than a spelling difference.
+
+  Four mutations, all killed: reverting the glob to `*.astro config.ts`;
+  dropping it to `*.astro`; adding a new helper a component imports; and
+  that last one with the shipped-list check neutralised, which only the
+  closure check catches.
+
 - **Three element defaults an article body needs were inherited from the
   user agent, and every CSS reset in existence erases that.** An article body
   is the one surface whose markup is not written by hand: it comes out of a
