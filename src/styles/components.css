@@ -63,7 +63,31 @@
 
    Use it on the page, not on every component. Components keep their own
    internal spacing; the stack owns the rhythm between them. */
-.cm-stack { display: flex; flex-direction: column; gap: var(--stack-gap); }
+.cm-stack {
+	display: flex;
+	flex-direction: column;
+	gap: var(--stack-gap);
+	/* A COLUMN flex container still lays its children out on the cross
+	   axis, and a flex item's automatic minimum size is its content's
+	   min-content size. So a child that is legitimately wider than the
+	   viewport pushes the whole stack, and therefore the page, sideways.
+
+	   MEASURED, and this is why it is load-bearing: adding `.cm-stack` to
+	   the showcase took documentElement.scrollWidth from 320 to 524 at a
+	   320px viewport - 204px of sideways scroll on every page that
+	   adopted the primitive. It was invisible in the source because the
+	   stack only changed the CONTAINER; every over-wide child was
+	   already there and previously harmless because block layout let it
+	   overflow instead of propagating.
+
+	   `min-width: 0` on the items restores the old behaviour: each child
+	   may be as wide as it likes and simply overflows its own box, which
+	   is what its own scroll container is for. It is the cross-axis
+	   equivalent of the `margin-block: 0` reset - the stack owns both
+	   axes of its children's geometry. */
+	min-width: 0;
+}
+.cm-stack > * { min-width: 0; }
 .cm-stack--section { gap: var(--stack-section); }
 .cm-stack--tight { gap: var(--stack-tight); }
 .cm-stack--flush { gap: 0; }
@@ -86,6 +110,38 @@
    was 65px against 17.6px of padding, so the padding was invisible. The
    first child heading gives up its top margin to the padding. */
 .cm-section--pad > :first-child { margin-top: 0; }
+
+/* ---------- a table typed inside prose ----------
+   Nothing styled these at all, so they fell back to UA defaults and their
+   cells laid out at their content width - the prose gutter is narrower
+   than that, so the table pushed the PAGE. Measured at a 320px viewport:
+   `#prose` alone accounted for the last 4px of sideways scroll
+   (documentElement.scrollWidth 324 against a 320 clientWidth), and hiding
+   any single `th` in it removed that 4px.
+
+   The fix is not a narrower font. A table that cannot fit has to be able
+   to SCROLL, and `display: block` is the standard way to give a table its
+   own scrollport without asking every call site for a `.cm-table-wrap`.
+   The showcase's own tables use the wrap because they are panels; a table
+   in a paragraph is content the author typed, so the library handles it. */
+.cm-prose table {
+	display: block;
+	overflow-x: auto;
+	max-width: 100%;
+}
+.cm-prose th,
+.cm-prose td {
+	padding: var(--space-2) var(--space-3);
+	border-bottom: 1px solid var(--line);
+	text-align: left;
+}
+.cm-prose th {
+	color: var(--ink-dim);
+	font-weight: 400;
+	font-size: var(--min-font);
+	text-transform: lowercase;
+	letter-spacing: 0.04em;
+}
 
 /* ---------- page head block ----------
    The single source for the top-of-page vertical start. Use on
@@ -955,8 +1011,15 @@ button.cm-row:hover { background: var(--bg-2); }
   invisible to a check for a collapsed column.
 */
 .cm-rows--inline .cm-row__title {
-	flex: 0 0 var(--measure-title);
-	max-width: var(--measure-title);
+	/* `min()` is what keeps the fixed-column design honest on a narrow
+	   phone. `--measure-title` is 42ch - measured 328.72px at 16px - which
+	   is WIDER than a 320px viewport, so the basis overflowed the row and
+	   the page. The title holds its measure whenever there is room and
+	   never claims more than the row can afford when there is not: both
+	   promises (no silent shrink at 681-780px, no overflow at 320px)
+	   instead of trading one for the other. */
+	flex: 0 0 min(var(--measure-title), 100%);
+	max-width: min(var(--measure-title), 100%);
 }
 .cm-row__desc {
 	color: var(--ink-faint);
@@ -989,6 +1052,17 @@ button.cm-row:hover { background: var(--bg-2); }
 	   is the whole point of a fixed meta slot. */
 	min-width: 0;
 	max-width: 100%;
+	/* The strip has a bounded BOX, but `white-space: nowrap` leaves its
+	   content wider than that box and every ancestor here has
+	   `overflow: visible`, so the content's scrollWidth propagates up and
+	   widens the page. MEASURED at a 320px viewport: this strip reported
+	   scrollWidth 484 inside a 240px row, `#density` 503, documentElement
+	   524 - 204px of sideways scroll that no width-based fix removed
+	   (min-width, max-width, contain and the table wrappers were all
+	   measured and all changed nothing). Only clipping the BOX stopped it.
+	   min-width lets the box shrink; this stops the nowrap content from
+	   escaping it. The chips inside ellipsize on their own. */
+	overflow: hidden;
 }
 
 /* A meta slot is a fixed, unshrinkable strip by default - correct for a
@@ -5227,23 +5301,12 @@ textarea.cm-code {
    A list of records that wants a tight ledger is a different thing,
    and it is `.cm-stack--tight`; this default is for the page-level
    run of panels, which is what the class was named for. */
-.cm-stack {
-	display: flex;
-	flex-direction: column;
-	/* The one gap that has to be right: sibling separation must EXCEED
-	   a panel's own padding (measured 19.2px), or the eye merges the
-	   regions before it can read them as separate. */
-	gap: var(--space-5);
-}
-/* Named density steps. These exist because six different call sites
-   were each passing `gap: var(--space-N)` inline, which put the
-   vertical rhythm of the whole product in the markup -- and made it
-   invisible to the showcase and to any guard that reads the library.
-   A rhythm is a library decision; the app names the step it wants. */
-.cm-stack--tight { gap: var(--space-2); }
-.cm-stack--snug { gap: var(--space-4); }
-.cm-stack--airy { gap: var(--space-6); }
-.cm-stack--loose { gap: var(--space-7); }
+/* The stack primitive is defined ONCE, at the top of this file, with the
+   `gap: var(--stack-gap)` default and the four named density steps. A
+   second copy of these rules sat near the end and disagreed with the
+   first on `--tight` (--space-2 here against var(--stack-tight) there),
+   so the step a page got depended on which rule won the cascade. A
+   primitive with two definitions is not a primitive. */
 
 /* A code or PRE block with a bounded height that scrolls rather than
    growing the page. Two of these appeared as inline styles on the same
