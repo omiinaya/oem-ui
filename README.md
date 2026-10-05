@@ -209,9 +209,41 @@ node scripts/make-scoped-entry.mjs --check <your-project>/src/cm-prose.css \
   --components ../cli-mono/components.css
 ```
 
-A SPA also has to call the runtime explicitly: it self-initialises on
-`DOMContentLoaded` and `astro:page-load`, and a React tree renders long
-after both have fired.
+#### A scoped adoption brings no PAGE SURFACE, and that is the sharpest edge
+
+This is the one thing the scoped entry cannot give you, and getting it wrong
+renders an app **black text on a white page** while every token resolves
+correctly — the tokens are present, nothing is painting them.
+
+`base.css` is where the surface lives (`cm-theme` sets
+`background: var(--bg); color: var(--ink)`), and a scoped adoption cannot
+import it. The `.cm-*` component classes are padding and colour *within* a
+surface; none of them paints the page. **MEASURED** in WebKit at 1280×900 on
+spacetime-memory's web app after adopting `.cm-header-block` and dropping the
+old `bg-neutral-950 text-neutral-100` from `<body>`: `html` and `body` both
+computed `rgba(0,0,0,0)`, while `--bg: #0a0a0a` resolved correctly inside the
+adopted subtree.
+
+So declare those two on the element that carries the tokens:
+
+```jsx
+<div data-cm-theme="dark"
+     style={{ background: 'var(--bg)', color: 'var(--ink)' }}>
+```
+
+#### A SPA no longer needs to call `init()` by hand
+
+The runtime used to require it, and the README said so. As of the
+`DOMContentLoaded` re-run fix it arms a bounded `MutationObserver` itself: a
+document that already has library markup arms nothing, and the observer
+disconnects once `init` has bound, so a static page pays no cost and a SPA
+gets bound on its own commit. `cliMono.init(document)` is still safe to call
+— `init()` is idempotent, every binder guards on a dataset flag — it is just
+no longer required.
+
+**MEASURED** in WebKit at 390×844, before and after: the burger went from
+**0×0 and unclickable** to **44×44**, and the drawer from not opening to
+781px tall with all 6 links on 6 distinct rows.
 
 ### Not available yet
 

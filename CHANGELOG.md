@@ -5,6 +5,60 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **The runtime now binds markup that arrives after it boots — a library bug
+  no existing consumer could have found.** `init()` binds to whatever exists
+  when it runs, and it is called once on `DOMContentLoaded`. In a static page
+  that is the whole document, so it is correct. In a SPA it is nothing: the
+  framework commits its tree *after* this module evaluates, so every
+  `querySelector` in `init()` returns null and — crucially — nothing ever
+  retries.
+
+  The result is not a crash. It is a page that looks wired up and is not:
+  `.cm-js` is never set, so the header's burger stays `display:none`; the
+  sticky header never gets its scrolled shadow; and `initHeader` never
+  publishes `--header-h`, so anchor jumps land under the bar.
+
+  **MEASURED** on spacetime-memory's web app (React 19, Vite) in WebKit at
+  390×844: with auto-init alone the burger measured **0×0** and could not be
+  clicked at all. One manual `cliMono.init(document)` after the commit set
+  `.cm-js`, gave the burger **44×44**, and opened the drawer with all 6 links
+  at 781px. The runtime was always correct and the *order* was not.
+
+  The fix is a `MutationObserver` on the `body` subtree that re-runs `init`
+  when `.cm-*` markup actually appears, and it is bounded on purpose: a
+  document that already has library markup arms nothing at all, and the
+  observer disconnects as soon as one full pass binds. `init()` is idempotent
+  — every binder guards on a dataset flag — so a re-run over already-bound
+  nodes is free and cannot double-bind a click handler.
+
+  **`subtree: true` is load-bearing and is asserted as such.** Without it,
+  observing `<body>` reports only its direct children, so a React commit into
+  `#root` is invisible and the SPA case is silently not fixed. The first
+  mutation sweep reported this mutation SURVIVING, because the test's
+  `MutationObserver` shim ignored its options argument and could not tell
+  `subtree: true` from `subtree: false`. The shim now records what it was
+  asked to watch.
+
+  Two tests run the runtime against a document that is **empty at boot** and
+  gains its header afterwards. A regex over the source cannot tell whether the
+  re-run is reachable. Getting them honest took four shim fixes, and each one
+  read exactly like a runtime bug: a bare `{}` for the button threw on
+  `undefined.cmNavBound`; `getAttribute` written as an arrow threw on
+  `this.attrs` because the runtime calls it *unbound* as
+  `documentElement.getAttribute(...)`; `documentElement` needed a real `style`
+  for `--header-h`; and the observer shim ignored its options.
+
+  `tests/mutate-late-markup.mjs` ships in the same commit because it shipped
+  with two real defects: it restored with `writeFileSync(TARGET, SNAP)`,
+  passing the **path** instead of the **contents**, which truncated the
+  runtime to one line and left the tree unparseable; and its final
+  verification compared the file against a snapshot it had already deleted, so
+  that corruption read as a clean restore. It now restores by content and
+  proves the tree byte-identical before reporting. **7 mutations, 7 killed, 0
+  survived, 0 no-op** — including one that correctly *survives* (appending an
+  unmatchable selector only widens an OR-list) and is recorded as
+  `SURVIVED-OK` rather than counted as a kill.
+
 - **A new adoption path for consumers that cannot import the library
   globally: `scripts/make-scoped-entry.mjs`.** `install.sh` covers the easy
   case — a static site that can link `tokens.css`, `base.css` and
