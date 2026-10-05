@@ -6,6 +6,11 @@ dist/
 # The mutation harness snapshots the files it mutates next to them; those
 # backups are cycle debris, never commits.
 *.mutbak
+# tests/mutate-late-markup.mjs snapshots to `<name>.snapshot` beside the file.
+# It is the same debris under a different suffix: an unignored snapshot is
+# how a sweep that wiped its own target left a file containing nothing but the
+# snapshot PATH in the working tree.
+*.snapshot
 
 # The SAME-PATH symlink this repo's own tooling uses to reach itself.
 /oem-ui
