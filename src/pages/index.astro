@@ -951,12 +951,38 @@ A selected row takes a left rule and a faint tint rather than an outline: an out
 					<strong>bottom</strong>: the count lives at the top of the page
 					and the actions belong where the thumb already is.
 				</p>
+				<!--
+					The bar sticks to the BOTTOM of the thing it acts on. In
+					a real app that is a scrolling list a few screens tall; in
+					this page it was a bare child of a 47,000px section, so
+					`position: sticky; bottom: 0` parked it on the viewport
+					bottom for the whole document - measured over the
+					"spacing" prose and every section after it. The specimen
+					is wrong, not the component: a sticky bar needs a bounded
+					containing block to be a demonstration of anything.
+				-->
+				<div class="cm-stack cm-stack--tight" style="min-height: 22rem;overflow:hidden">
+				<ul class="cm-rows cm-rows--inline" style="flex:1">
+					<li class="cm-row"><span class="cm-row__title">api.example.com</span></li>
+					<li class="cm-row"><span class="cm-row__title">cdn.example.com</span></li>
+					<li class="cm-row"><span class="cm-row__title">mx.example.com</span></li>
+					<li class="cm-row"><span class="cm-row__title">plex.example.com</span></li>
+					<li class="cm-row"><span class="cm-row__title">time.example.com</span></li>
+					<li class="cm-row"><span class="cm-row__title">git.example.com</span></li>
+					<li class="cm-row"><span class="cm-row__title">ui.example.com</span></li>
+					<li class="cm-row"><span class="cm-row__title">log.example.com</span></li>
+					<li class="cm-row"><span class="cm-row__title">hub.example.com</span></li>
+					<li class="cm-row"><span class="cm-row__title">rpm.example.com</span></li>
+					<li class="cm-row"><span class="cm-row__title">sso.example.com</span></li>
+					<li class="cm-row"><span class="cm-row__title">relay.example.com</span></li>
+				</ul>
 				<div class="cm-toolbar">
 					<span class="cm-toolbar__count" aria-live="polite">3 items selected</span>
 					<button class="cm-btn cm-btn--sm">enable all</button>
 					<button class="cm-btn cm-btn--sm">disable all</button>
 					<button class="cm-btn cm-btn--sm cm-btn--primary">delete all</button>
 					<button class="cm-btn cm-btn--sm cm-btn--ghost">clear</button>
+				</div>
 				</div>
 
 				<h3 class="cm-kicker">inline edit</h3>
