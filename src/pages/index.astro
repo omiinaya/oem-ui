@@ -39,7 +39,7 @@ import SectionHead from '../astro/SectionHead.astro';
 const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'crumbs', 'lists', 'states', 'surface',
   'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'choice',
-	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'proselists', 'proselists-order', 'prosetap', 'prosetable', 'tablelabels', 'layout',
+	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'proselists', 'proselists-order', 'prosetap', 'prosetable', 'tablelabels', 'layout', 'surface-paint',
 	'forms', 'search', 'auth', 'readme',
 ] as const;
 
@@ -2615,6 +2615,49 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 							<span>back to layout</span>
 						</a>
 					</aside>
+				</div>
+			</section>
+
+			<section id="surface-paint" class="cm-section cm-section--pad">
+				<SectionHead title="surface">
+					<code>.cm-surface</code> paints a subtree that has no <code>&lt;body&gt;</code> of its own. Every other <code>.cm-*</code> class is padding and colour <em>within</em> a surface; this one is the paint. It exists for a SCOPED adoption - one that cannot import <code>base.css</code>, because that file is bare-element rules and unlayered CSS outranks every <code>@layer</code> in a Vite build - which is what left two first-party apps hand-writing <code>style={{background:'var(--bg)', color:'var(--ink)'}}</code> at each root.
+				</SectionHead>
+
+				<!-- The specimen is an ISLAND, and deliberately so. Nested
+				     inside the showcase its own <body> still paints, so a
+				     class with no paint rule at all would look identical
+				     here - the defect this ships a fix for is INVISIBLE on
+				     a page whose body already has the colour. So the wrapper
+				     carries a NEUTRAL backing that no theme in the library
+				     uses, and the class under test is the only thing
+				     between that backing and the reader. Remove the
+				     background here and this specimen passes while
+				     proving nothing; the contract test asserts it is set. -->
+				<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr));gap:var(--space-4);background:#f2f0ec;padding:var(--space-4);border-radius:var(--radius);border:1px solid var(--line)">
+					<div class="cm-surface" data-cm-theme="dark"
+					     style="padding:var(--space-4);border-radius:var(--radius-sm);border:1px solid var(--line)">
+						<p class="cm-kicker">dark island</p>
+						<p style="margin:var(--space-3) 0 var(--space-4);max-width:var(--measure);font-size:var(--text-sm)">
+							This block carries <code>data-cm-theme="dark"</code> and
+							<code>.cm-surface</code>. Remove the class and this text
+							renders as dark ink on the light neutral behind it —
+							the exact black-text-on-white failure, on demand.
+						</p>
+						<div class="cm-btn-group">
+							<button class="cm-btn cm-btn--primary" type="button">primary</button>
+							<button class="cm-btn" type="button">default</button>
+						</div>
+					</div>
+
+					<div class="cm-surface cm-surface--flat" data-cm-theme="light"
+					     style="padding:var(--space-4);border-radius:var(--radius-sm);border:1px solid var(--line)">
+						<p class="cm-kicker">light, flat</p>
+						<p style="margin:var(--space-3) 0 0;max-width:var(--measure);font-size:var(--text-sm)">
+							<code>.cm-surface--flat</code> drops the vignette for a
+							consumer that already paints its own chrome, so the
+							library does not composite a second treatment over it.
+						</p>
+					</div>
 				</div>
 			</section>
 

@@ -142,6 +142,61 @@
    first child heading gives up its top margin to the padding. */
 .cm-section--pad > :first-child { margin-top: 0; }
 
+/* ---------- surface: the PAINT, for an adoption with no base.css ----------
+
+   Placed beside `.cm-section` rather than at the end of the layer, and
+   the position is a CONTRACT rather than taste. Two of this repo's own
+   checks slice their block from a marker to END OF FILE - the card/meter
+   hex scan and the auth "no private vocabulary" scan - so a new class
+   appended after either marker reads as that block's own new name and
+   the suite goes red. A page-level primitive belongs with the other
+   page-level primitives, which is also where a reader will look for it.
+
+   Every other `.cm-*` class in this file is padding and colour WITHIN a
+   surface; none of them paints one. The surface normally arrives with
+   base.css, which sets `background: var(--bg); color: var(--ink)` on the
+   bare `body` element - and a SCOPED adoption (see make-scoped-entry.mjs)
+   cannot import base.css at all, because it is 52 bare-element rules and
+   unlayered CSS outranks every `@layer` in a Vite/PostCSS build.
+
+   The consequence was measured, not theorised: spacetime-memory and
+   spacetime-kanban both render a `data-cm-theme` subtree whose root is
+   `style={{ background: 'var(--bg)', color: 'var(--ink)' }}`, written by
+   hand at each site, because without it `html` and `body` both computed
+   `rgba(0,0,0,0)` and the app showed BLACK TEXT ON A WHITE PAGE while
+   every token resolved correctly. Two copies of that inline style is one
+   class with two authors.
+
+   It resolves only tokens the scoped entry already carries (`--bg`,
+   `--ink`, `--vignette`, `--font-body`, `--text`), so it needs no token
+   the generator does not emit.
+
+   Scoped to `.cm-surface` rather than applied to `body` because the whole
+   point is that a scoped consumer has NO `body` of its own to hang it on:
+   the tokens live on `[data-cm-theme]`, and the paint has to live on the
+   same element or the two can drift apart - which is precisely what the
+   inline styles were there to prevent.
+
+   `--flat` exists for a consumer that has its own fixed chrome. The
+   vignette is the library's page treatment, and a consumer that already
+   paints a shell should not get a second one composited over the top. */
+.cm-surface {
+	background-color: var(--bg);
+	background-image: var(--vignette);
+	background-attachment: fixed;
+	color: var(--ink);
+	font-family: var(--font-body);
+	font-size: var(--text);
+	line-height: 1.7;
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+	min-height: 100%;
+}
+.cm-surface--flat {
+	background-image: none;
+	background-attachment: scroll;
+}
+
 /* ---------- a table typed inside prose ----------
    Nothing styled these at all, so they fell back to UA defaults and their
    cells laid out at their content width - the prose gutter is narrower

@@ -11424,6 +11424,155 @@ check('the scoped entry and the library tokens cannot drift apart', () => {
 	}
 });
 
+/* ---------- .cm-surface: the paint a scoped adoption cannot get ------
+
+   A SCOPED adoption (make-scoped-entry.mjs) ships components.css plus
+   tokens re-scoped to [data-cm-theme], and deliberately cannot ship
+   base.css: that file is 52 bare-element rules, and unlayered CSS
+   outranks every @layer in a Vite/PostCSS build, so importing it would
+   let the library's `a`, `h1`, `button` defaults beat the consumer's
+   own Tailwind utilities across the whole app.
+
+   The cost was that nothing in the library PAINTED anything. Every
+   other .cm-* class is padding and colour within a surface. So a
+   scoped consumer had one option: `style={{ background: 'var(--bg)',
+   color: 'var(--ink)' }}` written by hand at the root of its tree, and
+   without it the app rendered BLACK TEXT ON A WHITE PAGE with every
+   token resolving correctly. MEASURED on spacetime-memory at
+   1280x900: html and body both computed rgba(0,0,0,0).
+
+   These assert the CAUSE (the paint declarations exist and resolve), not
+   the effect, for the reason this file exists: a presence check passes
+   on `.cm-surface { }` with an empty body, which paints nothing. */
+
+{
+	// The rule that OWNS a property for a selector, not a
+	// last-in-source-order read: `.cm-surface` and `.cm-surface--flat`
+	// are siblings, and reading the wrong one passes the wrong test.
+	const ruleBody = (cls) => {
+		const esc = cls.replace(/[-]/g, '\\-');
+		const re = new RegExp(
+			'(^|[\\s,}])' + esc + '\\s*(,[^{]*)?\\{([^}]*)\\}', 'g');
+		let last = null;
+		for (const m of compSrc.matchAll(re)) {
+			// A COMPOUND selector (`--x .cm-surface`) does not define it.
+			const head = m[0].slice(0, m[0].indexOf('{'));
+			if (!new RegExp('(^|[\\s,}])' + esc + '\\s*(,|$)')
+				.test(head.trim())) continue;
+			last = m[3];
+		}
+		return last || '';
+	};
+
+	check('.cm-surface paints a subtree root, which no other class does', () => {
+		const body = ruleBody('.cm-surface');
+		assert(body !== '', '.cm-surface has no rule in components.css');
+		assert(/background-color:\s*var\(--bg\)/.test(body),
+			'.cm-surface must set background-color: var(--bg) - without it ' +
+			'the subtree paints transparent and the text lands on the page behind it');
+		assert(/color:\s*var\(--ink\)/.test(body),
+			'.cm-surface must set color: var(--ink), or a scoped adoption ' +
+			'inherits the host app foreground');
+		assert(/font-family:\s*var\(--font-body\)/.test(body),
+			'.cm-surface must carry the body font; a scoped subtree that does ' +
+			'not renders the host app font stack');
+	});
+
+	check('the surface paints from tokens the SCOPED entry actually emits', () => {
+		// The generator copies the colour half VERBATIM out of
+		// tokens.css's own [data-cm-theme] blocks, so the string `--bg`
+		// need never appear in the script at all - reading the source for
+		// token names reports a working generator as broken. ASK it
+		// instead, through the repo's own generator fixture, and read the
+		// declarations in the file it actually emits.
+		const r = runGenerator(GENERATOR);
+		assert(r.code === 0,
+			'the scoped-entry generator did not run, so the emitted tokens ' +
+			'cannot be read: ' + r.stderr.trim());
+		const declared = new Set(
+			[...r.text.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map((m) => m[1]));
+		assert(declared.size > 20,
+			'the generated entry declares suspiciously few tokens (' +
+			declared.size + '), so this check is reading the wrong file');
+		for (const v of new Set(
+			[...ruleBody('.cm-surface').matchAll(/var\((--[a-z0-9-]+)\)/g)]
+				.map((m) => m[1]))) {
+			assert(declared.has(v),
+				'.cm-surface resolves ' + v + ', which the generated scoped ' +
+				'entry does not declare - the scoped adoption this class ' +
+				'exists for would render with an undefined value');
+		}
+	});
+
+	check('.cm-surface--flat drops the vignette instead of restating the paint', () => {
+		const body = ruleBody('.cm-surface--flat');
+		assert(body !== '', '.cm-surface--flat has no rule in components.css');
+		assert(/background-image:\s*none/.test(body),
+			'--flat must set background-image: none - a consumer that paints ' +
+			'its own chrome would get the library vignette composited over it');
+		assert(!/background-color\s*:/.test(body),
+			'--flat restates background-color; that belongs to .cm-surface alone');
+		assert(!/color\s*:/.test(body),
+			'--flat restates color; that belongs to .cm-surface alone');
+	});
+
+	check('the surface and the bare body rule agree on what a surface IS', () => {
+		// The MUTEX. `.cm-surface` and base.css `body` are two
+		// implementations of one job, and a scoped consumer gets exactly
+		// one of them. If base.css changes its paint and this class does
+		// not, the same product renders two different surfaces depending
+		// on which file the consumer could afford to import - and every
+		// check that reads only components.css reports green.
+		const bodyRule = (() => {
+			const m = /(?:^|\})\s*body\s*\{([^}]*)\}/.exec(
+				read('src/styles/base.css').replace(/\/\*[\s\S]*?\*\//g, ''));
+			return m ? m[1] : '';
+		})();
+		assert(bodyRule !== '', 'base.css has no body rule to compare against');
+		for (const prop of ['background-color', 'color', 'font-family',
+			'font-size', 'line-height', '-webkit-font-smoothing',
+			'text-rendering', 'background-image', 'background-attachment']) {
+			const decl = (src) => {
+				const re = new RegExp('(?:^|;)\\s*' + prop + '\\s*:\\s*([^;]+)');
+				const m = re.exec(src);
+				return m ? m[1].trim() : null;
+			};
+			const inBody = decl(bodyRule);
+			const inSurface = decl(ruleBody('.cm-surface'));
+			assert(inBody !== null,
+				'base.css body no longer declares ' + prop + ', so the ' +
+				'comparison that keeps the two surfaces identical lost its subject');
+			assert(inBody === inSurface,
+				'base.css body and .cm-surface disagree on ' + prop + ': ' +
+				"'" + inBody + "' against '" + inSurface + "'. A scoped adoption " +
+				'and a full adoption would then paint the same product two ways.');
+		}
+	});
+
+	check('the showcase demonstrates the surface on an island, not on its body', () => {
+		// A fixture nested in the showcase inherits the showcase own body
+		// paint, so a `.cm-surface` with NO declarations renders
+		// identically to a correct one. The masked backing is what makes
+		// this section a demonstration rather than a decoration, and
+		// removing it leaves the section LOOKING fine while proving
+		// nothing - which is the failure this whole file exists to stop.
+		const page = read('src/pages/index.astro');
+		const at = page.indexOf('<section id="surface-paint"');
+		assert(at !== -1, 'the showcase has no surface-paint section');
+		const body = page.slice(at, page.indexOf('</section>', at));
+		assert(/class="cm-surface"/.test(body),
+			'the surface section does not render .cm-surface');
+		assert(/class="cm-surface cm-surface--flat"/.test(body),
+			'the surface section does not demonstrate --flat');
+		assert(/<div style="[^"]*background:[^"]*"/.test(body),
+			'the specimen has no masked backing, so what is being demonstrated ' +
+			'is the showcase body paint - delete .cm-surface and it still looks right');
+		const islands = [...body.matchAll(/class="cm-surface[^"]*"[^>]*?data-cm-theme="(\w+)"/g)];
+		assert(islands.length === 2,
+			'expected both surface specimens to bind a theme, found ' + islands.length);
+	});
+}
+
 /* ================= result ================= */
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length) {
