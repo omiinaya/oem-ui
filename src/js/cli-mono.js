@@ -304,11 +304,34 @@
 		var scrim = doc.querySelector('[data-cm-nav-scrim]');
 		if (!scrim) {
 			scrim = doc.createElement('div');
-			scrim.className = 'cm-nav-scrim';
 			scrim.setAttribute('data-cm-nav-scrim', '');
 			scrim.setAttribute('aria-hidden', 'true');
 			doc.body.appendChild(scrim);
 		}
+		/* The CLASS is not optional, and this is the second time this has been
+		   got wrong. Every rule that styles the scrim is written
+		   `.cm-js .cm-nav-scrim` - a class selector - because the rule must
+		   only exist once JS has booted, or a no-JS reader gets a permanent
+		   dark veil over their content. So the class is what makes the scrim
+		   render at all.
+
+		   A consumer is allowed to ship its own scrim node (it is inside the
+		   React tree, after the header), and two shipped exactly that:
+		   `<div data-cm-nav-scrim />`. The runtime found the node, skipped
+		   the create branch, and never added the class - so the scrim stayed
+		   an unstyled empty div. MEASURED in WebKit on spacetime-rpm at
+		   393x852 with the drawer open: the scrim measured 353x0 (zero
+		   height, so `inset: 0` never applied) with `className: ''`, and
+		   `.cm-js .cm-nav-scrim` matched nothing. The visible symptom is not
+		   a broken box, it is a MISSING affordance: no dark veil behind the
+		   drawer and, because the scrim is what swallows the outside tap,
+		   no dismiss target either. The drawer covers the full 375px width
+		   on a phone, so the reader is left with no way out except Escape.
+
+		   So the class is applied to whatever node was found, created or
+		   supplied. Idempotent: `classList.add` on an already-correct class is
+		   a no-op, so re-running init over a bound document is free. */
+		scrim.classList.add('cm-nav-scrim');
 		scrim.addEventListener('click', function () { setOpen(false); });
 
 		

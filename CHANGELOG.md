@@ -5,6 +5,44 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **A scrim the CONSUMER shipped never got its class, so on a phone the
+  drawer had no veil and no way out.** `initNavToggle` looks for
+  `[data-cm-nav-scrim]` and creates one only if the page has not got it
+  already — and the class assignment lived *inside* that create-branch.
+  Every rule that styles the scrim is `.cm-js .cm-nav-scrim`, a **class**
+  selector, because the veil must not exist for a no-JS reader. So a
+  consumer that ships its own node got an unstyled empty `<div>`.
+
+  Two consumers do exactly that: `<div data-cm-nav-scrim />` in
+  **spacetime-rpm** and **spacetime-kanban** — both React apps where the
+  scrim belongs inside the tree, after the header.
+
+  **MEASURED** in WebKit, drawer open, before → after:
+
+  | | before | after |
+  |---|---|---|
+  | `className` | `''` | `cm-nav-scrim` |
+  | box | **353 × 0** | 375 × 667 (and 393 × 852) |
+  | `position` | `static` | `fixed` |
+  | `opacity` | `1` (unconditional) | `0` closed → `1` open |
+  | `pointer-events` | `auto` | `none` closed → `auto` open |
+  | tap outside dismisses | **no** | yes (`aria-expanded` → `false`) |
+
+  Zero height is the whole bug: `inset: 0` never applied, so there was no
+  veil — and since the scrim is what swallows the outside tap, and the
+  drawer covers the full 375px of a phone's width, a reader had no way to
+  dismiss it except Escape.
+
+  Fixed by applying the class to whatever node was found, created or
+  supplied. `classList.add` is idempotent, so re-running `init()` over an
+  already-bound document stays free.
+
+  The new test runs the **real runtime** against a document that supplies
+  its own scrim. A source regex cannot see this branch at all — the old
+  assignment was present in the file and every `cm-nav-scrim` string check
+  matched it happily. Mutation-checked: restoring the original
+  create-branch-only placement fails it.
+
 - **A GROUPED rail never got the rail's link geometry at all — and the
   showcase could not see it, because the showcase was not the shape.**
   Found by adopting `spacetime-kanban`, which is the second consumer to

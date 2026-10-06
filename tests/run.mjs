@@ -6199,6 +6199,112 @@ function fakeEl(over = {}) {
 	);
 }
 
+check('a scrim the CONSUMER shipped gets the class, or it stays an unstyled 0-height div', () => {
+	// A consumer may ship its own scrim node instead of letting the runtime
+	// create one - it belongs inside the React tree, after the header. Two
+	// did exactly that: `<div data-cm-nav-scrim />` in spacetime-rpm and
+	// spacetime-kanban.
+	//
+	// Every rule that styles the scrim is `.cm-js .cm-nav-scrim`, a CLASS
+	// selector, so the class is load-bearing: without it the element is an
+	// empty div with no `inset: 0`, i.e. zero height, i.e. no veil and - the
+	// part that actually strands a reader - no tap target to dismiss the
+	// drawer with. MEASURED in WebKit at 393x852: 353x0 with className ''.
+	//
+	// So this runs the REAL runtime, not a regex over its source. A source
+	// check cannot see this branch at all: `scrim.className = 'cm-nav-scrim'`
+	// sat INSIDE the create-branch, where it was correct and unreachable, and
+	// every `cm-nav-scrim` string test in this file matched it happily.
+	const html = { attrs: {} };
+	const htmlClasses = new Set();
+	// The consumer's node: it arrives with the ATTRIBUTE and nothing else.
+	// It needs a REAL Set-backed classList, because `fakeEl`'s is a stub whose
+	// `contains` is hardcoded false - with that, this assertion could never
+	// pass and a green run would have been a lie.
+	const scrimClasses = new Set();
+	const consumerScrim = fakeEl({
+		classList: {
+			add: (c) => scrimClasses.add(c),
+			remove: (c) => scrimClasses.delete(c),
+			contains: (c) => scrimClasses.has(c),
+			toggle: (c, on) => (on ? scrimClasses.add(c) : scrimClasses.delete(c)),
+		},
+	});
+	const navBtn = fakeEl();
+	const navPanel = fakeEl({ width: 375, height: 547 });
+	const doc = {
+		documentElement: {
+			getAttribute: (k) => (k in html.attrs ? html.attrs[k] : null),
+			setAttribute: (k, v) => {
+				html.attrs[k] = v;
+			},
+			removeAttribute: (k) => {
+				delete html.attrs[k];
+			},
+			style: { setProperty: () => {}, removeProperty: () => {} },
+			classList: {
+				add: (c) => htmlClasses.add(c),
+				remove: (c) => htmlClasses.delete(c),
+				contains: (c) => htmlClasses.has(c),
+				toggle: (c, on) => (on ? htmlClasses.add(c) : htmlClasses.delete(c)),
+			},
+		},
+		body: { style: {}, appendChild: () => {} },
+		querySelector: (sel) => {
+			if (sel.includes('nav-scrim')) return consumerScrim;
+			if (sel.includes('nav-toggle')) return navBtn;
+			if (sel.includes('data-cm-header')) return null;
+			return null;
+		},
+		querySelectorAll: () => [],
+		addEventListener: () => {},
+		createElement: () => fakeEl({ width: 0, height: 0 }),
+		readyState: 'complete',
+		getElementById: (id) => (id === 'cm-header-links' ? navPanel : null),
+	};
+	const ctx = {
+		document: doc,
+		window: {
+			addEventListener: () => {},
+			scrollY: 0,
+			innerHeight: 800,
+			requestAnimationFrame: () => {},
+			matchMedia: () => ({
+				matches: true,
+				addEventListener: () => {},
+				removeEventListener: () => {},
+				addListener: () => {},
+				removeListener: () => {},
+			}),
+		},
+		localStorage: { getItem: () => null, setItem: () => {} },
+		navigator: {},
+		MutationObserver: function () {
+			this.observe = () => {};
+			this.disconnect = () => {};
+		},
+		ResizeObserver: function () {
+			this.observe = () => {};
+		},
+		module: { exports: {} },
+	};
+	ctx.globalThis = ctx;
+	ctx.self = ctx;
+	vm.createContext(ctx);
+	vm.runInContext(runtimeSrc, ctx);
+
+	// initNavToggle returns before it reaches the scrim unless the burger AND
+	// its panel are both present, so the fixture has to be a document that
+	// actually has a drawer to draw a scrim behind. Without this the test
+	// passes on a runtime that does nothing at all.
+	assert(
+		consumerScrim.classList.contains('cm-nav-scrim'),
+		'the scrim the consumer shipped was found but never given the class, so ' +
+			'.cm-js .cm-nav-scrim does not match it: it renders as an unstyled ' +
+			'empty div with no height, no veil, and no tap-to-dismiss target',
+	);
+});
+
 check('markup that arrives after the runtime boots still gets bound', () => {
 	const html = { attrs: {} };
 	const htmlClasses = new Set();
