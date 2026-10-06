@@ -25,6 +25,15 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="${OEM_UI_SRC:-$HERE}"
 CONSUMER_ROOT="${CONSUMER_ROOT:-/root/projects}"
+# Consumers are not all UNDER $CONSUMER_ROOT. hermes-hearth's source repo is
+# /root/browser-hub - only its deploy venv lives under /root/projects - so a
+# sweep bounded by $CONSUMER_ROOT reported it as neither a consumer nor a
+# holdout: an adoption could exist and the sweep that exists to notice
+# adoptions would never see it. Extra roots get the SAME content test as any
+# other directory (a tokens.css whose lines match the library's), so listing
+# one costs nothing until it actually vendors the library - and once it does,
+# it is graded exactly like everyone else.
+EXTRA_CONSUMER_ROOTS="${EXTRA_CONSUMER_ROOTS:-${HOME}/browser-hub}"
 MAP=(
 	"src/styles/tokens.css:src/styles/cli-mono/tokens.css"
 	"src/styles/base.css:src/styles/cli-mono/base.css"
@@ -304,6 +313,13 @@ if [ ${#targets[@]} -eq 0 ]; then
 	# old test was `[ -d "$d/src/styles/cli-mono" ]`, which can only ever
 	# find a project whose install root is the repo root.
 	for d in "$CONSUMER_ROOT"/*/; do
+		prefix_for "$(strip_slash "$d")" >/dev/null 2>&1 && targets+=("$(strip_slash "$d")")
+	done
+	# Word-split on purpose: EXTRA_CONSUMER_ROOTS is a space-separated list
+	# of directories, each tested on its own merits below.
+	# shellcheck disable=SC2086
+	for d in $EXTRA_CONSUMER_ROOTS; do
+		[ -d "$d" ] || continue
 		prefix_for "$(strip_slash "$d")" >/dev/null 2>&1 && targets+=("$(strip_slash "$d")")
 	done
 fi
@@ -591,7 +607,8 @@ for t in "${targets[@]}"; do
 				-o -name build -o -name target -o -name .astro \
 				-o -name .next -o -name vendor \) -prune \) -o \
 			\( -type f \
-			\( -name '*.astro' -o -name '*.ts' -o -name '*.js' -o -name '*.css' -o -name '*.mjs' -o -name '*.html' \) \
+			\( -name '*.astro' -o -name '*.ts' -o -name '*.js' -o -name '*.css' -o -name '*.mjs' -o -name '*.html' \
+				-o -name '*.py' \) \
 			! -path "*/styles/cli-mono/*" ! -path "$t/$CD/*" \
 			! -name 'cli-mono.js' \
 			! -name 'cli-mono-theme-guard.js' -print \) 2>/dev/null)
@@ -609,7 +626,25 @@ for t in "${targets[@]}"; do
 			# tag-bearing markup these checks look for, so stripping
 			# them buys nothing and risks eating a real @import line
 			# that a stylesheet legitimately hides behind a comment.
-			blob=$(printf '%s' "$blob" | perl -0pe 's/<!--.*?-->//gs')
+			#
+			# *.py is in the set now, and a Python consumer names its
+			# files in `#` comments as readily as an HTML one does in
+			# <!-- -->: hermes-hearth's WebUI is a Python STRING, so it
+			# has no .html at all and the whole pass used to skip. A
+			# line-leading # is stripped for the same reason, and the
+			# worry of eating real content does not apply: a CSS id
+			# selector or an #anchor at column 0 is never a filename
+			# the page loads, and hex colours live mid-declaration.
+			blob=$(printf '%s' "$blob" | perl -0pe 's/<!--.*?-->//gs; s/^[ 	]*#.*$//gm')
+			# Known limit, recorded rather than hidden: for a Python
+			# consumer the PASS here only proves the filename appears
+			# somewhere outside the vendored copy - and the server's own
+			# asset allowlist names it too, so deleting the <link> from
+			# the page does not turn this red. The page-level guarantee
+			# is the consumer's own suite (hermes-hearth asserts the tag
+			# ORDER, and a mutation dropping components.css's <link>
+			# fails it). This pass's job here is narrower: run at all,
+			# where before the source set was empty and it skipped.
 			# The three CSS layers are all-or-nothing: a project that styles
 			# with .cm-* is loading them, and if it does not, none of the
 			# library reached the page.

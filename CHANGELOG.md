@@ -5,6 +5,64 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **A `[popover]` dropdown could not be placed by CSS at all - every
+  `.cm-dropdown` menu opened ~24,800px away from its own button.**
+  `.cm-dropdown__menu` is `position: absolute` with `right: 0` and
+  `top: calc(100% + 4px)` - all three written as if the containing block
+  were `.cm-dropdown`. It is not: a popover lives in the TOP LAYER, and a
+  top-layer element's containing block is the INITIAL CONTAINING BLOCK.
+  So the UA's own popover default (measured in WebKit: `inset: 0;
+  margin: 0; width: fit-content`) wins the horizontal pair - `left: 0`
+  beats an over-constrained `right: 0` - and the `100%` in `top` resolves
+  against the viewport's height.
+
+  **MEASURED** on this repo's own showcase in WebKit, with the runtime's
+  inline styles cleared so the reading is CSS alone:
+
+  | viewport | `getComputedStyle(menu).top` | menu (document) | trigger (document) | menu when scrolled to the trigger |
+  |---|---|---|---|---|
+  | 390 x 844 | **`848px`** (844 + 4 = the ICB, not the parent) | **(0, 848)** | (40, 25576) | **24,286px above the viewport** - off screen |
+  | 1280 x 900 | `904px` | **(0, 904)** | (356, 19116) | off screen |
+
+  The `top` reading is the whole diagnosis: `calc(100% + 4px)` computing
+  to the viewport height plus the gap means the containing block IS the
+  viewport. CSS has no selector that can name the trigger, so the
+  runtime anchors the menu instead - `position: fixed` at the trigger's
+  right edge, four pixels below it, flipped above when it would leave the
+  viewport, clamped inside, and re-pinned on scroll and resize while it
+  is open.
+
+  The listener is captured at `document` rather than bound per element:
+  `toggle` does not bubble but it DOES pass through the capture phase,
+  and a consumer that re-renders its rows replaces the menu nodes, taking
+  any per-node binding with them. **AFTER**, measured in WebKit at
+  390 x 844 / 375 x 667 / 1280 x 900: menu `position: fixed`, `dx` from
+  the intended x **0 / 0 / 0.3px**, vertical **below / below /
+  flipped-above**, all three fully inside the viewport, zero page
+  errors. The defect was found by adopting a consumer, not by a test:
+  **1 contract test, 4 mutations, 4 killed**, 0 survived.
+
+- **The drift checker could not SEE a Python consumer, and a consumer it
+  cannot see is one it cannot migrate.** `hermes-hearth`
+  (`/root/browser-hub`, the hearth console, now the first Python
+  consumer of this library) has no `.astro`/`.ts`/`.js`/`.css`/`.html`
+  anywhere outside its vendored `cli-mono/`, so its reachability source
+  set came out EMPTY and the whole pass silently skipped: it could vendor
+  the library, load none of it, and report `in sync` every run. Two
+  fixes - `*.py` joins the source set (**measured: 0 files -> 18**), and
+  lines beginning `#` are stripped from the blob exactly as HTML comments
+  already were (a filename in a Python comment is not a page loading
+  it).
+
+  Plus `EXTRA_CONSUMER_ROOTS` (default `$HOME/browser-hub`), because a
+  consumer is not defined by where it lives: the no-argument sweep walks
+  `$CONSUMER_ROOT/*/`, and this adoption was reported as neither a
+  consumer nor a holdout. Known limit, written into the script: the name
+  check is satisfied by `server.py`'s asset allowlist, so removing the
+  page's `<link>` does not trip it - the page-level guarantee for a
+  Python consumer is that consumer's own suite, which killed exactly that
+  edit.
+
 - **No `.cm-*` class painted a surface, so a scoped adoption had to hand-write
   one at every root — and omitting it renders BLACK TEXT ON A WHITE PAGE.**
   Every other class in the layer is padding and colour *within* a surface.

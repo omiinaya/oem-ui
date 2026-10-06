@@ -366,6 +366,99 @@ check('emits a FOUC guard snippet that only applies saved light', () => {
 	assert(attrs.every(([n]) => n === 'data-theme'), 'the guard may only touch data-theme');
 });
 
+check('a dropdown menu anchors to its trigger, and flips when it will not fit', () => {
+	// A `[popover]` lives in the TOP LAYER, whose containing block is the
+	// INITIAL CONTAINING BLOCK - never its `.cm-dropdown` parent. So the
+	// menu's own `position: absolute; right: 0; top: calc(100% + 4px)` is
+	// resolved against the document origin, and the UA's popover default
+	// (`inset: 0`) leaves `left: 0` in place, which over-constrains the
+	// horizontal pair. MEASURED in WebKit on this repo's own showcase at
+	// 390x844 and 1280x900: the "row actions" trigger sat at (40, 25576)
+	// and (356, 19116) while its open menu rendered at (0, 848) and
+	// (0, 904) - the left edge of the viewport, exactly one viewport
+	// height down. CSS has no selector that names the trigger, so the
+	// runtime places it: fixed, right-aligned to the trigger, four pixels
+	// below it, flipped above when it would leave the viewport.
+	//
+	// The listener is captured at `document` rather than bound per menu:
+	// `toggle` does NOT bubble, and a consumer that re-renders its rows
+	// (the hearth console rewrites its <tbody> every 5s) replaces the
+	// menu nodes, taking any per-node binding with them.
+	const listeners = [];
+	const triggers = {};
+	const store = {};
+	const doc = {
+		documentElement: {
+			getAttribute: () => null,
+			setAttribute: () => {},
+			classList: { add() {}, contains: () => false },
+		},
+		querySelector: (sel) => {
+			const m = /^\[popovertarget="(.*)"\]$/.exec(sel);
+			return m ? triggers[m[1]] || null : null;
+		},
+		querySelectorAll: () => [],
+		getElementById: () => null,
+		addEventListener: (type, fn, opts) => listeners.push({ type, fn, capture: opts === true }),
+		createElement: () => ({ setAttribute() {}, style: {}, classList: { add() {} }, appendChild() {} }),
+		readyState: 'complete',
+	};
+	const winListeners = [];
+	const ctx = {
+		document: doc,
+		window: {
+			addEventListener: (t, fn) => winListeners.push([t, fn]),
+			removeEventListener: (t, fn) => {
+				const i = winListeners.findIndex((x) => x[0] === t && x[1] === fn);
+				if (i >= 0) winListeners.splice(i, 1);
+			},
+			innerWidth: 390,
+			innerHeight: 844,
+			scrollY: 0,
+			requestAnimationFrame: () => {},
+		},
+		localStorage: { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = v; } },
+		navigator: { clipboard: undefined },
+		module: { exports: {} },
+	};
+	ctx.globalThis = ctx;
+	vm.createContext(ctx);
+	vm.runInContext(runtimeSrc, ctx);
+
+	const toggle = listeners.find((l) => l.type === 'toggle');
+	assert(toggle, 'the runtime registers no `toggle` listener');
+	assert(toggle.capture, '`toggle` does not bubble: a non-capturing listener at document never fires');
+	const scrollCount = () => winListeners.filter(([t]) => t === 'scroll').length;
+	const pin = (id, top, bottom, open) => {
+		triggers[id] = { getBoundingClientRect: () => ({ top, bottom, left: 220, right: 349 }) };
+		return {
+			id,
+			style: {},
+			offsetWidth: 192,
+			offsetHeight: 171,
+			matches: (sel) =>
+				sel === '.cm-dropdown__menu[popover]' ? true : open ? sel === ':popover-open' : false,
+		};
+	};
+
+	const base = scrollCount();
+	const below = pin('m-below', 300, 344, true);
+	toggle.fn({ target: below });
+	assert(below.style.position === 'fixed', 'a top-layer menu cannot be anchored while it is position: absolute');
+	assert(below.style.inset === 'auto', 'the stylesheet\'s `right: 0` must be cleared, or left and right fight');
+	assert(below.style.left === '157px', `expected right edge aligned at 157px, got ${below.style.left}`);
+	assert(below.style.top === '348px', `expected 348px (4px below the trigger), got ${below.style.top}`);
+	assert(scrollCount() === base + 1, 'a fixed menu must be re-pinned while the page scrolls under it');
+
+	const above = pin('m-above', 700, 744, true);
+	toggle.fn({ target: above });
+	assert(above.style.top === '525px', `expected 525px (flipped above the trigger), got ${above.style.top}`);
+	assert(above.style.left === '157px', `flipping is vertical only; got left ${above.style.left}`);
+
+	toggle.fn({ target: pin('m-above', 700, 744, false) });
+	assert(scrollCount() === base, 'closing the menu must release the scroll pin');
+});
+
 /* ================= astro components ================= */
 console.log('\nastro components');
 // This list is the CONTRACT: every name here is installed into consumers

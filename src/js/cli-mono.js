@@ -946,6 +946,86 @@
 		});
 	}
 
+	/* ---------- dropdown anchoring ----------
+	   `.cm-dropdown__menu` is a `[popover]`, and a top-layer element's
+	   containing block is the INITIAL CONTAINING BLOCK - never its
+	   `.cm-dropdown` parent. The rule's own `position: absolute; right: 0;
+	   top: calc(100% + 4px)` is therefore resolved against the document
+	   origin, and the UA's popover default (`inset: 0; margin: auto;
+	   width: fit-content`, measured in WebKit 26.6) leaves `left: 0` in
+	   place, so the horizontal pair is over-constrained and `right` is the
+	   half that loses.
+
+	   MEASURED on this repo's own showcase, in WebKit, with the runtime's
+	   inline styles cleared (so this is CSS alone): the "row actions"
+	   trigger sat at document (40, 25576) at 390x844 and (356, 19116) at
+	   1280x900, while its open menu rendered at document (0, 848) and
+	   (0, 904) - the left edge of the page, one viewport height below its
+	   top. `getComputedStyle(menu).top` reads exactly `848px` on an
+	   844px viewport: the ICB's own height plus the 4px gap, which is how
+	   you can tell the containing block is the viewport rather than
+	   `.cm-dropdown`. Scrolled to the trigger - where the reader always
+	   IS - the menu sits 24,286px ABOVE the viewport, i.e. not on screen
+	   at all. Not near the button in ANY engine, and not a WebKit quirk:
+	   CSS has no selector that knows where the trigger is, so the runtime
+	   anchors it instead.
+
+	   Two consequences that shaped the implementation:
+	   - A per-element binding is wrong here. `init()` binds once, but a
+	     consumer that re-renders its rows (the hearth console rewrites its
+	     <tbody> every 5s) replaces the menu nodes, and a dataset flag dies
+	     with them. `toggle` does not bubble but it DOES pass through the
+	     capture phase, so one listener on `document` outlives every node. */
+	var POP_SEL = '.cm-dropdown__menu[popover]';
+	var popPin = null;
+
+	function anchorPopover(menu) {
+		var id = menu.id || '';
+		// [popovertarget] is a plain attribute selector: valid whether or
+		// not the engine implements the popover API.
+		var trigger = id ? document.querySelector('[popovertarget="' + id.replace(/["\\]/g, '\\$&') + '"]') : null;
+		if (!trigger) return;
+		var t = trigger.getBoundingClientRect();
+		menu.style.position = 'fixed';
+		menu.style.inset = 'auto';
+		var w = menu.offsetWidth;
+		var h = menu.offsetHeight;
+		var pad = 8;
+		var x = t.right - w;                      // right edges align, as the CSS wanted
+		if (x < pad) x = pad;
+		else if (x + w > window.innerWidth - pad) x = window.innerWidth - w - pad;
+		var y = t.bottom + 4;                     // `calc(100% + var(--space-1))`, translated
+		if (y + h > window.innerHeight - pad && t.top - h - 4 >= pad) y = t.top - h - 4;
+		if (y < pad) y = pad;
+		menu.style.left = Math.round(x) + 'px';
+		menu.style.top = Math.round(y) + 'px';
+	}
+
+	/* Fixed positioning does not follow the page, so while a menu is open
+	   the trigger moves under it on every scroll. Pin, then unpin on close
+	   - one pair of listeners, not one per menu. */
+	function unpinPopover() {
+		if (!popPin) return;
+		window.removeEventListener('scroll', popPin);
+		window.removeEventListener('resize', popPin);
+		popPin = null;
+	}
+
+	function pinPopover(menu) {
+		unpinPopover();
+		popPin = function () { anchorPopover(menu); };
+		window.addEventListener('scroll', popPin, { passive: true });
+		window.addEventListener('resize', popPin);
+		anchorPopover(menu);
+	}
+
+	function onPopoverToggle(e) {
+		var menu = e.target;
+		if (!menu || typeof menu.matches !== 'function' || !menu.matches(POP_SEL)) return;
+		if (menu.matches(':popover-open')) pinPopover(menu);
+		else unpinPopover();
+	}
+
 	/* ---------- init ---------- */
 	function init(root) {
 		(root || document)
@@ -1056,5 +1136,7 @@
 		document.addEventListener('astro:page-load', function () {
 			init(document);
 		});
+		// Capture, at the root, registered once: see onPopoverToggle.
+		document.addEventListener('toggle', onPopoverToggle, true);
 	}
 })();
