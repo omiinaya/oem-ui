@@ -43,6 +43,14 @@ ALT=(
 	"src/js/cli-mono-theme-guard.js:public/cli-mono-theme-guard.js"
 	"src/js/cli-mono.js:cli-mono.js"
 	"src/js/cli-mono-theme-guard.js:cli-mono-theme-guard.js"
+	# The same two homes under a nested web root. A Vite app serves from
+	# web/, so the guard it needs in order to run at all lives in
+	# web/public/. ALT entries are compared when present and SILENT when
+	# absent, so naming them costs nothing for a consumer that has no
+	# verbatim-serve copy -- while giving the shadow scan an owned path so
+	# it stops reporting three correctly-wired guards as ORPHAN.
+	"src/js/cli-mono.js:web/public/cli-mono.js"
+	"src/js/cli-mono-theme-guard.js:web/public/cli-mono-theme-guard.js"
 )
 
 # Normalise every target ONCE, here, and use the normalised form for the
@@ -261,6 +269,17 @@ js_dir_for() {
 		# file against itself and call the result in sync.
 		cmp -s "$SRC/src/js/cli-mono.js" "$f" \
 			|| cmp -s "$SRC/src/js/cli-mono-theme-guard.js" "$f" || continue
+		# public/ is a VERBATIM-SERVE copy, never the project home: it
+		# exists because a <script src> in an Astro or Vite head has to
+		# resolve to a served path, so the library lands there too.
+		# Prefer any src/-style home over it, however deep. Judging on
+		# depth alone picked web/public/ (one level) over web/src/js/
+		# (three) once a Vite app guard was wired, and MAP then demanded
+		# a runtime copy at web/public/cli-mono.js that nothing had ever
+		# put there -- the checker flagging the fix as the defect.
+		case "${f%/*}" in
+			*/public|*/public/*) continue ;;
+		esac
 		# Otherwise remember the shallowest match, because a copy
 		# buried deep in the tree is more likely to be a
 		# secondary/verbatim-serve copy than the project home.
