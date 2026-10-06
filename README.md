@@ -289,21 +289,43 @@ This is the one thing the scoped entry cannot give you, and getting it wrong
 renders an app **black text on a white page** while every token resolves
 correctly — the tokens are present, nothing is painting them.
 
-`base.css` is where the surface lives (`cm-theme` sets
-`background: var(--bg); color: var(--ink)`), and a scoped adoption cannot
-import it. The `.cm-*` component classes are padding and colour *within* a
-surface; none of them paints the page. **MEASURED** in WebKit at 1280×900 on
-spacetime-memory's web app after adopting `.cm-header-block` and dropping the
-old `bg-neutral-950 text-neutral-100` from `<body>`: `html` and `body` both
-computed `rgba(0,0,0,0)`, while `--bg: #0a0a0a` resolved correctly inside the
-adopted subtree.
+`base.css` is where the surface lives, and a scoped adoption cannot
+import it — it is the bare `body` rule that sets
+`background-color: var(--bg); color: var(--ink)`, plus 51 sibling element
+defaults. (An earlier version of this section credited the paint to a
+`cm-theme` class. **There is no such class.** `cm-theme` is the theme
+*storage key* the runtime writes to `localStorage` — a string, not a
+selector — and following that line sent the reader looking for a rule that
+does not exist.) The `.cm-*` component classes are padding and colour
+*within* a surface; none of them paints the page. **MEASURED** in WebKit at
+1280×900 on spacetime-memory's web app after adopting `.cm-header-block` and
+dropping the old `bg-neutral-950 text-neutral-100` from `<body>`: `html` and
+`body` both computed `rgba(0,0,0,0)`, while `--bg: #0a0a0a` resolved
+correctly inside the adopted subtree.
 
-So declare those two on the element that carries the tokens:
+Use `.cm-surface`, which is that paint as a class:
 
 ```jsx
-<div data-cm-theme="dark"
-     style={{ background: 'var(--bg)', color: 'var(--ink)' }}>
+<div data-cm-theme="dark" className="cm-surface">
 ```
+
+It carries the same declarations `base.css` puts on `body` — background,
+vignette, ink, body font — so a scoped adoption and a full one paint the
+same product, and there is a contract test holding the two in agreement.
+It resolves only tokens the scoped entry already emits (`--bg`, `--ink`,
+`--vignette`, `--font-body`, `--text`). Put it on the element that carries
+`data-cm-theme`, so the paint and the tokens cannot drift apart.
+
+**MEASURED** in WebKit on the showcase, both themes: with `.cm-surface` the
+dark island computes `#e8e8e8` ink on `#0a0a0a` (**16.16:1**), the light
+island `#111` on `#fafafa` (**18.09:1**). With the class stripped from the
+same element in the live page, the island computes
+`background-color: rgba(0, 0, 0, 0)` and the same `#e8e8e8` ink falls
+through to the page behind it — **1.23:1** on a browser-white page. The
+class is load-bearing, not decorative.
+
+Use `.cm-surface--flat` if your app already paints its own fixed chrome, so
+the library does not composite a second vignette over it.
 
 #### A SPA no longer needs to call `init()` by hand
 

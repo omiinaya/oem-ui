@@ -5,6 +5,74 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **No `.cm-*` class painted a surface, so a scoped adoption had to hand-write
+  one at every root — and omitting it renders BLACK TEXT ON A WHITE PAGE.**
+  Every other class in the layer is padding and colour *within* a surface.
+  The paint itself lives in `base.css`, on the bare `body` element — and a
+  scoped adoption (`make-scoped-entry.mjs`) deliberately cannot import that
+  file, because it is 52 bare-element rules and unlayered CSS outranks every
+  `@layer` in a Vite/PostCSS build.
+
+  The measured cost: **spacetime-memory** and **spacetime-kanban** both
+  render `style={{ background: 'var(--bg)', color: 'var(--ink)' }}` by hand
+  at the root of their tree. Two copies of one declaration, by two authors,
+  which is the definition of a second implementation.
+
+  `.cm-surface` is that paint as a class, and `.cm-surface--flat` drops the
+  vignette for an app that already paints its own fixed chrome. It resolves
+  only tokens the scoped entry already emits (`--bg`, `--ink`, `--vignette`,
+  `--font-body`, `--text`), so a scoped adoption needs nothing the
+  generator does not write.
+
+  **MEASURED** in WebKit on the showcase, both themes: dark island
+  `#e8e8e8` on `#0a0a0a` = **16.16:1**, light island `#111` on `#fafafa` =
+  **18.09:1**. With the class stripped from the live page, the island
+  computes `rgba(0, 0, 0, 0)` and the same `#e8e8e8` ink lands on the page
+  behind it — **1.23:1**. Load-bearing, not decorative.
+
+  The showcase demonstrates it as an ISLAND with a masked backing, not as a
+  stripe on a page whose `<body>` already paints: nested inside the showcase
+  a class with no declarations at all looks identical, which is exactly the
+  defect, and a specimen that cannot fail is not a specimen. Five contract
+  tests, including one that reads base.css's `body` and requires
+  `.cm-surface` to agree with it — so a scoped adoption and a full one cannot
+  paint the same product two ways. **6 mutations, 6 killed**
+  (`scripts/mutate-surface.mjs`), 0 survived.
+
+  The class sits beside `.cm-section`, not at the end of the layer, because
+  two of this repo's own checks slice their block from a marker to END OF
+  FILE — a new class appended after either marker reads as that block's
+  private vocabulary and the suite goes red.
+
+- **The README told scoped adopters to use a class that does not exist.**
+  It stated that `base.css` "(`cm-theme` sets `background: var(--bg);
+  color: var(--ink)`)". There is no `.cm-theme` selector anywhere in the
+  library: `cm-theme` is the *storage key* the runtime writes to
+  `localStorage`, a string. A reader following that sentence went looking
+  for a rule that was never shipped, and the section's whole point — how to
+  get a surface — had no answer. Corrected to name the bare `body` rule,
+  to say plainly that `cm-theme` is a key rather than a class, and to point
+  at `.cm-surface`. `spacetime-kanban`'s `App.tsx` carries the same wrong
+  claim in a code comment and is fixed next cycle, when that consumer is
+  migrated onto the class.
+
+- **`install.sh <dir>` on a consumer whose app lives in `web/` writes a
+  second, unserved copy at the repo root.** Re-vendoring after the surface
+  change produced an untracked `src/js/`, `src/styles/` in
+  **spacetime-kanban**, **spacetime-memory** and **spacetime-rpm**, plus a
+  `cli-mono/` beside `web/cli-mono/` in **hermes-articles** — stray trees,
+  none tracked, none served. The checker then reported each of those
+  consumers ORPHAN and STALE while the real vendored files under `web/`
+  sat untouched.
+
+  What makes it a trap: this looks exactly like the drift the command was
+  run to fix, and `check-design-sync.sh` itself recommends `install.sh`, so
+  the tool's own advice manufactures the next problem. Re-vendoring was
+  finished by copying the three stylesheets into each consumer's EXISTING
+  `cli-mono/` directory. A `--web` flag that vendors under `web/` when an
+  app is found there is the real fix and is NOT shipped in this cycle; it
+  is the one loose end left behind.
+
 - **A scrim the CONSUMER shipped never got its class, so on a phone the
   drawer had no veil and no way out.** `initNavToggle` looks for
   `[data-cm-nav-scrim]` and creates one only if the page has not got it
