@@ -1851,8 +1851,12 @@ Stat tiles and a dated timeline. The tile count is data, so <code>.cm-stats</cod
 					</div>
 				</div>
 				<p class="cm-head__sub" style="margin-top:var(--space-3)">
-					The badge and the title share one line, and the chip is held
-					against the right edge by <code>.cm-head-row__meta</code>. Three
+					The badge and the title share one line. When the row has
+					the width, the chip trails them at the right edge;
+					when it does not - every phone - it stops pretending to
+					trail and tucks under the title on the title's own left
+					edge, rather than sitting alone against the margin one
+					row below a heading it does not touch. Three
 					tiles over three columns: <code>.cm-cards--balance</code> is the
 					same fix for a card row, where a fitted grid left two and one.
 				</p>

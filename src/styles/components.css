@@ -330,6 +330,51 @@
    stranded mid-card, because nothing on the row pushed it. The action
    variant above covers buttons; this is the read-only equivalent. */
 .cm-head-row__meta { margin-left: auto; flex: 0 0 auto; align-self: center; }
+
+/* THE ORPHAN, and the reason `margin-left: auto` is only half the answer.
+
+   `auto` means "push me to the right edge of whatever line I am on". When
+   the row WRAPS - which `.cm-head-row` does by design, so the flags get
+   their own line instead of starving the content - that line is a line
+   containing this element ALONE. Measured in WebKit against the showcase
+   specimen "A header row with a trailing chip":
+
+       width   row   chip's y
+       320px   113   on its own line, right-pinned, under the title
+       402px    88   the same
+       600px    70   the same
+       640px    32   on the title's line, trailing correctly
+
+   So below the wrap point the chip is not trailing the header at all: it
+   is a lone bordered box pinned to the right margin, one line below a
+   heading it does not touch. On a phone - which is where this is read -
+   every occurrence looked like a stray control. That is the defect, and
+   no width of the title can avoid it, because the title floor
+   (.cm-head-row__text) is what refuses to shrink.
+
+   When the meta is ON the title's line this rule changes nothing: the
+   growing `.cm-head-row__text` is what pushes it right, so `margin-left`
+   never gets a vote. It only reaches the wrapped case, where `0` lets it
+   sit on the leading edge and the indent puts it on the TITLE's left
+   edge rather than the row's, so the two read as one block:
+
+       + - - - - - - - - - - - - - - - - - - +
+       | <badge> A header row with a trailing |
+       |          chip                        |
+       |          [24 total]                  |
+       + - - - - - - - - - - - - - - - - - - +
+
+   The indent is `badge width + gap`, i.e. where the title starts, and it
+   is applied ONLY when the row actually carries a badge - a header with
+   no badge would otherwise be indented under nothing. Both halves are
+   `:has()`, which the sheet already depends on above. */
+@media (max-width: 768px) {
+	.cm-head-row__meta { margin-left: 0; }
+	.cm-head-row:has(> .cm-head-row__text > .cm-head__badge)
+		.cm-head-row__meta {
+		margin-left: calc(2rem + var(--space-3));
+	}
+}
 /* The badge and the title sit BESIDE each other, on one line.
 
    MEASURED on rpm: this element carried only `min-width: 0`, so a
