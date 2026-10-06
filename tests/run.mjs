@@ -899,6 +899,37 @@ check('every bordered block uses the same corner radius', () => {
 	}
 });
 
+check('.cm-btn has a SHARP corner, matching the original cli-mono shape', () => {
+	// Reverses ecd1e42 (2026-10-02), which gave .cm-btn var(--radius-sm)
+	// to match the inputs. Reversed on request 2026-10-05: square is the
+	// intended shape here, not an unstyled button that missed its CSS.
+	//
+	// This check exists because NOTHING pinned that radius when it
+	// flipped - the suite stayed green on the rounded version, so the
+	// preference lived only in a commit message. Comments are stripped
+	// first: the note above names `border-radius: 0` in prose, and a raw
+	// scan would trip on its own documentation.
+	const comp = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	// Scope to the rule whose selector list contains EXACTLY `.cm-btn`.
+	// `.cm-btn--primary` and `.cm-btn:hover` are separate rules and must
+	// not be able to satisfy this on behalf of the base rule.
+	const rule = [...comp.matchAll(/([^{}]*)\{([^}]*)\}/g)]
+		.map(m => ({ sels: m[1].split(',').map(s => s.trim()), body: m[2] }))
+		.find(r => r.sels.includes('.cm-btn'));
+	assert(rule, 'no rule with selector exactly `.cm-btn` found');
+	const found = /border-radius:[^;]*;/.exec(rule.body)?.[0] ?? 'no border-radius declaration';
+	// A zero LENGTH is what sharp means. Asserting the literal `0` would
+	// reject `0px` / `0rem`, which are equally sharp and which a future
+	// edit could legitimately pick up from a token - the guard would fail
+	// on a correct implementation, and a guard that fails on the right
+	// answer gets deleted rather than fixed. (Measured: `0px` DID fail a
+	// literal-`0` version of this check.)
+	assert(/(^|[;\s{])border-radius:\s*0(?:[a-z]+)?\s*;/.test(rule.body),
+		`.cm-btn must be sharp (a zero-length border-radius); found: ${found}`);
+	assert(!/border-radius:\s*var\(/.test(rule.body),
+		`.cm-btn must not take a radius token; found: ${found}`);
+});
+
 check('a padded section does not also carry the heading top margin', () => {
 	// Padding plus an h2's own margin-top put the heading 65px below the
 	// card border against 17.6px of padding, so the padding was invisible.
