@@ -2141,9 +2141,17 @@ button.cm-row:hover { background: var(--bg-2); }
    the compositor.
 
    The track is always the full width, so the empty part of the bar is a
-   real measurement rather than an absence - the same reasoning the
-   meter/bar specimens use. Colours are weight, not hue: --ink on --bg-3
-   survives greyscale print, like every other state mark in the sheet.
+   real measurement rather than an absence. MEASURED in WebKit at 390px:
+   a bare --bg-3 track sat at 1.04:1 against the --panel behind it - the
+   denominator of the bar was invisible, so a 33% fill read as a stub of
+   unknown length. The sheet's answer to that is the hairline, exactly
+   what .cm-meter__track uses: `border: 1px solid var(--line)` draws the
+   box the fill is a fraction OF. With the global border-box the 4px
+   floor keeps its outer size and the border frames 2px of content -
+   slimmer than the meter's 8px on purpose: a meter is a data display
+   with a label row, this is an inline status mark. Colours are weight,
+   not hue: --ink on --bg-3 survives greyscale print (fill/track
+   measured 14.77:1 dark, 16.57:1 light), like every other state mark.
 
    Semantics: the element is the `progressbar`, and aria-valuenow is the
    source of truth. The fill draws it; it does not replace it - a caller
@@ -2153,7 +2161,7 @@ button.cm-row:hover { background: var(--bg-2); }
 	width: 100%;
 	height: var(--space-1);
 	background: var(--bg-3);
-	border: none;
+	border: 1px solid var(--line);
 	border-radius: 0;
 	overflow: hidden;
 	position: relative;

@@ -2417,6 +2417,16 @@ check('the progress bar draws --cm-progress and pairs the aria value with it', (
 	//     the sheet already documents).
 	assert(/\.cm-progress\s*\{[^}]*height:\s*var\(--space-1\)/.test(compSrc),
 		'cm-progress must take its height from the spacing scale, not a typed px');
+	// The hairline is the denominator. A bare --bg-3 track measured
+	// 1.04:1 against the --panel behind it (WebKit, 390px): the empty
+	// half of the bar was invisible, so a 33% fill read as a stub of
+	// unknown length. Same answer as .cm-meter__track - the sheet's
+	// hairline is what draws the box the fill is a fraction OF. Assert
+	// the BORDER declaration, not the colour: a colour-shaped check passes
+	// a track that renders at 1:1 with its background.
+	assert(/\.cm-progress\s*\{[^}]*border:\s*1px solid var\(--line\)/.test(compSrc),
+		'cm-progress must frame its track with the --line hairline, or the ' +
+		'empty part of the bar has no visible extent');
 	// Scope to the rule that OWNS the transform: `.cm-progress__fill` is
 	// also named inside the reduced-motion guard (transition: none), and a
 	// bare first-match read finds THAT rule and reports the real one

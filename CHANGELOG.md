@@ -24,6 +24,19 @@
   so a badly stale runtime is still recognised) instead of writing an
   unserved `src/` copy beside it. It creates `src/` only when it finds
   nothing to update. Seven behaviour tests cover it.
+- Added `.cm-progress` / `.cm-progress__fill`, the determinate sibling of
+  `.cm-spinner`. The knob is ONE custom property — `--cm-progress` — and the
+  fill stays 100% wide, translated out of sight by
+  `translateX(calc(var(--cm-progress, 0%) - 100%))`: a width transition
+  repaints layout, a transform interpolates on the compositor, and the
+  track stays full-width so the empty part is a measurement rather than an
+  absence. Height comes from `--space-1`; the fill's transition is silenced
+  in the one reduced-motion guard. The showcase renders 33/66/100% bars as
+  real `progressbar` elements, and the contract test asserts the four claims
+  separately — the var() CAUSE, the semantics, the showcase demonstration,
+  and the pairing that `aria-valuenow` and `--cm-progress` are the same
+  number (the eye and assistive tech must not read two different values).
+  Mutation-checked 6/6, each kill attributed to its own assertion.
 
 All notable changes to this project are documented here.
 
