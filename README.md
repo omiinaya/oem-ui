@@ -1076,8 +1076,8 @@ What is *not* affected, checked rather than assumed:
 - `.cm-rows`, `.cm-cards`, `.cm-stats`, `.cm-meters`, `.cm-swatch`,
   `.cm-projects` and `.cm-timeline` are `list-style: none` at (0,1,0) and stay
   markerless — measured `none` at every width, library-only and behind a reset.
-  (`.cm-chips` was listed here and no longer exists; the audit's stale-doc
-  check is what caught it.)
+  (the chips list class was listed here and no longer exists; the audit's
+  stale-doc check is what caught it, which is why it is no longer named.)
 - `.cm-table th` keeps its deliberate `400` and `.cm-prose-table th` its
   `600`; both outrank this (0,0,1) element rule.
 - `li { margin-bottom }` and `li::marker` are untouched.
