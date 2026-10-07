@@ -185,6 +185,42 @@
 	--cm-t-slow: 0.2s;
 	--cm-ease: ease;
 
+	/* ---- z-index scale ----------------------------------------
+	   The stacking order, named. Before this scale the rules reached
+	   for raw literals (100, 150, 200, 98, 99, 30, 10, 1) with no
+	   relationship between them, so "what sits above what" had to be
+	   re-derived from eleven scattered magic numbers. An overlay that
+	   should sit under a header and one that should cover it both said
+	   `z-index: 100`, and the tie was decided by DOM order instead of
+	   intent.
+
+	   Each name states its LAYER, and the tie-break rule is stated once
+	   here: a layer that covers more viewport sits HIGHER than the
+	   chrome it covers, but a transient popover stays under the header
+	   so navigation is never buried while a menu is open.
+
+	   These are theme-independent: stacking is a layout property, not a
+	   colour, so the scale lives in the base :root and never varies by
+	   theme.
+
+	   The numeric levels are the historical literals, kept byte-identical
+	   so this scale is a pure re-flag, not a re-layering. Retune by
+	   changing ONE line here instead of hunting the component rule. */
+	--z-root: 0;            /* in-flow content */
+	--z-raised: 1;          /* a control that must sit above a sibling
+	                           (a focused field in an input group, a
+	                           sheet's sticky head above its body) */
+	--z-toolbar: 10;        /* the sticky bottom toolbar */
+	--z-hovercard: 30;      /* a floating proximity panel, above cards */
+	--z-scrim: 98;          /* the dimmed sheet / dialog backdrop, under
+	                           the sheet that sits above content (99) */
+	--z-drawer: 99;         /* a left/top/bottom drawer above its scrim */
+	--z-header: 100;        /* the sticky header: covers everything in a
+	                           scrollport except chrome that must pierce it */
+	--z-popover: 150;       /* a popover menu / tooltip: transient chrome,
+	                           under the header so nav is never buried */
+	--z-toast: 200;         /* toasts: the highest transient, above all */
+
 	/* ---- mobile -----------------------------------------------
 	   Touch ergonomics live in tokens, not in scattered media queries,
 	   so every component inherits them. The 44px minimum is the
