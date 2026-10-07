@@ -152,6 +152,99 @@ fi
 
 TARGET="$(mkdir -p "$TARGET" && cd "$TARGET" && pwd)"
 
+
+# ---- discovery -----------------------------------------------------
+#
+# check-design-sync.sh prints `fix: scripts/install.sh <target>` on every
+# STALE line, with no layout flag, because the layout is a choice only the
+# consumer's author can make. That bare line used to be a trap: a target
+# whose layers live under `web/src/` (spacetime-kanban, spacetime-memory,
+# spacetime-rpm), under `plugin/` (browser-hub), or beside a renamed
+# runtime (oem-cdn) got a SECOND, unserved copy at src/, while the copy the
+# site actually loads stayed stale. The checker then discovered the fresh
+# src/ copy, reported it in sync, and the real one drifted forever.
+#
+# So a plain run now asks the target where its copy is: any existing file
+# that SHARES ENOUGH WITH THE LIBRARY is a vendored copy of ours, and that
+# is what gets updated. Identity is content, never filename - a consumer's
+# own tokens.css must never be adopted as ours, and a renamed runtime.js
+# must still be recognised as the library's.
+#
+# The threshold is the same 25% of distinct non-blank lines the drift
+# checker uses, so install and check always agree about what a copy is.
+# When NOTHING is found (a new project) the default src/ layout is created,
+# exactly as before - discovery can only choose among copies that exist.
+COPY_PCT="${OEM_UI_INSTALL_PCT:-25}"
+
+# share_of <library-file> <candidate> -> integer percent of the library's
+# distinct non-blank lines that also appear in the candidate.
+share_of() {
+  local lib="$1" cand="$2" n hit
+  n=$(grep -cve '^[[:space:]]*$' "$lib" 2>/dev/null) || n=0
+  [ "${n:-0}" -gt 0 ] || { printf '0'; return 0; }
+  hit=$(grep -ve '^[[:space:]]*$' "$cand" 2>/dev/null | sort -u |
+        comm -12 - <(grep -ve '^[[:space:]]*$' "$lib" | sort -u) | wc -l)
+  printf '%s' $((hit * 100 / n))
+}
+
+# Everything this target already vendors, filled by discover_layout.
+CSS_DIRS=()
+JS_DESTS=()
+GUARD_DESTS=()
+
+discover_layout() {
+  local f dir base g
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    if [ "$(share_of "$FROM/src/styles/tokens.css" "$f")" -ge "$COPY_PCT" ]; then
+      dir=$(dirname "$f")
+      CSS_DIRS+=("$dir")
+      say "found        $dir (content matches this library)"
+    fi
+  done < <(find "$TARGET" \
+             \( -name tokens.css \) \
+             -not -path '*/node_modules/*' -not -path '*/.git/*' \
+             -not -path '*/dist/*' -not -path '*/.astro/*' \
+             -not -path '*/build/*' -not -path '*/vendor/*' 2>/dev/null)
+
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    dir=$(dirname "$f"); base=$(basename "$f")
+    # Three ways to be ours, in order of how much they can be wrong:
+    #   1. the canonical name - cli-mono.js is OUR filename, and freshness
+    #      must not decide identity: a stale copy can drift below any
+    #      content threshold and would then never be repaired.
+    #   2. content - this is what recognises a RENAMED runtime.js.
+    #   3. the directory - a JS file sitting beside a layer we already
+    #      identified belongs to that same adoption, whatever it is called.
+    ours=0
+    [ "$base" = "cli-mono.js" ] && ours=1
+    if [ "$ours" -eq 0 ] && [ "$(share_of "$FROM/src/js/cli-mono.js" "$f")" -ge "$COPY_PCT" ]; then ours=1; fi
+    if [ "$ours" -eq 0 ]; then
+      for d in ${CSS_DIRS[@]+"${CSS_DIRS[@]}"}; do
+        if [ "$d" = "$dir" ]; then ours=1; break; fi
+      done
+    fi
+    [ "$ours" -eq 1 ] || continue
+    JS_DESTS+=("$f")
+    say "found        $f (ours)"
+    # The guard travels beside the runtime under whichever name this target
+    # already uses. A renamed runtime with NO guard beside it gets none:
+    # inventing cli-mono-theme-guard.js there would be an unserved file,
+    # which is the exact failure this discovery exists to remove.
+    g=""
+    if [ -f "$dir/cli-mono-theme-guard.js" ]; then g="$dir/cli-mono-theme-guard.js"
+    elif [ -f "$dir/theme-guard.js" ]; then g="$dir/theme-guard.js"
+    elif [ "$base" = "cli-mono.js" ]; then g="$dir/cli-mono-theme-guard.js"
+    fi
+    [ -n "$g" ] && GUARD_DESTS+=("$g")
+  done < <(find "$TARGET" \
+             \( -name cli-mono.js -o -name runtime.js \) \
+             -not -path '*/node_modules/*' -not -path '*/.git/*' \
+             -not -path '*/dist/*' -not -path '*/.astro/*' \
+             -not -path '*/build/*' -not -path '*/vendor/*' 2>/dev/null)
+}
+
 if [ -n "$EMBED" ] || [ -n "$EMBED_RENAME" ]; then
   # An EMBEDDED layout: the files go into <dir> under their own names, with
   # no src/ or public/ segment invented. `<dir>` is interpreted relative to
@@ -179,29 +272,50 @@ if [ -n "$EMBED" ] || [ -n "$EMBED_RENAME" ]; then
     JS_DEST="$CSS_DIR/runtime.js"
     GUARD_DEST="$CSS_DIR/theme-guard.js"
   fi
+  CSS_DIRS=("$CSS_DIR"); JS_DESTS=("$JS_DEST"); GUARD_DESTS=("$GUARD_DEST")
 elif [ "$FLAT" -eq 1 ]; then
   CSS_DIR="$TARGET/cli-mono"
   JS_DEST="$TARGET/cli-mono.js"
   GUARD_DEST="$TARGET/cli-mono-theme-guard.js"
   mkdir -p "$CSS_DIR"
+  CSS_DIRS=("$CSS_DIR"); JS_DESTS=("$JS_DEST"); GUARD_DESTS=("$GUARD_DEST")
 else
-  CSS_DIR="$TARGET/src/styles/cli-mono"
-  JS_DEST="$TARGET/src/js/cli-mono.js"
-  GUARD_DEST="$TARGET/src/js/cli-mono-theme-guard.js"
-  mkdir -p "$CSS_DIR" "$(dirname "$JS_DEST")"
+  # No layout flag: update EVERY copy this target already vendors, wherever
+  # it lives. Create the default layout only when there is nothing to update.
+  discover_layout
+  if [ "${#CSS_DIRS[@]}" -eq 0 ] && [ "${#JS_DESTS[@]}" -eq 0 ]; then
+    CSS_DIRS=("$TARGET/src/styles/cli-mono")
+    JS_DESTS=("$TARGET/src/js/cli-mono.js")
+    GUARD_DESTS=("$TARGET/src/js/cli-mono-theme-guard.js")
+    mkdir -p "${CSS_DIRS[0]}" "$(dirname "${JS_DESTS[0]}")"
+  fi
+  for d in "${CSS_DIRS[@]}"; do mkdir -p "$d"; done
+  for f in "${JS_DESTS[@]}"; do mkdir -p "$(dirname "$f")"; done
+  for f in "${GUARD_DESTS[@]}"; do mkdir -p "$(dirname "$f")"; done
 fi
 
-install -m 0644 "$FROM/src/styles/tokens.css"     "$CSS_DIR/tokens.css"
-install -m 0644 "$FROM/src/styles/base.css"       "$CSS_DIR/base.css"
-install -m 0644 "$FROM/src/styles/components.css" "$CSS_DIR/components.css"
-install -m 0644 "$FROM/src/js/cli-mono.js"        "$JS_DEST"
-install -m 0644 "$FROM/src/js/cli-mono-theme-guard.js" "$GUARD_DEST"
-
-say "tokens.css     -> $CSS_DIR/tokens.css"
-say "base.css       -> $CSS_DIR/base.css"
-say "components.css -> $CSS_DIR/components.css"
-say "cli-mono.js    -> $JS_DEST"
-say "guard          -> $GUARD_DEST"
+for CSS_DIR in ${CSS_DIRS[@]+"${CSS_DIRS[@]}"}; do
+  install -m 0644 "$FROM/src/styles/tokens.css"     "$CSS_DIR/tokens.css"
+  install -m 0644 "$FROM/src/styles/base.css"       "$CSS_DIR/base.css"
+  install -m 0644 "$FROM/src/styles/components.css" "$CSS_DIR/components.css"
+  say "tokens.css     -> $CSS_DIR/tokens.css"
+  say "base.css       -> $CSS_DIR/base.css"
+  say "components.css -> $CSS_DIR/components.css"
+done
+if [ "${#JS_DESTS[@]}" -gt 0 ]; then
+  for i in "${!JS_DESTS[@]}"; do
+    JS_DEST="${JS_DESTS[$i]}"
+    install -m 0644 "$FROM/src/js/cli-mono.js" "$JS_DEST"
+    say "cli-mono.js    -> $JS_DEST"
+    GUARD_DEST="${GUARD_DESTS[$i]:-}"
+    if [ -n "$GUARD_DEST" ]; then
+      install -m 0644 "$FROM/src/js/cli-mono-theme-guard.js" "$GUARD_DEST"
+      say "guard          -> $GUARD_DEST"
+    else
+      say "guard          -> (skipped: $JS_DEST is renamed and has no guard beside it)"
+    fi
+  done
+fi
 
 # --astro: the COMPONENTS. Additive, so it composes with every layout above
 # rather than being a seventh competing shape.
@@ -285,13 +399,35 @@ elif [ "$FLAT" -eq 1 ]; then
   printf '  and FIRST in <head>, before any stylesheet:\n'
   printf '  <script src="/cli-mono-theme-guard.js"></script>\n'
 else
-  printf '  <link rel="stylesheet" href="/src/styles/cli-mono/tokens.css" />\n'
-  printf '  <link rel="stylesheet" href="/src/styles/cli-mono/base.css" />\n'
-  printf '  <link rel="stylesheet" href="/src/styles/cli-mono/components.css" />\n'
-  printf '  <script src="/src/js/cli-mono.js"></script>\n'
-  printf '  and FIRST in <head>, before any stylesheet (Astro: ?raw import):\n'
-  printf '  import guard from "../js/cli-mono-theme-guard.js?raw";\n'
-  printf '  <script is:inline set:html={guard} />\n'
+  # Print the paths this run ACTUALLY wrote. The old hard-coded src/ hint
+  # was handed to a web/ consumer by the bare `fix:` line and read as if
+  # the default layout had been the answer.
+  # Hints are SERVED paths: relative to the target root, with the leading
+  # slash a site actually serves from - never an absolute path on this disk.
+  for d in ${CSS_DIRS[@]+"${CSS_DIRS[@]}"}; do
+    rel="${d#"$TARGET"/}"
+    printf '  <link rel="stylesheet" href="/%s/tokens.css" />\n' "$rel"
+    printf '  <link rel="stylesheet" href="/%s/base.css" />\n' "$rel"
+    printf '  <link rel="stylesheet" href="/%s/components.css" />\n' "$rel"
+  done
+  for f in ${JS_DESTS[@]+"${JS_DESTS[@]}"}; do
+    printf '  <script src="/%s"></script>\n' "${f#"$TARGET"/}"
+  done
+  for f in ${GUARD_DESTS[@]+"${GUARD_DESTS[@]}"}; do
+    # src/js is Astro's case: a variable <script src> is dropped from dist/
+    # entirely, so the guard has to be inlined with ?raw. Everywhere else a
+    # plain tag is what serves it.
+    case "$f" in
+      */src/js/*)
+        # A module specifier has to be RELATIVE to the page importing it
+        # (src/pages/*.astro -> ../js/...), never an absolute path.
+        printf '  and FIRST in <head>, before any stylesheet (Astro: ?raw import):\n'
+        printf '  import guard from "../%s?raw";\n' "${f#"$TARGET"/src/js/}"
+        printf '  <script is:inline set:html={guard} />\n' ;;
+      *)
+        printf '  and FIRST in <head>, before any stylesheet: <script src="/%s"></script>\n' "${f#"$TARGET"/}" ;;
+    esac
+  done
   if [ "$PUBLIC" -eq 1 ]; then
     printf '\nThis copy is ALSO in public/, to be served verbatim (Astro needs\n'
     printf 'is:inline, or a variable src is dropped from dist/ entirely):\n'

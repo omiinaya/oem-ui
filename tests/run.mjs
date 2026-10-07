@@ -3421,8 +3421,15 @@ check('a trailing slash on the target does not invent drift', () => {
 			renameSync(join(dir, 'src'), join(dir, 'src-live'));
 			mkdirSync(join(tree, 'links'), { recursive: true });
 			renameSync(join(dir, 'src-live'), join(tree, 'links', 'src'));
+			// EXTRA_CONSUMER_ROOTS defaults to $HOME/browser-hub, which is a
+			// REAL project on this machine. Without pinning it here the sweep
+			// test's verdict depended on whether that repo happened to be in
+			// sync - a test reading machine state rather than its own fixture.
 			const swept = spawnSync('bash', [join(root, 'scripts/check-design-sync.sh')], {
-				encoding: 'utf8', env: { ...process.env, OEM_UI_SRC: root, CONSUMER_ROOT: tree },
+				encoding: 'utf8', env: {
+					...process.env, OEM_UI_SRC: root, CONSUMER_ROOT: tree,
+					EXTRA_CONSUMER_ROOTS: tree,
+				},
 			});
 			// base.css is still the drifted copy from above, so a correct
 			// sweep reports it - which is the point: the sweep has to SEE the
@@ -4023,14 +4030,26 @@ check('--public installs byte-identical copies and documents the verbatim shape'
 		// a file. Counted on disk, from the installer's own output with the
 		// ANSI colour stripped - matching the raw stdout finds nothing,
 		// because `ok` is wrapped in escape codes.
-		const plainInstall = spawnSync('bash', [join(root, 'scripts/install.sh'), dir], {
-			encoding: 'utf8',
-		});
-		assert(plainInstall.status === 0, `plain install exited ${plainInstall.status}`);
-		const clean = plainInstall.stdout.replace(/\u001b\[[0-9;]*m/g, '');
-		const landed = (clean.match(/^ok\s+\S+\s+->/gm) || []).length;
-		assert(landed === 5,
-			`a plain install should report 5 files, it reported ${landed}; update the README count too`);
+		// On a FRESH target: a plain install creates exactly the five
+		// documented files. On `dir` - which already holds public/ from the
+		// --public run above - a plain install now reports SEVEN, because it
+		// also refreshes the two copies the target already serves. That is
+		// the behaviour that makes the checker's bare `fix:` line correct,
+		// so the count the README documents has to be measured where there
+		// is nothing to update yet.
+		const fresh = mkdtempSync(join(tmpdir(), 'cm-count-'));
+		try {
+			const plainInstall = spawnSync('bash', [join(root, 'scripts/install.sh'), fresh], {
+				encoding: 'utf8',
+			});
+			assert(plainInstall.status === 0, `plain install exited ${plainInstall.status}`);
+			const clean = plainInstall.stdout.replace(/\u001b\[[0-9;]*m/g, '');
+			const landed = (clean.match(/^ok\s+\S+\s+->/gm) || []).length;
+			assert(landed === 5,
+				`a plain install should report 5 files, it reported ${landed}; update the README count too`);
+		} finally {
+			rmSync(fresh, { recursive: true, force: true });
+		}
 		// And the same count read off the filesystem, so the number is a
 		// fact about the install rather than about a printf format.
 		const onDisk = [

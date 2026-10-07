@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readdirSync, existsSync, rmSync } from 'node:fs'
+import { mkdtempSync, readdirSync, existsSync, rmSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { statSync } from 'node:fs'
 
@@ -241,7 +241,10 @@ if (want.every((w) => sources.includes(w)) && strayInstalls.length === 0) {
 // --embed must be an alternative layout. If it fell through to the
 // src/ branch it would drop a second, unserved copy into the consumer --
 // precisely the defect this repo already hit with public/.
-if (/elif \[ "\$FLAT" -eq 1 \]/.test(install) && /CSS_DIR="\$TARGET\/src\/styles\/cli-mono"/.test(install)) {
+// The default layout is now assigned inside the discovery fallback (an
+// ARRAY of one, not the old single CSS_DIR=), so match either spelling:
+// what the test protects is the embed BRANCH, not a variable name.
+if (/elif \[ "\$FLAT" -eq 1 \]/.test(install) && /CSS_DIRS?=\(?["']?\$TARGET\/src\/styles\/cli-mono/.test(install)) {
   const embedBlock = install.slice(install.indexOf('-n "$EMBED"'), install.indexOf('elif [ "$FLAT"'))
   if (!/src\/styles\/cli-mono/.test(embedBlock)) {
     ok('the embedded layout does not also write src/styles/cli-mono')
@@ -251,6 +254,101 @@ if (/elif \[ "\$FLAT" -eq 1 \]/.test(install) && /CSS_DIR="\$TARGET\/src\/styles
   }
 } else {
   no('the embedded layout does not also write src/styles/cli-mono', 'the if/elif chain shape changed')
+}
+
+// ---- 7. BEHAVIOUR: a plain run updates the copy the target SERVES ----
+//
+// check-design-sync.sh prints `fix: scripts/install.sh <target>` with no
+// layout flag. For a target whose layers live under web/src (kanban,
+// memory, rpm) or plugin/ (browser-hub) or beside a renamed runtime
+// (oem-cdn), that bare command used to create a SECOND copy under src/ and
+// leave the served one stale - and the checker then discovered the fresh
+// shadow and reported in sync. So the remedy must be performable as
+// printed. These run the real script.
+function freshTarget(prefix) {
+  return mkdtempSync(join(tmpdir(), prefix))
+}
+function run(target, args = []) {
+  return execFileSync('bash', [INSTALL, target, '--from', REPO, ...args], { stdio: 'pipe' })
+}
+const libTokens = () => readFileSync(join(REPO, 'src/styles/tokens.css'), 'utf8')
+const libJs = () => readFileSync(join(REPO, 'src/js/cli-mono.js'), 'utf8')
+
+// 7a. a stale copy under web/src is refreshed and NO src/ shadow appears.
+{
+  const t = freshTarget('cm-detect-web-')
+  try {
+    mkdirSync(join(t, 'web/src/styles/cli-mono'), { recursive: true })
+    mkdirSync(join(t, 'web/src/js'), { recursive: true })
+    writeFileSync(join(t, 'web/src/styles/cli-mono/tokens.css'), libTokens() + '\n/* stale */\n')
+    writeFileSync(join(t, 'web/src/js/cli-mono.js'), '// stale runtime\n')
+    run(t)
+    if (readFileSync(join(t, 'web/src/styles/cli-mono/tokens.css'), 'utf8') === libTokens()) {
+      ok('a bare run refreshes the web/src copy the target already serves')
+    } else no('a bare run refreshes the web/src copy the target already serves',
+              'the discovered copy was not rewritten with library bytes')
+    if (readFileSync(join(t, 'web/src/js/cli-mono.js'), 'utf8') === libJs()) {
+      ok('a bare run refreshes that copy runtime even when it is badly stale')
+    } else no('a bare run refreshes that copy runtime even when it is badly stale',
+              'a stale cli-mono.js must still be recognised by name')
+    if (!existsSync(join(t, 'src'))) {
+      ok('a bare run creates NO src/ shadow when a copy already exists')
+    } else no('a bare run creates NO src/ shadow when a copy already exists',
+              'src/ exists: the old default-layout behaviour is back')
+  } finally { rmSync(t, { recursive: true, force: true }) }
+}
+
+// 7b. a RENAMED runtime is recognised by content and both halves updated.
+{
+  const t = freshTarget('cm-detect-renamed-')
+  try {
+    mkdirSync(join(t, 'web/oem-ui'), { recursive: true })
+    for (const f of ['tokens.css', 'base.css', 'components.css']) {
+      writeFileSync(join(t, `web/oem-ui/${f}`), readFileSync(join(REPO, `src/styles/${f}`), 'utf8'))
+    }
+    writeFileSync(join(t, 'web/oem-ui/runtime.js'), '// stale\n')
+    writeFileSync(join(t, 'web/oem-ui/theme-guard.js'), readFileSync(join(REPO, 'src/js/cli-mono-theme-guard.js'), 'utf8'))
+    run(t)
+    if (readFileSync(join(t, 'web/oem-ui/runtime.js'), 'utf8') === libJs()) {
+      ok('a renamed runtime.js is recognised and refreshed in place')
+    } else no('a renamed runtime.js is recognised and refreshed in place',
+              'runtime.js was not matched, so a renamed adoption can never be repaired')
+    if (!existsSync(join(t, 'src'))) {
+      ok('the renamed layout gains no src/ shadow')
+    } else no('the renamed layout gains no src/ shadow', 'src/ was created anyway')
+  } finally { rmSync(t, { recursive: true, force: true }) }
+}
+
+// 7c. the flag-less run still produces the documented default on a target
+// that has nothing to update - discovery may only CHOOSE, never replace the
+// default for a new project.
+{
+  const t = freshTarget('cm-detect-new-')
+  try {
+    run(t)
+    if (existsSync(join(t, 'src/styles/cli-mono/tokens.css')) && !existsSync(join(t, 'cli-mono'))) {
+      ok('a target with nothing installed still gets the default src/ layout')
+    } else no('a target with nothing installed still gets the default src/ layout',
+              'expected src/styles/cli-mono/tokens.css and no flat dir')
+  } finally { rmSync(t, { recursive: true, force: true }) }
+}
+
+// 7d. MUTATION LEVER: force the content threshold off the end and discovery
+// must find nothing - which makes 7a fail rather than silently pass. This
+// is what proves the tests above are reading discovery's result and not
+// just the script succeeding.
+{
+  const t = freshTarget('cm-detect-lever-')
+  try {
+    mkdirSync(join(t, 'web/src/styles/cli-mono'), { recursive: true })
+    writeFileSync(join(t, 'web/src/styles/cli-mono/tokens.css'), libTokens())
+    execFileSync('bash', [INSTALL, t, '--from', REPO],
+      { stdio: 'pipe', env: { ...process.env, OEM_UI_INSTALL_PCT: '101' } })
+    if (existsSync(join(t, 'src'))) {
+      ok('with discovery disabled the script falls back to the default layout (mutation lever works)')
+    } else no('with discovery disabled the script falls back to the default layout (mutation lever works)',
+              'OEM_UI_INSTALL_PCT=101 should find no copy and create src/')
+  } finally { rmSync(t, { recursive: true, force: true }) }
 }
 
 console.log(`\n${pass} passed, ${fail} failed`)
