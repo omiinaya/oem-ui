@@ -877,6 +877,35 @@ Each row is one modifier against its own base, so the difference is the thing be
 					</div>
 				</div>
 
+				<h3 class="cm-kicker">progress</h3>
+				<p class="cm-head__sub">
+					<code>cm-progress</code> is a linear bar. The fill is driven by the
+					<code>--cm-progress</code> custom property, so a caller changes one
+					value instead of the width &mdash; which keeps the transition, and keeps
+					the track the full width for the eye to measure against. The
+					element is a real <code>progressbar</code>: <code>aria-valuenow</code>
+					stays the source of truth, and the fill only draws it.
+				</p>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--cm-progress</code></span>
+						<span class="cm-spec__sample" style="width:100%">
+							<div class="cm-stack">
+								<div class="cm-progress" style="--cm-progress:33%" role="progressbar" aria-valuenow="33" aria-valuemin="0" aria-valuemax="100" aria-label="Loading">
+									<span class="cm-progress__fill"></span>
+								</div>
+								<div class="cm-progress" style="--cm-progress:66%" role="progressbar" aria-valuenow="66" aria-valuemin="0" aria-valuemax="100" aria-label="Saving">
+									<span class="cm-progress__fill"></span>
+								</div>
+								<div class="cm-progress" style="--cm-progress:100%" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" aria-label="Done">
+									<span class="cm-progress__fill"></span>
+								</div>
+							</div>
+						</span>
+						<span class="cm-spec__val"><code>33% / 66% / 100%</code></span>
+					</div>
+				</div>
+
 				<h3 class="cm-kicker">media</h3>
 				<div class="cm-spec">
 					<div class="cm-spec__row">

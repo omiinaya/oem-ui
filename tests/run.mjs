@@ -2398,6 +2398,63 @@ check('the showcase demonstrates every new state component', () => {
 		'a spinner row needs role="status" so the wait is announced once');
 });
 
+check('the progress bar draws --cm-progress and pairs the aria value with it', () => {
+	// The determinate sibling of the spinner. Four claims, each of which
+	// has failed in some form elsewhere in this library:
+	//
+	//  1. CAUSE, not effect: the fill is positioned by the CUSTOM PROPERTY
+	//     (translateX(calc(var(--cm-progress) ...))). Asserting only
+	//     `transform:` would pass a fill pinned at translateX(0) — a bar
+	//     that always reads 100% while every other check stays green.
+	//  2. The showcase renders it: a class defined but never demonstrated
+	//     is dead code the next person cannot trust.
+	//  3. PAIRING: aria-valuenow is the source of truth and the inline
+	//     --cm-progress is what the eye sees. If they can drift, the bar
+	//     lies to assistive tech; assert they are the SAME number per
+	//     instance, not merely that both exist.
+	//  4. Reduced motion silences the fill's transition, inside the ONE
+	//     guard block (a guard beside the component is the failure mode
+	//     the sheet already documents).
+	assert(/\.cm-progress\s*\{[^}]*height:\s*var\(--space-1\)/.test(compSrc),
+		'cm-progress must take its height from the spacing scale, not a typed px');
+	// Scope to the rule that OWNS the transform: `.cm-progress__fill` is
+	// also named inside the reduced-motion guard (transition: none), and a
+	// bare first-match read finds THAT rule and reports the real one
+	// missing. Requiring translateX in the same body as the selector is
+	// what makes both readings unambiguous.
+	assert(/\.cm-progress__fill\s*\{[^}]*transform:\s*translateX\(calc\(var\(--cm-progress/.test(compSrc),
+		'the fill must be driven by the var(--cm-progress) custom property, ' +
+		'not a width (a width transition repaints layout and cannot be read back)');
+
+	const show = showcase.slice(showcase.indexOf('id="surface"'),
+		showcase.indexOf('id="selection"'));
+	assert(show.length > 0, 'the surface section is missing from the showcase');
+	const bars = show.match(/<div class="cm-progress"[^>]*>/g) || [];
+	assert(bars.length >= 2,
+		`the showcase must demonstrate cm-progress; found ${bars.length} bar(s)`);
+	for (const bar of bars) {
+		assert(/role="progressbar"/.test(bar),
+			`a progress bar needs role="progressbar": ${bar}`);
+		assert(/aria-valuenow="\d+"/.test(bar),
+			`a progress bar needs aria-valuenow: ${bar}`);
+		assert(/aria-valuemin="0"/.test(bar) && /aria-valuemax="100"/.test(bar),
+			`a progress bar needs the 0..100 range: ${bar}`);
+		const prop = (bar.match(/--cm-progress:\s*(\d+)%/) || [])[1];
+		const now = (bar.match(/aria-valuenow="(\d+)"/) || [])[1];
+		assert(prop !== undefined && now !== undefined,
+			`each demo must set both --cm-progress and aria-valuenow: ${bar}`);
+		assert(prop === now,
+			`the bar and its aria value must agree (${prop}% vs ${now}): ` +
+			'the eye and assistive tech are reading two different numbers');
+	}
+	// reduced motion: inside the ONE guard block, by name
+	const guardAt = compSrc.indexOf('@media (prefers-reduced-motion: reduce)');
+	const close = compSrc.indexOf('\n}', guardAt);
+	const guard = compSrc.slice(guardAt, close);
+	assert(/\.cm-progress__fill[^{}]*\{[^}]*transition:\s*none/.test(guard),
+		'the reduced-motion guard must silence the progress fill transition');
+});
+
 /* ================= the design language is documented ================= */
 console.log('\ndesign language');
 
