@@ -616,6 +616,27 @@ on-brand; you only add classes for the layout around it.
   message. Keep the `!` prefix so the state does not rely on colour alone.
 - Checkboxes and radios are drawn in CSS; `select` has a CSS arrow, because
   the platform one disappears against a dark surface.
+- `.cm-select` is that arrow **as a class**, and a **scoped** adoption needs
+  it: a `make-scoped-entry.mjs` consumer gets `components.css` and cannot
+  import `base.css` at all, so an element default never reaches it. Use
+  `.cm-select--multi` on a list box — it drops the chevron (a `multiple`
+  select opens no popup, so the arrow is a control that does nothing) and
+  scrolls its own overflow.
+
+```html
+<select class="cm-select">…</select>
+<select class="cm-select cm-select--multi" multiple size="4">…</select>
+```
+
+> **The arrow is a `background-image`, and a `background` SHORTHAND resets
+> it.** This is not hypothetical: the library itself shipped
+> `background: var(--bg-2)` on the shared field block for months, which
+> silently reset the arrow to `none`, and the arrow rule was a bare `select`
+> at (0,0,1) against the block's (0,1,1) — so source order could never have
+> saved it. *MEASURED in WebKit at 390x844 and 1280x900, before the fix:
+> `appearance: none` with `background-image: none`* — a control with no
+> affordance in every consumer. If you restyle a select, use
+> `background-color`, never the shorthand.
 
 > **Specificity trap.** The base rule is
 > `input:not([type=checkbox]):not([type=radio]):not([type=range])`, and

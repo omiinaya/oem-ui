@@ -388,7 +388,21 @@ select:not(.cm-search__input) {
 	font-family: var(--font-mono);
 	font-size: max(var(--min-font), 1rem);
 	color: var(--ink);
-	background: var(--bg-2);
+	/* `background-color`, NOT the `background` SHORTHAND.
+	   The shorthand resets `background-image` to `none`, and the select
+	   arrow below IS a `background-image` (two linear-gradients). Written
+	   as a shorthand from up here the block silently ate the arrow: the
+	   arrow rule is lower in the cascade, so its `background-image` never
+	   survived.
+	   **MEASURED in WebKit at 390px and 1280px on the showcase, before
+	   this change: the select computed `appearance: none` and
+	   `background-image: none`.** The library had removed the native
+	   arrow and painted nothing in its place, so every select in every
+	   consumer was a plain text box. Enumerating `sheet.cssRules` proved
+	   the owner: the block above declared `background: var(--bg-2)` at
+	   (0,4,1) and the arrow rule was a bare `select` at (0,0,1), so
+	   source order could never have saved it. */
+	background-color: var(--bg-2);
 	border: 1px solid var(--line);
 	border-radius: var(--radius-sm);
 	padding: 0.55rem 0.7rem;
@@ -404,7 +418,19 @@ select:not(.cm-search__input) {
 	line-height: 1.5;
 }
 textarea { min-height: calc(var(--tap) * 2); resize: vertical; }
-select {
+/* The selector REPEATS the field block's own two exclusions, and that is the
+   whole reason it works. A bare `select` is (0,0,1) and the field block's
+   `select:not(.cm-search__input)` is (0,1,1) - so the arrow's padding-right
+   LOST, and `--space-7` of clearance never reached the box.
+   **MEASURED in WebKit at 390x844 after the fill was already fixed: the
+   arrow painted, and `padding-right` computed to 11.2px instead of 32px.**
+   The wedges occupy the last 17.6px of the border box, so the content box
+   (ending 11.2px in) sat INSIDE the second wedge - a long option ran under
+   the arrow. Matching the field block's selector ties its specificity at
+   (0,2,1) and this rule is later in the file, so source order settles it.
+   This is the same repair the library already documents for the width rule
+   below; it excludes those two classes for the same reason. */
+select:not(.cm-search__input):not(.cm-inline__input):not([multiple]) {
 	/* The native arrow is drawn for the platform, not for a mono UI, and
 	   it disappears against a dark surface. */
 	/* WebKit honours -webkit-appearance on form controls; bare `appearance`

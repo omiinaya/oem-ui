@@ -4925,6 +4925,83 @@ button.cm-link:focus-visible {
    and a 17px box next to 15px text sits on the wrong optical line. */
 .cm-check > input[type='checkbox'] { align-self: center; }
 
+/* ---------- select: the picker class, and the arrow that had to be rescued ----------
+   base.css styles a bare `select` - a consumer needs no class for it, and
+   across the fleet 17 selects across two projects rely on that. What the
+   library did NOT have is a class, and there are two things a class buys
+   that an element default cannot:
+
+   1. A SCOPED adoption (see make-scoped-entry.mjs) cannot import base.css
+      at all - it is 52 bare-element rules and unlayered CSS outranks every
+      `@layer` in a Vite build. That consumer gets components.css and
+      nothing else, so its selects fell back to the UA widget: a native
+      chevron drawn for the platform, on a dark mono surface. This is the
+      same gap `.cm-surface` closes for the page paint, and the same
+      answer: put it in a class.
+
+   2. A MULTI-select is not a picker. `<select multiple>` opens no popup
+      and takes no chevron; it is a list box, and a chevron on it is a
+      control that does nothing. No `.cm-*` class covered it.
+
+   THE DEFECT THIS ALSO FIXES, and it was live in every consumer:
+
+   The shared field block above declares its fill with the `background`
+   SHORTHAND, which resets `background-image` to `none`. The arrow IS a
+   `background-image` - two `linear-gradient` wedges - and the arrow rule
+   is a bare `select` at (0,0,1) while the field block is (0,4,1). So the
+   arrow never survived, and source order could not have saved it.
+
+   **MEASURED in WebKit at 390px and 1280px on this repo's own showcase,
+   before this change: the select computed `appearance: none` AND
+   `background-image: none`.** The library removed the native arrow and
+   painted nothing in its place, so every select in every consumer was an
+   unmarked text box that swallowed a click. Enumerating `sheet.cssRules`
+   named the owner, which is the only way to tell "the declaration is
+   missing" from "a higher-specificity rule is resetting it".
+
+   The repair is in base.css (the fill is now `background-color`, so the
+   element's own arrow rule is no longer in a fight it loses). `currentColor`
+   is what makes the arrow themeable with no image, icon font or extra DOM:
+   it repaints with the ink in either theme.
+
+   The geometry below is deliberately IDENTICAL to the bare `select` rule in
+   base.css, because the two must paint the same product. Duplication
+   without agreement is a smell; duplication with a contract test holding
+   the pair together is how this library already handles `.cm-surface`. */
+.cm-select {
+	/* Both declared for the scoped case, where no base.css element default
+	   exists to supply them. */
+	display: block;
+	width: 100%;
+	max-width: 100%;
+	background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+		linear-gradient(135deg, currentColor 50%, transparent 50%);
+	background-position: calc(100% - 1.1rem) 52%, calc(100% - 0.75rem) 52%;
+	background-size: 0.35rem 0.35rem, 0.35rem 0.35rem;
+	background-repeat: no-repeat;
+	/* The value must never run UNDER the wedges. --space-7 clears the pair
+	   by a whole space step, which is the same clearance the shift in
+	   `.cm-field__control` uses for its icon button (measured there at
+	   390px: 11.2px of padding and a 2.3px gap without it). */
+	padding-right: var(--space-7);
+	/* A text cursor over a control that opens a popup reads as an editable
+	   field; the chevron is the affordance and the whole box is the target. */
+	cursor: pointer;
+}
+
+/* A list box, not a picker: no popup, so no chevron, and its own padding
+   back. The arrow is `none` here on purpose and the pair is the invariant -
+   a scrollable-looking picker with no arrow, or a list box wearing one,
+   are the same bug in opposite directions. */
+.cm-select--multi {
+	background-image: none;
+	padding-right: var(--space-3);
+	padding-block: var(--space-2);
+	/* A list box taller than its own box has to scroll; without this the
+	   extra options are simply unreachable. */
+	overflow-y: auto;
+}
+
 /* ---------- switch: the on/off row that is not a checkbox ----------
    `cm-check` covers "yes, include this row". A switch answers "this whole
    behaviour is on or off" and reads as a different kind of thing, so it

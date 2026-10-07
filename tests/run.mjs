@@ -879,6 +879,113 @@ check('form controls are element defaults, so a bare input is on-brand', () => {
 	assert(/<select/.test(idx), 'showcase renders no select');
 });
 
+/* ================= the select class and the element default are one product ================= */
+
+check('.cm-select draws its arrow from a gradient, so it needs no image or icon font', () => {
+	const body = (compSrc.match(/\.cm-select\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(body, '.cm-select is not defined in the components layer');
+	// An arrow made of an image would need a second asset per theme; a
+	// gradient in `currentColor` repaints with the ink. Assert the
+	// currentColor, not merely a background-image: a two-hex gradient
+	// would be a rebrand bug that survives every shape-shaped check.
+	//
+	// The two wedges are two `linear-gradient()` calls on ONE declaration,
+	// so the value is read as a whole and each wedge is matched on its own.
+	// A `[^)]*` up to `currentColor` CANNOT work here: `50%` and
+	// `currentColor` both live inside the first `linear-gradient(...)`, so
+	// the lazy run stops at the gradient's own closing paren.
+	const arrow = (body.match(/background-image:\s*([^;]+);/) || [, ''])[1];
+	assert(arrow, '.cm-select declares no background-image, so it has no arrow at all');
+	assert(/linear-gradient\(45deg,\s*transparent 50%,\s*currentColor 50%\)/.test(arrow),
+		'the left wedge of the chevron is missing or is not in currentColor');
+	assert(/linear-gradient\(135deg,\s*currentColor 50%,\s*transparent 50%\)/.test(arrow),
+		'the right wedge of the chevron is missing — one gradient is half a chevron');
+	assert(!/#[0-9a-f]{3,8}\b/i.test(body), '.cm-select hardcodes a colour');
+	assert(!/url\(/.test(body), '.cm-select loads an arrow image; currentColor is the point');
+	// the clearance, from the token that owns it
+	assert(/padding-right:\s*var\(--space-7\)/.test(body),
+		'the value runs under the wedges without padding-right clearance');
+});
+
+check('the element default and the class agree, or a full and a scoped adoption differ', () => {
+	// `.cm-select` exists because a SCOPED adoption gets components.css and
+	// cannot import base.css. Two copies of one widget is a smell; two
+	// copies held together by a test is the `.cm-surface` pattern.
+	// Only the properties that define the ARROW are compared: the class
+	// additionally declares the surface it would otherwise inherit, and
+	// asserting those are equal would be asserting the base layer away.
+	//
+	// Each selector below is matched as a RAW pattern (they carry `:not()`
+	// and attribute quotes that no class-name escaping could survive), so
+	// the bodies are pulled with explicit regexes rather than by name.
+	const bodiesOf = (src, re) => [...src.matchAll(re)].map((m) => m[1]);
+	// The element selector is NOT a bare `select` any more: it repeats the
+	// field block's two exclusions so its `padding-right` can win the tie at
+	// (0,2,1) and beyond, plus `:not([multiple])` so a list box is not a
+	// picker at the ELEMENT level either. A test that still watched
+	// `^\s*select\s*{` would report the rule gone while it sat right there -
+	// the same shape as the `(?::not\(...\))*` typo this repo already paid
+	// three rebuild cycles for, and the same shape that cost this cycle
+	// another rebuild when the pattern trailed one clause behind the CSS.
+	// So the trailing group is a REPEATED group, each with its own colon,
+	// and the matches are counted: a SECOND arrow rule is itself a failure.
+	const bareBodies = bodiesOf(baseSrc,
+		/(?:^|\n)select:not\(\.cm-search__input\):not\(\.cm-inline__input\)(?::not\([^)]*\))*\s*\{([^}]*)\}/g);
+	assert(bareBodies.length === 1,
+		`expected exactly one arrow rule in base.css, found ${bareBodies.length}`);
+	const bare = bareBodies[0];
+	// A list box is not a picker, and this half is asserted at the ELEMENT
+	// level as well as on the class: the (0,2,1) element rule reaches a
+	// `<select multiple>` that carries no class at all, which is why it was
+	// forced onto the list box the moment the specificity was fixed.
+	assert(/:not\(\[multiple\]\)/.test(
+		(baseSrc.match(/(select:not\(\.cm-search__input\):not\(\.cm-inline__input\)[^{]*)\{/) || [, ''])[1]),
+		'the arrow rule must exclude [multiple] at the element level, or every list box wears a chevron it cannot use');
+	const cls = (compSrc.match(/\.cm-select\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(cls, 'components.css has no .cm-select rule');
+	for (const prop of ['background-image', 'background-position', 'background-size',
+		'background-repeat', 'padding-right']) {
+		const of = (b) => (b.match(new RegExp(prop + ':\\s*([^;]+);')) || [, ''])[1].replace(/\s+/g, '');
+		assert(of(bare) && of(bare) === of(cls),
+			`${prop} differs between the bare select and .cm-select — a full and a scoped adoption would paint different arrows`);
+	}
+	// The invariant, and the half that makes it real: the arrow is not a
+	// separate rule a (0,0,1) selector can lose. In base.css the shared
+	// field block has to fill with `background-color`, because the
+	// `background` SHORTHAND resets `background-image` and the field block
+	// outranks the bare `select` rule.
+	// MEASURED in WebKit at 390px and 1280px before this fix: the select
+	// computed `appearance: none` with `background-image: none`, so the
+	// library had removed the native arrow and painted nothing.
+	const fieldBodies = bodiesOf(baseSrc,
+		/(?:^|\n)select:not\(\.cm-search__input\)\s*\{([^}]*)\}/g);
+	assert(fieldBodies.length === 1,
+		`expected exactly one shared field block carrying select, found ${fieldBodies.length}`);
+	const fieldBlock = fieldBodies[0];
+	assert(/background-color:\s*var\(--bg-2\)/.test(fieldBlock),
+		'the field block must fill with background-COLOR — the `background` shorthand resets background-image and silently eats the select arrow');
+	assert(!/(?:^|[\s;])background:\s/.test(fieldBlock),
+		'the field block uses the `background` shorthand, which resets the arrow to none');
+});
+
+check('a list box drops the chevron and a picker keeps it', () => {
+	// The pair is the invariant: an arrowless picker and a list box wearing
+	// an arrow are the same bug in opposite directions, and a test that
+	// checks one half passes whichever way round it is broken.
+	const multi = (compSrc.match(/\.cm-select--multi\s*\{([^}]*)\}/) || [, ''])[1];
+	assert(multi, '.cm-select--multi is not defined');
+	assert(/background-image:\s*none/.test(multi),
+		'a multi-select opens no popup, so a chevron is a control that does nothing');
+	assert(/overflow-y:\s*auto/.test(multi),
+		'a list box taller than its own box must scroll, or its later options are unreachable');
+	// ...and BOTH halves demonstrated on the one page.
+	const idx = read('src/pages/index.astro');
+	assert(/<select[^>]*class="cm-select"\s*>/.test(idx),
+		'the showcase never demonstrates a plain picker with .cm-select, so the arrow is unproven');
+	assert(/<select[^>]*class="cm-select cm-select--multi"[^>]*\bmultiple\b/.test(idx),
+		'the showcase demonstrates no multiple select wearing the modifier, so the list-box half is unproven');
+});
+
 check('the install docs only promise paths that actually work', () => {
 	const readme = read('README.md');
 	// The repo is private and unpublished, so raw.githubusercontent and npm

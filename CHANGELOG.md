@@ -5,6 +5,64 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+- **Every `<select>` in the library, and in every consumer, was an unmarked
+  text box — the arrow was declared and then silently eaten.** `base.css`
+  fills a field with the `background` SHORTHAND (`background: var(--bg-2)`),
+  and the shorthand resets `background-image` to `none`. The arrow IS a
+  `background-image` — two `linear-gradient` wedges in `currentColor` — and
+  the arrow rule is a bare `select` at **(0,0,1)** while the field block is
+  **(0,1,1)**. Source order could never have saved it.
+
+  **MEASURED in WebKit on this repo's own showcase, before: 390x844 and
+  1280x900 both computed `appearance: none` AND `background-image: none`.**
+  The library removed the native arrow and painted nothing in its place, so
+  the control had no affordance at all. Enumerating `sheet.cssRules` named
+  the owner — the only way to tell "the declaration is missing" from "a
+  higher-specificity rule is resetting it", and the two have different fixes.
+
+  THREE fixes, each one found by measuring rather than by reading, and the
+  last two only exist because the first two were measured:
+
+  1. The field block fills with `background-color`, so `background-image` is
+     no longer in a fight it loses.
+  2. With the arrow painting, `padding-right` still computed **11.2px**
+     instead of the declared **32px** — so the content box ended INSIDE the
+     second wedge and a long option ran under the arrow. The arrow rule now
+     repeats the field block's own two exclusions, tying it at (0,2,1) with
+     source order settling the tie. Fixing the fill alone would have shipped
+     an arrow that overlapped its own value.
+  3. That same (0,2,1) then reached `<select multiple>` — a list box opens no
+     popup, so a chevron on it is a control that does nothing — and forced
+     the arrow onto it. The element rule now also excludes `[multiple]`.
+
+  **AFTER, measured in WebKit at 390x844, 375x667 and 1280x900, both themes:**
+  `background-image` is the two-`currentColor`-gradient pair, `padding-right`
+  **32px**, and the arrow repaints with the ink — `rgb(232,232,232)` dark,
+  `rgb(17,17,17)` light — from the same declaration, with no image, icon font
+  or extra DOM. Zero page errors.
+
+- **NEW: `.cm-select` / `.cm-select--multi`.** The arrow was only ever an
+  ELEMENT default, and an element default cannot reach a **scoped** adoption:
+  a `make-scoped-entry.mjs` consumer gets `components.css` and cannot import
+  `base.css` at all (52 bare-element rules, and unlayered CSS outranks every
+  Tailwind `@layer`). So a scoped consumer's selects fell back to the UA
+  widget — a native chevron drawn for the platform, on a dark mono surface.
+  This is the same gap `.cm-surface` closes for the page paint, and the same
+  answer: put it in a class. `.cm-select--multi` is the second half — a list
+  box drops the chevron and scrolls its own overflow.
+
+  The class and the element default carry the SAME four arrow declarations on
+  purpose, and a contract test compares them property by property: two copies
+  held together by a measurement is the `.cm-surface` pattern; two copies
+  without one is a rebrand waiting to happen.
+
+  Driven by a consumer, not imagined: spacetime-rpm carries three
+  hand-`<select>`ed cert/ACL pickers styled with `.cm-code`, and
+  spacetime-kanban two logged-in filters with a raw `appearance-none` +
+  hand-written padding — five sites, two authors, one widget.
+  **1 new contract test file's worth of checks (3 checks, 512 total), 14
+  mutations, 14 killed, 0 survived, 0 no-ops.**
+
 - **A `[popover]` dropdown could not be placed by CSS at all - every
   `.cm-dropdown` menu opened ~24,800px away from its own button.**
   `.cm-dropdown__menu` is `position: absolute` with `right: 0` and

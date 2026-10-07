@@ -2678,11 +2678,22 @@ inputs are element defaults, so a bare <code>&lt;input&gt;</code> is already on-
 						</div>
 						<div class="cm-field">
 							<label class="cm-field__label" for="f-kind">kind</label>
-							<select id="f-kind">
+							<select id="f-kind" class="cm-select">
 								<option>site</option>
 								<option>repo</option>
 								<option>service</option>
 							</select>
+							<span class="cm-field__help">a bare <code>select</code> is already on-brand. <code>.cm-select</code> is that same chrome as a class, which is the only form a SCOPED adoption can take - it cannot import <code>base.css</code> at all.</span>
+						</div>
+						<div class="cm-field">
+							<label class="cm-field__label" for="f-tags">tags</label>
+							<select id="f-tags" class="cm-select cm-select--multi" multiple size="4">
+								<option selected>infra</option>
+								<option>dns</option>
+								<option>proxy</option>
+								<option>storage</option>
+							</select>
+							<span class="cm-field__help">a list box, not a picker: it opens no popup, so <code>.cm-select--multi</code> drops the chevron the base class paints and scrolls its own overflow instead.</span>
 						</div>
 					</div>
 
