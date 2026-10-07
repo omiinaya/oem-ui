@@ -1515,6 +1515,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Fixed
 
+- Two stacking checks demanded a literal `z-index: <number>`, which fails on
+  the correct tokenised form (`var(--z-header)`) and cannot catch the real
+  defect: a reference to a token nobody defines, which the browser drops
+  to `auto`. They now resolve through `tokens.css` and fail for either.
+
 - Squared off the macOS traffic lights (`e79e3d5`): `.cm-term__dot` lost its
   `border-radius: 50%` to the sharp sweep, so three round window controls
   rendered as three square boxes. Circles restored (fixed `4px` on the 8px

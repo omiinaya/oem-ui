@@ -8350,6 +8350,28 @@ check('the check row is the tap target, not the 17px box', () => {
 		'hover must lighten the LABEL too; highlighting only the box points at the part that is hard to hit');
 });
 
+/* A z-index may be a named layer now (`var(--z-header)`) rather than a
+   literal. Resolve it through tokens.css instead of narrowing the
+   assertion to digits: a literal-only regex fails on the correct
+   tokenised form AND cannot catch the defect that actually matters -
+   a reference to a token nobody defines, which the browser silently
+   drops to `auto`. Resolving catches both. */
+const resolveLayer = (raw, where) => {
+	const value = String(raw).trim();
+	const m = /var\(\s*(--[\w-]+)\s*\)/.exec(value);
+	if (!m) {
+		const n = Number(value);
+		if (!Number.isFinite(n))
+			throw new Error(`${where}: z-index "${value}" is neither a number nor a var()`);
+		return n;
+	}
+	const tokens = read('src/styles/tokens.css');
+	const tok = tokens.match(new RegExp(m[1] + ':\\s*(-?\\d+)\\s*;'));
+	if (!tok)
+		throw new Error(`${where}: ${m[1]} is not defined in tokens.css, so the browser drops this z-index to auto`);
+	return Number(tok[1]);
+};
+
 check('the action toolbar sticks to the bottom and survives a scroll', () => {
 	// The count lives at the top of the page and the actions belong where the
 	// thumb already is, so this bar is bottom-sticky. Everything else here is
@@ -8364,8 +8386,11 @@ check('the action toolbar sticks to the bottom and survives a scroll', () => {
 	// `z-index: auto` contains the substring "z-index", so a presence check
 	// passes on exactly the value that removes the stacking. The claim is that
 	// it is a NUMBER above the content it covers.
-	assert(/z-index:\s*[1-9]/.test(bar),
-		'a sticky bar needs a NUMERIC z-index above the rows; z-index: auto leaves it painted under the list it is meant to float over');
+	const barZ = /z-index:\s*([^;]+);/.exec(bar);
+	assert(barZ, 'a sticky bar needs a z-index; sticky without one is painted under the list it covers');
+	const z = resolveLayer(barZ[1], '.cm-toolbar');
+	assert(z >= 1,
+		`a sticky bar must resolve to a z-index above the rows (>= 1); got ${z}`);
 	assert(/box-shadow:\s*var\(--/.test(bar),
 		'a floating bar needs a themed shadow, not a hardcoded rgb(); on a dark page a hardcoded one disappears');
 	assert(/border:\s*1px solid var\(--ink-dim\)/.test(bar),
@@ -10198,9 +10223,10 @@ for (const [name, fn] of pending.splice(0)) {
 		if (!/top:\s*0/.test(base)) throw new Error("no top: 0 on .cm-header");
 	});
 	check("the header is painted above the page, so content scrolls under it", () => {
-		const z = base.match(/z-index:\s*(-?\d+)/);
+		const z = base.match(/z-index:\s*([^;]+);/);
 		if (!z) throw new Error("no z-index on .cm-header");
-		if (Number(z[1]) < 1) throw new Error("header z-index " + z[1] + " is not above the page");
+		const level = resolveLayer(z[1], ".cm-header");
+		if (level < 1) throw new Error("header z-index " + z[1].trim() + " resolves to " + level + ", not above the page");
 	});
 	check("the rail variant is fixed, so it is pinned independently of sticky", () => {
 		// Sticky inside a horizontally scrolling ancestor, or a rail whose
