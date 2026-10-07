@@ -1402,6 +1402,29 @@ browser behaviour closes the other panels, with no JavaScript. Use a
 1:1 shortcut; the default is 16:9. All borders keep the house's sharp
 corners.
 
+### Hover card and input group
+
+```html
+<span class="cm-hovercard">
+  <a class="cm-inline-link" href="#">omiinaya</a>
+  <span class="cm-card cm-hovercard__panel" role="tooltip">…</span>
+</span>
+
+<span class="cm-input-group cm-input-group--framed">
+  <span class="cm-input-group__addon">https://</span>
+  <input type="text" placeholder="ui.mrx.sh" />
+</span>
+```
+
+The hover card's panel is `visibility: hidden` at rest, not merely
+`opacity: 0` — an invisible-but-hittable panel is a trap for a stray
+touch — and it opens on `:hover` **and** on `:focus-within`, which is the
+half a hover-only implementation always drops. The input group joins an
+addon to a field with one collapsed hairline: the collapse lives on the
+addon, because the base input rule is `(0,3,1)` and a group selector at
+`(0,1,0)` would lose that cascade silently. Negative margins are out
+anyway — the suite forbids raw spacing values, and it is right to.
+
 ### Interactive primitives
 
 The runtime opts into managed segmented controls only when requested:

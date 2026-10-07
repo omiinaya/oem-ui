@@ -12125,9 +12125,41 @@ check("the runtime mirrors the slider value into the fill", () => {
 	assert(js.includes("cmInitSliders(root)"), "init() must paint sliders already in the DOM");
 });
 
-/* ================= result ================= */
-console.log(`\n${passed} passed, ${failures.length} failed`);
-if (failures.length) {
-	for (const [n, m] of failures) console.error(`  FAIL ${n}: ${m}`);
-	process.exit(1);
-}
+/* ================= result =================
+   Registered as an EXIT handler, not printed inline. Checks are appended
+   to this file as it grows - the rhythm block and every later batch sit
+   below wherever this text physically lands - and a verdict printed at a
+   fixed line stops counting every check after it. Eight checks were dead
+   that way. Reading the counters at exit means the report is always last
+   and always complete, whatever order the file ends up in. */
+process.on('exit', () => {
+	console.log(`\n${passed} passed, ${failures.length} failed`);
+	if (failures.length) {
+		for (const [n, m] of failures) console.error(`  FAIL ${n}: ${m}`);
+		process.exitCode = 1;
+	}
+});
+
+// ---------- shadcn-parity: hover card + input group ----------
+check("the hover card is visibility-gated, not merely faded", () => {
+	const css = read("src/styles/components.css");
+	const page = read("src/pages/index.astro");
+	assert(/\.cm-hovercard__panel \{[\s\S]{0,300}?visibility: hidden/.test(css),
+		"the panel must be visibility: hidden at rest - opacity alone still catches touches");
+	assert(/\.cm-hovercard:focus-within \.cm-hovercard__panel/.test(css),
+		"the keyboard needs focus-within, which a hover-only rule drops");
+	assert(page.includes('cm-hovercard__panel'), "the showcase must ship a hover card specimen");
+});
+
+check("the input group collapses to one hairline", () => {
+	const css = read("src/styles/components.css");
+	const page = read("src/pages/index.astro");
+	assert(/\.cm-input-group__addon \{[^}]*border-right-width: 0;/s.test(css),
+		"the addon gives up its right border so the field's own border is the only seam");
+	assert(!/\.cm-input-group[^{]*\{[^}]*margin-left: -/.test(css) &&
+		!/\.cm-input-group > \* \+ \* \{[^}]*margin/s.test(css),
+		"the seam must be a collapsed border, never a negative margin");
+	assert(page.includes('class="cm-input-group'), "the showcase must ship an input group specimen");
+	assert(!/\.cm-input-group[^{]*\{[^}]*margin-left: -/.test(css),
+		"the seam must be a collapsed border, never a negative margin");
+});

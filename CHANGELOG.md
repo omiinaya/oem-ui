@@ -1493,6 +1493,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   anything a later batch added — ran but could neither be counted nor fail the
   run. 8 checks were silently dead; they are counted now (514 → 522).
 
+- Added `.cm-hovercard` (panel hidden with `visibility` at rest, opened by
+  `:hover` **and** `:focus-within`) and `.cm-input-group` / `__addon` (one
+  control with a single collapsed seam). The seam is collapsed on the addon,
+  not the field: the base input rule is (0,3,1) and a group selector would
+  lose that cascade. 5/5 seeded faults killed in WebKit.
+- The suite verdict is now an `exit` handler instead of a line of output in
+  the middle of the file, so checks appended as it grows are always counted
+  and can always fail the run. One check it had been hiding (the flat
+  consumer drift case) surfaced immediately and passed on re-run.
+
 ## Fixed
 - The header bar no longer paints outside its own box. Between the phone
   drawer (640px) and the rail (1000px) the bar's nav was `flex-wrap: wrap`
