@@ -10,6 +10,11 @@
   button. All are delegated so dynamically inserted markup is covered.
 - Verified the built gallery in WebKit at 320–1280px. The three batches'
   harnesses killed 6/6, 8/8 and 10/10 seeded faults respectively.
+- `install.sh` without a layout flag now updates the copy a project
+  already serves (content-share identification, plus our own filenames
+  so a badly stale runtime is still recognised) instead of writing an
+  unserved `src/` copy beside it. It creates `src/` only when it finds
+  nothing to update. Seven behaviour tests cover it.
 
 All notable changes to this project are documented here.
 

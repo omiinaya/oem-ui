@@ -181,9 +181,16 @@ installer is the default.
 ./scripts/install.sh <your-project-dir>
 ```
 
-Copies the five files into `<your-project-dir>` in one fixed layout, so every
-project on the fleet ends up with identical paths. Idempotent — re-run it any
+Copies the five files into `<your-project-dir>`. Idempotent — re-run it any
 time to pull the current library.
+
+**A plain run updates the layout the target already vendors.** The installer
+looks for copies the project has (`tokens.css` recognised by content share,
+JS recognised by content or by being ours by name) and refreshes every one of
+them — `web/src/…`, `plugin/…`, a flat root copy, a renamed `runtime.js`, a
+`public/` verbatim copy. It creates the default `src/` layout only when it
+finds nothing to update, which is what makes the checker's bare `fix:` line
+correct for every layout instead of depositing a second, unserved copy.
 
 ```bash
 # for a project that serves static files from a flat dir
