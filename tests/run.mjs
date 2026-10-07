@@ -943,12 +943,64 @@ check('the element default and the class agree, or a full and a scoped adoption 
 		'the arrow rule must exclude [multiple] at the element level, or every list box wears a chevron it cannot use');
 	const cls = (compSrc.match(/\.cm-select\s*\{([^}]*)\}/) || [, ''])[1];
 	assert(cls, 'components.css has no .cm-select rule');
+	// The class and the element default must not drift. Only the arrow
+	// geometry is compared pairwise there; the FULL-element agreement is
+	// asserted below, because the class now restates the element defaults
+	// for the SCOPED case and a divergence would mean a consumer's select
+	// changes appearance depending on how it installed the library.
 	for (const prop of ['background-image', 'background-position', 'background-size',
 		'background-repeat', 'padding-right']) {
 		const of = (b) => (b.match(new RegExp(prop + ':\\s*([^;]+);')) || [, ''])[1].replace(/\s+/g, '');
 		assert(of(bare) && of(bare) === of(cls),
 			`${prop} differs between the bare select and .cm-select — a full and a scoped adoption would paint different arrows`);
 	}
+	// ...and the class restates the ELEMENT DEFAULTS too, because a scoped
+	// adoption gets no base.css. That restatement is the whole reason the
+	// class is not just an arrow, so each one is checked against the base
+	// block it mirrors: a divergence here is a select that looks different
+	// depending on how the consumer installed the library.
+	const restated = [
+		['font-family', /font-family:\s*var\(--font-mono\)/, /font-family:\s*var\(--font-mono\)/],
+		['font-size', /font-size:\s*max\(var\(--min-font\),\s*1rem\)/, /font-size:\s*max\(var\(--min-font\),\s*1rem\)/],
+		['colour', /color:\s*var\(--ink\);/, /color:\s*var\(--ink\);/],
+		['fill', /background-color:\s*var\(--bg-2\)/, /background-color:\s*var\(--bg-2\)/],
+		['border', /border:\s*1px solid var\(--line\)/, /border:\s*1px solid var\(--line\)/],
+		['radius', /border-radius:\s*var\(--radius-sm\)/, /border-radius:\s*var\(--radius-sm\)/],
+		['tap floor', /min-height:\s*var\(--tap\)/, /min-height:\s*var\(--tap\)/],
+		['line-height', /line-height:\s*1\.5/, /line-height:\s*1\.5/],
+	];
+	const fieldBlockFull = bodiesOf(baseSrc,
+		/(?:^|\n)select:not\(\.cm-search__input\)\s*\{([^}]*)\}/g)[0];
+	assert(fieldBlockFull, 'the shared field block was not found for the restatement check');
+	for (const [what, inBase, inClass] of restated) {
+		assert(inBase.test(fieldBlockFull),
+			`base.css no longer declares ${what} on the field block; this check is watching the wrong rule`);
+		assert(inClass.test(cls),
+			`.cm-select does not restate ${what}, so a SCOPED adoption renders a different control than a full one`);
+	}
+	// The bird's-eye complement of the pairwise loop above: EVERY declaration
+	// the class makes that base.css also places on a select must agree in
+	// value. The arrow geometry is in that set and is compared fuzzy there;
+	// exact-string disagreement on it here would be a false failure, so it is
+	// the one exception, named rather than silently skipped.
+	for (const decl of cls.matchAll(/([a-z-]+):\s*([^;]+);/g)) {
+		const [prop, value] = [decl[1], decl[2].replace(/\s+/g, '')];
+		if (prop.startsWith('background-') && /gradient|calc\(|rem/.test(value)) continue;
+		if (['display', 'width', 'max-width'].includes(prop)) continue; // the class sizes itself
+		const mirror = (fieldBlockFull.match(new RegExp(prop + ':\\s*([^;]+);')) || [, ''])[1]
+			.replace(/\s+/g, '');
+		if (!mirror) continue; // base.css does not place this property on a select
+		assert(mirror === value,
+			`.cm-select declares ${prop}: ${value} but the base select rule declares ${mirror} — a full and a scoped adoption would paint different controls`);
+	}
+	// `appearance: none` is the ARROW rule's own declaration, not the field
+	// block's, so it is asserted there - and it is the single most important
+	// restatement of the lot: without it a scoped consumer keeps the native
+	// widget AND paints the gradient, and the control shows TWO chevrons.
+	assert(/-webkit-appearance:\s*none;/.test(bare),
+		'base.css no longer suppresses the native widget; this check is watching the wrong rule');
+	assert(/-webkit-appearance:\s*none;/.test(cls) && /appearance:\s*none;/.test(cls),
+		'.cm-select must suppress the native widget itself — a SCOPED adoption gets no base.css, so without it the control paints the platform chevron AND the gradient');
 	// The invariant, and the half that makes it real: the arrow is not a
 	// separate rule a (0,0,1) selector can lose. In base.css the shared
 	// field block has to fill with `background-color`, because the

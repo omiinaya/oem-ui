@@ -108,7 +108,7 @@ const MUTANTS = [
 	[
 		'LIST BOX CANNOT SCROLL: the extra options become unreachable',
 		COMP,
-		'\toverflow-y: auto;\n}',
+		'	overflow-y: auto;\n}',
 		'}',
 	],
 	[
@@ -122,6 +122,42 @@ const MUTANTS = [
 		PAGE,
 		'class="cm-select cm-select--multi" multiple size="4"',
 		'class="cm-select cm-select--multi" size="4"',
+	],
+	[
+		'TWO CHEVRONS: the class stops suppressing the native widget, so a SCOPED adoption (no base.css) paints the platform arrow AND the gradient',
+		COMP,
+		'	-webkit-appearance: none;\n	appearance: none;\n	display: block;',
+		'	display: block;',
+	],
+	[
+		'TWO CHEVRONS, WEBKIT HALF: only the bare `appearance` alias survives, which older WebKit ignores on a form control',
+		COMP,
+		'	-webkit-appearance: none;\n	appearance: none;\n	display: block;',
+		'	appearance: none;\n	display: block;',
+	],
+	[
+		'RESTATEMENT DROPPED: the class no longer carries the tap floor, so a scoped adoption gets a 36px box and iOS zooms on focus',
+		COMP,
+		'	min-height: var(--tap);\n	line-height: 1.5;\n	background-image: linear-gradient(45deg',
+		'	line-height: 1.5;\n	background-image: linear-gradient(45deg',
+	],
+	[
+		'RESTATEMENT DROPPED: the class no longer fills, so a scoped adoption paints the library arrow on the platform white box',
+		COMP,
+		'	background-color: var(--bg-2);\n	border: 1px solid var(--line);',
+		'	border: 1px solid var(--line);',
+	],
+	[
+		'RESTATEMENT DRIFTED: the class and the element default disagree on the fill, so a full and a scoped adoption paint different boxes',
+		COMP,
+		'	background-color: var(--bg-2);',
+		'	background-color: var(--bg-3);',
+	],
+	[
+		'RESTATEMENT DRIFTED: the class claims a different radius from the element default',
+		COMP,
+		'	border-radius: var(--radius-sm);\n	min-height: var(--tap);',
+		'	border-radius: var(--radius);\n	min-height: var(--tap);',
 	],
 ];
 

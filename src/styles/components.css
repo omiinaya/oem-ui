@@ -4969,20 +4969,43 @@ button.cm-link:focus-visible {
    without agreement is a smell; duplication with a contract test holding
    the pair together is how this library already handles `.cm-surface`. */
 .cm-select {
-	/* Both declared for the scoped case, where no base.css element default
-	   exists to supply them. */
+	/* `appearance: none` lives in base.css on the element, so a SCOPED
+	   adoption - which gets no base.css at all - would keep the native
+	   widget AND paint the gradient, i.e. TWO chevrons. Same for the box
+	   chrome below: without it a scoped consumer gets the library's arrow
+	   on the platform's white, bordered, sans-serif control. */
+	-webkit-appearance: none;
+	appearance: none;
 	display: block;
 	width: 100%;
 	max-width: 100%;
+	/* The element defaults, restated so the scoped case paints the same
+	   widget as the full one. On a full install the base block is (0,1,1)
+	   and outranks this (0,1,0), so these only ever take effect where the
+	   base layer is absent - and a contract test compares them against
+	   base.css property by property, so the two cannot drift apart.
+	   That is the `.cm-surface` pattern: two copies with a measurement
+	   holding them together, rather than a class that silently means
+	   something different depending on how the consumer installed. */
+	font-family: var(--font-mono);
+	font-size: max(var(--min-font), 1rem);
+	color: var(--ink);
+	background-color: var(--bg-2);
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	min-height: var(--tap);
+	line-height: 1.5;
 	background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
 		linear-gradient(135deg, currentColor 50%, transparent 50%);
 	background-position: calc(100% - 1.1rem) 52%, calc(100% - 0.75rem) 52%;
 	background-size: 0.35rem 0.35rem, 0.35rem 0.35rem;
 	background-repeat: no-repeat;
+	padding: 0.55rem 0.7rem;
 	/* The value must never run UNDER the wedges. --space-7 clears the pair
 	   by a whole space step, which is the same clearance the shift in
 	   `.cm-field__control` uses for its icon button (measured there at
-	   390px: 11.2px of padding and a 2.3px gap without it). */
+	   390px: 11.2px of padding and a 2.3px gap without it). Declared after
+	   `padding`, exactly as base.css orders the same pair. */
 	padding-right: var(--space-7);
 	/* A text cursor over a control that opens a popup reads as an editable
 	   field; the chevron is the affordance and the whole box is the target. */

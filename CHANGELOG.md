@@ -51,17 +51,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   answer: put it in a class. `.cm-select--multi` is the second half — a list
   box drops the chevron and scrolls its own overflow.
 
-  The class and the element default carry the SAME four arrow declarations on
-  purpose, and a contract test compares them property by property: two copies
-  held together by a measurement is the `.cm-surface` pattern; two copies
-  without one is a rebrand waiting to happen.
+  The class restates the ELEMENT DEFAULTS as well as the arrow —
+  `appearance: none` above all, or a scoped consumer keeps the native widget
+  **and** paints the gradient and the control shows **two chevrons**. That
+  restatement is why a test compares the class against `base.css` property by
+  property: two copies held together by a measurement is the `.cm-surface`
+  pattern; two copies without one is a rebrand waiting to happen, and here it
+  would also be a control that renders differently depending on how the
+  consumer installed the library.
 
   Driven by a consumer, not imagined: spacetime-rpm carries three
   hand-`<select>`ed cert/ACL pickers styled with `.cm-code`, and
   spacetime-kanban two logged-in filters with a raw `appearance-none` +
   hand-written padding — five sites, two authors, one widget.
-  **1 new contract test file's worth of checks (3 checks, 512 total), 14
-  mutations, 14 killed, 0 survived, 0 no-ops.**
+  **3 contract checks, 512 tests total. 20 mutations, 20 killed, 0 survived,
+  0 no-ops.**
 
 - **A `[popover]` dropdown could not be placed by CSS at all - every
   `.cm-dropdown` menu opened ~24,800px away from its own button.**
