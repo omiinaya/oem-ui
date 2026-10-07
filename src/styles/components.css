@@ -638,7 +638,7 @@
 	flex: 0 0 auto;
 	max-width: 45%;
 	background: var(--ink-dim);
-	border-radius: 2px;
+	border-radius: 0;
 }
 .cm-spec__chip {
 	width: 2.4rem;
@@ -1857,7 +1857,7 @@ button.cm-row:hover { background: var(--bg-2); }
 	background: var(--bg-3);
 	font-family: var(--font-mono); font-size: var(--text-micro); color: var(--ink-faint);
 }
-.cm-term__dot { width: 8px; height: 8px; border: 1px solid var(--accent-dim); border-radius: 50%; }
+.cm-term__dot { width: 8px; height: 8px; border: 1px solid var(--accent-dim); border-radius: 0; }
 .cm-term__title { letter-spacing: 0.1em; text-transform: uppercase; }
 .cm-term__body { padding: 1.1em 1.3em; font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.7; }
 .cm-term__body pre { margin: 0; border: none; background: transparent; padding: 0; }
@@ -2042,7 +2042,7 @@ button.cm-row:hover { background: var(--bg-2); }
 	width: 2.4rem;
 	height: 2.4rem;
 	border: 1px dashed var(--line);
-	border-radius: 50%;
+	border-radius: 0;
 	color: var(--ink-faint);
 	line-height: 2.3rem;
 	font-size: var(--min-font);
@@ -2076,7 +2076,7 @@ button.cm-row:hover { background: var(--bg-2); }
 .cm-skeleton__line, .cm-skeleton__block {
 	background: var(--bg-3);
 	border: 1px solid var(--line);
-	border-radius: 3px;
+	border-radius: 0;
 	animation: cm-skeleton-pulse 1.4s var(--cm-ease) infinite alternate;
 }
 .cm-skeleton__line { height: 0.85rem; }
@@ -2337,7 +2337,7 @@ button.cm-row:hover { background: var(--bg-2); }
 	display: inline-flex; align-items: center; gap: var(--space-1);
 	padding: 0.15em 0.6em;
 	border: 1px solid var(--line);
-	border-radius: 4px;
+	border-radius: 0;
 	background: var(--bg-3);
 	font-family: var(--font-mono); font-size: var(--text-micro); color: var(--ink-dim);
 	/* A tag is a single word in a narrow column, and `inline-flex` is a
@@ -2392,7 +2392,7 @@ button.cm-row:hover { background: var(--bg-2); }
 	gap: var(--space-1);
 	padding: 0.15em 0.6em;
 	border: 1px solid var(--line);
-	border-radius: 4px;
+	border-radius: 0;
 	/* --panel-nested, NOT --bg-3. MEASURED on rpm at 390px: a chip
 	   filled --bg-3 (#161616) sits INSIDE a card filled
 	   --panel-nested (#1a1a1a) and is therefore DARKER than the
@@ -2670,7 +2670,7 @@ button.cm-row:hover { background: var(--bg-2); }
 	   was 44 only because the floor stretched it. */
 	flex: 0 0 auto;
 	border: 1px solid var(--line);
-	border-radius: 6px;
+	border-radius: 0;
 	background: transparent;
 	color: var(--ink-dim);
 	cursor: pointer;
@@ -4475,23 +4475,23 @@ button.cm-table__sort:focus-visible {
 }
 button.cm-table__sort::after {
 	content: '';
-	width: 6px;
+	width: 8px;
 	height: 6px;
 	flex: 0 0 auto;
-	border-radius: 50%;
 	background: transparent;
 }
+/* Direction is a TRIANGLE, drawn with clip-path: ascending points up,
+   descending points down. With square corners the old rotated-and-rounded
+   teardrops would have collapsed into the same diamond. */
 button.cm-table__sort[aria-sort='ascending']::after,
 button.cm-table__sort[aria-sort='descending']::after {
 	background: var(--ink-dim);
 }
 button.cm-table__sort[aria-sort='ascending']::after {
-	border-radius: 50% 50% 0 50%;
-	transform: rotate(45deg);
+	clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
 button.cm-table__sort[aria-sort='descending']::after {
-	border-radius: 50% 50% 50% 0;
-	transform: rotate(45deg);
+	clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
 
 /* ---------- icon sizing, decided by the container ----------
@@ -4664,7 +4664,7 @@ button.cm-link:hover { color: var(--accent-bright); }
 button.cm-link:focus-visible {
 	outline: 2px solid var(--accent);
 	outline-offset: 2px;
-	border-radius: 2px;
+	border-radius: 0;
 }
 
 /* ---------- grouped rail nav ----------
@@ -4781,7 +4781,7 @@ button.cm-link:focus-visible {
 	display: inline-block;
 	width: 0.5rem;
 	height: 0.5rem;
-	border-radius: 50%;
+	border-radius: 0;
 	border: 1px solid var(--ink-faint);
 	background: transparent;
 	flex: 0 0 auto;
@@ -5073,7 +5073,7 @@ button.cm-link:focus-visible {
 	display: block;
 	width: var(--track-w);
 	height: var(--track-h);
-	border-radius: 999px;
+	border-radius: 0;
 	background: var(--ink-dim);
 	transition: background var(--cm-t) var(--cm-ease);
 }
@@ -5086,7 +5086,7 @@ button.cm-link:focus-visible {
 	width: var(--knob-d);
 	height: var(--knob-d);
 	transform: translateY(-50%);
-	border-radius: 999px;
+	border-radius: 0;
 	background: var(--bg);
 	border: 1px solid var(--ink-dim);
 	transition: transform var(--cm-t) var(--cm-ease);

@@ -104,7 +104,7 @@ code {
 	font-size: 0.9em;
 	background: var(--bg-3);
 	border: 1px solid var(--line);
-	border-radius: 4px;
+	border-radius: 0;
 	padding: 0.15em 0.4em;
 	color: var(--ink);
 }
@@ -507,7 +507,7 @@ input[type='radio'] {
 	background: var(--bg-2);
 	cursor: pointer;
 }
-input[type='checkbox'] { border-radius: 3px; }
+input[type='checkbox'] { border-radius: 0; }
 /* Half the box in px, not 50%. WebKit resolves a percentage radius against
    the border box, so a 1px border on a 16.8px control rounds the curve
    unevenly and the circle paints as an OVAL on iOS Safari. A fixed px

@@ -1139,15 +1139,31 @@ check('the page has ONE left rail, shared by chrome and content', () => {
 	}
 });
 
-check('every bordered block uses the same corner radius', () => {
-	// .cm-status hardcoded border-radius:0 while .cm-section used the
-	// token, so two same-width boxes of the same role had different corners.
-	const comp = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
-	for (const m of comp.matchAll(/\.cm-(status|section|panel|card)[^{]*\{([^}]*)\}/g)) {
-		const decl = m[2];
-		if (!/\bborder\s*:/.test(decl)) continue;
-		assert(!/border-radius:\s*0(?![\d.])/.test(decl),
-			`.${m[1]} has a hardcoded square corner; use var(--radius-sm)`);
+check('the house corner tokens and component declarations stay sharp', () => {
+	const tokens = read('src/styles/tokens.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	for (const name of ['radius', 'radius-sm']) {
+		assert(new RegExp(`--${name}:\\s*0(?:[a-z]+)?\\s*;`).test(tokens),
+			`--${name} must remain zero (sharp)`);
+	}
+	for (const path of ['src/styles/base.css', 'src/styles/components.css']) {
+		const css = read(path).replace(/\/\*[\s\S]*?\*\//g, '');
+		// Circular radios and loading spinners retain a circle because their
+		// geometry carries meaning. Everything else, including focus marks,
+		// should take the zero-valued token or declare zero directly.
+		const circular = path.endsWith('base.css')
+			? ['input[type=\'radio\']'] : ['.cm-spinner'];
+		for (const rule of css.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+			if (!/border-radius\s*:/.test(rule[2])) continue;
+			const selectors = rule[1].trim();
+			const circularRule = circular.some(s => selectors === s || selectors === s.replaceAll("'", '"'));
+			for (const decl of rule[2].matchAll(/border-radius\s*:\s*([^;]+);/g)) {
+				if (circularRule) continue;
+				// A shorthand with several values must be checked value by value.
+				const values = decl[1].trim().split(/\s+/);
+				assert(values.every(v => /^(?:0(?:[a-z]+)?|var\(--radius(?:-sm)?\))$/.test(v)),
+					`${path}: ${selectors} rounds a corner: ${decl[1]}`);
+			}
+		}
 	}
 });
 

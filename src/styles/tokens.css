@@ -86,8 +86,10 @@
 	   floor wins: 0.75rem lands on 12px exactly and the scale still
 	   steps down from --text-xs. */
 	--text-micro: 0.75rem;
-	--radius: 10px;
-	--radius-sm: 6px;
+	/* The house shape is SHARP. These stay as tokens (consumers reference
+	   them) but are zero: one place to change, and nothing rounds by accident. */
+	--radius: 0;
+	--radius-sm: 0;
 
 	/* ---- measure (line length) ----------------------------------
 	   A width in `ch` against the monospace font, so a line's character
