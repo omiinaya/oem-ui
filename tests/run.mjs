@@ -1170,6 +1170,16 @@ check('the house corner tokens and component declarations stay sharp', () => {
 	}
 });
 
+check('the showcased radius values match the sharp tokens', () => {
+	const page = read('src/pages/index.astro');
+	const rows = [...page.matchAll(/<span class="cm-spec__label"><code>(--radius(?:-sm)?)<\/code><\/span>([\s\S]*?)<\/div>/g)];
+	assert(rows.length === 2, `expected both radius specimens, got ${rows.length}`);
+	for (const [, name, body] of rows) {
+		assert(/<span class="cm-spec__val"><code>0px · sharp<\/code><\/span>/.test(body),
+			`${name} claims rounded corners while the token is zero`);
+	}
+});
+
 check('.cm-btn has a SHARP corner, matching the original cli-mono shape', () => {
 	// Reverses ecd1e42 (2026-10-02), which gave .cm-btn var(--radius-sm)
 	// to match the inputs. Reversed on request 2026-10-05: square is the
