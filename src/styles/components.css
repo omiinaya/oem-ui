@@ -4933,6 +4933,30 @@ button.cm-link:focus-visible {
 }
 .cm-header--rail .cm-header__group .cm-header__links { gap: 0; }
 
+/* The group COLUMN is a rail claim, and the rail starts at 1000px. Between
+   641 and 999px the library's documented shape is ONE sideways-scrolling row
+   (see the 641-999 block above), but the column rules above are unscoped, so
+   they won that tie: every group stayed a column, the six groups sat side by
+   side inside the row, and each was up to three 44px links tall. MEASURED in
+   WebKit on a grouped consumer (spacetime-rpm) at 768x844: the bar is 61px,
+   the links stack 7 rows deep, 10 of 15 paint BELOW the bar over <main>, and
+   five group labels show in a strip that has no room for a heading.
+   Below 641px the drawer is a vertical list where a labelled column IS right,
+   so only this band dissolves the groups into the row: no column, no label,
+   no inter-group margin. tests/verify-grouped-rail-tablet.mjs pins all three
+   widths (tablet row, desktop rail, phone drawer). */
+@media (min-width: 641px) and (max-width: 999px) {
+	.cm-header--rail .cm-header__group {
+		flex-direction: row;
+		align-items: center;
+		align-self: center;
+		flex: 0 0 auto;
+		max-width: none;
+	}
+	.cm-header--rail .cm-header__group + .cm-header__group { margin-top: 0; }
+	.cm-header--rail .cm-header__group-label { display: none; }
+}
+
 /* ------------------------------------------------------- auth surfaces
    A sign-in screen is a form, a card and an alert that happen to be about
    credentials. It is assembled here from the vocabulary the library
