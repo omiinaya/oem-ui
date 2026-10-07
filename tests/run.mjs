@@ -436,6 +436,9 @@ check('a dropdown menu anchors to its trigger, and flips when it will not fit', 
 			style: {},
 			offsetWidth: 192,
 			offsetHeight: 171,
+			// The real menu is an Element. An empty fake menu still exposes
+			// querySelectorAll, even though this anchor test owns no items.
+			querySelectorAll: () => [],
 			matches: (sel) =>
 				sel === '.cm-dropdown__menu[popover]' ? true : open ? sel === ':popover-open' : false,
 		};

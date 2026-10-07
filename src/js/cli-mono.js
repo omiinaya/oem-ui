@@ -1019,11 +1019,104 @@
 		anchorPopover(menu);
 	}
 
+	/* An item is reachable unless it says it is not. aria-disabled items stay
+	   in the DOM (so a reader hears them) but the arrow keys step over them. */
+	function menuItems(menu) {
+		return Array.prototype.filter.call(
+			menu.querySelectorAll('[role="menuitem"], .cm-dropdown__item'),
+			function (el) {
+				return el.getAttribute('aria-disabled') !== 'true' && !el.disabled;
+			}
+		);
+	}
+
 	function onPopoverToggle(e) {
 		var menu = e.target;
 		if (!menu || typeof menu.matches !== 'function' || !menu.matches(POP_SEL)) return;
-		if (menu.matches(':popover-open')) pinPopover(menu);
-		else unpinPopover();
+		if (menu.matches(':popover-open')) {
+			pinPopover(menu);
+			// The menu-button pattern: opening moves focus INTO the menu, so
+			// the arrow keys have somewhere to start. Closing returns focus to
+			// the trigger - the popover API already does that half.
+			var first = menuItems(menu)[0];
+			if (first && typeof first.focus === 'function') first.focus();
+		} else unpinPopover();
+	}
+
+	/* Arrow keys inside an open menu: Down/Up step and wrap, Home/End jump.
+	   Escape is the platform's (light dismiss), so it is not handled here. */
+	function onMenuKey(e) {
+		var t = e.target;
+		if (!t || typeof t.closest !== 'function') return;
+		var menu = t.closest(POP_SEL);
+		if (!menu) return;
+		var items = menuItems(menu);
+		if (!items.length) return;
+		var i = items.indexOf(t);
+		var next = null;
+		if (e.key === 'ArrowDown') next = items[(i + 1) % items.length];
+		else if (e.key === 'ArrowUp') next = items[(i - 1 + items.length) % items.length];
+		else if (e.key === 'Home') next = items[0];
+		else if (e.key === 'End') next = items[items.length - 1];
+		if (!next) return;
+		e.preventDefault();
+		next.focus();
+	}
+
+	/* ---------- toggle group ----------
+	   OPT-IN via [data-cm-seg], because a consumer that already owns
+	   aria-pressed in its framework state must not have the runtime
+	   writing the same attribute behind it.
+	     data-cm-seg="single"  one option pressed at a time (pressing the
+	                           pressed one keeps it - a radio, not a toggle)
+	     data-cm-seg="multi"   each option toggles itself
+	   Emits `cm-seg-change` on the group with the pressed labels. */
+	function onSegClick(e) {
+		var t = e.target;
+		if (!t || typeof t.closest !== 'function') return;
+		var opt = t.closest('.cm-seg__opt');
+		if (!opt) return;
+		var group = opt.closest('[data-cm-seg]');
+		if (!group) return;
+		if (opt.disabled || opt.getAttribute('aria-disabled') === 'true') return;
+		var mode = group.getAttribute('data-cm-seg');
+		var opts = group.querySelectorAll('.cm-seg__opt');
+		if (mode === 'multi') {
+			opt.setAttribute('aria-pressed', opt.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+		} else if (mode === 'single') {
+			Array.prototype.forEach.call(opts, function (o) {
+				o.setAttribute('aria-pressed', o === opt ? 'true' : 'false');
+			});
+		} else return;
+		var values = Array.prototype.filter.call(opts, function (o) {
+			return o.getAttribute('aria-pressed') === 'true';
+		}).map(function (o) {
+			return o.getAttribute('data-value') || o.textContent.trim();
+		});
+		if (typeof CustomEvent === 'function') {
+			group.dispatchEvent(new CustomEvent('cm-seg-change', { bubbles: true, detail: { values: values } }));
+		}
+	}
+
+	/* ---------- search clear ----------
+	   Empties the field through the NATIVE value setter, then fires a
+	   bubbling `input`. A plain `input.value = ''` is invisible to React,
+	   which tracks the value on its own wrapper; going through the
+	   prototype setter is what makes a controlled input notice. */
+	function onSearchClear(e) {
+		var t = e.target;
+		if (!t || typeof t.closest !== 'function') return;
+		var btn = t.closest('.cm-search__clear');
+		if (!btn) return;
+		var box = btn.closest('.cm-search');
+		var input = box && box.querySelector('.cm-search__input');
+		if (!input) return;
+		var proto = Object.getPrototypeOf(input);
+		var desc = proto && Object.getOwnPropertyDescriptor(proto, 'value');
+		if (desc && desc.set) desc.set.call(input, '');
+		else input.value = '';
+		input.dispatchEvent(new Event('input', { bubbles: true }));
+		if (typeof input.focus === 'function') input.focus();
 	}
 
 	/* ---------- init ---------- */
@@ -1138,5 +1231,10 @@
 		});
 		// Capture, at the root, registered once: see onPopoverToggle.
 		document.addEventListener('toggle', onPopoverToggle, true);
+		// Delegated at the root for the same reason: re-rendered markup
+		// keeps working without a re-bind.
+		document.addEventListener('keydown', onMenuKey);
+		document.addEventListener('click', onSegClick);
+		document.addEventListener('click', onSearchClear);
 	}
 })();

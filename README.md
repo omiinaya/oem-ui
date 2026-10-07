@@ -1372,6 +1372,32 @@ browser behaviour closes the other panels, with no JavaScript. Use a
 1:1 shortcut; the default is 16:9. All borders keep the house's sharp
 corners.
 
+### Interactive primitives
+
+The runtime opts into managed segmented controls only when requested:
+
+```html
+<div class="cm-seg" role="group" aria-label="Directive" data-cm-seg="single">
+  <button type="button" class="cm-seg__opt" aria-pressed="true">allow</button>
+  <button type="button" class="cm-seg__opt" aria-pressed="false">deny</button>
+</div>
+<div class="cm-seg" role="group" aria-label="Methods" data-cm-seg="multi">
+  <button type="button" class="cm-seg__opt" aria-pressed="true">get</button>
+  <button type="button" class="cm-seg__opt" aria-pressed="false">post</button>
+</div>
+```
+
+`single` keeps one pressed; `multi` toggles each. Either mode dispatches a
+bubbling `cm-seg-change` event on the group with `event.detail.values`
+(an array of pressed `data-value` strings, falling back to button text).
+A group without `data-cm-seg` is **not managed**; consumer state remains
+authoritative. The popover dropdown focuses its first enabled menu item
+when opened, and handles Up/Down/Home/End, skipping disabled items.
+Escape and light-dismiss remain the browser's job. A `.cm-search__clear`
+button now empties its sibling `.cm-search__input`, dispatches a bubbling
+`input` event (so a listener can update its model), and returns focus to
+that input.
+
 ### Everything else
 
 ```html

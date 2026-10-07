@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — shadcn-parity primitives
+
+- Added square-cornered kbd, pagination, avatar, native-exclusive accordion,
+  aspect-ratio box, destructive button, joined button group, and left/top/
+  bottom sheet variants. The right sheet remains the default.
+- The runtime now supports opt-in single/multi `.cm-seg` groups,
+  arrow/Home/End navigation in a popover menu, and a working search-clear
+  button. All are delegated so dynamically inserted markup is covered.
+- Verified the built gallery in WebKit at 320–1280px. The three batches'
+  harnesses killed 6/6, 8/8 and 10/10 seeded faults respectively.
+
 All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),

@@ -1524,10 +1524,19 @@ A compact set of exclusive choices, and a summary row that reveals a panel. Both
 				<div style="display:grid;gap:var(--space-5);max-width:34rem">
 					<div class="cm-field">
 						<span class="cm-field__label">Directive</span>
-						<div class="cm-seg" role="group" aria-label="Directive">
+						<div class="cm-seg" role="group" aria-label="Directive" data-cm-seg="single">
 							<button type="button" class="cm-seg__opt" aria-pressed="true">allow</button>
 							<button type="button" class="cm-seg__opt" aria-pressed="false">deny</button>
 						</div>
+					</div>
+					<div class="cm-field">
+						<span class="cm-field__label">Methods <span class="cm-field__req">(any)</span></span>
+						<div class="cm-seg" role="group" aria-label="Methods" data-cm-seg="multi">
+							<button type="button" class="cm-seg__opt" aria-pressed="true">get</button>
+							<button type="button" class="cm-seg__opt" aria-pressed="false">post</button>
+							<button type="button" class="cm-seg__opt" aria-pressed="false">delete</button>
+						</div>
+						<span class="cm-field__help"><code>data-cm-seg="single"</code> keeps one pressed; <code>"multi"</code> toggles each. Without the attribute the runtime leaves <code>aria-pressed</code> to you.</span>
 					</div>
 					<details class="cm-disclosure">
 						<summary class="cm-disclosure__summary">
