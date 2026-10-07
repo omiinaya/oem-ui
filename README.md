@@ -493,6 +493,7 @@ design decision.
 <a class="cm-btn">Default</a>
 <a class="cm-btn cm-btn--primary">Primary</a>
 <a class="cm-btn cm-btn--ghost">Ghost</a>
+<a class="cm-btn cm-btn--outline">Outline</a>
 <a class="cm-btn cm-btn--sm">Small</a>
 <a class="cm-btn cm-btn--block">Block</a>
 <div class="cm-btn-group">…</div>
@@ -501,6 +502,11 @@ design decision.
 Square corners, 1px borders, 0.12s transitions. The border carries the
 weight, not a fill. Ghost is text-only and underlines on hover so it still
 reads as a control.
+`cm-btn--outline` is shadcn's outline variant: the border *is* the body,
+and hover fills it with ink and inverts the text. The base button is
+already transparent on a hairline, so the variant only owns that
+inversion — class-name parity with shadcn markup, not a second button.
+
 
 ### List rows
 
@@ -650,6 +656,23 @@ on-brand; you only add classes for the layout around it.
 > `:not()` counts its argument — that is (0,3,1). A plain
 > `input[aria-invalid='true']` is (0,1,1) and **loses silently**. Match the
 > base selector when you add a state; a test asserts the counts.
+
+### Range slider — `input.cm-slider`
+
+```html
+<label class="cm-field__label" for="f-vol">retention days <output for="f-vol">30</output></label>
+<input id="f-vol" class="cm-slider" type="range" min="1" max="90" value="30" />
+```
+
+A native `input[type=range]` wearing house chrome — native keyboard, native
+drag, native form value, no reimplementation. The rail is **framed** for the
+same reason the progress track is: a bare `--bg-3` rail measures about 1.04:1
+against its own panel. The fill reads `--cm-slider`, which the runtime mirrors
+from `.value` at boot and on every `input` event, and it writes the value back
+into a sibling `<output>` if the field has one. Without JS the slider still
+works and simply shows an empty rail — the honest degradation rather than a
+fill that lies about the value. The thumb is a square: every corner here is
+sharp on purpose.
 
 ### Tabs, dialogs, toasts, dropdowns, tooltips
 

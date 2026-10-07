@@ -1221,6 +1221,33 @@
 		});
 	}
 
+	/* A range input's own value is the truth; the fill is a painting of it.
+	   Writing the percentage to `--cm-slider` keeps CSS out of arithmetic and
+	   means a consumer who never loads this script still gets a working
+	   slider - just an empty rail instead of a filled one, which is the
+	   honest degradation rather than a fill that lies about the value. */
+	function cmPaintSlider(el) {
+		if (!el || !el.getBoundingClientRect) return;
+		var min = parseFloat(el.min || '0');
+		var max = parseFloat(el.max || '100');
+		var span = max - min;
+		var pct = span ? ((parseFloat(el.value) - min) / span) * 100 : 0;
+		el.style.setProperty('--cm-slider', pct + '%');
+		var field = el.closest ? el.closest('.cm-field') : null;
+		var out = field && field.querySelector('output');
+		if (out) out.textContent = el.value;
+	}
+
+	function cmInitSliders(root) {
+		var scope = root && root.querySelectorAll ? root : document;
+		Array.prototype.forEach.call(scope.querySelectorAll('input.cm-slider'), cmPaintSlider);
+	}
+
+	function onSliderInput(e) {
+		var el = e && e.target;
+		if (el && el.classList && el.classList.contains('cm-slider')) cmPaintSlider(el);
+	}
+
 	/* ---------- init ---------- */
 	function init(root) {
 		(root || document)
@@ -1243,6 +1270,7 @@
 		initMeasureReadout();
 		initTableLabels(root);
 		cmInitSort(root);
+		cmInitSliders(root);
 		if (!root || root === document) initExternalLinks();
 	}
 
@@ -1340,5 +1368,6 @@
 		document.addEventListener('click', onSegClick);
 		document.addEventListener('click', onSearchClear);
 		document.addEventListener('click', onTableSort);
+		document.addEventListener('input', onSliderInput);
 	}
 })();

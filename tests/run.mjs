@@ -11971,12 +11971,12 @@ check('the scoped entry and the library tokens cannot drift apart', () => {
 	});
 }
 
-/* ================= result ================= */
-console.log(`\n${passed} passed, ${failures.length} failed`);
-if (failures.length) {
-	for (const [n, m] of failures) console.error(`  FAIL ${n}: ${m}`);
-	process.exit(1);
-}
+/* ================= the verdict is printed at the very END of this file.
+   It used to sit here, in the middle: every check declared after it -
+   the rhythm block, then anything a later batch appended - still RAN but
+   could neither be counted nor fail the run, which is the silent-dead-test
+   mode this file exists to prevent. Appended checks are the normal way
+   this file grows, so the report belongs after them, not before. */
 
 /* ================= one rhythm, everywhere ================= */
 {
@@ -12089,4 +12089,45 @@ if (failures.length) {
 				"carry a hand-written margin, e.g. " + offenders[0] +
 				" - the stack owns this; a number here adds to the gap");
 	});
+}
+
+
+// ---------- shadcn-parity: outline button + range slider ----------
+check("the outline button variant exists and inverts on hover", () => {
+	const css = read("src/styles/components.css");
+	const page = read("src/pages/index.astro");
+	assert(/\.cm-btn--outline:hover,[\s\S]{0,200}?background:\s*var\(--ink\)/.test(css),
+		".cm-btn--outline must fill with --ink on hover");
+	assert(/\.cm-btn--outline:hover[\s\S]{0,200}?color:\s*var\(--bg\)/.test(css),
+		".cm-btn--outline must invert its text on hover");
+	assert(page.includes('class="cm-btn cm-btn--outline"'),
+		"the showcase must ship an outline button specimen");
+});
+
+check("the slider is a native range input wearing house chrome", () => {
+	const css = read("src/styles/components.css");
+	const page = read("src/pages/index.astro");
+	assert(/<input[^>]*class="cm-slider"[^>]*type="range"/.test(page),
+		"the slider must be a real input[type=range], not a div");
+	assert(css.includes("input.cm-slider::-webkit-slider-runnable-track"),
+		"the rail must be styled for WebKit (Omar reads on iPhone)");
+	assert(/input\.cm-slider::-webkit-slider-thumb \{[\s\S]{0,200}?border-radius:\s*0/.test(css),
+		"the thumb must be sharp");
+	assert(/input\.cm-slider::-webkit-slider-runnable-track \{[\s\S]{0,300}?border:\s*1px solid/.test(css),
+		"a bare --bg-3 rail measures ~1.04:1 against its panel, so the rail must be framed");
+});
+
+check("the runtime mirrors the slider value into the fill", () => {
+	const js = read("src/js/cli-mono.js");
+	assert(js.includes("function cmPaintSlider"), "cmPaintSlider must exist");
+	assert(js.includes("addEventListener('input', onSliderInput)"),
+		"the fill must follow the input event, delegated at the root");
+	assert(js.includes("cmInitSliders(root)"), "init() must paint sliders already in the DOM");
+});
+
+/* ================= result ================= */
+console.log(`\n${passed} passed, ${failures.length} failed`);
+if (failures.length) {
+	for (const [n, m] of failures) console.error(`  FAIL ${n}: ${m}`);
+	process.exit(1);
 }

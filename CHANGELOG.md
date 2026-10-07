@@ -1480,6 +1480,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `tests/verify-drawer-column.py` drives WebKit over 5 widths x 10 heights and
   reads the number of distinct left edges from the DOM, so a wrapped column is
   measured rather than eyeballed.
+- Added the shadcn **outline button** (`.cm-btn--outline`: the border is the
+  body, hover fills with ink and inverts the text) and a native
+  **range slider** (`input.cm-slider`) — framed rail, square thumb, fill
+  mirrored to `--cm-slider` at boot and on `input`, readout mirrored to a
+  sibling `<output>`. Everything is measured, not asserted from source: the
+  harness decodes its own screenshots because WebKit answers
+  `getComputedStyle(el, '::-webkit-slider-*')` with empty strings. 8/8
+  seeded faults killed.
+- **The suite now reports at the end of the file.** The verdict used to print
+  in the middle, so every check appended after it — the rhythm block, then
+  anything a later batch added — ran but could neither be counted nor fail the
+  run. 8 checks were silently dead; they are counted now (514 → 522).
+
 ## Fixed
 - The header bar no longer paints outside its own box. Between the phone
   drawer (640px) and the rail (1000px) the bar's nav was `flex-wrap: wrap`

@@ -5890,6 +5890,86 @@ textarea.cm-code {
    instead of wrapping. */
 .cm-fill { flex: 1; min-width: 0; }
 
+/* ============ shadcn-parity: outline button + range slider ============
+   `.cm-btn--outline` is the shadcn name for the invert-on-hover control:
+   the border IS the body, hover fills it. `.cm-btn` is already transparent
+   on a hairline, so the variant owns only the inversion - which means a
+   consumer can swap class names and get shadcn-shaped markup without
+   learning a second button.
+
+   The slider is a native `input[type=range]` wearing house chrome, not a
+   reimplementation: native keyboard, native drag, native form value. The
+   track is FRAMED for the reason the progress track is - a bare `--bg-3`
+   rail measures about 1.04:1 against its own panel - and the fill reads
+   `--cm-slider`, which the runtime mirrors from `.value`. The thumb is a
+   square: every corner in this system is sharp on purpose. */
+.cm-btn--outline:hover,
+.cm-btn--outline:focus-visible {
+	background: var(--ink);
+	border-color: var(--ink);
+	color: var(--bg);
+}
+.cm-btn--outline:active {
+	background: var(--ink-dim);
+	border-color: var(--ink-dim);
+}
+
+input.cm-slider {
+	-webkit-appearance: none;
+	appearance: none;
+	display: block;
+	width: 100%;
+	height: var(--tap, 44px);
+	margin: 0;
+	padding: 0;
+	background: transparent;
+	border: 0;
+	--cm-slider: 0%;
+}
+input.cm-slider::-webkit-slider-runnable-track {
+	height: 8px;
+	background:
+		linear-gradient(to right,
+			var(--ink) var(--cm-slider, 0%),
+			transparent var(--cm-slider, 0%)),
+		var(--bg-3);
+	border: 1px solid var(--line);
+}
+input.cm-slider::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 10px;
+	height: 18px;
+	margin-top: calc((10px - 18px) / 2);
+	background: var(--ink);
+	border: 1px solid var(--bg);
+	border-radius: 0;
+}
+input.cm-slider::-moz-range-track {
+	height: 8px;
+	background: var(--bg-3);
+	border: 1px solid var(--line);
+}
+input.cm-slider::-moz-range-progress {
+	height: 8px;
+	background: var(--ink);
+}
+input.cm-slider::-moz-range-thumb {
+	width: 10px;
+	height: 18px;
+	background: var(--ink);
+	border: 1px solid var(--bg);
+	border-radius: 0;
+}
+input.cm-slider:focus-visible {
+	outline: 2px solid var(--accent-bright, var(--ink));
+	outline-offset: 2px;
+}
+input.cm-slider:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;
@@ -5985,6 +6065,7 @@ textarea.cm-code {
 	height: 1px;
 	background: var(--line);
 }
+
 /* ============ stack ownership (LAST, on purpose) ============
    These two rules must beat every component's own block margin. They are
    at the end of the layer for that reason, and `gap` is a single number

@@ -251,6 +251,7 @@ The design language, shown as specimens. Every value here is rendered from the t
 					<a class="cm-btn">Default</a>
 					<a class="cm-btn cm-btn--primary">Primary</a>
 					<a class="cm-btn cm-btn--ghost">Ghost</a>
+					<a class="cm-btn cm-btn--outline">Outline</a>
 					<a class="cm-btn cm-btn--sm">Small</a>
 					<a class="cm-btn cm-btn--block">Block</a>
 				</div>
@@ -262,7 +263,7 @@ The design language, shown as specimens. Every value here is rendered from the t
 						<button class="cm-btn">Month</button>
 					</span>
 				</div>
-				<p class="cm-head__sub"><code>cm-btn--danger</code> is a cross plus a heavier rule, never a hue. <code>cm-btn-group--joined</code> collapses neighbouring borders into one control.</p>
+				<p class="cm-head__sub"><code>cm-btn--outline</code> is shadcn’s invert-on-hover button: the border is the body. <code>cm-btn--danger</code> is a cross plus a heavier rule, never a hue. <code>cm-btn-group--joined</code> collapses neighbouring borders into one control.</p>
 			</section>
 
 			<!-- ==================================================== nav
@@ -2858,6 +2859,16 @@ inputs are element defaults, so a bare <code>&lt;input&gt;</code> is already on-
 							</div>
 							<span class="cm-field__help">the toggle is <code>--tap</code> square and overlaps the field padding, so the text never runs under it.</span>
 						</div>
+
+					<!-- a slider is a value on a rail. The rail is framed for the
+					     same reason the progress track is: a bare `--bg-3` rail measures
+					     about 1.04:1 against its own panel. Everything else here is the
+					     native input - keyboard, drag and form value all still work. -->
+					<div class="cm-field">
+						<label class="cm-field__label" for="f-vol">retention days <output id="f-vol-out" for="f-vol">30</output></label>
+						<input id="f-vol" class="cm-slider" type="range" min="1" max="90" value="30" />
+						<span class="cm-field__help"><code>input[type=range]</code> styled in place. The runtime mirrors <code>.value</code> to <code>--cm-slider</code> (the fill) and to the readout.</span>
+					</div>
 
 					<div class="cm-form__actions">
 						<button type="reset" class="cm-btn">cancel</button>
