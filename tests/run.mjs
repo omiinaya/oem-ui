@@ -12163,3 +12163,68 @@ check("the input group collapses to one hairline", () => {
 	assert(!/\.cm-input-group[^{]*\{[^}]*margin-left: -/.test(css),
 		"the seam must be a collapsed border, never a negative margin");
 });
+
+
+// ---------- shadcn-parity: OTP input + command palette ----------
+{
+	const page = read('src/pages/index.astro');
+	const js = read('src/js/cli-mono.js');
+	const css = read('src/styles/components.css');
+
+	check('six OTP cells ship, and init() binds them', () => {
+		const cells = page.match(/class="cm-otp__cell"/g) || [];
+		assert(cells.length === 6, 'expected 6 cells, got ' + cells.length);
+		assert(js.includes('cmInitOtp(root);'), 'init() must bind the OTP group');
+		assert(js.includes("querySelectorAll('.cm-otp')"), 'the binder must scope to .cm-otp');
+	});
+
+	check('the OTP cell rule outranks the base input rule', () => {
+		// base.css styles `input:not(...)` at (0,1,1). A lone
+		// `.cm-otp__cell` at (0,1,0) loses every property they share,
+		// and the cell keeps its full-width box.
+		assert(/\.cm-otp \.cm-otp__cell \{/.test(css),
+			'the cell rule must be a descendant pair to win the cascade');
+	});
+
+	check('a typed digit advances and Backspace clears before it retreats', () => {
+		assert(/if \(el\.value\) focusAt\(index\(el\) \+ 1\)/.test(js),
+			'the input handler must advance focus after a digit');
+		assert(/if \(el\.value\) el\.value = '';/.test(js) &&
+			/else if \(i > 0\)/.test(js),
+			'backspace must clear a filled cell before retreating');
+		// preventDefault() in the keydown branch means no input event
+		// follows a typed digit, so the advance must live there too.
+		assert(/el\.value = e\.key;\s*\n\s*focusAt\(i \+ 1\);/.test(js),
+			'the keydown branch must advance focus itself');
+		assert(/addEventListener\('paste'/.test(js), 'a pasted code must fill the group');
+	});
+
+	check('the command palette ships and init() binds it', () => {
+		assert(page.includes('id="cmd-demo" class="cm-dialog cm-command"') ||
+			page.includes('class="cm-dialog cm-command" id="cmd-demo"'),
+			'the palette specimen must be a cm-dialog cm-command');
+		assert(page.includes('data-cm-open="cmd-demo"'), 'there must be a trigger');
+		assert(js.includes('cmInitCommand(root);'), 'init() must bind the palette');
+		assert(js.includes("querySelectorAll('.cm-command')"), 'the binder must scope to .cm-command');
+	});
+
+	check('the palette filters, tracks a roving row, and resets on close', () => {
+		assert(/it\.textContent\.toLowerCase\(\)\.indexOf\(q\) !== -1/.test(js),
+			'matching must be a substring search, not a prefix one');
+		assert(/'ArrowDown'/.test(js) && /'ArrowUp'/.test(js),
+			'arrow keys must move the active row');
+		assert(/aria-activedescendant/.test(js), 'the active row must reach the a11y tree');
+		assert(/addEventListener\('close'/.test(js) && /input\.value = ''/.test(js),
+			'reopening must start from a clean query');
+	});
+
+	check('a filtered row actually disappears', () => {
+		// `.cm-command__item { display: flex }` is an author rule; the UA
+		// ships `[hidden] { display: none }`. Author beats UA, so without
+		// an explicit rule the row keeps its box with its text gone.
+		assert(/\.cm-command__item\[hidden\][\s\S]{0,120}display: none;/.test(css),
+			'the palette needs an explicit [hidden] rule');
+		assert(page.includes('class="cm-command__empty" hidden'),
+			'there must be an empty state to reveal');
+	});
+}

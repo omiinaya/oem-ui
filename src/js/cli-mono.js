@@ -1248,6 +1248,167 @@
 		if (el && el.classList && el.classList.contains('cm-slider')) cmPaintSlider(el);
 	}
 
+	/* ---------- OTP ----------
+	   Six boxes, one value. The cells are ordinary inputs, so the form
+	   still submits and the platform still owns the caret; script only
+	   moves focus. Digits type forward, Backspace clears first and
+	   retreats only from an empty cell (a fat-fingered backspace should
+	   not cost a digit you already got right), and a paste of "481902"
+	   fills all six - which is what everyone actually does with a code
+	   that arrived by mail. */
+	function cmInitOtp(root) {
+		var scope = root && root.querySelectorAll ? root : document;
+		Array.prototype.forEach.call(scope.querySelectorAll('.cm-otp'), function (group) {
+			if (group.dataset.cmOtpBound) return;
+			group.dataset.cmOtpBound = '1';
+
+			function cells() {
+				return Array.prototype.slice.call(group.querySelectorAll('.cm-otp__cell'));
+			}
+			function focusAt(i) {
+				var all = cells();
+				if (all[i]) all[i].focus();
+			}
+			function index(el) { return cells().indexOf(el); }
+
+			group.addEventListener('keydown', function (e) {
+				var el = e.target;
+				if (!el.classList || !el.classList.contains('cm-otp__cell')) return;
+				var i = index(el);
+				var all = cells();
+				if (e.key === 'Backspace') {
+					if (el.value) el.value = '';
+					else if (i > 0) { all[i - 1].value = ''; focusAt(i - 1); }
+					e.preventDefault();
+				} else if (e.key === 'ArrowLeft') {
+					focusAt(Math.max(0, i - 1));
+					e.preventDefault();
+				} else if (e.key === 'ArrowRight') {
+					focusAt(Math.min(all.length - 1, i + 1));
+					e.preventDefault();
+				} else if (/^[0-9]$/.test(e.key)) {
+					// Replacing the cell instead of appending is why this
+					// is keydown: maxlength=1 makes the native insert a
+					// no-op on a cell that is already filled. And because
+					// preventDefault() below stops the native insert, no
+					// input event fires either - so the advance has to
+					// happen right here, not in the input handler.
+					el.value = e.key;
+					focusAt(i + 1);
+					e.preventDefault();
+				}
+			});
+
+			group.addEventListener('input', function (e) {
+				var el = e.target;
+				if (!el.classList || !el.classList.contains('cm-otp__cell')) return;
+				el.value = el.value.replace(/[^0-9]/g, '').slice(0, 1);
+				if (el.value) focusAt(index(el) + 1);
+			});
+
+			group.addEventListener('paste', function (e) {
+				var data = (e.clipboardData || window.clipboardData);
+				var digits = ((data && data.getData('text')) || '').replace(/[^0-9]/g, '').split('');
+				if (!digits.length) return;
+				e.preventDefault();
+				var all = cells();
+				all.forEach(function (cell, n) { cell.value = digits[n] || ''; });
+				focusAt(Math.min(digits.length, all.length - 1));
+			});
+		});
+	}
+
+	/* ---------- command palette ----------
+	   Everything structural is the <dialog> already: open, focus trap,
+	   Escape, the top layer and an inert page behind it. Script owns the
+	   two things CSS cannot - which rows match the query, and which row
+	   Enter would take - and nothing else. The active row is tracked in
+	   .is-active and mirrored to aria-activedescendant, because a
+	   highlight nobody can query is not an accessibility tree. */
+	function cmInitCommand(root) {
+		var scope = root && root.querySelectorAll ? root : document;
+		Array.prototype.forEach.call(scope.querySelectorAll('.cm-command'), function (dlg) {
+			if (dlg.dataset.cmCmdBound) return;
+			dlg.dataset.cmCmdBound = '1';
+			var input = dlg.querySelector('.cm-command__input');
+			var empty = dlg.querySelector('.cm-command__empty');
+			if (!input) return;
+
+			function items() {
+				return Array.prototype.slice.call(dlg.querySelectorAll('.cm-command__item'));
+			}
+			function visible() {
+				return items().filter(function (it) { return !it.hidden; });
+			}
+			function setActive(el) {
+				items().forEach(function (it) {
+					var on = it === el;
+					it.classList.toggle('is-active', on);
+					it.setAttribute('aria-selected', on ? 'true' : 'false');
+				});
+				if (el && el.id) {
+					input.setAttribute('aria-activedescendant', el.id);
+					el.scrollIntoView({ block: 'nearest' });
+				} else {
+					input.removeAttribute('aria-activedescendant');
+				}
+			}
+			function filter() {
+				var q = input.value.trim().toLowerCase();
+				var shown = 0;
+				items().forEach(function (it) {
+					var hit = !q || it.textContent.toLowerCase().indexOf(q) !== -1;
+					it.hidden = !hit;
+					if (hit) shown++;
+				});
+				Array.prototype.forEach.call(dlg.querySelectorAll('.cm-command__group'), function (g) {
+					g.hidden = !g.querySelector('.cm-command__item:not([hidden])');
+				});
+				if (empty) empty.hidden = shown > 0;
+				var vis = visible();
+				setActive(vis.length ? vis[0] : null);
+			}
+
+			input.addEventListener('input', filter);
+
+			dlg.addEventListener('keydown', function (e) {
+				if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Enter') return;
+				// Enter inside a text input submits - here it means "run
+				// the highlighted row", so the platform's default has to
+				// go even when the list is empty.
+				e.preventDefault();
+				var vis = visible();
+				if (!vis.length) return;
+				if (e.key === 'Enter') {
+					var cur = dlg.querySelector('.cm-command__item.is-active');
+					if (cur) cur.click();
+					return;
+				}
+				var i = vis.indexOf(dlg.querySelector('.cm-command__item.is-active'));
+				var step = e.key === 'ArrowDown' ? 1 : -1;
+				setActive(vis[(i + step + vis.length) % vis.length]);
+			});
+
+			// Selecting a row runs it and dismisses the palette; that is
+			// the whole point of the component, and the dialog's own
+			// close() is what restores focus to the trigger.
+			items().forEach(function (it) {
+				it.addEventListener('click', function () {
+					if (dlg.open && typeof dlg.close === 'function') dlg.close();
+				});
+			});
+
+			// Reopening starts clean: a palette that remembers last
+			// night's query opens on a stale, half-empty list.
+			dlg.addEventListener('close', function () {
+				input.value = '';
+				filter();
+			});
+
+			filter();
+		});
+	}
+
 	/* ---------- init ---------- */
 	function init(root) {
 		(root || document)
@@ -1271,6 +1432,8 @@
 		initTableLabels(root);
 		cmInitSort(root);
 		cmInitSliders(root);
+		cmInitOtp(root);
+		cmInitCommand(root);
 		if (!root || root === document) initExternalLinks();
 	}
 

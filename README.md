@@ -1425,6 +1425,37 @@ addon, because the base input rule is `(0,3,1)` and a group selector at
 `(0,1,0)` would lose that cascade silently. Negative margins are out
 anyway — the suite forbids raw spacing values, and it is right to.
 
+### OTP input and command palette
+
+```html
+<div class="cm-otp" role="group" aria-label="verification code">
+  <input class="cm-otp__cell" maxlength="1" inputmode="numeric"
+         autocomplete="one-time-code" aria-label="digit 1" />
+  <!-- one more per digit -->
+</div>
+
+<button class="cm-btn" data-cm-open="cmd-demo">command palette <kbd class="cm-kbd">&#8984;K</kbd></button>
+<dialog class="cm-dialog cm-command" id="cmd-demo"> … </dialog>
+```
+
+The OTP cells are ordinary inputs, so the form value, the caret and the
+platform's autofill are untouched; script only moves focus. A digit
+**replaces** the cell it lands in rather than appending, because
+`maxlength=1` makes the native insert a no-op on a cell that is already
+filled - and because `preventDefault()` there means no `input` event
+follows, the advance has to happen in `keydown` too, not in the input
+handler that never fires. Backspace clears a filled cell before it ever
+retreats. A paste of six digits fills the whole group.
+
+The palette is a `<dialog>`: open, focus trap, Escape, the top layer and
+an inert page behind it are the platform's. Script owns exactly two
+things - which rows match, and which row Enter would take - and mirrors
+the active row to `aria-activedescendant`. Two traps worth naming: an
+author `display: flex` outranks the UA's `[hidden] { display: none }`,
+so a filtered row keeps its box until you say `display: none` yourself;
+and a *prefix* match turns "inst" into "no matches" for *copy install
+command*.
+
 ### Interactive primitives
 
 The runtime opts into managed segmented controls only when requested:

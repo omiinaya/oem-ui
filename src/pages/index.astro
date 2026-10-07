@@ -1822,6 +1822,41 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 					</div>
 				</dialog>
 
+				<!-- The palette is the same native dialog again: open,
+				     focus trap, Escape, top layer and the inert page behind
+				     are all the platform's. Script owns the filter and the
+				     roving row, and nothing else. -->
+				<div class="cm-btn-group">
+					<button type="button" class="cm-btn" data-cm-open="cmd-demo">command palette <kbd class="cm-kbd">&#8984;K</kbd></button>
+				</div>
+				<dialog class="cm-dialog cm-command" id="cmd-demo" aria-label="command palette">
+					<form method="dialog">
+						<div class="cm-command__bar">
+							<span aria-hidden="true">&gt;</span>
+							<input class="cm-command__input" type="text" placeholder="type a command or search" aria-label="command" aria-controls="cmd-list" />
+							<kbd class="cm-kbd">esc</kbd>
+						</div>
+						<ul class="cm-command__list" role="listbox" aria-label="commands" id="cmd-list">
+							<li class="cm-command__group" role="group" aria-label="go to">
+								<span class="cm-command__label">go to</span>
+								<div class="cm-command__item" role="option" id="cmd-dash" aria-selected="false"><span>open dashboard</span><kbd class="cm-kbd">g d</kbd></div>
+								<div class="cm-command__item" role="option" id="cmd-theme" aria-selected="false"><span>toggle theme</span><kbd class="cm-kbd">t</kbd></div>
+								<div class="cm-command__item" role="option" id="cmd-docs" aria-selected="false"><span>read the docs</span><kbd class="cm-kbd">?</kbd></div>
+							</li>
+							<li class="cm-command__group" role="group" aria-label="actions">
+								<span class="cm-command__label">actions</span>
+								<div class="cm-command__item" role="option" id="cmd-copy" aria-selected="false"><span>copy install command</span><kbd class="cm-kbd">c i</kbd></div>
+								<div class="cm-command__item" role="option" id="cmd-submit" aria-selected="false"><span>submit a site</span><kbd class="cm-kbd">s</kbd></div>
+							</li>
+						</ul>
+						<p class="cm-command__empty" hidden>no matches.</p>
+						<div class="cm-command__foot">
+							<span><kbd class="cm-kbd">&#8593;</kbd><kbd class="cm-kbd">&#8595;</kbd> move</span>
+							<span><kbd class="cm-kbd">&#8629;</kbd> run</span>
+						</div>
+					</form>
+				</dialog>
+
 				<h3 class="cm-kicker">toast</h3>
 				<p class="cm-head__sub">
 					A transient <code>.cm-alert</code>: the same border weights, the same
@@ -2888,6 +2923,22 @@ inputs are element defaults, so a bare <code>&lt;input&gt;</code> is already on-
 						</span>
 						<span class="cm-field__help"><code>.cm-input-group</code> joins an addon to a field with one collapsed border.</span>
 					</div>
+
+						<!-- Six boxes for one code. The cells are inputs, so the
+						     form value and the caret are still the platform's; the
+						     runtime only moves focus between them. -->
+						<div class="cm-field">
+							<label class="cm-field__label" for="f-otp-0">verification code</label>
+							<div class="cm-otp" id="f-otp" role="group" aria-label="verification code">
+								<input class="cm-otp__cell" id="f-otp-0" inputmode="numeric" autocomplete="one-time-code" maxlength="1" aria-label="digit 1" />
+								<input class="cm-otp__cell" inputmode="numeric" maxlength="1" aria-label="digit 2" />
+								<input class="cm-otp__cell" inputmode="numeric" maxlength="1" aria-label="digit 3" />
+								<input class="cm-otp__cell" inputmode="numeric" maxlength="1" aria-label="digit 4" />
+								<input class="cm-otp__cell" inputmode="numeric" maxlength="1" aria-label="digit 5" />
+								<input class="cm-otp__cell" inputmode="numeric" maxlength="1" aria-label="digit 6" />
+							</div>
+							<span class="cm-field__help"><code>.cm-otp</code> cells are plain inputs. Digits type forward, <kbd class="cm-kbd">Backspace</kbd> clears before it retreats, and pasting <code>481902</code> fills all six at once.</span>
+						</div>
 
 					<div class="cm-form__actions">
 						<button type="reset" class="cm-btn">cancel</button>

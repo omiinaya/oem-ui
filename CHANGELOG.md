@@ -1503,6 +1503,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and can always fail the run. One check it had been hiding (the flat
   consumer drift case) surfaced immediately and passed on re-run.
 
+- Added `.cm-otp` (six-cell OTP: digits replace-and-advance in `keydown`,
+  Backspace clears before it retreats, a pasted code fills the group) and
+  `.cm-command` (palette inside the native `<dialog>`: substring filter,
+  groups that hide when empty, a roving row mirrored to
+  `aria-activedescendant`, and a query that never survives a reopen).
+  The cell rule is a descendant pair so it beats the base `input` rule at
+  (0,1,1); an explicit `[hidden] { display: none }` is required because
+  the item rule's `display: flex` outranks the UA's. 31/31 WebKit checks,
+  9/9 seeded faults killed.
+
 ## Fixed
 - The header bar no longer paints outside its own box. Between the phone
   drawer (640px) and the rail (1000px) the bar's nav was `flex-wrap: wrap`

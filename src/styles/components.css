@@ -6058,6 +6058,120 @@ input.cm-slider:disabled {
 	border-color: var(--ink-faint);
 }
 
+/* ============ shadcn-parity: OTP input + command palette ============ */
+
+/* Six cells, one code. Each cell is a real input - the form value, the
+   caret and the platform's own input handling all still apply - so the
+   styling only has to make six boxes read as one sequence. The rule is
+   written as a descendant pair because base.css styles `input` at
+   (0,1,1) and a lone class at (0,1,0) would lose that cascade silently,
+   exactly as the input group's seam did. */
+.cm-otp {
+	display: inline-flex;
+	gap: var(--space-2);
+}
+.cm-otp .cm-otp__cell {
+	width: 2.5rem;
+	margin: 0;
+	padding: 0;
+	text-align: center;
+	font-family: var(--font-mono);
+	font-size: var(--text);
+	font-variant-numeric: tabular-nums;
+}
+
+/* A command palette is a dialog - open, trap, Escape, top layer and the
+   inert page behind are the platform's half - wearing a filter and a
+   list. The frame stops scrolling so the list is the only scrollport;
+   a palette that scrolls its own header away loses the input mid-query. */
+.cm-dialog.cm-command {
+	width: min(34rem, calc(100% - (2 * var(--gutter))));
+	padding: 0;
+	overflow: hidden;
+}
+.cm-command .cm-command__bar {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	padding: var(--space-3) var(--space-4);
+	border-bottom: 1px solid var(--line);
+}
+/* The ring is on the bar, not the input: the input has no border of its
+   own to offset from, and a ring drawn on it would sit inside the text. */
+.cm-command .cm-command__bar:focus-within {
+	outline: 1px solid var(--focus);
+	outline-offset: -1px;
+}
+.cm-command .cm-command__input {
+	flex: 1 1 auto;
+	width: auto;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--ink);
+	font: inherit;
+}
+.cm-command .cm-command__input:focus-visible { outline: none; }
+.cm-command .cm-command__list {
+	margin: 0;
+	padding: var(--space-1);
+	list-style: none;
+	max-height: min(16rem, 45vh);
+	overflow: auto;
+}
+.cm-command .cm-command__group { margin: 0; padding: 0; list-style: none; }
+.cm-command .cm-command__label {
+	display: block;
+	margin: 0;
+	padding: var(--space-2) var(--space-3) var(--space-1);
+	font-size: var(--text-sm);
+	color: var(--ink-faint);
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+}
+.cm-command .cm-command__item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+	margin: 0;
+	padding: var(--space-2) var(--space-3);
+	background: transparent;
+	color: var(--ink-dim);
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+/* Hover and the script's roving row highlight the same way, so a mouse
+   and a keyboard never disagree about which row Enter would take. */
+.cm-command .cm-command__item:hover,
+.cm-command .cm-command__item.is-active {
+	background: var(--bg-3);
+	color: var(--ink);
+}
+.cm-command .cm-command__empty {
+	margin: 0;
+	padding: var(--space-4) var(--space-3);
+	color: var(--ink-dim);
+}
+.cm-command .cm-command__foot {
+	display: flex;
+	gap: var(--space-3);
+	align-items: center;
+	padding: var(--space-2) var(--space-3);
+	border-top: 1px solid var(--line);
+	font-size: var(--text-sm);
+	color: var(--ink-faint);
+}
+/* A filtered row sets `display: flex` from the rule above, and an
+   author rule beats the UA's `[hidden] { display: none }` outright -
+   without this the row keeps its box with its text gone, and the
+   palette looks like it has blank mystery entries. */
+.cm-command .cm-command__item[hidden],
+.cm-command .cm-command__group[hidden],
+.cm-command .cm-command__empty[hidden] { display: none; }
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;
