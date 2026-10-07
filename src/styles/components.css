@@ -4684,13 +4684,24 @@ button.cm-table__sort::after {
 /* Direction is a TRIANGLE, drawn with clip-path: ascending points up,
    descending points down. With square corners the old rotated-and-rounded
    teardrops would have collapsed into the same diamond. */
+/* MEASURED: the attribute lives on the TH - that is what `aria-sort` is
+   for, and it is where the accessibility tree reads it - so a rule that
+   names only the BUTTON never fires: the showcase's descending Method
+   column computed `background: rgba(0,0,0,0)` and `clip-path: none`, a
+   live column indistinguishable from a dead one. The th-scoped form is
+   the one that draws; the button-scoped form is kept because CSS is not
+   the only thing that may move the attribute. */
+th[aria-sort='ascending'] button.cm-table__sort::after,
+th[aria-sort='descending'] button.cm-table__sort::after,
 button.cm-table__sort[aria-sort='ascending']::after,
 button.cm-table__sort[aria-sort='descending']::after {
 	background: var(--ink-dim);
 }
+th[aria-sort='ascending'] button.cm-table__sort::after,
 button.cm-table__sort[aria-sort='ascending']::after {
 	clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
+th[aria-sort='descending'] button.cm-table__sort::after,
 button.cm-table__sort[aria-sort='descending']::after {
 	clip-path: polygon(0 0, 100% 0, 50% 100%);
 }

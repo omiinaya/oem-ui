@@ -1405,6 +1405,43 @@ button now empties its sibling `.cm-search__input`, dispatches a bubbling
 `input` event (so a listener can update its model), and returns focus to
 that input.
 
+### Sortable columns
+
+```html
+<table class="cm-table" data-cm-sort>
+  <thead>
+    <tr>
+      <th scope="col" aria-sort="ascending">
+        <button type="button" class="cm-table__sort">Time</button>
+      </th>
+      <th scope="col" aria-sort="none">
+        <button type="button" class="cm-table__sort">Host</button>
+      </th>
+      <th scope="col">Status</th>
+    </tr>
+  </thead>
+  <tbody>…</tbody>
+</table>
+```
+
+Sorting is **opt-in per table** (`data-cm-sort`): a table whose framework
+already sorts its rows must not have the runtime re-ordering them behind
+its back. The button inside the `th` is the control — a `<th onclick>`
+cannot be focused and Enter does nothing to it. A click sorts that
+column ascending, the next click reverses, and the state moves on the
+`th` where the accessibility tree reads it (`aria-sort`), with every
+other sorted column going back to `none`. The triangle the stylesheet
+paints reads the same attribute, so the mark and the announced state
+cannot drift apart.
+
+A column that **declares** `ascending` or `descending` on load is sorted
+into that order at load: a declared state that is not true on screen is a
+lie the glyph keeps repeating. Values come from `data-cm-sort-value` when
+the cell carries one, otherwise from its text; a cell that reads as one
+number sorts as one (`7 < 99 < 1,024`), and everything else is compared
+with numeric collation, so `2s ago` precedes `10s ago`. Rows are moved,
+never rebuilt, and each `tbody` sorts independently.
+
 ### Everything else
 
 ```html

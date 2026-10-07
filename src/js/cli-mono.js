@@ -1119,6 +1119,108 @@
 		if (typeof input.focus === 'function') input.focus();
 	}
 
+	/* ---------- table sort ----------
+	   OPT-IN via `table[data-cm-sort]`: a consumer whose framework already
+	   sorts its rows must not have the runtime re-sorting them behind its
+	   back, and `button.cm-table__sort` on its own is styling, not consent.
+
+	   aria-sort lives on the TH - that is what the attribute is FOR and it
+	   is where the accessibility tree reads it - so the state moves there,
+	   the other sorted columns go back to `none`, and the triangle the
+	   stylesheet draws reads the same attribute the screen reader announces.
+	   The click is delegated: a table whose rows are rewritten every few
+	   seconds (the hearth console rewrites its tbody) keeps sorting.
+
+	   Values: `data-cm-sort-value` when the cell carries one, else its
+	   text. A cell that reads as a number sorts as one, with or without
+	   thousands separators, and `Intl.Collator` with numeric collation
+	   handles `2s ago` against `10s ago` - which plain text comparison
+	   reverses. */
+	var CM_COLLATOR = (typeof Intl !== 'undefined' && Intl.Collator)
+		? new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+		: null;
+
+	function cmSortValue(cell) {
+		if (!cell) return '';
+		var raw = cell.getAttribute && cell.getAttribute('data-cm-sort-value');
+		if (raw !== null && raw !== undefined) return raw;
+		return (cell.textContent || '').trim();
+	}
+
+	function cmSortNumber(v) {
+		// Only when the WHOLE cell reads as one quantity: '1,024', ' 99 ',
+		// '-3', '42%'. 'GET 200' must stay text.
+		if (!/^[+-]?[\d\u00a0,\s]+%?$/.test(v)) return null;
+		var n = Number(v.replace(/[\u00a0,\s%]/g, ''));
+		return isFinite(n) ? n : null;
+	}
+
+	function cmSortCompare(a, b) {
+		var na = cmSortNumber(a), nb = cmSortNumber(b);
+		if (na !== null && nb !== null) return na - nb;
+		// Numbers order before text either way, so a mixed column has one
+		// defensible order instead of an engine-dependent one.
+		if (na !== null) return -1;
+		if (nb !== null) return 1;
+		if (CM_COLLATOR) return CM_COLLATOR.compare(a, b);
+		return a < b ? -1 : a > b ? 1 : 0;
+	}
+
+	function cmApplySort(table, th, dir) {
+		var idx = th.cellIndex;
+		var sign = dir === 'descending' ? -1 : 1;
+		// Each tbody sorts INDEPENDENTLY: rows from two sections must never
+		// be interleaved, and appending a sorted list across sections would
+		// do exactly that.
+		Array.prototype.forEach.call(table.tBodies, function (body) {
+			var rows = Array.prototype.slice.call(body.rows);
+			var keyed = rows.map(function (r) {
+				return { row: r, key: cmSortValue(r.cells[idx]) };
+			});
+			keyed.sort(function (x, y) {
+				return sign * cmSortCompare(x.key, y.key);
+			});
+			// appendChild MOVES a live node, so no row is recreated and
+			// per-row listeners and state survive.
+			keyed.forEach(function (k) { body.appendChild(k.row); });
+		});
+		// Only th elements that carry the attribute: a plain header has no
+		// sort state to reset.
+		Array.prototype.forEach.call(table.querySelectorAll('th[aria-sort]'), function (other) {
+			other.setAttribute('aria-sort', other === th ? dir : 'none');
+		});
+	}
+
+	function onTableSort(e) {
+		var t = e.target;
+		if (!t || typeof t.closest !== 'function') return;
+		var btn = t.closest('.cm-table__sort');
+		if (!btn) return;
+		var th = btn.closest('th');
+		var table = btn.closest('table[data-cm-sort]');
+		if (!th || !table) return;
+		var next = th.getAttribute('aria-sort') === 'ascending' ? 'descending' : 'ascending';
+		cmApplySort(table, th, next);
+	}
+
+	/* A column the markup DECLARES sorted must already be in that order:
+	   the showcase ships Method=descending and Client=ascending, and a
+	   declared state that is not true on screen is a lie the glyph keeps
+	   repeating. Applying it at load is what makes the initial page honest;
+	   an all-`none` table is left in the data's own order. */
+	function cmInitSort(root) {
+		var scope = root && root.querySelectorAll ? root : document;
+		Array.prototype.forEach.call(scope.querySelectorAll('table[data-cm-sort]'), function (table) {
+			/* Once per table: init() runs again on astro:page-load and from
+			   the late-markup observer, and re-applying the declared order
+			   would undo a reader who has just sorted the table by hand. */
+			if (table.dataset && table.dataset.cmSortInit) return;
+			if (table.dataset) table.dataset.cmSortInit = '1';
+			var th = table.querySelector('th[aria-sort="ascending"], th[aria-sort="descending"]');
+			if (th) cmApplySort(table, th, th.getAttribute('aria-sort'));
+		});
+	}
+
 	/* ---------- init ---------- */
 	function init(root) {
 		(root || document)
@@ -1140,6 +1242,7 @@
 		initYears();
 		initMeasureReadout();
 		initTableLabels(root);
+		cmInitSort(root);
 		if (!root || root === document) initExternalLinks();
 	}
 
@@ -1236,5 +1339,6 @@
 		document.addEventListener('keydown', onMenuKey);
 		document.addEventListener('click', onSegClick);
 		document.addEventListener('click', onSearchClear);
+		document.addEventListener('click', onTableSort);
 	}
 })();

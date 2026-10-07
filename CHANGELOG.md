@@ -10,6 +10,15 @@
   button. All are delegated so dynamically inserted markup is covered.
 - Verified the built gallery in WebKit at 320–1280px. The three batches'
   harnesses killed 6/6, 8/8 and 10/10 seeded faults respectively.
+- **Table sort is now real.** The CSS drew a direction glyph from
+  `aria-sort`, and the showcase declared `descending` on Method and
+  `ascending` on Client, with nothing that ever sorted a row. The glyph
+  rule named the BUTTON while the attribute lives on the `th`, so WebKit
+  computed `background: rgba(0,0,0,0)` and `clip-path: none` — a live
+  column indistinguishable from a dead one. Both are fixed: the rule
+  reads the `th`, and `table[data-cm-sort]` opt-in sorting clicks,
+  toggles, resets other columns, and applies a declared order at load.
+  Numeric cells sort as numbers; rows are moved, never rebuilt.
 - `install.sh` without a layout flag now updates the copy a project
   already serves (content-share identification, plus our own filenames
   so a badly stale runtime is still recognised) instead of writing an

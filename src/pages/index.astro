@@ -1276,7 +1276,7 @@ A row's control, in the table's own visual language. A <code>&lt;tr onClick&gt;<
 For records a person scans <em>across</em> rather than one at a time - a log is the case that cannot be cards, because the columns have to line up. The header is sticky, because row 400 otherwise has no idea which column it is in. Status codes carry a weight and a marker, not a hue: a wall of red and green is unreadable in greyscale and to anyone with colour vision. Five of the seven headers are sort controls. Each is a &#60;button&#62; inside a &#60;th scope="col" aria-sort&#62;, which is the shape a sortable column actually has: the sort state lives on the th, where the accessibility tree reads it, and the dot is drawn by CSS from that same attribute so the visible mark and the announced state cannot drift apart. A &#123;&lt;th onClick&#125;&#125; is not a control - it cannot be focused and Enter does nothing to it.
 							</SectionHead>
 							<div class="cm-table-wrap">
-								<table class="cm-table">
+								<table class="cm-table" data-cm-sort>
 									<thead>
 										<tr>
 										<th scope="col" class="cm-table__sortcol" aria-sort="none">
