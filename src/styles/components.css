@@ -1860,7 +1860,12 @@ button.cm-row:hover { background: var(--bg-2); }
 	background: var(--bg-3);
 	font-family: var(--font-mono); font-size: var(--text-micro); color: var(--ink-faint);
 }
-.cm-term__dot { width: 8px; height: 8px; border: 1px solid var(--accent-dim); border-radius: 0; }
+/* The traffic lights. Geometry carries meaning here: three circles are
+   the macOS window identity, and three squares read as three buttons
+   that failed to style - which is exactly how they were reported.
+   Fixed 4px (half the 8px box), not 50%: a percentage radius resolves
+   against the border box and can paint an oval. */
+.cm-term__dot { width: 8px; height: 8px; border: 1px solid var(--accent-dim); border-radius: 4px; }
 .cm-term__title { letter-spacing: 0.1em; text-transform: uppercase; }
 .cm-term__body { padding: 1.1em 1.3em; font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.7; }
 .cm-term__body pre { margin: 0; border: none; background: transparent; padding: 0; }
@@ -5111,17 +5116,11 @@ button.cm-link:focus-visible {
 	outline-offset: 2px;
 }
 .cm-inline--wide { max-width: 32rem; }
-
-/* An IP or a PORT is a short value, and an input sized by
-   `width: 100%` inside a `cm-row__meta` strip is sized by whatever
-   space is left - which on a phone is nothing, so the field collapses
-   and there is nothing to click. `.cm-inline__input--tight` is a width
-   for the INPUT, sized to the longest value the field actually takes:
-   an IPv4 address at the mono 0.82rem, and comfortably more than a
-   5-digit port. `ch` units so it tracks the font rather than a hard px.
-   `.cm-inline--wide` above is a max-width on the DISPLAY span, which
-   is a different thing and does not size the input. */
-
+.cm-inline:has(> .cm-icon-btn) {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+}
 .cm-inline__input {
 	display: inline-block;
 	width: 100%;
@@ -5133,6 +5132,33 @@ button.cm-link:focus-visible {
 	border-radius: var(--radius-sm);
 	padding: 0 var(--space-1);
 }
+.cm-inline:has(> .cm-icon-btn) .cm-inline__input {
+	width: auto;
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+/* An inline editor can carry its own action: a save button beside the
+   input (spacetime-rpm's Settings rows). `.cm-inline__input` claims
+   `width: 100%` of the box, so the button lands after `max-width` and
+   `overflow: hidden` above amputates it — measured in WebKit, the
+   button spans [1051.6..1083.6] against a box ending at 1042: fully
+   painted away, no ancestor scroll, unreachable, so the only way to
+   save a setting was invisible. Layout changes only when the action is
+   a direct child, because the pure display span must stay a block —
+   a flex container cannot ellipsize its text node, and that ellipsis
+   is the whole point of `.cm-inline--wide` on a long value. */
+
+/* An IP or a PORT is a short value, and an input sized by
+   `width: 100%` inside a `cm-row__meta` strip is sized by whatever
+   space is left - which on a phone is nothing, so the field collapses
+   and there is nothing to click. `.cm-inline__input--tight` is a width
+   for the INPUT, sized to the longest value the field actually takes:
+   an IPv4 address at the mono 0.82rem, and comfortably more than a
+   5-digit port. `ch` units so it tracks the font rather than a hard px.
+   `.cm-inline--wide` above is a max-width on the DISPLAY span, which
+   is a different thing and does not size the input. */
+
 /* The class is DOUBLED, and it is the base layer that forces it. The
    `input:not([type=checkbox]):not([type=radio]):not([type=range])`
    rule in base.css is (0,6,1) and declares `width: 100%`; a plain

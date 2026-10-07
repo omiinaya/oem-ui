@@ -1514,6 +1514,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   9/9 seeded faults killed.
 
 ## Fixed
+
+- Squared off the macOS traffic lights (`e79e3d5`): `.cm-term__dot` lost its
+  `border-radius: 50%` to the sharp sweep, so three round window controls
+  rendered as three square boxes. Circles restored (fixed `4px` on the 8px
+  box, not a percentage), added to the sharp guard's exception list next
+  to radio and spinner, and pinned by a check that fails if they square
+  up again.
 - The header bar no longer paints outside its own box. Between the phone
   drawer (640px) and the rail (1000px) the bar's nav was `flex-wrap: wrap`
   with a fixed 60px height and `overflow: visible`, so a wrapped second row

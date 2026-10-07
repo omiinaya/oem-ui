@@ -1150,11 +1150,13 @@ check('the house corner tokens and component declarations stay sharp', () => {
 	}
 	for (const path of ['src/styles/base.css', 'src/styles/components.css']) {
 		const css = read(path).replace(/\/\*[\s\S]*?\*\//g, '');
-		// Circular radios and loading spinners retain a circle because their
-		// geometry carries meaning. Everything else, including focus marks,
-		// should take the zero-valued token or declare zero directly.
+		// Circular radios, loading spinners and the traffic lights retain a
+		// circle because their geometry carries meaning - the traffic lights
+		// are the macOS window identity, and squaring them (e79e3d5 did) was
+		// reported as broken. Everything else, including focus marks, should
+		// take the zero-valued token or declare zero directly.
 		const circular = path.endsWith('base.css')
-			? ['input[type=\'radio\']'] : ['.cm-spinner'];
+			? ['input[type=\'radio\']'] : ['.cm-spinner', '.cm-term__dot'];
 		for (const rule of css.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
 			if (!/border-radius\s*:/.test(rule[2])) continue;
 			const selectors = rule[1].trim();
@@ -1168,6 +1170,26 @@ check('the house corner tokens and component declarations stay sharp', () => {
 			}
 		}
 	}
+});
+
+check('the macOS traffic lights are circles, not squares', () => {
+	// Reverses e79e3d5, which swept them into the sharp-corner rule and
+	// turned three round window controls into three square boxes - the
+	// one regression on this page a token-level guard cannot catch,
+	// because `border-radius: 0` is what the guard demands.
+	const comp = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '');
+	const rule = [...comp.matchAll(/([^{}]*)\{([^}]*)\}/g)]
+		.map(m => ({ sels: m[1].split(',').map(s => s.trim()), body: m[2] }))
+		.find(r => r.sels.includes('.cm-term__dot'));
+	assert(rule, 'no rule with selector exactly `.cm-term__dot` found');
+	assert(/border-radius:\s*4px\s*;/.test(rule.body),
+		`.cm-term__dot must be a 4px circle on its 8px box; found: ` +
+		(/border-radius:[^;]*;/.exec(rule.body)?.[0] ?? 'no declaration'));
+	// and the window chrome must still ship all three of them
+	const page = read('src/pages/index.astro');
+	const bar = [...page.matchAll(/<div class="cm-term__bar">[\s\S]*?<\/div>/g)]
+		.find(b => (b[0].match(/cm-term__dot/g) || []).length >= 3);
+	assert(bar, 'the terminal window must still show three traffic lights');
 });
 
 check('the showcased radius values match the sharp tokens', () => {
@@ -8384,7 +8406,10 @@ check('the editing half inherits the field treatment', () => {
 	// The input REPLACES the span in place. If it does not carry a box, a
 	// border and the ink, the value changes size and contrast the instant
 	// you click it - the row jumps under the pointer mid-edit.
-	const inp = (compSrc.match(/\.cm-inline__input\s*\{([^}]*)\}/) || [, ''])[1];
+	// Anchored to line start: a derived selector (e.g. `.cm-inline:has(> .cm-icon-btn)`
+	// `.cm-inline__input`) also contains `.cm-inline__input {` and would otherwise be
+	// matched FIRST, letting a new layout rule silently answer for the base one.
+	const inp = (compSrc.match(/^\.cm-inline__input\s*\{([^}]*)\}/m) || [, ''])[1];
 	assert(inp, '.cm-inline__input is not defined');
 	assert(/border:\s*1px solid/.test(inp),
 		'the editing half needs a box; a bare field on a bare cell is not clickable');
