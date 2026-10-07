@@ -38,7 +38,7 @@ import SectionHead from '../astro/SectionHead.astro';
  */
 const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'crumbs', 'lists', 'states', 'surface',
-  'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'choice',
+  'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'choice', 'keys-pages-people',
 	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'proselists', 'proselists-order', 'prosetap', 'prosetable', 'tablelabels', 'layout', 'surface-paint',
 	'forms', 'search', 'auth', 'readme',
 ] as const;
@@ -1525,6 +1525,70 @@ A compact set of exclusive choices, and a summary row that reveals a panel. Both
 							<p class="cm-row__meta">The body is hidden until the summary is activated.</p>
 						</div>
 					</details>
+				</div>
+			</section>
+<section id="keys-pages-people" class="cm-section cm-section--pad">
+				<SectionHead title="keys, pages, people">
+Four small parts a shadcn user reaches for first. <code>.cm-kbd</code> is a key, <code>.cm-pager</code> is real links with <code>aria-current</code>, <code>.cm-avatar</code> is a square tile that falls back to initials, and <code>.cm-accordion</code> is disclosures that close each other through the platform's own <code>name</code> attribute &mdash; no script.
+				</SectionHead>
+				<div style="display:grid;gap:var(--space-6);max-width:34rem">
+					<p class="cm-row__meta">
+						Open the palette with
+						<span class="cm-kbd-group"><kbd class="cm-kbd">Ctrl</kbd>+<kbd class="cm-kbd">K</kbd></span>,
+						then <kbd class="cm-kbd">Esc</kbd> to leave.
+					</p>
+
+					<nav class="cm-pager" aria-label="Pagination">
+						<ul class="cm-pager__list">
+							<li><span class="cm-pager__link cm-pager__link--off" aria-disabled="true">&lsaquo; prev</span></li>
+							<li><a class="cm-pager__link" href="#keys-pages-people" aria-current="page">1</a></li>
+							<li><a class="cm-pager__link" href="#keys-pages-people">2</a></li>
+							<li><a class="cm-pager__link" href="#keys-pages-people">3</a></li>
+							<li><span class="cm-pager__gap" aria-hidden="true">&hellip;</span></li>
+							<li><a class="cm-pager__link" href="#keys-pages-people">12</a></li>
+							<li><a class="cm-pager__link" href="#keys-pages-people">next &rsaquo;</a></li>
+						</ul>
+					</nav>
+
+					<div style="display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4)">
+						<span class="cm-avatar cm-avatar--sm" aria-hidden="true">om</span>
+						<span class="cm-avatar" role="img" aria-label="Omar Minaya">om</span>
+						<span class="cm-avatar cm-avatar--lg" role="img" aria-label="Ciel">ci</span>
+						<span class="cm-avatar-group" role="group" aria-label="Collaborators">
+							<span class="cm-avatar" role="img" aria-label="Omar">om</span>
+							<span class="cm-avatar" role="img" aria-label="Ciel">ci</span>
+							<span class="cm-avatar" role="img" aria-label="Two more">+2</span>
+						</span>
+					</div>
+
+					<div class="cm-accordion">
+						<details class="cm-disclosure" name="faq" open>
+							<summary class="cm-disclosure__summary">
+								<span class="cm-disclosure__mark" aria-hidden="true">&#9656;</span>
+								<span class="cm-disclosure__title">Is it accessible?</span>
+							</summary>
+							<div class="cm-disclosure__body"><p class="cm-row__meta">Native details: keyboard and find-in-page for free.</p></div>
+						</details>
+						<details class="cm-disclosure" name="faq">
+							<summary class="cm-disclosure__summary">
+								<span class="cm-disclosure__mark" aria-hidden="true">&#9656;</span>
+								<span class="cm-disclosure__title">Does it need a script?</span>
+							</summary>
+							<div class="cm-disclosure__body"><p class="cm-row__meta">No. A shared <code>name</code> makes the browser close the others.</p></div>
+						</details>
+						<details class="cm-disclosure" name="faq">
+							<summary class="cm-disclosure__summary">
+								<span class="cm-disclosure__mark" aria-hidden="true">&#9656;</span>
+								<span class="cm-disclosure__title">Why square?</span>
+							</summary>
+							<div class="cm-disclosure__body"><p class="cm-row__meta">Because the house has no curves.</p></div>
+						</details>
+					</div>
+
+					<div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
+						<div class="cm-ratio" role="img" aria-label="16:9 frame"></div>
+						<div class="cm-ratio cm-ratio--square" role="img" aria-label="1:1 frame"></div>
+					</div>
 				</div>
 			</section>
 <section id="code" class="cm-section cm-section--pad">

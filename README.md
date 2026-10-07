@@ -1326,6 +1326,52 @@ value-shaped test:
   the first number describes whether a reader sees the link, and an
   AA-against-the-background check cannot see this at all.
 
+### Small native components: keys, pages, people, disclosure
+
+```html
+<span class="cm-kbd-group"><kbd class="cm-kbd">Ctrl</kbd>+<kbd class="cm-kbd">K</kbd></span>
+
+<nav class="cm-pager" aria-label="Pagination">
+  <ul class="cm-pager__list">
+    <li><span class="cm-pager__link cm-pager__link--off" aria-disabled="true">Previous</span></li>
+    <li><a class="cm-pager__link" href="?page=1" aria-current="page">1</a></li>
+    <li><a class="cm-pager__link" href="?page=2">2</a></li>
+    <li><span class="cm-pager__gap" aria-hidden="true">…</span></li>
+    <li><a class="cm-pager__link" href="?page=12">12</a></li>
+  </ul>
+</nav>
+
+<span class="cm-avatar" role="img" aria-label="Omar Minaya">om</span>
+<span class="cm-avatar-group" role="group" aria-label="Collaborators">
+  <span class="cm-avatar" role="img" aria-label="Omar">om</span>
+  <span class="cm-avatar" role="img" aria-label="Ciel">ci</span>
+</span>
+
+<div class="cm-accordion">
+  <details class="cm-disclosure" name="faq">
+    <summary class="cm-disclosure__summary">A question</summary>
+    <div class="cm-disclosure__body">An answer.</div>
+  </details>
+  <details class="cm-disclosure" name="faq">
+    <summary class="cm-disclosure__summary">Another question</summary>
+    <div class="cm-disclosure__body">Another answer.</div>
+  </details>
+</div>
+
+<div class="cm-ratio" style="--cm-ratio: 4 / 3"><img src="image.jpg" alt="Description" /></div>
+```
+
+The pager uses real links; the disabled edge is a span, not a dead link.
+The current page uses `aria-current="page"`; the inset underline does not
+change its dimensions. The avatar is square, with initials as its fallback;
+put an `<img>` inside it to cover the initials when a photo is available.
+`cm-avatar--sm` and `cm-avatar--lg` change its size. For an exclusive
+accordion, give every `<details>` in one group the same `name`; native
+browser behaviour closes the other panels, with no JavaScript. Use a
+*different* name for each independent group. `cm-ratio--square` is the
+1:1 shortcut; the default is 16:9. All borders keep the house's sharp
+corners.
+
 ### Everything else
 
 ```html

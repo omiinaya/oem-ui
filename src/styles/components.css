@@ -4052,6 +4052,162 @@ button.cm-row:hover { background: var(--bg-2); }
 .cm-timeline__body li::before { content: none; }
 .cm-timeline__body li::marker { color: var(--ink-faint); }
 
+/* ---------- kbd ----------
+   A key, or a chord of keys. Drawn as a raised cap with a heavier
+   bottom edge, so it reads as a physical key in greyscale - the same
+   inset-rule language the segmented control uses for "pressed". */
+.cm-kbd {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.6em;
+	padding: 0 var(--space-1);
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	background: var(--surface-raised);
+	box-shadow: inset 0 -2px 0 var(--line);
+	color: var(--ink);
+	font-family: var(--font-mono);
+	font-size: max(var(--min-font), var(--text-micro));
+	line-height: 1.6;
+	white-space: nowrap;
+}
+/* A chord keeps its keys together; the joiner is text, so it is read. */
+.cm-kbd-group {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	color: var(--ink-faint);
+	font-size: max(var(--min-font), var(--text-micro));
+	white-space: nowrap;
+}
+
+/* ---------- pager (pagination) ----------
+   Real links in a labelled nav: a page is an address, so no script.
+   The current page is `aria-current="page"`, the same marker the header
+   and breadcrumb use, drawn as the segmented control's inset rule so the
+   box never widens. Wraps rather than scrolling on a phone. */
+.cm-pager { min-width: 0; }
+.cm-pager__list {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-1);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.cm-pager__link {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-1);
+	min-width: var(--tap);
+	min-height: var(--tap);
+	padding: 0 var(--space-3);
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	background: var(--surface-raised);
+	color: var(--ink-dim);
+	font-family: var(--font-mono);
+	font-size: max(var(--min-font), var(--text-xs));
+	text-decoration: none;
+	transition: color var(--cm-t) var(--cm-ease),
+		background var(--cm-t) var(--cm-ease);
+}
+.cm-pager__link:hover { color: var(--ink); background: var(--panel); }
+.cm-pager__link[aria-current='page'] {
+	color: var(--ink);
+	background: var(--panel);
+	box-shadow: inset 0 -2px 0 var(--ink);
+}
+/* An edge with nowhere to go is not a link: render it as a span. */
+.cm-pager__link--off { color: var(--ink-faint); border-style: dashed; cursor: default; }
+.cm-pager__link--off:hover { color: var(--ink-faint); background: var(--surface-raised); }
+.cm-pager__gap {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: var(--tap);
+	color: var(--ink-faint);
+	font-family: var(--font-mono);
+}
+
+/* ---------- avatar ----------
+   A square tile: an image when there is one, initials when there is not.
+   Square because the house has no curves - a circle here would be the
+   only round thing on the page. Initials are text, so a missing photo
+   still names its person. */
+.cm-avatar {
+	--cm-avatar: 2.5rem;
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	width: var(--cm-avatar, 2.5rem);
+	height: var(--cm-avatar, 2.5rem);
+	overflow: hidden;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	background: var(--surface-raised);
+	color: var(--ink);
+	font-family: var(--font-mono);
+	font-size: max(var(--min-font), calc(var(--cm-avatar, 2.5rem) * 0.36));
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	line-height: 1;
+}
+.cm-avatar > img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	border-radius: 0;
+}
+.cm-avatar--sm { --cm-avatar: 1.75rem; }
+.cm-avatar--lg { --cm-avatar: 4rem; }
+/* A stack of people overlaps by a scale step; the border on each tile
+   is painted in the page colour so the overlap reads as a cut. */
+.cm-avatar-group { display: inline-flex; align-items: center; }
+.cm-avatar-group > .cm-avatar { border-color: var(--bg); box-shadow: 0 0 0 1px var(--line); }
+.cm-avatar-group > .cm-avatar + .cm-avatar { margin-left: calc(var(--space-2) * -1); }
+
+/* ---------- accordion ----------
+   A run of disclosures that reads as ONE block. The exclusive mode is
+   the platform's: give every <details> the same `name` and the browser
+   closes the others, so this needs no script. The wrapper only joins the
+   borders, so a single disclosure and an accordion share every rule. */
+.cm-accordion {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+.cm-accordion > .cm-disclosure + .cm-disclosure { border-top: 0; }
+
+/* ---------- aspect ratio ----------
+   A box that holds its shape before its media loads, so the page does
+   not jump. The ratio is a custom property, set inline per use. */
+.cm-ratio {
+	--cm-ratio: 16 / 9;
+	position: relative;
+	aspect-ratio: var(--cm-ratio, 16 / 9);
+	overflow: hidden;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	background: var(--bg-3);
+}
+.cm-ratio > * {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	border-radius: 0;
+}
+.cm-ratio--square { --cm-ratio: 1; }
+
 /* ---------- cards ----------
    A bordered surface with a header, for one subject that needs more
    room than a .cm-kv row. Deliberately NOT .cm-panel: a panel is a
