@@ -1375,6 +1375,14 @@ corners.
 ### Everything else
 
 ```html
+<button class="cm-btn cm-btn--danger">Delete</button>   <!-- cross + heavier rule; never a hue -->
+<span class="cm-btn-group cm-btn-group--joined" role="group" aria-label="View">
+  <button class="cm-btn">Day</button><button class="cm-btn">Week</button>
+</span>
+<dialog class="cm-dialog cm-dialog--sheet cm-dialog--sheet-left">…</dialog>   <!-- also -top, -bottom; plain --sheet is right -->
+```
+
+```html
 <div class="cm-status cm-status--ok"><span class="cm-status__label">status</span><span class="cm-status__value">…</span></div>
 <div class="cm-list-head">Index / latest</div>
 <div class="cm-section cm-section--pad">…</div>

@@ -254,6 +254,15 @@ The design language, shown as specimens. Every value here is rendered from the t
 					<a class="cm-btn cm-btn--sm">Small</a>
 					<a class="cm-btn cm-btn--block">Block</a>
 				</div>
+				<div class="cm-btn-group" style="margin-top:var(--space-4)">
+					<button class="cm-btn cm-btn--danger">Delete</button>
+					<span class="cm-btn-group cm-btn-group--joined" role="group" aria-label="View">
+						<button class="cm-btn">Day</button>
+						<button class="cm-btn">Week</button>
+						<button class="cm-btn">Month</button>
+					</span>
+				</div>
+				<p class="cm-head__sub"><code>cm-btn--danger</code> is a cross plus a heavier rule, never a hue. <code>cm-btn-group--joined</code> collapses neighbouring borders into one control.</p>
 			</section>
 
 			<!-- ==================================================== nav
@@ -1497,6 +1506,15 @@ The same native <code>&lt;dialog&gt;</code> as the confirm modal, anchored to th
 										thing this modifier changes.
 									</p>
 								</div>
+							</dialog>
+							<dialog class="cm-dialog cm-dialog--sheet cm-dialog--sheet-left" style="position:static;height:8rem;max-height:8rem;margin-top:var(--space-4)">
+								<div class="cm-dialog__head"><div class="cm-dialog__title">left sheet</div></div>
+							</dialog>
+							<dialog class="cm-dialog cm-dialog--sheet cm-dialog--sheet-top" style="position:static;height:8rem;max-height:8rem;margin-top:var(--space-4)">
+								<div class="cm-dialog__head"><div class="cm-dialog__title">top sheet</div></div>
+							</dialog>
+							<dialog class="cm-dialog cm-dialog--sheet cm-dialog--sheet-bottom" style="position:static;height:8rem;max-height:8rem;margin-top:var(--space-4)">
+								<div class="cm-dialog__head"><div class="cm-dialog__title">bottom sheet</div></div>
 							</dialog>
 						</section>
 						<section id="choice" class="cm-section cm-section--pad">

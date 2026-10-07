@@ -4052,6 +4052,51 @@ button.cm-row:hover { background: var(--bg-2); }
 .cm-timeline__body li::before { content: none; }
 .cm-timeline__body li::marker { color: var(--ink-faint); }
 
+/* ---------- button: danger, and a joined group ----------
+   The theme carries no hue, so "destructive" cannot be red. It is said the
+   way .cm-chip--err and .cm-alert--err say it: the cross glyph, plus a rule
+   that is heavier than the neighbouring buttons. The second rule is an
+   inset shadow, not a wider border, so the box does not change size. */
+.cm-btn--danger {
+	border-color: var(--ink);
+	box-shadow: inset 0 0 0 1px var(--ink);
+}
+.cm-btn--danger::before { content: '\2715\00a0'; }
+.cm-btn--danger:hover { background: var(--ink); color: var(--bg); }
+
+/* Joined: the group reads as ONE control. Neighbouring borders collapse
+   onto a single 1px rule: every member after the first drops its left
+   border, so no gap token is faked and no negative margin is needed. */
+.cm-btn-group--joined { gap: 0; flex-wrap: nowrap; }
+.cm-btn-group--joined > .cm-btn + .cm-btn { border-left-width: 0; }
+
+/* ---------- sheet: the other three edges ----------
+   Same native <dialog>, so focus trap, Escape and inertness are unchanged;
+   only the frame moves. Top and bottom sheets are full width and capped in
+   height so the page behind still shows. */
+.cm-dialog--sheet-left {
+	margin: 0 auto 0 0;
+	border-width: 0 1px 0 0;
+}
+.cm-dialog--sheet-top,
+.cm-dialog--sheet-bottom {
+	width: 100%;
+	max-width: 100%;
+	height: auto;
+	max-height: min(24rem, 100%);
+}
+.cm-dialog--sheet-top {
+	margin: 0 0 auto 0;
+	border-width: 0 0 1px 0;
+}
+.cm-dialog--sheet-bottom {
+	margin: auto 0 0 0;
+	border-width: 1px 0 0 0;
+}
+@media (max-width: 640px) {
+	.cm-dialog--sheet-left { border-right-width: 0; }
+}
+
 /* ---------- kbd ----------
    A key, or a chord of keys. Drawn as a raised cap with a heavier
    bottom edge, so it reads as a physical key in greyscale - the same
