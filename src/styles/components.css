@@ -6588,6 +6588,152 @@ input.cm-slider:disabled {
 	}
 }
 
+
+/* ---------- calendar ----------
+   A month is a TABLE: rows and columns are how the eye reads it and how a
+   screen reader announces it, and a grid of buttons inside gives every day
+   the platform's focus ring and click for free. The day is a square of
+   --tap (the house floor, and a real target on a phone), the header row is
+   the tracked micro label, and selection is INVERSION rather than a tint:
+   a filled cell is the terminal's idea of "marked". All state lives in
+   ARIA attributes the runtime also writes to data-* for the markup to
+   read back - one fact, three ways. The grid scrolls INSIDE the card
+   below ~350px instead of widening the page. */
+.cm-cal {
+	display: inline-block;
+	/* hugging, not filling: a table with `width: auto` takes every
+	   available pixel and hands the remainder to the columns, which is
+	   how a --tap cell quietly became 45px wide with a 44px day left
+	   inside it. The card takes ITS width from the grid instead. */
+	width: max-content;
+	max-width: 100%;
+	margin: 0;
+	padding: var(--space-3);
+	border: 1px solid var(--line);
+	background: var(--panel);
+	overflow-x: auto;
+}
+.cm-cal__bar {
+	/* pinned: when the grid scrolls sideways inside the card, the
+	   month and its arrows stay put. */
+	position: sticky;
+	left: 0;
+	display: flex;
+	background: var(--panel);
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-2);
+	margin: 0 0 var(--space-3);
+}
+.cm-cal__title {
+	color: var(--ink);
+	font-size: var(--text-sm);
+	font-weight: 700;
+}
+.cm-cal__nav {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--tap);
+	height: var(--tap);
+	padding: 0;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	background: transparent;
+	color: var(--ink-dim);
+	font: inherit;
+	line-height: 1;
+	cursor: pointer;
+}
+.cm-cal__nav:hover,
+.cm-cal__nav:focus-visible {
+	background: var(--bg-3);
+	color: var(--ink);
+}
+.cm-cal__grid {
+	/* SEVEN cells, named: `max-content` was asked and answered 316px -
+	   cells computing to 45px with a 44px day inside - so the table
+	   names its own width from the one token the cell uses. The card
+	   hugs this; a phone narrower than it scrolls the card. */
+	width: calc(var(--tap) * 7);
+	border-collapse: collapse;
+	table-layout: fixed;
+}
+.cm-cal__grid th {
+	width: var(--tap);
+	padding: 0 0 var(--space-1);
+	border-bottom: 1px solid var(--line);
+	color: var(--ink-faint);
+	font-size: var(--text-micro);
+	font-weight: 400;
+	text-align: center;
+	text-transform: uppercase;
+}
+.cm-cal__grid td {
+	padding: 0;
+	text-align: center;
+}
+.cm-cal__day {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--tap);
+	height: var(--tap);
+	margin: 0;
+	padding: 0;
+	/* the border is ALWAYS here, transparent: today's ring must not push
+	   the day it marks. */
+	border: 1px solid transparent;
+	border-radius: var(--radius-sm);
+	background: transparent;
+	color: var(--ink-dim);
+	font: inherit;
+	font-size: var(--text-sm);
+	cursor: pointer;
+}
+.cm-cal__day:hover,
+.cm-cal__day:focus-visible {
+	background: var(--bg-3);
+	color: var(--ink);
+}
+.cm-cal__day[data-outside] { color: var(--ink-faint); }
+/* today first, selection last: an inverted cell keeps its ring */
+.cm-cal__day[aria-current='date'] {
+	border-color: var(--ink-dim);
+	color: var(--ink);
+}
+.cm-cal__day[aria-selected='true'] {
+	border-color: var(--ink);
+	background: var(--ink);
+	color: var(--bg);
+}
+.cm-cal__day[aria-selected='true']:hover,
+.cm-cal__day[aria-selected='true']:focus-visible {
+	background: var(--ink);
+	color: var(--bg);
+}
+.cm-cal__day[data-in-range='true'] {
+	background: var(--bg-2);
+	color: var(--ink);
+}
+.cm-cal__day[data-preview='true'] {
+	background: var(--bg-3);
+	color: var(--ink);
+}
+/* disabled is aria-disabled, not [disabled]: a date the reader cannot
+   pick is still a date they must be able to REACH with the arrows. */
+.cm-cal__day[aria-disabled='true'] {
+	color: var(--ink-faint);
+	cursor: default;
+}
+.cm-cal__day[aria-disabled='true']:hover { background: transparent; }
+.cm-cal-pair {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-5);
+	margin: 0;
+}
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;

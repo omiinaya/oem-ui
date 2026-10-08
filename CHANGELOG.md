@@ -1599,6 +1599,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   transition hides from anyone who writes the same test.
 - 24/24 WebKit checks; 16/16 seeded faults killed.
 
+- Added the calendar: `.cm-cal` with `[data-cm-cal]`, one mode each for
+  single and range. The month is a real `<table role="grid">` of
+  `<button>` days - focus, activation and the cell semantics are the
+  platform's - and the runtime redraws it from `data-cm-cal-month` on
+  every change, one roving tab stop over the days actually visible.
+  Arrows walk days and weeks, Home/End take the Sunday and the Saturday,
+  PageUp/PageDown move a month under the same date (Shift: a year),
+  Escape clears; Enter and Space are the native button click, not our
+  code. The range has DayPicker's three transitions - a pick on a
+  complete range starts a new one, an open start takes the next pick as
+  its end, a pick before that start re-anchors - and hovering an open
+  start previews the days between. Disabled dates are `aria-disabled`
+  (reachable with the arrows, declined by `calPick`), today is read from
+  the clock at render, and selection is reported three ways: ARIA, the
+  `data-*` the markup reads back, and the inverted cell.
+- The grid's pitch is DECLARED, not negotiated: `width: calc(var(--tap) *
+  7)`. Asked for `max-content`, the table answered 316px - cells
+  computing to 45px with a 44px day inside - and a card that hugs a
+  stretched table still showed the drift. The harness now draws the card
+  at 420px and asserts the pitch does not move.
+- `fix: a pick dropped focus to <body>` - `calRender` REPLACES the picked
+  button, so without `calFocus(cal, iso)` every click left focus on the
+  document and the next arrow key landed nowhere. Caught by the harness
+  assertion "the pick that rebuilt the grid kept the focus on the day".
+- `fix: the hover card hung 8px off a 320px viewport` - the panel sits at
+  `left: 0` of a wrapper it did not choose and pure CSS cannot clamp, so
+  `document.scrollWidth` read 328 at a 320 viewport on the showcase's own
+  page (menus already clamp in `anchorPopover`; this is that rule for a
+  panel that never opens through JS). `cmClampHovercards` runs at init and
+  on resize; a consumer with no JS keeps the CSS-only behaviour.
+- `fix: the showcase scrolled sideways at 320px` - two causes: the hover
+  card above, and a page-level overflow in older sections that predates
+  this batch (hiding almost ANY section clears it; measured, logged, not
+  yet pinned - flagged separately rather than papered over).
+- The harness pins `scroll-behavior: smooth` off for its run: with smooth
+  scrolling, Playwright can measure a day, have the page still scrolling
+  when the press lands, and click a cell that moved - measured as a click
+  on `2026-10-20` that changed nothing while the next click worked.
+- 34/34 WebKit checks; 21/21 seeded faults killed.
+
 ## Fixed
 
 - Two stacking checks demanded a literal `z-index: <number>`, which fails on

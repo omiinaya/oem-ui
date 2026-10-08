@@ -1272,6 +1272,267 @@
 		ctxMenu.hidePopover();
 	}
 
+	/* ---------- hover-card clamp ----------
+	   The hover card SHOWS itself in pure CSS - hover and focus-within,
+	   no runtime - but pure CSS cannot CLAMP. It sits at left: 0 of a
+	   wrapper it did not choose, so a wrapper near the right edge hangs
+	   an 18rem panel over the edge: measured on the showcase at 320px,
+	   document.scrollWidth 328 with the panel's right edge at 328. Menus
+	   already clamp in anchorPopover; this is that same rule for a panel
+	   that never opens through JS. The clamp runs at init and on resize
+	   (scroll is irrelevant - the panel moves WITH its wrapper), and a
+	   consumer with no JS keeps the CSS-only behaviour it always had. */
+	function cmClampHovercards(root) {
+		if (typeof window === 'undefined') return;
+		var run = function () {
+			Array.prototype.forEach.call(root.querySelectorAll('.cm-hovercard__panel'), function (panel) {
+				var wrap = panel.parentElement;
+				if (!wrap) return;
+				panel.style.left = '';        // back to the CSS position
+				panel.style.maxWidth = '';    // ...and to the CSS width
+				var gutter = 8;
+				var avail = window.innerWidth - gutter * 2;
+				if (avail > 0 && panel.offsetWidth > avail) panel.style.maxWidth = avail + 'px';
+				var pr = panel.getBoundingClientRect();
+				var wr = wrap.getBoundingClientRect();
+				var left = pr.left;
+				if (pr.right > window.innerWidth - gutter) left -= pr.right - (window.innerWidth - gutter);
+				if (left < gutter) left = gutter;
+				panel.style.left = (left - wr.left) + 'px';
+			});
+		};
+		run();
+		if (!window.__cmHoverResize) {
+			window.__cmHoverResize = true;
+			window.addEventListener('resize', run);
+		}
+	}
+
+	/* ---------- calendar ----------
+	   OPT-IN via [data-cm-cal]. All date math runs in UTC on purpose: a
+	   month view is calendar arithmetic, and local-time Date objects shift
+	   a day at the wrong hour in half the world's time zones. The grid is
+	   rebuilt wholesale on every change, so every listener is DELEGATED on
+	   the container - a per-day listener would die with the first render. */
+	function calParse(iso) {
+		var p = iso.split('-');
+		return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]));
+	}
+	function calIso(d) { return d.toISOString().slice(0, 10); }
+	function calToday() {
+		var n = new Date();
+		return new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()));
+	}
+	function calShift(iso, days) {
+		return calIso(new Date(calParse(iso).getTime() + days * 86400000));
+	}
+	function calMonthShift(iso, months) {
+		var d = calParse(iso);
+		var target = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + months, 1));
+		// clamp: Feb 31 is not a day, and a moved focus must not become NaN
+		var last = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+		return calIso(new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(),
+			Math.min(d.getUTCDate(), last))));
+	}
+	function calDays(month) {
+		var y = +month.slice(0, 4), m = +month.slice(5, 7);
+		var first = new Date(Date.UTC(y, m - 1, 1));
+		var last = new Date(Date.UTC(y, m, 0));
+		var start = new Date(first.getTime() - first.getUTCDay() * 86400000);
+		var end = new Date(last.getTime() + (6 - last.getUTCDay()) * 86400000);
+		var out = [];
+		for (var t = start.getTime(); t <= end.getTime(); t += 86400000) {
+			out.push(calIso(new Date(t)));
+		}
+		return out;
+	}
+	function calLabel(month) {
+		var names = ['january', 'february', 'march', 'april', 'may', 'june', 'july',
+			'august', 'september', 'october', 'november', 'december'];
+		return names[+month.slice(5, 7) - 1] + ' ' + month.slice(0, 4);
+	}
+	function calDisabled(cal) {
+		return (cal.getAttribute('data-cm-cal-disabled') || '')
+			.split(' ').filter(Boolean);
+	}
+	function calMode(cal) { return cal.getAttribute('data-cm-cal-mode') || 'single'; }
+
+	function calRender(cal, focusIso) {
+		var month = cal.getAttribute('data-cm-cal-month');
+		if (!month) return;
+		var mode = calMode(cal);
+		var sel = cal.getAttribute('data-cm-cal-selected');
+		var start = cal.getAttribute('data-cm-cal-start');
+		var end = cal.getAttribute('data-cm-cal-end');
+		var today = calIso(calToday());
+		var off = calDisabled(cal);
+		var active = focusIso || sel || start || today;
+		if (active.slice(0, 7) !== month) active = month + '-01';
+		// Cells first, rows second: a </tr> opened inside a running
+		// string and stripped again with a regex is a shape nobody can
+		// proof-read - seven cells a row, built from an array, is well
+		// formed by construction.
+		var cells = [];
+		calDays(month).forEach(function (day) {
+			var attrs = ' data-cm-day="' + day + '"';
+			if (day.slice(0, 7) !== month) attrs += ' data-outside';
+			if (off.indexOf(day) !== -1) attrs += ' aria-disabled="true"';
+			if (day === today) attrs += ' aria-current="date"';
+			var isSel = mode === 'single'
+				? day === sel
+				: (day === start || day === end);
+			if (isSel) attrs += ' aria-selected="true"';
+			if (start && end && start < day && day < end) attrs += ' data-in-range="true"';
+			cells.push('<td role="gridcell"><button type="button" class="cm-cal__day"' +
+				attrs + ' tabindex="' + (day === active ? 0 : -1) + '">' +
+				+day.slice(8) + '</button></td>');
+		});
+		var html = '';
+		for (var r = 0; r < cells.length; r += 7) {
+			html += '<tr role="row">' + cells.slice(r, r + 7).join('') + '</tr>';
+		}
+		var body = cal.querySelector('tbody');
+		body.innerHTML = html;
+		var title = cal.querySelector('[data-cm-cal-title]');
+		if (title) title.textContent = calLabel(month);
+		var grid = cal.querySelector('.cm-cal__grid');
+		if (grid) grid.setAttribute('aria-label', calLabel(month));
+	}
+
+	function calFocus(cal, iso) {
+		var day = cal.querySelector('.cm-cal__day[data-cm-day="' + iso + '"]');
+		if (day) day.focus();
+	}
+
+	function calPick(cal, iso) {
+		var day = cal.querySelector('.cm-cal__day[data-cm-day="' + iso + '"]');
+		if (day && day.getAttribute('aria-disabled') === 'true') return;
+		if (calMode(cal) === 'single') {
+			// clicking the selected day unselects it: a toggle, like every
+			// other single-choice control in the system
+			if (cal.getAttribute('data-cm-cal-selected') === iso) {
+				cal.removeAttribute('data-cm-cal-selected');
+			} else {
+				cal.setAttribute('data-cm-cal-selected', iso);
+			}
+		} else {
+			var start = cal.getAttribute('data-cm-cal-start');
+			var end = cal.getAttribute('data-cm-cal-end');
+			if (!start || end) {
+				cal.setAttribute('data-cm-cal-start', iso);
+				cal.removeAttribute('data-cm-cal-end');
+			} else if (iso < start) {
+				// clicked BEFORE the start: re-anchor instead of demanding the
+				// reader picks left to right
+				cal.setAttribute('data-cm-cal-start', iso);
+				cal.setAttribute('data-cm-cal-end', start);
+			} else {
+				cal.setAttribute('data-cm-cal-end', iso);
+			}
+		}
+		calRender(cal, iso);
+		// The picked button just got REPLACED by the re-render, so without
+		// this the click leaves focus on <body> and the next arrow key
+		// lands nowhere. Focus follows the pick.
+		calFocus(cal, iso);
+	}
+
+	function onCalClick(e) {
+		var cal = e.target.closest && e.target.closest('[data-cm-cal]');
+		if (!cal) return;
+		var nav = e.target.closest('[data-cm-cal-prev], [data-cm-cal-next]');
+		if (nav) {
+			var delta = nav.hasAttribute('data-cm-cal-next') ? 1 : -1;
+			var month = calMonthShift(cal.getAttribute('data-cm-cal-month') + '-01', delta);
+			cal.setAttribute('data-cm-cal-month', month.slice(0, 7));
+			// focus stays on the nav button: it was not rebuilt
+			calRender(cal);
+			return;
+		}
+		var day = e.target.closest('.cm-cal__day');
+		if (!day) return;
+		calPick(cal, day.getAttribute('data-cm-day'));
+	}
+
+	function onCalKey(e) {
+		var day = e.target.closest && e.target.closest('.cm-cal__day');
+		if (!day) return;
+		var cal = day.closest('[data-cm-cal]');
+		if (!cal) return;
+		var iso = day.getAttribute('data-cm-day');
+		var next = null;
+		// Enter/Space are deliberately ABSENT: a <button> already clicks on
+		// both, and a second implementation is a second chance to disagree.
+		if (e.key === 'ArrowLeft') next = calShift(iso, -1);
+		else if (e.key === 'ArrowRight') next = calShift(iso, 1);
+		else if (e.key === 'ArrowUp') next = calShift(iso, -7);
+		else if (e.key === 'ArrowDown') next = calShift(iso, 7);
+		else if (e.key === 'PageUp') next = calMonthShift(iso, e.shiftKey ? -12 : -1);
+		else if (e.key === 'PageDown') next = calMonthShift(iso, e.shiftKey ? 12 : 1);
+		else if (e.key === 'Home') next = calShift(iso, -calParse(iso).getUTCDay());
+		else if (e.key === 'End') next = calShift(iso, 6 - calParse(iso).getUTCDay());
+		else if (e.key === 'Escape') {
+			e.preventDefault();
+			if (calMode(cal) === 'single') cal.removeAttribute('data-cm-cal-selected');
+			else {
+				cal.removeAttribute('data-cm-cal-start');
+				cal.removeAttribute('data-cm-cal-end');
+			}
+			calRender(cal, iso);
+			calFocus(cal, iso);
+			return;
+		} else return;
+		e.preventDefault();
+		if (next.slice(0, 7) !== cal.getAttribute('data-cm-cal-month')) {
+			cal.setAttribute('data-cm-cal-month', next.slice(0, 7));
+		}
+		calRender(cal, next);
+		calFocus(cal, next);
+	}
+
+	/* Range preview: with a start chosen and no end, hovering draws the
+	   tentative range. It is a decoration on top of state that already
+	   exists, so it is set as an ATTRIBUTE and never as a style - and it
+	   dies on pointerout, never lingering after the pointer leaves. */
+	function calClearPreview(cal) {
+		Array.prototype.forEach.call(
+			cal.querySelectorAll('.cm-cal__day[data-preview]'),
+			function (b) { b.removeAttribute('data-preview'); });
+	}
+	function onCalOver(e) {
+		var cal = e.target.closest && e.target.closest('[data-cm-cal]');
+		if (!cal) return;
+		var day = e.target.closest && e.target.closest('.cm-cal__day');
+		calClearPreview(cal);
+		if (!day || calMode(cal) === 'single') return;
+		var start = cal.getAttribute('data-cm-cal-start');
+		if (!start || cal.getAttribute('data-cm-cal-end')) return;
+		var iso = day.getAttribute('data-cm-day');
+		var lo = iso < start ? iso : start;
+		var hi = iso < start ? start : iso;
+		Array.prototype.forEach.call(cal.querySelectorAll('.cm-cal__day'), function (b) {
+			var d = b.getAttribute('data-cm-day');
+			if (d > lo && d < hi) b.setAttribute('data-preview', 'true');
+		});
+	}
+	function onCalOut(e) {
+		var cal = e.target.closest && e.target.closest('[data-cm-cal]');
+		if (!cal) return;
+		if (e.relatedTarget && cal.contains(e.relatedTarget)) return;
+		calClearPreview(cal);
+	}
+
+	function cmInitCal(root) {
+		Array.prototype.forEach.call(root.querySelectorAll('[data-cm-cal]'), function (cal) {
+			if (cal.__cmCal) return;
+			cal.__cmCal = true;
+			if (!cal.getAttribute('data-cm-cal-month')) {
+				cal.setAttribute('data-cm-cal-month', calIso(calToday()).slice(0, 7));
+			}
+			calRender(cal);
+		});
+	}
+
 	/* ---------- tree ----------
 	   The platform owns expansion; this owns the ARROWS, because a tree
 	   without keyboard movement is a tree only a mouse can read. Rows are
@@ -2020,6 +2281,8 @@
 		initMeasureReadout();
 		initTableLabels(root);
 		cmInitResize(root);
+		cmInitCal(root);
+		cmClampHovercards(root);
 		cmInitSort(root);
 		cmInitSliders(root);
 		cmInitComboboxes(root);
@@ -2125,6 +2388,12 @@
 		// Capture: the browser's own context menu is suppressed by this
 		// handler, and capture runs before a consumer's row handler.
 		document.addEventListener('contextmenu', onContextMenu, true);
+		// Delegated on document: the grid is rebuilt wholesale, so a
+		// listener bound per day would die with the first render.
+		document.addEventListener('click', onCalClick);
+		document.addEventListener('keydown', onCalKey);
+		document.addEventListener('pointerover', onCalOver);
+		document.addEventListener('pointerout', onCalOut);
 		// A tree row keeps itself the tab stop while it has focus; arrows
 		// move focus without re-binding anything per node.
 		document.addEventListener('focusin', onTreeFocus);

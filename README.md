@@ -1651,6 +1651,76 @@ at any width, a percent step is not. Home and End jump to the declared
 input - pointer or key - so the painted split, the reported number and
 the markup's initial value are one fact stated three ways.
 
+### Calendar
+
+```html
+<!-- ONE mode each. The state machine is the data-* attrs; the grid is
+     rebuilt from them, so markup and runtime cannot disagree. -->
+<div class="cm-cal-pair">
+  <div class="cm-cal" data-cm-cal data-cm-cal-mode="single"
+       data-cm-cal-month="2026-10" data-cm-cal-selected="2026-10-15">
+    <div class="cm-cal__bar">
+      <button type="button" class="cm-cal__nav" data-cm-cal-prev aria-label="previous month">&#8249;</button>
+      <span class="cm-cal__title" data-cm-cal-title>october 2026</span>
+      <button type="button" class="cm-cal__nav" data-cm-cal-next aria-label="next month">&#8250;</button>
+    </div>
+    <table class="cm-cal__grid" role="grid" aria-label="october 2026">
+      <thead>
+        <tr role="row"><th role="columnheader" scope="col" abbr="Sunday">su</th>... seven ...</tr>
+      </thead>
+      <tbody>
+        <tr role="row">
+          <td role="gridcell"><button type="button" class="cm-cal__day"
+             data-cm-day="2026-09-27" data-outside tabindex="-1">27</button></td>
+          ...
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="cm-cal" data-cm-cal data-cm-cal-mode="range"
+       data-cm-cal-month="2026-10"
+       data-cm-cal-start="2026-10-12" data-cm-cal-end="2026-10-16"
+       data-cm-cal-disabled="2026-10-22">
+    ... same structure ...
+  </div>
+</div>
+```
+
+A month is a **table**: rows and columns are how the eye reads one and how
+a screen reader announces one, and every day is a real `<button>` inside a
+`role="gridcell"`, so focus and activation are the platform's for free.
+The runtime draws the grid from `data-cm-cal-month` on every change and
+gives exactly one day the tab stop (roving, over VISIBLE days - the
+`checkVisibility()` lesson from the tree). Left/Right walk days, Up/Down
+walk weeks, Home/End take the Sunday and Saturday of the week, PageUp/
+PageDown move a month under the same date (Shift moves a year), Escape
+clears. **Enter and Space are deliberately absent from the handler**: a
+button already clicks on them, and reimplementing them would be the second
+code path for a thing the platform gives away.
+
+Selection reports itself three ways - `aria-selected`, the `data-*` the
+markup reads back, and the inverted cell the eye sees - because those three
+disagreeing is how a dead calendar and a live one look identical. The
+range has exactly three transitions, the ones DayPicker has: a pick on a
+COMPLETE range starts a new one (the finished range is not editable), a
+pick after an open start stretches the end, and a pick BEFORE that start
+re-anchors rather than demanding left-to-right. Today comes from the clock
+at render time, never from the specimen - a gallery that pins "today" to
+the day it was written is lying a week later.
+
+`aria-disabled`, not `[disabled]`: a date the reader cannot pick is still
+a date they must be able to REACH with the arrows, so the button stays
+focusable and `calPick` is the one that declines. The pitch is DECLARED -
+`width: calc(var(--tap) * 7)` - because a table asked for `max-content`
+negotiated its way to 45px cells with a 44px day inside them; draw the
+card wider and the columns still do not move (asserted). Below the card's
+own width the grid scrolls INSIDE the card; the page never scrolls
+sideways because of it (asserted differentially at 320px). After a pick
+the grid is rebuilt, which REPLACES the button under the cursor, so focus
+follows the pick back onto the new button - without it every click would
+drop focus to `<body>` and the next arrow would land nowhere.
+
 ### Interactive primitives
 
 The runtime opts into managed segmented controls only when requested:

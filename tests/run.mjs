@@ -12622,3 +12622,84 @@ check("the input group collapses to one hairline", () => {
 			'a consumer that never sets the knob must still lay out: an undeclared var() invalidates its declaration');
 	});
 }
+
+// ---------- shadcn-parity: calendar ----------
+{
+	const page = read('src/pages/index.astro');
+	const css = read('src/styles/components.css');
+	const js = read('src/js/cli-mono.js');
+	const keyFn = js.slice(js.indexOf('function onCalKey'),
+		js.indexOf('function calClearPreview'));
+
+	check('a month is a grid of days, seven to a row', () => {
+		assert(/data-cm-cal/.test(page), 'the showcase must ship a calendar');
+		assert(/<table class="cm-cal__grid" role="grid"/.test(page),
+			'the month is a table[role=grid], not a div pile');
+		const tables = page.match(/<table class="cm-cal__grid"[\s\S]*?<\/table>/g) || [];
+		assert(tables.length >= 1, 'the calendar table exists');
+		for (const t of tables) {
+			const heads = (t.match(/role="columnheader"/g) || []).length;
+			assert(heads === 7, `seven weekday columns per month, found ${heads}`);
+		}
+		const rows = page.match(/<tr role="row">(<td role="gridcell">.*?<\/td>){7}<\/tr>/g) || [];
+		assert(rows.length >= 5, `five whole weeks of seven cells, found ${rows.length}`);
+		assert(/<button type="button" class="cm-cal__day"/.test(page),
+			'a day is a button: the platform supplies focus and click');
+	});
+
+	check('the state a reader hears is the state the markup reads back', () => {
+		assert(/data-cm-cal-selected="2026-10-15"/.test(page),
+			'the specimen pins a single selection in data-*');
+		assert(/data-cm-cal-start="2026-10-12"/.test(page) &&
+			/data-cm-cal-end="2026-10-16"/.test(page),
+			'the range is declared in data-* too');
+		assert(/aria-selected="true"/.test(page), 'ARIA carries the same selection');
+		assert(/aria-current="date"/.test(page), 'today is marked in the markup');
+		assert(/data-cm-cal-disabled="2026-10-22"/.test(page) &&
+			/aria-disabled="true"/.test(page),
+			'a blocked date is aria-disabled, never [disabled]: it must stay reachable by arrow');
+		assert(/data-in-range="true"/.test(page), 'the middle of a range is marked');
+		assert(/setAttribute\('data-cm-cal-selected'/.test(js) &&
+			/setAttribute\('data-cm-cal-start'/.test(js),
+			'the runtime must report back what it painted');
+	});
+
+	check('the grid walks with the keys and the month with PageUp', () => {
+		assert(/function cmInitCal\(root\)/.test(js) && /cmInitCal\(root\);/.test(js),
+			'cmInitCal must exist and be called from init');
+		for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+		                   'PageUp', 'PageDown', 'Home', 'End']) {
+			assert(keyFn.includes(`'${key}'`), `${key} must move the cursor`);
+		}
+		assert(/Escape/.test(keyFn) && /removeAttribute\('data-cm-cal-selected'\)/.test(keyFn),
+			'Escape clears the selection');
+		assert(!/e\.key === 'Enter'/.test(keyFn),
+			'Enter must stay the platform\'s - a button already clicks on it');
+		// today comes from the clock at render time, not from the specimen
+		assert(/function calToday\(\)/.test(js) && /calIso\(calToday\(\)\)/.test(js),
+			'today is read from the clock');
+		// the tbody is rebuilt wholesale, so every listener is delegated
+		assert(/document\.addEventListener\('click', onCalClick\)/.test(js),
+			'a per-day listener would die with the first render');
+		// rows are seven cells sliced from an array - no regex over closing tags
+		assert(/cells\.slice\(r, r \+ 7\)/.test(js),
+			'a row is seven cells sliced from an array');
+		// the disable list must be splittable: two dates are separated by a space
+		assert(/\.split\(' '\)\.filter\(Boolean\)/.test(js),
+			'the disabled list is space-separated (a regex here must not be able to eat a date)');
+	});
+
+	check('the calendar paints with tokens and stays sharp', () => {
+		assert(/\.cm-cal__day \{/.test(css), 'the day rule exists');
+		assert(/width: var\(--tap\);/.test(css),
+			'the cell IS the touch target - a 24px day is a 24px target');
+		assert(/\[aria-selected='true'\][^{]*\{[^}]*background: var\(--ink\)/s.test(css),
+			'selection is inversion, not a tint');
+		assert(/\[aria-current='date'\]/.test(css), 'today has a ring');
+		assert(/border: 1px solid transparent;/.test(css),
+			'the ring is reserved so today never pushes the day it marks');
+		assert(/\.cm-cal__day\[data-outside\]/.test(css), 'outside days dim');
+		assert(/overflow-x: auto;/.test(css),
+			'below ~350px the grid scrolls inside the card, never the page');
+	});
+}
