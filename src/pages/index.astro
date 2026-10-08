@@ -694,6 +694,20 @@ What a surface shows before it has data, and after it fails. Status is carried b
 							<p class="cm-alert__text">Two of eleven spacing bars measured the wrong length. A specimen that lies is worse than no specimen.</p>
 						</div>
 					</div>
+					<div class="cm-alert cm-alert--info" role="status">
+						<span class="cm-alert__mark" aria-hidden="true"></span>
+						<div class="cm-alert__body">
+							<p class="cm-alert__title">3 hosts re-synced</p>
+							<p class="cm-alert__text">dev-blog, links and nodeterm carry the new runtime. info is the quiet one: the same grey as a warning, a different mark.</p>
+						</div>
+					</div>
+					<div class="cm-alert cm-alert--loading" role="status">
+						<span class="cm-alert__mark" aria-hidden="true"></span>
+						<div class="cm-alert__body">
+							<p class="cm-alert__title">syncing the fleet</p>
+							<p class="cm-alert__text">loading is the only mark that MOVES: a spinning ↻ under the same reduced-motion block as the spinner.</p>
+						</div>
+					</div>
 				</div>
 
 				<h3 class="cm-kicker">table</h3>
@@ -840,7 +854,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>--ok</code></span>
 						<span class="cm-spec__sample" style="width:100%">
-							<div class="cm-toast cm-toast--ok">
+							<div class="cm-toast cm-toast--ok" data-cm-toast>
 								<span class="cm-toast__mark" aria-hidden="true"></span>
 								<div class="cm-toast__body">
 									<p class="cm-toast__title">deployed</p>
@@ -854,7 +868,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>--warn</code></span>
 						<span class="cm-spec__sample" style="width:100%">
-							<div class="cm-toast cm-toast--warn">
+							<div class="cm-toast cm-toast--warn" data-cm-toast>
 								<span class="cm-toast__mark" aria-hidden="true"></span>
 								<div class="cm-toast__body">
 									<p class="cm-toast__title">3 links deprecated</p>
@@ -868,7 +882,7 @@ Each row is one modifier against its own base, so the difference is the thing be
 					<div class="cm-spec__row">
 						<span class="cm-spec__label"><code>--err</code></span>
 						<span class="cm-spec__sample" style="width:100%">
-							<div class="cm-toast cm-toast--err">
+							<div class="cm-toast cm-toast--err" data-cm-toast>
 								<span class="cm-toast__mark" aria-hidden="true"></span>
 								<div class="cm-toast__body">
 									<p class="cm-toast__title">build failed</p>
@@ -879,6 +893,36 @@ Each row is one modifier against its own base, so the difference is the thing be
 						</span>
 						<span class="cm-spec__val"><code>ink</code></span>
 					</div>
+
+\t\t\t\t\t<div class="cm-spec__row">
+\t\t\t\t\t\t<span class="cm-spec__label"><code>--info</code></span>
+\t\t\t\t\t\t<span class="cm-spec__sample" style="width:100%">
+\t\t\t\t\t\t\t<div class="cm-toast cm-toast--info" data-cm-toast>
+\t\t\t\t\t\t\t\t<span class="cm-toast__mark" aria-hidden="true"></span>
+\t\t\t\t\t\t\t\t<div class="cm-toast__body">
+\t\t\t\t\t\t\t\t\t<p class="cm-toast__title">3 hosts re-synced</p>
+\t\t\t\t\t\t\t\t\t<p class="cm-toast__text">dev-blog, links and nodeterm carry the new runtime.</p>
+\t\t\t\t\t\t\t\t</div>
+\t\t\t\t\t\t\t\t<button type="button" class="cm-toast__action cm-btn cm-btn--sm" data-cm-toast-action>undo</button>
+\t\t\t\t\t\t\t\t<button type="button" class="cm-toast__close" data-cm-toast-close aria-label="Dismiss">&times;</button>
+\t\t\t\t\t\t\t</div>
+\t\t\t\t\t\t</span>
+\t\t\t\t\t\t<span class="cm-spec__val"><code>faint + action</code></span>
+\t\t\t\t\t</div>
+\t\t\t\t\t<div class="cm-spec__row">
+\t\t\t\t\t\t<span class="cm-spec__label"><code>--loading</code></span>
+\t\t\t\t\t\t<span class="cm-spec__sample" style="width:100%">
+\t\t\t\t\t\t\t<div class="cm-toast cm-toast--loading" data-cm-toast aria-busy="true">
+\t\t\t\t\t\t\t\t<span class="cm-toast__mark" aria-hidden="true"></span>
+\t\t\t\t\t\t\t\t<div class="cm-toast__body">
+\t\t\t\t\t\t\t\t\t<p class="cm-toast__title">syncing the fleet&hellip;</p>
+\t\t\t\t\t\t\t\t\t<p class="cm-toast__text">A spinning ↻: the only status mark that moves. This specimen never finishes.</p>
+\t\t\t\t\t\t\t\t</div>
+\t\t\t\t\t\t\t\t<button type="button" class="cm-toast__close" data-cm-toast-close aria-label="Dismiss">&times;</button>
+\t\t\t\t\t\t\t</div>
+\t\t\t\t\t\t</span>
+\t\t\t\t\t\t<span class="cm-spec__val"><code>rotating</code></span>
+\t\t\t\t\t</div>
 				</div>
 
 				<h3 class="cm-kicker">terminal</h3>
@@ -1936,6 +1980,13 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 							The scrim is <code>--scrim</code>, and the two themes set it to
 							different values for exactly that reason.
 						</p>
+						<p>
+							The head and the foot are <code>position: sticky</code> to
+							the dialog's own edges - the dialog IS the scrollport - so
+							the title stays and the actions stay reachable however long
+							the body gets. That is shadcn's sticky-header /
+							sticky-footer behaviour with no consumer CSS.
+						</p>
 					</div>
 					<div class="cm-dialog__foot">
 						<button type="submit" class="cm-btn" value="cancel">cancel</button>
@@ -1983,12 +2034,22 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 					A transient <code>.cm-alert</code>: the same border weights, the same
 					glyphs, the same words. A second, prettier alert component is how one
 					system quietly becomes two. Each retires itself after six seconds, or
-					immediately via its close control.
+					immediately via its close control. <code>info</code> and
+					<code>loading</code> complete the vocabulary: loading carries the
+					ring and <code>aria-busy</code>, and never runs a timer - its
+					lifetime belongs to the work it announces. The action button
+					speaks <code>cm:action</code>, runs its callback, then retires
+					the toast; <code>toast.promise</code> keeps ONE toast alive
+					through a settlement instead of three racing.
 				</p>
 				<div class="cm-btn-group">
 					<button type="button" class="cm-btn" data-cm-toast-demo="ok">toast ok</button>
 					<button type="button" class="cm-btn" data-cm-toast-demo="warn">toast warn</button>
 					<button type="button" class="cm-btn" data-cm-toast-demo="err">toast err</button>
+					<button type="button" class="cm-btn" data-cm-toast-kind="info">toast info</button>
+					<button type="button" class="cm-btn" data-cm-toast-kind="loading">toast loading</button>
+					<button type="button" class="cm-btn" data-cm-toast-kind="action">toast action</button>
+					<button type="button" class="cm-btn" data-cm-toast-kind="promise">toast.promise</button>
 				</div>
 				<div class="cm-toast-region" data-cm-toasts role="status" aria-live="polite"></div>
 
@@ -3589,6 +3650,45 @@ Astro: import Header/Footer/Head/PageHead/PostHead from 'oem-ui/astro'.</pre>
 			document.querySelector('[data-cm-toasts]').appendChild(el);
 			window.cliMono.toast(el);
 		});
+	});
+
+	// The four RUNTIME demos: these call the library's own API, because
+	// info / loading / action / promise exist only there - the static
+	// builder above is showcase scaffolding, not the shipped path.
+	// cliMono is read AT CLICK TIME: this classic script runs before the
+	// deferred module, so capturing it here would capture undefined.
+	document.querySelectorAll('[data-cm-toast-kind]').forEach((btn) => {
+		btn.addEventListener('click', () => {
+			const kind = btn.dataset.cmToastKind;
+			const cli = window.cliMono;
+			if (kind === 'info') cli.toast('3 hosts re-synced', 'info');
+			else if (kind === 'loading') cli.toast('compiling the fleet\u2026', 'loading', { duration: 4000 });
+			else if (kind === 'action') {
+				cli.toast('row deleted', 'info', {
+					action: { label: 'undo', onClick: () => cli.toast('restored', 'ok') },
+				});
+			} else if (kind === 'promise') {
+				btn.dataset.cmRuns = String((Number(btn.dataset.cmRuns) || 0) + 1);
+				const pass = Number(btn.dataset.cmRuns) % 2 === 1;
+				cli.toast.promise(
+					new Promise((res, rej) =>
+						setTimeout(() => (pass ? res() : rej(new Error('refused'))), 1600)
+					),
+					{ loading: 'syncing the fleet\u2026', success: 'fleet in sync', error: 'sync refused' }
+				);
+			}
+		});
+	});
+
+	// The SPEC action specimen answers the same `cm:action` event the
+	// runtime dispatches - the wiring a consumer would write. Scoped to
+	// .cm-spec so the runtime demo's own callback (which already shows
+	// its toast) is not answered twice.
+	document.addEventListener('cm:action', (e) => {
+		const node = e.target;
+		if (node && node.closest && node.closest('.cm-spec') && window.cliMono) {
+			window.cliMono.toast('restored', 'ok');
+		}
 	});
 </script>
 	</body>

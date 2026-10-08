@@ -723,6 +723,18 @@
 		else if (toast.parentNode) toast.parentNode.removeChild(toast);
 	}
 
+	/* Scheduling retirement is its own step so a toast whose lifetime is
+	   decided LATER - toast.promise hands the timer to the settlement -
+	   arms exactly the way a plain toast arms at creation. `life <= 0`
+	   means no timer: the close control and dismissToast() still retire
+	   it, so sticky is bounded by the reader's own hand. */
+	function armToast(toastEl, life) {
+		if (!toastEl || typeof setTimeout !== 'function' || !(life > 0)) return;
+		setTimeout(function () {
+			dismiss(toastEl);
+		}, life);
+	}
+
 	/* The close control has to work on a toast that did not exist when
 	   init() ran. Binding it once inside init() is the bug: every toast
 	   the showcase creates comes from a click handler, so the listener
@@ -738,8 +750,21 @@
 		   lands on the button, and a plain click anywhere else in the
 		   toast must not retire it. */
 		el.addEventListener('click', function (e) {
-			if (e.target && e.target.closest
-				&& e.target.closest('[data-cm-toast-close]')) {
+			if (!e.target || !e.target.closest) return;
+			if (e.target.closest('[data-cm-toast-close]')) {
+				dismiss(el);
+				return;
+			}
+			/* The action: dispatched FIRST, while the node is still in
+			   the document and the event can still bubble; the
+			   consumer's callback (stashed on the node by toast()) runs
+			   second; retirement last - so a callback that fires its own
+			   toast never loses the announcement. A static specimen
+			   speaks the same `cm:action`, which is how the showcase
+			   answers its own undo button. */
+			if (e.target.closest('.cm-toast__action, [data-cm-toast-action]')) {
+				el.dispatchEvent(new CustomEvent('cm:action', { bubbles: true }));
+				if (typeof el.__cmAction === 'function') el.__cmAction();
 				dismiss(el);
 			}
 		});
@@ -749,11 +774,15 @@
 	   a decision the user has to read, so it should not hold the region for
 	   as long as an error would. null/0/undefined all mean "keep the
 	   default" - 0 meaning "never expires" is sonner's rule and would make
-	   the region grow without bound. */
+	   the region grow without bound. That rule STANDS for duration. The
+	   sticky path is its own explicit opt-in (`opts.sticky`), because a
+	   loading toast's lifetime belongs to the work it announces and a
+	   reader who asks for that is not the accident this comment guards. */
 	function toast(msg, severity, opts) {
-		var life = (opts && typeof opts.duration === 'number' && opts.duration > 0)
-			? opts.duration
-			: TOAST_MS;
+		var life = TOAST_MS;
+		if (opts && opts.sticky) life = 0;
+		else if (opts && typeof opts.duration === 'number' && opts.duration > 0)
+			life = opts.duration;
 		var region =
 			document.querySelector('[data-cm-toasts]') ||
 			(function () {
@@ -776,10 +805,18 @@
 			var sev = severity === 'error' ? 'err'
 				: severity === 'success' ? 'ok'
 				: severity === 'warning' ? 'warn'
+				: severity === 'info' ? 'info'
+				: severity === 'loading' ? 'loading'
 				: null;
 			if (sev) {
 				var box = document.createElement('div');
 				box.className = 'cm-toast cm-alert--' + sev;
+				/* "working" is a STATE, so it is announced as one
+				   (aria-busy) AND drawn by the same mechanism as every
+				   other severity: a CSS-injected mark. No element goes
+				   inside the mark - the showcase's own test says an
+				   injected glyph plus a literal one renders twice. */
+				if (sev === 'loading') box.setAttribute('aria-busy', 'true');
 				var mark = document.createElement('span');
 				mark.className = 'cm-toast__mark';
 				var body = document.createElement('div');
@@ -791,6 +828,20 @@
 				body.appendChild(text);
 				box.appendChild(mark);
 				box.appendChild(body);
+				if (opts && opts.action && opts.action.label) {
+					var act = document.createElement('button');
+					act.type = 'button';
+					act.className = 'cm-toast__action cm-btn cm-btn--sm';
+					act.textContent = String(opts.action.label);
+					box.appendChild(act);
+					/* The generic binder on the node owns the CLICK (one
+					   listener for close and action alike); the callback
+					   travels on the node itself so the binder never
+					   needs to know what `opts` was. */
+					box.__cmAction = typeof opts.action.onClick === 'function'
+						? opts.action.onClick
+						: null;
+				}
 				node = box;
 			} else {
 				var span = document.createElement('span');
@@ -805,13 +856,54 @@
 		}
 		region.appendChild(node);
 		bindToastClose(node);
-		if (typeof setTimeout === 'function') {
-			setTimeout(function () {
-				dismiss(node);
-			}, life);
-		}
+		armToast(node, life);
 		return node;
 	}
+
+	/* toast.promise - the sonner/shadcn shape: ONE toast that lives
+	   through the async work and reports the settlement instead of three
+	   racing. Its loading is `sticky` because the promise - not a timer -
+	   owns the lifetime; settling swaps the severity classes in place
+	   (same node, same glyph rules, no flicker), drops `aria-busy`, and
+	   hands the node back to the normal retirement. Texts may be strings
+	   or plain functions of the resolution value / rejection reason. */
+	function toastPromise(p, texts, opts) {
+		texts = texts || {};
+		if (!p || typeof p.then !== 'function') return null;
+		var base = {};
+		if (opts) {
+			for (var key in opts) {
+				if (Object.prototype.hasOwnProperty.call(opts, key)) base[key] = opts[key];
+			}
+		}
+		base.sticky = true;
+		var node = toast(texts.loading || 'working\u2026', 'loading', base);
+		if (!node) return node;
+		var settled = false;
+		function settle(ok, msg) {
+			if (settled) return;
+			settled = true;
+			node.className = 'cm-toast cm-alert--' + (ok ? 'ok' : 'err');
+			node.removeAttribute('aria-busy');
+			var textEl = node.querySelector('.cm-toast__text');
+			if (textEl) {
+				textEl.textContent = typeof msg === 'function'
+					? String(msg())
+					: String(msg);
+			}
+			armToast(node, TOAST_MS);
+		}
+		p.then(
+			function (value) {
+				settle(true, texts.success || value || 'done');
+			},
+			function (reason) {
+				settle(false, texts.error || reason || 'failed');
+			}
+		);
+		return node;
+	}
+	toast.promise = toastPromise;
 
 	function initToasts(root) {
 		(root || document)
@@ -2390,6 +2482,32 @@
 		});
 	}
 
+	/* ---------- shortcuts ----------
+	   The palette's trigger draws ⌘K; a glyph with no handler is a
+	   promise the page cannot keep (the parity audit grepped for
+	   metaKey and got NOTHING back). Toggle semantics: closed ->
+	   showModal() runs exactly the path the button runs (focus trap,
+	   inert page, top layer, and the palette's own "reopening starts
+	   clean" reset on `close`); open -> the native close. ctrlKey
+	   covers every non-mac keyboard, because the world has Windows. */
+	function cmInitShortcuts() {
+		if (typeof document === 'undefined' || !document.addEventListener) return;
+		if (document.__cmShortcuts) return;
+		document.__cmShortcuts = '1';
+		document.addEventListener('keydown', function (e) {
+			if (!e || !(e.metaKey || e.ctrlKey)) return;
+			if ((e.key || '').toLowerCase() !== 'k') return;
+			var dlg = document.querySelector('.cm-command');
+			if (!dlg) return;
+			/* the browser's own Ctrl+K (search bar / quick find) is
+			   not part of this promise. */
+			e.preventDefault();
+			if (dlg.open && typeof dlg.close === 'function') dlg.close();
+			else if (typeof dlg.showModal === 'function' && !dlg.open) dlg.showModal();
+			else if (typeof dlg.show === 'function' && !dlg.open) dlg.show();
+		});
+	}
+
 	/* ---------- init ---------- */
 	function init(root) {
 		(root || document)
@@ -2418,6 +2536,7 @@
 		cmInitFields(root);
 		cmInitDatepickers(root);
 		cmInitSort(root);
+		cmInitShortcuts();
 		cmInitSliders(root);
 		cmInitComboboxes(root);
 		cmInitCarousels(root);

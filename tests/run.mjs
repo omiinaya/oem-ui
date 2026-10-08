@@ -2432,7 +2432,13 @@ check('status is never carried by colour alone', () => {
 	// which reads as a duplicated mark and is announced twice by a screen
 	// reader. This shipped once, so it is worth a permanent test.
 	const alertMarks = show.match(/<span class="cm-alert__mark"[^>]*>([\s\S]*?)<\/span>/g) || [];
-	assert(alertMarks.length === 3, `expected 3 alert marks, found ${alertMarks.length}`);
+	// One EMPTY mark per alert specimen - the count is derived, not
+	// pinned: the vocabulary grew (info/loading) and a hardcoded 3
+	// would fail for growing rather than for BREAKING. What must never
+	// change is the emptiness: the glyph is injected by CSS.
+	const alertSpecimens = (show.match(/class="cm-alert cm-alert--/g) || []).length;
+	assert(alertSpecimens >= 3 && alertMarks.length === alertSpecimens,
+		`expected one empty mark per alert specimen (${alertSpecimens}), found ${alertMarks.length}`);
 	for (const m of alertMarks) {
 		const inner = m.replace(/^<span[^>]*>/, '').replace(/<\/span>$/, '').trim();
 		assert(inner === '',
@@ -7960,6 +7966,60 @@ check('shadcn-parity: datepicker + scrollarea', () => {
 	assert(/max-height: var\(--scroll-h/.test(sa[1]), 'scrollarea must take the --scroll-h knob');
 	assert(/overflow-y: auto/.test(sa[1]), 'the scrollarea must be a scrollport');
 	assert(/overscroll-behavior: contain/.test(sa[1]), 'the scrollarea must contain its gesture');
+});
+
+check('shadcn-parity: the drawn shortcut, the toast vocabulary, the sticky chrome', () => {
+	const html = read('dist/index.html');
+	const js = read('src/js/cli-mono.js');
+	const css = read('src/styles/components.css');
+
+	// The ⌘K glyph is drawn on the trigger; a glyph without a handler
+	// is a promise the page cannot keep.
+	assert(js.includes('e.metaKey || e.ctrlKey'), 'no modifier-key check in the runtime');
+	assert(js.includes(".toLowerCase() !== 'k'"), 'the shortcut does not test the k key');
+	assert(js.includes('function cmInitShortcuts'), 'no shortcut function');
+
+	// The new severities exist in BOTH vocabularies, each with a
+	// static emitter (a CSS class nothing renders is dead CSS).
+	assert((html.split('data-cm-toast-kind').length - 1) === 4, 'the four runtime toast demos are missing');
+	assert(html.includes('cm-toast--info') && html.includes('cm-toast--loading'),
+		'static info/loading toast specimens missing');
+	assert(html.includes('cm-alert--info') && html.includes('cm-alert--loading'),
+		'static info/loading alert specimens missing');
+	assert(html.includes('data-cm-toast-action'), 'the static action emitter is missing');
+	// The hand-written specimens carry close/action controls; without
+	// data-cm-toast init() never binds them - the controls LOOK live and
+	// do nothing (which is how five dead x buttons shipped once).
+	const specToasts = (html.match(/<div class="cm-toast cm-toast--/g) || []).length;
+	const bindable = (html.match(/class="cm-toast cm-toast--[a-z]+" data-cm-toast/g) || []).length;
+	assert(specToasts >= 5 && bindable === specToasts,
+		`${bindable}/${specToasts} spec toasts are bindable`);
+
+	// Toast machinery.
+	assert(js.includes('function toastPromise'), 'no toast.promise implementation');
+	assert(js.includes('toast.promise = toastPromise'), 'toast.promise not exported on the API');
+	assert(js.includes("setAttribute('aria-busy'"), 'loading does not announce aria-busy');
+	assert(js.includes('opts.sticky'), 'the sticky lifetime opt-in is gone');
+	assert(js.includes('cm:action'), 'the action event is gone');
+	assert(js.includes('box.__cmAction'), 'the action callback has no ride to the binder');
+
+	// Sticky dialog chrome - scoped to the LINE-START selector so the
+	// sheet's own (0,2,0) rule cannot answer for the base rule.
+	const head = /^\.cm-dialog__head \{[^}]*\}/m.exec(css);
+	assert(head && head[0].includes('position: sticky') && head[0].includes('background'),
+		'the dialog head is not sticky-with-a-background');
+	const foot = /^\.cm-dialog__foot \{[^}]*\}/m.exec(css);
+	assert(foot && foot[0].includes('position: sticky') && foot[0].includes('bottom: 0'),
+		'the dialog foot is not stuck to the bottom');
+
+	const info = /^\.cm-toast--info \{[^}]*\}/m.exec(css);
+	assert(info && info[0].includes('--ink-faint'), 'info has no border tone');
+	assert(css.includes(".cm-toast--info .cm-toast__mark::before { content: '\\2139"), 'info draws no mark');
+	assert(css.includes('.cm-toast--loading .cm-toast__mark::before'), 'loading draws no mark in CSS');
+	assert(/\.cm-toast--loading \.cm-toast__mark::before,?[\s\S]{0,200}cm-spin/.test(css),
+		'the loading mark does not spin');
+	const act = /^\.cm-toast__action \{[^}]*\}/m.exec(css);
+	assert(act && act[0].includes('margin-left: auto'), 'the action is not pushed to the far edge');
 });
 
 check('a variant is only called demonstrated if it differs from its base', () => {

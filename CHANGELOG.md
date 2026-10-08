@@ -1730,6 +1730,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   faults killed; calendar 34/34 with 23/23 killed (the two new mutants
   are the tiny-viewport rules - each killed by the fitting oracle).
 
+## Batch 14 - the drawn shortcut, the toast vocabulary, the sticky chrome
+
+A feature-level parity audit (fetch each shadcn doc page, diff its
+documented behaviour against this repo with file evidence) found that
+several promises on this page were drawn but never kept. This batch
+pays them down:
+
+- **`⌘K` / `Ctrl+K` is wired, not decorative.** One global `keydown`
+  guards on `metaKey || ctrlKey`, `preventDefault`s so the browser's
+  own quick-find stays out of it, and toggles the palette through the
+  same `showModal()` path as its trigger. The palette's existing
+  `close` listener clears the query, so a keyboard close leaves the
+  next open starting clean. Grep for `metaKey` found no handler
+  anywhere before this - the glyph was a promise the page could not
+  keep. (`⌘B` is deliberately not bound: nothing in this library owns
+  a global sidebar toggle yet, and inventing one for a kbd chip would
+  be another promise in search of behaviour.)
+- **The toast vocabulary is complete**: `info` (quiet `ℹ`) and
+  `loading` (a spinning `↻` - the one mark that moves - with
+  `aria-busy`), an `action` option whose button speaks `cm:action`
+  while the node is still mounted, `duration` overrides, the explicit
+  `{ sticky: true }` opt-in to no timer, and `toast.promise` - one
+  node through loading -> ok/err instead of three racing toasts.
+  Both new marks are EMPTY spans with CSS-injected glyphs (the
+  house's own rule), and the spin joins the one reduced-motion block.
+- **The dialog's head and foot stick to the dialog's own edges.** The
+  dialog is the scrollport, so a long body scrolls between a title
+  that stays and actions that stay reachable - shadcn's documented
+  sticky behaviour with no consumer CSS.
+- **Five hand-written toast specimens were carrying dead ×
+  controls**: `initToasts` binds `[data-cm-toast]`, and the authored
+  specimens lacked the attribute. They carry it now, and the contract
+  counts bindable == specimens so the gap cannot reopen silently.
+
+Proven: suite 549/0; `tests/verify-shortcuts-toast.py` 16/16 WebKit
+checks (toggle + focus + query reset, both severities, action edge +
+retirement, promise through success and failure, sticky outliving the
+six seconds, headDelta/footDelta at exactly ±1 under a 500px scroll)
+with 18 mutants killed (mutator: `tests/mutate-shortcuts-toast.py`).
+
 ## Fixed
 
 - Two stacking checks demanded a literal `z-index: <number>`, which fails on

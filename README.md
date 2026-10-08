@@ -738,11 +738,22 @@ subtly wrong. Any `<form method="dialog">` inside closes it.
   and nothing else.
 - `.cm-dialog` declares `margin: auto` on purpose: a consumer's
   `* { margin: 0 }` reset would otherwise pin the dialog to the corner.
+- **The head and the foot are sticky to the dialog's own edges.** The
+  dialog IS the scrollport (`max-height` + `overflow: auto`), so a long
+  body scrolls between a title that stays and the actions that stay
+  reachable - shadcn's sticky-header / sticky-footer behaviour with no
+  consumer CSS. The head paints `--bg-2` because a sticky box over
+  scrolled content with no background is a title floating over body
+  text.
 
 **`.cm-toast`** — a transient alert. Same border weights, same glyphs,
 same `--ok` / `--warn` / `--err` words as `.cm-alert`, because a second
-prettier alert component is how one system quietly becomes two. Mount
-one into a live region:
+prettier alert component is how one system quietly becomes two. Two
+states complete the vocabulary: **`info`** (a quiet `ℹ`, same grey as a
+warning) and **`loading`** (a spinning `↻` - the one mark that moves -
+plus `aria-busy`). Both draw their mark in CSS with the mark span left
+EMPTY; a literal glyph beside an injected one renders twice. Mount one
+into a live region:
 
 ```html
 <div class="cm-toast-region" data-cm-toasts role="status" aria-live="polite"></div>
@@ -755,10 +766,36 @@ el.setAttribute('data-cm-toast', '');
 el.textContent = 'saved';
 cliMono.toast(el);          // mounts + schedules retirement
 cliMono.dismissToast(el);   // immediate, idempotent
+
+// or hand the library the message and the severity:
+cliMono.toast('row deleted', 'info', {
+  duration: 4000,                                   // per-toast lifetime
+  action: { label: 'undo', onClick: () => restore() } // far edge, retires the toast
+});
+cliMono.toast('working\u2026', 'loading', { sticky: true }); // no timer - the work owns it
+
+// ONE toast through an async job, not three racing:
+cliMono.toast.promise(sync(), {
+  loading: 'syncing the fleet\u2026',
+  success: 'fleet in sync',
+  error:   'sync refused',
+});
 ```
 
 - **Retires itself after 6s.** "Transient" is the contract, so somebody
   has to honour it; the close control is `data-cm-toast-close`.
+  `duration` overrides the six seconds (`> 0`); `{ sticky: true }` is
+  the explicit opt-in to no timer at all - a loading toast's lifetime
+  belongs to the work it announces. `toast.promise` uses exactly that,
+  then swaps the SAME node to `--ok` / `--err` on settlement, drops
+  `aria-busy`, and hands it back to the normal retirement.
+- **The action speaks `cm:action`.** The button dispatches the event
+  while the node is still in the document, runs the callback you
+  passed, then retires the toast - so a callback that fires its own
+  toast never loses the announcement. Hand-written specimens must carry
+  `data-cm-toast` (like every other authored toast) or `init()` never
+  binds their close/action controls and they look live while doing
+  nothing.
 - The region is `pointer-events: none` and each toast is `auto`: a stack
   must never eat a click on the page behind it.
 - **Do not put `role="alert"` on the toast.** The region already
@@ -1437,6 +1474,14 @@ anyway — the suite forbids raw spacing values, and it is right to.
 <button class="cm-btn" data-cm-open="cmd-demo">command palette <kbd class="cm-kbd">&#8984;K</kbd></button>
 <dialog class="cm-dialog cm-command" id="cmd-demo"> … </dialog>
 ```
+
+**`⌘K` / `Ctrl+K` is wired**, not decorative: the runtime binds one
+`keydown` for `metaKey`/`ctrlKey` + `k`, toggles the native dialog (the
+same `showModal()` path the button takes), and lets the palette's own
+`close` listener clear the query - so a keyboard close leaves the next
+open starting clean. The glyph on the trigger and the handler behind it
+are asserted together; one without the other is a promise the page
+cannot keep.
 
 The OTP cells are ordinary inputs, so the form value, the caret and the
 platform's autofill are untouched; script only moves focus. A digit

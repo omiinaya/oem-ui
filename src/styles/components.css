@@ -666,7 +666,10 @@
 	.cm-skeleton__line,
 	.cm-skeleton__block,
 	.cm-spinner,
-	.cm-toast { animation: none; }
+	.cm-toast,
+	.cm-alert--loading .cm-alert__mark::before,
+	.cm-alert--loading .cm-toast__mark::before,
+	.cm-toast--loading .cm-toast__mark::before { animation: none; }
 	/* With no pulse, a skeleton must still read as a placeholder, and a
 	   blinking caret must still read as a caret. */
 	.cm-skeleton__line, .cm-skeleton__block { opacity: 0.55; }
@@ -2228,6 +2231,10 @@ button.cm-row:hover { background: var(--bg-2); }
 .cm-alert--ok { border-left-color: var(--ink-dim); }
 .cm-alert--warn { border-left-color: var(--ink-faint); }
 .cm-alert--err { border-left-color: var(--ink); }
+.cm-alert--info { border-left-color: var(--ink-faint); }
+.cm-alert--info .cm-alert__mark::before { content: '\2139\00a0'; }
+.cm-alert--info .cm-toast__mark::before { content: '\2139\00a0'; }
+.cm-alert--loading { border-left-color: var(--ink-dim); }
 
 /* ---------- table ----------
    Data, not prose. The scroll wrapper is part of the component because a
@@ -3352,6 +3359,14 @@ dialog.cm-dialog--spec:not([open]) {
 	gap: var(--space-3);
 	padding: var(--space-4) var(--space-5);
 	border-bottom: 1px solid var(--line);
+	/* The DIALOG is the scrollport (max-height + overflow:auto), so the
+	   head sticks to its own top edge and the title never scrolls away.
+	   Background is required: a sticky box over scrolled content with no
+	   paint is a title floating over body text. The sheet's own rule
+	   (higher specificity) says the same thing for the side variant. */
+	position: sticky;
+	top: 0;
+	background: var(--bg-2);
 }
 .cm-dialog__title { margin: 0; font-size: var(--text); }
 .cm-dialog__body { padding: var(--space-5); }
@@ -3365,6 +3380,10 @@ dialog.cm-dialog--spec:not([open]) {
 	padding: var(--space-4) var(--space-5);
 	border-top: 1px solid var(--line);
 	background: var(--panel);
+	/* Actions stay reachable however long the body gets - the documented
+	   sticky-footer behaviour, and the reason the foot already paints. */
+	position: sticky;
+	bottom: 0;
 }
 
 /* ---------- toast ----------
@@ -3427,6 +3446,36 @@ dialog.cm-dialog--spec:not([open]) {
 .cm-toast--ok .cm-toast__mark::before { content: '\25cf\00a0'; }
 .cm-toast--warn .cm-toast__mark::before { content: '\25b2\00a0'; }
 .cm-toast--err .cm-toast__mark::before { content: '\2715\00a0'; }
+
+
+/* info completes the vocabulary: the same greys, one new TEXT mark -
+   never colour alone. loading's mark SPINS (\21bb, the sync arrow): the
+   only status mark that moves, still a text glyph underneath, and it
+   lives in CSS like every other severity - the markup keeps its mark
+   span EMPTY, because a literal glyph beside an injected one renders
+   twice. inline-block because a transform never applies to an inline
+   box; no trailing \00a0 because the nbsp would sit INSIDE the rotating
+   box and throw the spin off-centre - the mark is a flex item, so the
+   row gap does the attaching the nbsp does for the inline glyphs.
+   The animation joins the library's one reduced-motion block. The action
+   rides the toast's flex row: margin-left auto is the handshake that
+   pushes it to the far edge, align-self lifts it off the top-aligned
+   body, and flex-shrink:0 stops a long message squeezing the label. */
+.cm-toast--info { border-left-color: var(--ink-faint); }
+.cm-toast--info .cm-toast__mark::before { content: '\2139\00a0'; }
+.cm-toast--loading { border-left-color: var(--ink-dim); }
+.cm-alert--loading .cm-alert__mark::before,
+.cm-alert--loading .cm-toast__mark::before,
+.cm-toast--loading .cm-toast__mark::before {
+	content: '\21bb';
+	display: inline-block;
+	animation: cm-spin 0.9s linear infinite;
+}
+.cm-toast__action {
+	margin-left: auto;
+	align-self: center;
+	flex-shrink: 0;
+}
 @media (max-width: 680px) {
 	/* A fixed corner stack eats the bottom of a phone screen, which is
 	   where the primary action is. Full width, anchored to the bottom. */
