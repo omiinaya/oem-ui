@@ -7865,6 +7865,40 @@ check('shadcn-parity: drawer + field wiring', () => {
 		'fewer than 5 static dialog previews are tagged cm-dialog--spec');
 });
 
+check('shadcn-parity: datepicker + scrollarea', () => {
+	const html = read('dist/index.html');
+	const js = read('src/js/cli-mono.js');
+	const css = read('src/styles/components.css');
+	assert(html.includes('id="datepicker"'), 'the datepicker section is missing');
+	assert(html.includes('id="scrollarea"'), 'the scrollarea section is missing');
+	// both entry points - field and caret - name the SAME panel
+	assert(html.split('popovertarget="dp-panel"').length - 1 === 2,
+		'exactly the input and the caret must target the panel');
+	assert(/id="dp-input"[\s\S]{0,200}aria-haspopup="dialog"[\s\S]{0,160}popovertarget="dp-panel"/.test(html),
+		'the readonly input must declare haspopup before its target');
+	// the panel is a [popover] in the .cm-popover frame: that is what makes
+	// it belong to the EXISTING popover machinery instead of a new one
+	assert(/id="dp-panel" popover class="cm-popover cm-datepicker__panel"/.test(html),
+		'the panel must be a [popover] wearing the cm-popover frame');
+	assert(html.split('data-cm-cal-mode="single"').length - 1 === 2,
+		'the showcase owns exactly two single calendars (calendar section + picker)');
+	// the composition's glue lives in the cal click path
+	assert(js.includes("cal.getAttribute('data-cm-cal-selected') || ''"),
+		'the pick is not written back into a datepicker input');
+	assert(/function cmInitDatepickers\(/.test(js) && js.includes('cmInitDatepickers(root);'),
+		'the field-click open must be bound from init');
+	assert(js.includes('dpPanel.hidePopover()'),
+		'a completed pick does not close the panel');
+	assert(js.indexOf('function calPick(') !== -1 &&
+		js.indexOf('dpPanel.hidePopover()') > js.indexOf('function calPick('),
+		'the glue must sit inside calPick - the one path a pick takes - not outside the runtime');
+	const sa = /\.cm-scrollarea\s*{([^}]*)}/.exec(css);
+	assert(sa, '.cm-scrollarea is not defined');
+	assert(/max-height: var\(--scroll-h/.test(sa[1]), 'scrollarea must take the --scroll-h knob');
+	assert(/overflow-y: auto/.test(sa[1]), 'the scrollarea must be a scrollport');
+	assert(/overscroll-behavior: contain/.test(sa[1]), 'the scrollarea must contain its gesture');
+});
+
 check('a variant is only called demonstrated if it differs from its base', () => {
 	// The trap this closes: `.cm-tag--accent { color: var(--ink) }` beside
 	// `.cm-tag { color: var(--ink-dim) }` LOOKS like a variant, ships to

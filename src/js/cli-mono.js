@@ -1435,6 +1435,21 @@
 		// this the click leaves focus on <body> and the next arrow key
 		// lands nowhere. Focus follows the pick.
 		calFocus(cal, iso);
+		// The composition's glue (a datepicker wraps this calendar): neither
+		// half knows about the other. A pick is written into the field's
+		// input - read back AFTER the pick, so clicking the selected day
+		// again (deselect) clears it - and a completed pick closes the panel.
+		// Month navigation never reaches this branch, so paging the calendar
+		// keeps the panel open. Range mode is left alone: it has no single
+		// selected day to write.
+		var dp = cal.closest('.cm-datepicker');
+		if (dp && cal.getAttribute('data-cm-cal-mode') !== 'range') {
+			var dpInput = dp.querySelector('input');
+			if (dpInput) dpInput.value = cal.getAttribute('data-cm-cal-selected') || '';
+			var dpPanel = dp.querySelector('[popover]');
+			if (dpPanel && dpPanel.matches(':popover-open') &&
+				typeof dpPanel.hidePopover === 'function') dpPanel.hidePopover();
+		}
 	}
 
 	function onCalClick(e) {
@@ -2351,6 +2366,30 @@
 		});
 	}
 
+	/* ---------- datepicker: the field is a tap target too ----------
+	   `popovertarget` is declarative and the CARET honors it, but a UA only
+	   INVOKES a popover from an element with an activation behavior -
+	   MEASURED in WebKit: clicking the readonly input with `popovertarget`
+	   set opens nothing while the caret button opens the same panel. The
+	   field is the bigger target, so it gets the same open on click. The
+	   guard keeps the binding a no-op if an engine ever does honor the
+	   attribute there, and `click` fires AFTER the pointerdown a light
+	   dismiss judges, so the opening press cannot dismiss what it opened. */
+	function cmInitDatepickers(root) {
+		var scope = root && root.querySelectorAll ? root : document;
+		Array.prototype.forEach.call(scope.querySelectorAll('.cm-datepicker'), function (wrap) {
+			if (wrap.dataset.cmDpBound) return;
+			wrap.dataset.cmDpBound = '1';
+			var input = wrap.querySelector('input[popovertarget]');
+			var panel = wrap.querySelector('[popover]');
+			if (!input || !panel) return;
+			input.addEventListener('click', function () {
+				if (typeof panel.showPopover === 'function' && !panel.matches(':popover-open'))
+					panel.showPopover();
+			});
+		});
+	}
+
 	/* ---------- init ---------- */
 	function init(root) {
 		(root || document)
@@ -2377,6 +2416,7 @@
 		cmClampHovercards(root);
 		cmInitDrawer(root);
 		cmInitFields(root);
+		cmInitDatepickers(root);
 		cmInitSort(root);
 		cmInitSliders(root);
 		cmInitComboboxes(root);

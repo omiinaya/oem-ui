@@ -40,7 +40,7 @@ const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'crumbs', 'lists', 'states', 'surface',
   'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'drawer', 'choice', 'keys-pages-people',
 	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'proselists', 'proselists-order', 'prosetap', 'prosetable', 'tablelabels', 'layout', 'surface-paint',
-	'forms', 'search', 'auth', 'readme',
+	'forms', 'datepicker', 'scrollarea', 'search', 'auth', 'readme',
 ] as const;
 
 /* The log specimen. Long enough to actually scroll, because a sticky
@@ -3298,6 +3298,89 @@ inputs are element defaults, so a bare <code>&lt;input&gt;</code> is already on-
 			     mounted control that greys out. The wide modifier is
 			     demonstrated too, because rpm emits it and the library
 			     never defined it until this cycle. -->
+			<section id="datepicker" class="cm-section cm-section--pad">
+				<SectionHead title="date picker">
+The calendar sits in a <code>[popover]</code> panel wearing the <code>.cm-popover</code> frame, so
+anchoring, <code>aria-expanded</code>, light dismiss and Escape are the popover machinery
+this library already has - a composition should not ship a second copy of
+its parts. What the composition DOES owe is the two things neither half
+knows: the picked day belongs in the input (ISO, read back after the pick
+so re-clicking the selected day clears it), and a completed pick closes
+the panel while month navigation does not - paging is not a choice.
+				</SectionHead>
+				<div class="cm-field cm-datepicker" style="max-width: 22rem">
+					<label class="cm-field__label" for="dp-input">ship date</label>
+					<div class="cm-field__control">
+						<input id="dp-input" type="text" readonly placeholder="pick a date"
+							aria-haspopup="dialog" popovertarget="dp-panel" />
+						<button type="button" class="cm-icon-btn" aria-label="pick a date"
+							popovertarget="dp-panel">&#9662;</button>
+					</div>
+					<span class="cm-field__help">press the field or the caret; the panel
+						anchors beside the field and closes on a pick, on Escape, or on
+						the next press outside it.</span>
+					<div id="dp-panel" popover class="cm-popover cm-datepicker__panel" role="dialog" aria-label="choose a date">
+						<div class="cm-cal" data-cm-cal data-cm-cal-mode="single" data-cm-cal-month="2026-10">
+							<div class="cm-cal__bar">
+								<button type="button" class="cm-cal__nav" data-cm-cal-prev
+									aria-label="previous month">&#8249;</button>
+								<span class="cm-cal__title" data-cm-cal-title>october 2026</span>
+								<button type="button" class="cm-cal__nav" data-cm-cal-next
+									aria-label="next month">&#8250;</button>
+							</div>
+							<table class="cm-cal__grid" role="grid" aria-label="october 2026">
+								<thead>
+									<tr role="row">
+										<th role="columnheader" scope="col" abbr="su">su</th>
+										<th role="columnheader" scope="col" abbr="mo">mo</th>
+										<th role="columnheader" scope="col" abbr="tu">tu</th>
+										<th role="columnheader" scope="col" abbr="we">we</th>
+										<th role="columnheader" scope="col" abbr="th">th</th>
+										<th role="columnheader" scope="col" abbr="fr">fr</th>
+										<th role="columnheader" scope="col" abbr="sa">sa</th>
+									</tr>
+								</thead>
+								<tbody>
+							<tr role="row"><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-09-27" data-outside tabindex="-1">27</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-09-28" data-outside tabindex="-1">28</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-09-29" data-outside tabindex="-1">29</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-09-30" data-outside tabindex="-1">30</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-01" tabindex="-1">1</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-02" tabindex="-1">2</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-03" tabindex="-1">3</button></td></tr>
+							<tr role="row"><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-04" tabindex="-1">4</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-05" tabindex="-1">5</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-06" tabindex="-1">6</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-07" tabindex="-1">7</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-08" tabindex="-1">8</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-09" tabindex="-1">9</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-10" tabindex="-1">10</button></td></tr>
+							<tr role="row"><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-11" tabindex="-1">11</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-12" tabindex="-1">12</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-13" tabindex="-1">13</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-14" tabindex="-1">14</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-15" tabindex="-1">15</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-16" tabindex="-1">16</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-17" tabindex="-1">17</button></td></tr>
+							<tr role="row"><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-18" tabindex="-1">18</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-19" tabindex="-1">19</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-20" tabindex="-1">20</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-21" tabindex="-1">21</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-22" tabindex="-1">22</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-23" tabindex="-1">23</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-24" tabindex="-1">24</button></td></tr>
+							<tr role="row"><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-25" tabindex="-1">25</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-26" tabindex="-1">26</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-27" tabindex="-1">27</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-28" tabindex="-1">28</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-29" tabindex="-1">29</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-30" tabindex="-1">30</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-31" tabindex="-1">31</button></td></tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+			</section>
+			<section id="scrollarea" class="cm-section cm-section--pad">
+				<SectionHead title="scroll area">
+A bounded vertical scrollport: the box grows to <code>--scroll-h</code> (14rem
+					here) and then scrolls its OWN content, so a long list costs page
+					height once instead of forever. <code>overscroll-behavior: contain</code>
+					keeps the end of the list from dragging the page behind it - the
+					same containment a capped table wrapper gets, as a class you can
+					put on any list.
+				</SectionHead>
+				<div class="cm-scrollarea" style="--scroll-h: 14rem;
+						border: 1px solid var(--line); padding: var(--space-2) 0;">
+					<ul style="list-style: none; margin: 0; padding: 0;">
+					<li class="cm-row"><span class="cm-row__title">node-01.example.internal</span><span class="cm-row__meta">10.0.1.1</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-02.example.internal</span><span class="cm-row__meta">10.0.2.2</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-03.example.internal</span><span class="cm-row__meta">10.0.3.3</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-04.example.internal</span><span class="cm-row__meta">10.0.4.4</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-05.example.internal</span><span class="cm-row__meta">10.0.5.5</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-06.example.internal</span><span class="cm-row__meta">10.0.6.6</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-07.example.internal</span><span class="cm-row__meta">10.0.7.7</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-08.example.internal</span><span class="cm-row__meta">10.0.8.8</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-09.example.internal</span><span class="cm-row__meta">10.0.9.9</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-10.example.internal</span><span class="cm-row__meta">10.0.10.10</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-11.example.internal</span><span class="cm-row__meta">10.0.11.11</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-12.example.internal</span><span class="cm-row__meta">10.0.12.12</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-13.example.internal</span><span class="cm-row__meta">10.0.13.13</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-14.example.internal</span><span class="cm-row__meta">10.0.14.14</span></li>
+					</ul>
+				</div>
+			</section>
 			<section id="search" class="cm-section cm-section--pad">
 				<SectionHead title="search">
 A filter control, not an inline edit. <code>.cm-inline</code> styles a value being changed in place; this is a four-sided bordered field with a leading glyph and a clear button that appears only once there is a value.

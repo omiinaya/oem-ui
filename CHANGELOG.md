@@ -1683,6 +1683,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   contract-suite - the safe-area rule, which `env()` makes invisible to a
   desktop harness).
 
+- Added the date picker as a **composition, not a new mechanism**: the
+  calendar sits in a `[popover]` panel wearing the `.cm-popover` frame,
+  so anchoring, `aria-expanded`, light dismiss and Escape are the
+  popover machinery already in the library. What a composition owes is
+  the two things neither half knows, and both live in `calPick` - the
+  one path a pick takes: the picked day is written into the input as ISO
+  (read back AFTER the pick, so re-clicking the selected day clears
+  it), and a completed pick closes the panel while month navigation
+  never reaches that branch. `popovertarget` on the caret is
+  declarative; the FIELD is bound by `cmInitDatepickers` because
+  MEASURED in WebKit a UA only invokes a popover from an element with an
+  activation behavior - clicking the readonly input with the attribute
+  set opens nothing.
+- Added the scroll area: `overflow-y: auto`,
+  `max-height: var(--scroll-h, 18rem)`, `overscroll-behavior: contain` -
+  one knob, the box scrolls its own content, and the end of the list
+  cannot drag the page behind it.
+- `fix: the calendar could not fit a 320px screen - pinned at last`. In
+  `table-layout: fixed` the FIRST ROW defines the columns, so
+  `th { width: var(--tap) }` made the grid refuse to be narrower than
+  seven taps no matter what its own width said: MEASURED 309px inside a
+  240px card, 362px right edge on a 320px screen, clipped. Below 360px
+  the columns now follow the table (`calc(100% / 7)`) and the days
+  follow the columns (`min(var(--tap), 100%)`); everything wider keeps
+  44px columns to the pixel. The grid FITS instead of scrolling a card.
+- `fix: the phantom scrollWidth is pinned, not just tolerated`. The
+  328-at-320 that two batches of oracles tripped over was the hover card
+  clamp: it pins the panel to the viewport's right gutter (312), but
+  `body.scrollWidth` measures the ABSOLUTE layout edge -
+  wrap.left + padding + extent = 328 exactly. It was never scrolled
+  (`html` clips x) and never seen (the clamp had moved it), but it was
+  always there. Below 360px the panel stops claiming 18rem and sits
+  inside its column, so the showcase now measures **320 at 320**.
+  Two calendar oracles that had to be softened to admit the old design
+  were re-derived: the card must be a scroll CONTAINER
+  (`overflow-x: auto`, not merely scrollable-looking), and the clamp is
+  observed by its fingerprint (`style.left` rewritten).
+- The shadcn/ui catalog was re-audited at 64 components: **56
+  implemented, 8 declined by decision** (six conversation/AI-family
+  components, Chart as a Recharts wrapper, Direction as an RTL helper),
+  with Navigation Menu - the one substitution - landing as the rail +
+  sticky header. The mapping lives in the README under *shadcn/ui
+  parity status*.
+- Proven: suite 547/0; datepicker 17/17 WebKit checks with 13/13 seeded
+  faults killed; calendar 34/34 with 23/23 killed (the two new mutants
+  are the tiny-viewport rules - each killed by the fitting oracle).
+
 ## Fixed
 
 - Two stacking checks demanded a literal `z-index: <number>`, which fails on

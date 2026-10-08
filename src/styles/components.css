@@ -6052,6 +6052,20 @@ input.cm-slider:disabled {
 		transform var(--cm-t) var(--cm-ease),
 		visibility var(--cm-t);
 }
+/* MEASURED at 320px: the clamp pins the panel to the viewport's right
+   gutter (312), but what `body.scrollWidth` measures is its ABSOLUTE
+   layout edge - wrap.left + 20 + 16 padding + 292 = 328. That was the
+   phantom `scrollWidth` two batches of oracles tripped over: never
+   scrolled (html clips x), never visible (the clamp had already moved
+   it), but always there. Below 360px the panel stops claiming 18rem:
+   it sits under its trigger, inside the column, and the clamp has
+   nothing to shift. */
+@media (max-width: 360px) {
+	.cm-hovercard__panel {
+		min-width: 0;
+		max-width: calc(100vw - 76px);
+	}
+}
 .cm-hovercard:hover .cm-hovercard__panel,
 .cm-hovercard:focus-within .cm-hovercard__panel {
 	opacity: 1;
@@ -6672,13 +6686,24 @@ input.cm-slider:disabled {
 .cm-cal__grid {
 	/* SEVEN cells, named: `max-content` was asked and answered 316px -
 	   cells computing to 45px with a 44px day inside - so the table
-	   names its own width from the one token the cell uses. The card
-	   hugs this; a phone narrower than it scrolls the card. */
-	width: calc(var(--tap) * 7);
+	   names its own width from the one token the cell uses. MEASURED at
+	   320px: seven 44px taps = 308px and no padded box holds that, so a
+	   card narrower than the grid CLIPPED it (the `scrollWidth` 328 was
+	   exactly this). `min(tap*7, 100%)` names the token when the box can
+	   hold it and the box when it cannot - the column count never moves,
+	   only the cell does. `table-layout: fixed` then divides whatever the
+	   grid got by seven, so nothing inside can push it back out. */
+	width: min(calc(var(--tap) * 7), 100%);
 	border-collapse: collapse;
 	table-layout: fixed;
 }
 .cm-cal__grid th {
+	/* In `table-layout: fixed` the FIRST ROW defines the columns - so a
+	   `var(--tap)` here also makes the table REFUSE to be narrower than
+	   seven taps (MEASURED: 309px inside a 240px card at 320px). On a
+	   box that can hold seven taps that is exactly what we want: 44px
+	   columns, to the pixel. Below 360px it is what broke, so the tiny
+	   viewport is where the columns give (see the media rule). */
 	width: var(--tap);
 	padding: 0 0 var(--space-1);
 	border-bottom: 1px solid var(--line);
@@ -6700,7 +6725,11 @@ input.cm-slider:disabled {
 	height: var(--tap);
 	margin: 0;
 	padding: 0;
-	/* the border is ALWAYS here, transparent: today's ring must not push
+	/* MEASURED: a shared collapse border takes a pixel out of the cell's
+	   CONTENT box, so `min(tap, 100%)` here rendered 43px days on
+	   desktop - the tap must be named, not derived. The tiny-viewport
+	   rule below re-derives it only where the columns themselves gave.
+	   The border is ALWAYS here, transparent: today's ring must not push
 	   the day it marks. */
 	border: 1px solid transparent;
 	border-radius: var(--radius-sm);
@@ -6709,6 +6738,20 @@ input.cm-slider:disabled {
 	font: inherit;
 	font-size: var(--text-sm);
 	cursor: pointer;
+}
+/* A phone narrower than 360px cannot hold 7x44 inside any padded box
+   (MEASURED at 320: card content 214-240px). Here - and only here -
+   the fixed-layout column follows the table's own width instead of
+   naming the tap: the table is already `min(tap*7, 100%)`, so the
+   columns become its seventh, the day buttons shrink with them
+   (min-width via `min(tap, 100%)`), and the grid FITS instead of
+   pushing a 308px card out of a 320px screen. Height stays the tap. */
+@media (max-width: 360px) {
+	.cm-cal__grid th { width: calc(100% / 7); }
+	/* and the day follows its column: `100%` of a cell whose collapse
+	   border already took a pixel is still under the tap - fitting wins
+	   when seven taps cannot. */
+	.cm-cal__day { width: min(var(--tap), 100%); }
 }
 .cm-cal__day:hover,
 .cm-cal__day:focus-visible {
@@ -6784,6 +6827,26 @@ input.cm-slider:disabled {
 	background: var(--ink-faint);
 }
 .cm-drawer--dragging { cursor: grabbing; }
+
+/* ============ datepicker ============
+   The PANEL needs nothing: it is a `[popover]` carrying the `.cm-popover`
+   frame, so `onPopoverToggle`/`pinPopover` anchor it, flip aria-expanded
+   on the `[popovertarget]` trigger, and the auto popover owns light
+   dismiss and Escape. Only the room around the grid is new, plus the
+   pointer affordance on a readonly field that opens it. */
+.cm-datepicker__panel { padding: var(--space-3); }
+.cm-datepicker input[readonly] { cursor: pointer; }
+
+/* ============ scrollarea ============
+   One knob: how tall the window may grow (`--scroll-h`, default 18rem).
+   `overflow-y: auto` is what makes it a SCROLLPORT - the content moves,
+   the page does not - and `overscroll-behavior: contain` stops a gesture
+   that runs out of box from scrolling the page behind it. */
+.cm-scrollarea {
+	max-height: var(--scroll-h, 18rem);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
 
 .cm-auth {
 	min-height: 100dvh;

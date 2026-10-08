@@ -361,6 +361,7 @@ with sync_playwright() as pw:
             docW: document.documentElement.scrollWidth,
             vw: window.innerWidth,
             cardScroll: c.scrollWidth > c.clientWidth,
+            cardOx: getComputedStyle(c).overflowX,
             heads: c.querySelectorAll('thead th').length,
             day: getComputedStyle(d).width,
             navVisible: !!c.querySelector('[data-cm-cal-next]').getClientRects().length
@@ -368,6 +369,9 @@ with sync_playwright() as pw:
     }""")
     check('at 402px the grid scrolls INSIDE the card, never the page',
           ph_state['docW'] <= ph_state['vw'] and ph_state['cardScroll'] and
+          # scrollWidth > clientWidth happens for an overflow:visible box
+          # too - only a scroll CONTAINER actually contains it
+          ph_state['cardOx'] == 'auto' and
           ph_state['heads'] == 7 and ph_state['day'] == '44px' and
           ph_state['navVisible'], ph_state)
 
@@ -401,18 +405,28 @@ with sync_playwright() as pw:
         return {base, without, cardClient: card.clientWidth,
                 cardScroll: card.scrollWidth, vw: document.documentElement.clientWidth};
     }""")
-    check('the calendar adds NO sideways scroll of its own at 320px',
+    # At 360px and below the columns follow the box (the media rule), so
+    # the honest claim is the strongest one: the page has NO sideways
+    # scroll at all (the hovercard clamp phantom was found and fixed the
+    # same batch), and the card - now able to hold its grid - does not
+    # scroll either.
+    check('at 320px the calendar fits: no page scroll, no card scroll',
+          diff['base'] <= diff['vw'] and
           diff['base'] <= diff['without'] and
-          diff['cardScroll'] > diff['cardClient'], diff)
+          diff['cardScroll'] <= diff['cardClient'], diff)
 
     hc = tiny.evaluate("""() => {
         const p = document.querySelector('.cm-hovercard__panel');
         const r = p.getBoundingClientRect();
         return {left: Math.round(r.left), right: Math.round(r.right),
+                inlineLeft: p.style.left,
                 vw: window.innerWidth};
     }""")
+    # the tiny-viewport width cap contains the panel on its own now, so
+    # the clamp must be observed by its FINGERPRINT: it rewrites style.left
     check('the hover card is clamped inside the viewport at 320px',
-          hc['right'] <= hc['vw'] - 8 and hc['left'] >= 8, hc)
+          hc['right'] <= hc['vw'] - 8 and hc['left'] >= 8 and
+          hc['inlineLeft'] != '', hc)
 
     check('no page JS errors', not errors and not perr,
           {'desktop': errors, 'phone': perr})

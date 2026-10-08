@@ -1788,6 +1788,57 @@ was invisible while its section described it. `cm-dialog--spec` re-shows
 exactly those, and the harness reads their height so it cannot regress
 silently.
 
+### Date picker and scroll area
+
+The date picker is a **composition, not a new mechanism**: the calendar
+lives inside a `[popover]` panel wearing the `.cm-popover` frame, so
+anchoring, `aria-expanded`, light dismiss and Escape are the popover
+machinery this library already has. What the composition owes is the two
+things neither half knows, and both live in `calPick` (the one path a
+pick takes):
+
+- the picked day is written into the field's input as ISO, read back
+  *after* the pick so re-clicking the selected day clears it;
+- a completed pick closes the panel - month navigation never reaches
+  that branch, so paging the calendar keeps the panel open.
+
+`popovertarget` on the caret opens the panel declaratively. The field
+itself is bound by `cmInitDatepickers`: MEASURED in WebKit, a UA only
+invokes a popover from an element with an activation behavior, so
+clicking the readonly input with `popovertarget` set opens nothing.
+`click` fires after the pointerdown a light dismiss judges, so the
+opening press cannot dismiss what it opened.
+
+```html
+<div class="cm-field cm-datepicker">
+  <label class="cm-field__label" for="dp-input">ship date</label>
+  <div class="cm-field__control">
+    <input id="dp-input" type="text" readonly placeholder="pick a date"
+           aria-haspopup="dialog" popovertarget="dp-panel" />
+    <button type="button" class="cm-icon-btn" aria-label="pick a date"
+            popovertarget="dp-panel">&#9662;</button>
+  </div>
+  <div id="dp-panel" popover class="cm-popover cm-datepicker__panel">...</div>
+</div>
+```
+
+The scroll area is one knob and three declarations: `overflow-y: auto`,
+`max-height: var(--scroll-h, 18rem)`, `overscroll-behavior: contain` -
+the box scrolls its own content, and the end of the list cannot drag
+the page behind it. Same containment a capped table wrapper gets, as a
+class you can put on any list.
+
+```html
+<div class="cm-scrollarea" style="--scroll-h: 14rem">...</div>
+```
+
+At 360px and below, a calendar cannot hold seven 44px taps inside any
+padded box (MEASURED at 320: card content 214-240px). The tiny
+viewport is where the fixed-layout columns and the day buttons give
+(`calc(100% / 7)` and `min(var(--tap), 100%)`) - the grid FITS instead
+of pushing a 308px card out of a 320px screen. Everything wider keeps
+44px columns to the pixel.
+
 ### Interactive primitives
 
 The runtime opts into managed segmented controls only when requested:
@@ -1897,6 +1948,46 @@ component ships with a specimen in the showcase for exactly this reason.
 instead of pushing 26px past its row. It is `break-word` and not
 `anywhere`: `anywhere` also shrinks min-content sizing and splits `.cm-*`
 identifiers mid-token.
+
+### shadcn/ui parity status
+
+The standing goal is component parity with
+[shadcn/ui](https://ui.shadcn.com/docs/components) in the established
+theme. The catalog is 64 components as of this writing: this library
+implements **56** and deliberately does not implement **8**, each for a
+stated reason.
+
+**Implemented (56):** Accordion, Alert, Alert Dialog (a confirming
+Dialog), Aspect Ratio, Avatar, Badge, Breadcrumb, Button (including
+destructive, outline and joined), Button Group, Calendar, Card,
+Carousel, Checkbox, Collapsible, Combobox, Command (palette), Context
+Menu, Data Table (Table + sort), Date Picker, Dialog, Drawer, Dropdown
+Menu, Empty, Field (label/help/error wiring), Hover Card, Input, Input
+Group, Input OTP, Item, Kbd, Label, Menubar, Native Select (a styled
+`<select>`), Navigation Menu (as the rail + sticky header - see
+*The two nav states*), Pagination, Popover, Progress, Radio Group,
+Resizable, Scroll Area, Select, Separator, Sheet, Sidebar, Skeleton,
+Slider, Spinner, Switch, Table, Tabs, Textarea, Toast, Toggle, Toggle
+Group, Tooltip, Typography.
+
+**Not implemented (8), by decision:**
+
+- **Attachment, Bubble, Marker, Message, Message Scroller,
+  Questionnaire** - shadcn's conversation/AI family (two of them ship
+  in `@shadcn/react`). A terminal design system for applications has no
+  conversation thread to compose them into.
+- **Chart** - a Recharts wrapper, not a design primitive; consumers
+  compose their own charts.
+- **Direction** - an RTL/i18n direction helper; this system is LTR and
+  owns no locale state.
+
+Navigation Menu is the one *substitution* rather than a port: shadcn's
+top dropdown nav was deliberately replaced here by the desktop rail and
+the sticky header, which is the house pattern for this site. Every
+portable component above is proven by a WebKit harness plus a mutation
+runner per batch; the `shadcn-parity: *` blocks in `tests/run.mjs` pin
+the contracts.
+
 
 ## State chips
 
