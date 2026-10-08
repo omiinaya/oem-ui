@@ -40,7 +40,7 @@ const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'crumbs', 'lists', 'states', 'surface',
   'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'drawer', 'choice', 'keys-pages-people',
 	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'proselists', 'proselists-order', 'prosetap', 'prosetable', 'tablelabels', 'layout', 'surface-paint',
-	'forms', 'datepicker', 'scrollarea', 'utilities', 'search', 'auth', 'readme',
+	'forms', 'datepicker', 'scrollarea', 'utilities', 'chat', 'attachment', 'quiz', 'search', 'auth', 'readme',
 ] as const;
 
 /* The log specimen. Long enough to actually scroll, because a sticky
@@ -3560,6 +3560,340 @@ Two helpers shadcn ships under utils, in house CSS. <code>scroll-fade</code>
 					<code>--shimmer-spread</code>, <code>--shimmer-angle</code>.
 				</p>
 			</section>
+
+			<section id="chat" class="cm-section cm-section--pad">
+				<SectionHead title="chat">
+					three parts of a conversation, composed from house primitives: the
+					surface (<code>.cm-bubble</code> - seven tones, sharp corners, sized to
+					content up to 80% of the row), the row (<code>.cm-msg</code> - avatar
+					anchored to the bottom, header and footer that follow the message
+					side), and the system note (<code>.cm-marker</code> - inline, bordered,
+					or a labeled separator). Tones are border and ink treatments, never
+					hues; the docs pair them with text and alignment for exactly this
+					reason.
+				</SectionHead>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">bubble / variants</span>
+						<span class="cm-spec__val">7 tones, 80% cap</span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">marker / variants</span>
+						<span class="cm-spec__val">inline, border, separator</span>
+					</div>
+				</div>
+				<div class="cm-bubble-group" style="width: 100%;">
+					<div class="cm-bubble">default - the strong one, usually "me"</div>
+					<div class="cm-bubble cm-bubble--secondary">secondary - the standard neutral bubble</div>
+					<div class="cm-bubble cm-bubble--muted">muted - quiet supporting content</div>
+					<div class="cm-bubble cm-bubble--tinted">tinted - a soft accent wash</div>
+					<div class="cm-bubble cm-bubble--outline">outline - bordered, unframed fill</div>
+					<div class="cm-bubble cm-bubble--danger">danger - the build failed during install; see the logs</div>
+					<div class="cm-bubble cm-bubble--ghost">ghost - assistant text with no frame, full width,
+						<code>code allowed</code></div>
+				</div>
+				<div class="cm-bubble-group" style="width: 100%; margin-top: var(--space-4);">
+					<div class="cm-bubble cm-bubble--secondary">aligned to the start - the default side</div>
+					<div class="cm-bubble cm-bubble--end">aligned to the end - the user's side</div>
+				</div>
+				<div class="cm-bubble-group" style="width: 100%; margin-top: var(--space-4);">
+					<div class="cm-bubble cm-bubble--danger">Are you sure I can run this?</div>
+					<div class="cm-bubble__reactions" role="img" aria-label="reacted with eyes and rocket, plus 2">
+						<span class="cm-bubble__reaction">👀</span>
+						<span class="cm-bubble__reaction">🚀</span>
+						<span class="cm-bubble__reaction">+2</span>
+					</div>
+					<div class="cm-bubble cm-bubble--secondary">Yes, run it</div>
+					<div class="cm-bubble__reactions cm-bubble__reactions--end" role="img" aria-label="reacted with a thumbs up">
+						<span class="cm-bubble__reaction">👍</span>
+					</div>
+				</div>
+				<p class="cm-row__meta" style="margin-top: var(--space-4);">
+					an interactive bubble is a REAL link or button - focusable, correct
+					role, the text is the accessible name:
+				</p>
+				<div class="cm-bubble cm-bubble--outline">
+					<a class="cm-bubble__content cm-bubble__content--interactive" href="#chat">something else. talk to a human.</a>
+				</div>
+				<div class="cm-msg" style="margin-top: var(--space-4);">
+					<div class="cm-msg__avatar"><span class="cm-avatar cm-avatar--sm" aria-hidden="true">ol</span></div>
+					<div class="cm-msg__body">
+						<p class="cm-msg__header">olivia</p>
+						<div class="cm-bubble cm-bubble--secondary">the build failed during dependency installation.</div>
+						<p class="cm-msg__footer">delivered <button class="cm-msg__action" type="button">copy</button></p>
+					</div>
+				</div>
+				<div class="cm-msg cm-msg--end">
+					<div class="cm-msg__avatar"><span class="cm-avatar cm-avatar--sm" aria-hidden="true">om</span></div>
+					<div class="cm-msg__body">
+						<p class="cm-msg__header">me</p>
+						<div class="cm-bubble">it's a one-line change.</div>
+						<p class="cm-msg__footer">read · 4:55pm <button class="cm-msg__action" type="button">retry</button></p>
+					</div>
+				</div>
+				<div class="cm-msg-group" style="margin-top: var(--space-4);">
+					<div class="cm-msg">
+						<div class="cm-msg__avatar"></div>
+						<div class="cm-msg__body">
+							<div class="cm-bubble cm-bubble--secondary">I checked the registry addresses.</div>
+						</div>
+					</div>
+					<div class="cm-msg">
+						<div class="cm-msg__avatar"><span class="cm-avatar cm-avatar--sm" aria-hidden="true">om</span></div>
+						<div class="cm-msg__body">
+							<div class="cm-bubble cm-bubble--secondary">the component JSON now lives under the UI registry.</div>
+						</div>
+					</div>
+				</div>
+				<div style="display: grid; gap: var(--space-3); margin-top: var(--space-4);">
+					<div class="cm-marker" role="status">
+						<span class="cm-marker__icon" aria-hidden="true"><span class="cm-spinner"></span></span>
+						<span class="cm-marker__content">compacting conversation</span>
+					</div>
+					<div class="cm-marker cm-marker--border">
+						<span class="cm-marker__content cm-shimmer">oliver is typing…</span>
+					</div>
+					<div class="cm-marker cm-marker--separator">
+						<span class="cm-marker__content">yesterday</span>
+					</div>
+				</div>
+			</section>
+
+
+			<section id="attachment" class="cm-section cm-section--pad">
+				<SectionHead title="attachment">
+					the file card: media, content, actions - plus a full-card
+					trigger that paints above the content but below the actions, so
+					activating the card never steals a click from <code>remove</code>.
+					The upload lifecycle is styling, not layout: <code>uploading</code>
+					and <code>processing</code> shimmer the title, <code>error</code> is
+					the house double-rule with the reason kept in the description, and
+					the group is a snapping row that composes
+					<code>cm-scroll-fade</code> for its edge.
+				</SectionHead>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">states</span>
+						<span class="cm-spec__val">idle / uploading / processing / error / done</span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">sizes / shape</span>
+						<span class="cm-spec__val">default / sm / xs, horizontal or vertical, image variant</span>
+					</div>
+				</div>
+				<div style="display: grid; gap: var(--space-2);">
+					<div class="cm-attach">
+						<span class="cm-attach__media" aria-hidden="true">PDF</span>
+						<span class="cm-attach__content">
+							<span class="cm-attach__title">sales-dashboard.pdf</span>
+							<span class="cm-attach__desc">PDF · 2.4 MB</span>
+						</span>
+						<span class="cm-attach__actions">
+							<button class="cm-attach__action" type="button" aria-label="Remove sales-dashboard.pdf">×</button>
+						</span>
+					</div>
+					<div class="cm-attach cm-attach--uploading">
+						<span class="cm-attach__media" aria-hidden="true">CSV</span>
+						<span class="cm-attach__content">
+							<span class="cm-attach__title cm-shimmer">quarterly-export.csv</span>
+							<span class="cm-attach__desc">uploading · 1.1 of 3.8 MB</span>
+						</span>
+						<span class="cm-attach__actions">
+							<button class="cm-attach__action" type="button" aria-label="Cancel quarterly-export.csv upload">×</button>
+						</span>
+					</div>
+					<div class="cm-attach cm-attach--processing">
+						<span class="cm-attach__media" aria-hidden="true">MP4</span>
+						<span class="cm-attach__content">
+							<span class="cm-attach__title cm-shimmer">walkthrough.mp4</span>
+							<span class="cm-attach__desc">processing · transcoding to 720p</span>
+						</span>
+					</div>
+					<div class="cm-attach cm-attach--error">
+						<span class="cm-attach__media" aria-hidden="true">ZIP</span>
+						<span class="cm-attach__content">
+							<span class="cm-attach__title">assets.zip</span>
+							<span class="cm-attach__desc">failed - the upload exceeded the 25 MB limit; compress and retry</span>
+						</span>
+						<span class="cm-attach__actions">
+							<button class="cm-attach__action" type="button" aria-label="Retry assets.zip upload">↻</button>
+							<button class="cm-attach__action" type="button" aria-label="Remove assets.zip">×</button>
+						</span>
+					</div>
+					<div class="cm-attach cm-attach--done">
+						<span class="cm-attach__media" aria-hidden="true">OK</span>
+						<span class="cm-attach__content">
+							<span class="cm-attach__title">receipt-0842.pdf</span>
+							<span class="cm-attach__desc">done · stored</span>
+						</span>
+					</div>
+					<div class="cm-attach cm-attach--sm">
+						<span class="cm-attach__media" aria-hidden="true">TXT</span>
+						<span class="cm-attach__content">
+							<span class="cm-attach__title">notes.txt</span>
+							<span class="cm-attach__desc">sm size · the parts keep their structure</span>
+						</span>
+						<span class="cm-attach__actions">
+							<button class="cm-attach__action" type="button" aria-label="Remove notes.txt">×</button>
+						</span>
+					</div>
+					<div class="cm-attach cm-attach--xs">
+						<span class="cm-attach__media" aria-hidden="true">LOG</span>
+						<span class="cm-attach__content">
+							<span class="cm-attach__title">build.log</span>
+							<span class="cm-attach__desc">xs size</span>
+						</span>
+					</div>
+					<div class="cm-attach cm-attach--vertical">
+						<span class="cm-attach__media" aria-hidden="true">FIG</span>
+						<span class="cm-attach__content">
+							<span class="cm-attach__title">research-summary.fig</span>
+							<span class="cm-attach__desc">vertical orientation stacks the media above the content</span>
+						</span>
+						<span class="cm-attach__actions">
+							<button class="cm-attach__action" type="button" aria-label="Open research-summary.fig"></button>
+						</span>
+					</div>
+					<div class="cm-attach cm-attach--image cm-attach--vertical">
+						<span class="cm-attach__media"><img src="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2796%27 height=%2772%27%3E%3Crect width=%2796%27 height=%2772%27 fill=%27%23222%27/%3E%3Cpath d=%27M18 50l14-18 10 12 8-9 18 15z%27 fill=%27%23888%27/%3E%3Ccircle cx=%2768%27 cy=%2724%27 r=%277%27 fill=%27%23aaa%27/%3E%3C/svg%3E" alt="" /></span>
+						<span class="cm-attach__content">
+							<span class="cm-attach__title">workspace.png</span>
+							<span class="cm-attach__desc">image variant - the media fills its slot</span>
+						</span>
+						<span class="cm-attach__actions">
+							<a class="cm-attach__action" href="#attachment" aria-label="Open workspace.png">↗</a>
+						</span>
+					</div>
+				</div>
+				<p class="cm-row__meta" style="margin-top: var(--space-4);">
+					the group: a keyboard-scrollable snapping row (tabindex + role +
+					label for presentational rows) with an edge fade:
+				</p>
+				<div class="cm-attach-group cm-scroll-fade" tabindex="0" role="group" aria-label="example attachments">
+					<div class="cm-attach">
+						<span class="cm-attach__media" aria-hidden="true">PDF</span>
+						<span class="cm-attach__content">
+							<span class="cm-attach__title">research-summary.pdf</span>
+							<span class="cm-attach__desc">4.1 MB</span>
+						</span>
+						<span class="cm-attach__actions">
+							<button class="cm-attach__action" type="button" aria-label="Remove research-summary.pdf">×</button>
+						</span>
+					</div>
+					<div class="cm-attach">
+						<span class="cm-attach__media" aria-hidden="true">PNG</span>
+						<span class="cm-attach__content">
+							<span class="cm-attach__title">wireframes.png</span>
+							<span class="cm-attach__desc">890 KB</span>
+						</span>
+						<span class="cm-attach__actions">
+							<button class="cm-attach__action" type="button" aria-label="Remove wireframes.png">×</button>
+						</span>
+					</div>
+					<div class="cm-attach">
+						<span class="cm-attach__media" aria-hidden="true">MD</span>
+						<span class="cm-attach__content">
+							<span class="cm-attach__title">handoff.md</span>
+							<span class="cm-attach__desc">12 KB</span>
+						</span>
+					</div>
+					<div class="cm-attach">
+						<span class="cm-attach__media" aria-hidden="true">ZIP</span>
+						<span class="cm-attach__content">
+							<span class="cm-attach__title">source-bundle.zip</span>
+							<span class="cm-attach__desc">18 MB</span>
+						</span>
+					</div>
+				</div>
+				<div class="cm-attach" style="margin-top: var(--space-4);">
+					<span class="cm-attach__media" aria-hidden="true">PDF</span>
+					<span class="cm-attach__content">
+						<span class="cm-attach__title">full-card trigger demo</span>
+						<span class="cm-attach__desc">click the card (not the action) to follow the link</span>
+					</span>
+					<a class="cm-attach__trigger" href="#attachment" aria-label="Open full-card trigger demo"></a>
+					<span class="cm-attach__actions">
+						<button class="cm-attach__action" type="button" aria-label="Remove full-card trigger demo">×</button>
+					</span>
+				</div>
+			</section>
+			<section id="quiz" class="cm-section cm-section--pad">
+				<SectionHead title="questionnaire">
+					one question at a time over a real form: <code>fieldset</code> +
+					<code>legend</code> per item, a named progressbar, native radio and
+					checkbox keyboard, a freeform answer beside the fixed choices,
+					letter shortcuts, an explicit skip on optional items, and a submit
+					that validates every required item - jumping to the first
+					offender - then toasts and wipes with a full
+					<code>form.reset()</code>. Failed validation focuses an answer
+					control; successful navigation focuses the new legend.
+				</SectionHead>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">runtime</span>
+						<span class="cm-spec__val">data-cm-quiz (init + late-markup observer)</span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">shortcuts</span>
+						<span class="cm-spec__val">d / q / b on question one, 1 / 2 on question two</span>
+					</div>
+				</div>
+				<form class="cm-quiz" data-cm-quiz>
+					<div class="cm-quiz__progress" role="progressbar" aria-label="Questionnaire progress" aria-valuenow="1" aria-valuemin="1" aria-valuemax="3">
+						<span class="cm-quiz__label">1 / 3</span>
+						<span class="cm-quiz__track"><span class="cm-quiz__bar" style="width: 33%;"></span></span>
+					</div>
+					<fieldset class="cm-quiz__item" data-required>
+						<legend class="cm-quiz__title" tabindex="-1">What should we prototype next?</legend>
+						<p class="cm-quiz__desc">Choose a direction, press its shortcut, or write your own.</p>
+						<div class="cm-quiz__choices">
+							<label class="cm-quiz__choice" data-shortcut="d">
+								<input type="radio" name="direction" value="delegation" />
+								<span><strong>Delegation</strong><span class="cm-quiz__hint">show how work moves to a specialist.</span></span>
+							</label>
+							<label class="cm-quiz__choice" data-shortcut="q">
+								<input type="radio" name="direction" value="questions" />
+								<span><strong>Question prompts</strong><span class="cm-quiz__hint">show choices while the interface waits.</span></span>
+							</label>
+							<label class="cm-quiz__choice" data-shortcut="b">
+								<input type="radio" name="direction" value="both" />
+								<span><strong>Both together</strong></span>
+							</label>
+							<input class="cm-quiz__input" type="text" name="direction_other" aria-label="Another answer" placeholder="type another answer…" />
+						</div>
+						<p class="cm-quiz__error" role="alert" hidden>pick an answer to continue</p>
+					</fieldset>
+					<fieldset class="cm-quiz__item" data-required hidden>
+						<legend class="cm-quiz__title" tabindex="-1">How much detail should it include?</legend>
+						<p class="cm-quiz__desc">More than one box can be ticked.</p>
+						<div class="cm-quiz__choices">
+							<label class="cm-quiz__choice" data-shortcut="1">
+								<input type="checkbox" name="detail" value="focused" />
+								<span><strong>Focused</strong><span class="cm-quiz__hint">the happy path only.</span></span>
+							</label>
+							<label class="cm-quiz__choice" data-shortcut="2">
+								<input type="checkbox" name="detail" value="complete" />
+								<span><strong>Complete flow</strong><span class="cm-quiz__hint">every branch and dead end.</span></span>
+							</label>
+						</div>
+						<p class="cm-quiz__error" role="alert" hidden>tick at least one box to continue</p>
+					</fieldset>
+					<fieldset class="cm-quiz__item" hidden>
+						<legend class="cm-quiz__title" tabindex="-1">Anything the notes should mention?</legend>
+						<p class="cm-quiz__desc">Optional - the skip button is live on this question.</p>
+						<div class="cm-quiz__choices">
+							<input class="cm-quiz__input" type="text" name="notes" aria-label="Notes" placeholder="a sentence is plenty…" />
+						</div>
+					</fieldset>
+					<div class="cm-quiz__actions">
+						<button class="cm-btn cm-btn--ghost" type="button" data-quiz-prev hidden>previous</button>
+						<button class="cm-btn cm-btn--ghost" type="button" data-quiz-skip>skip</button>
+						<button class="cm-btn" type="button" data-quiz-next>next</button>
+						<button class="cm-btn cm-btn--primary" type="submit" data-quiz-submit hidden>submit</button>
+					</div>
+				</form>
+			</section>
+
 			<section id="search" class="cm-section cm-section--pad">
 				<SectionHead title="search">
 A filter control, not an inline edit. <code>.cm-inline</code> styles a value being changed in place; this is a four-sided bordered field with a leading glyph and a clear button that appears only once there is a value.

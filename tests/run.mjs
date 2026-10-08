@@ -1176,7 +1176,7 @@ check('a fieldset with a choice must have a legend', () => {
 	const page = read('src/pages/index.astro');
 	for (const fs of page.matchAll(/<fieldset([^>]*)>([\s\S]*?)<\/fieldset>/g)) {
 		if (!/type="(checkbox|radio)"/.test(fs[2])) continue;
-		assert(/<legend>/.test(fs[2]),
+		assert(/<legend(?:\s|>)/.test(fs[2]),
 			`a fieldset with choices has no <legend>: ${fs[1].trim().slice(0, 60)}`);
 	}
 });
@@ -8116,6 +8116,126 @@ check('a variant is only called demonstrated if it differs from its base', () =>
 			`.${mod} declares nothing .${base} does not, so the variant renders identically to its base`);
 	}
 });
+
+	/* --- shadcn parity: the conversation family (bubble, message, marker) ---
+	   Pure composition: every tone is a border/ink treatment, reactions
+	   announce once as a single image, the marker icon stays decorative,
+	   and the family introduces no motion, no stacking, and no rounding. */
+	check('shadcn-parity: bubble, message, marker compose without hues', () => {
+		const html = read('dist/index.html');
+		const css = read('src/styles/components.css');
+
+		for (const v of ['default', 'secondary', 'muted', 'tinted',
+			'outline', 'ghost', 'danger'])
+			assert(css.includes('.cm-bubble--' + v) || v === 'default',
+				'bubble variant missing: ' + v);
+		assert(/--bubble-max: 80%/.test(css), 'the documented 80% cap is not a token');
+		assert(/\.cm-bubble--ghost \{[^}]*max-width: none/.test(css),
+			'ghost must span the full row');
+		assert(/\.cm-bubble--danger \{[^}]*inset 0 0 0 1px/.test(css),
+			'danger carries the house double-rule mark');
+		assert(html.includes('id="chat"'), 'no chat section');
+		assert(html.includes('href="#chat"'), 'chat is not registered in the nav');
+		// reactions announce ONCE - their a11y contract for emoji rows.
+		// Assert BOTH rows by their own label: with one shared regex a
+		// mutant that kills a single row survives behind its twin.
+		assert(
+			/role="img" aria-label="reacted with eyes and rocket, plus 2"/.test(html),
+			'the reactions row lost its single-image label'
+		);
+		assert(
+			/role="img" aria-label="reacted with a thumbs up"/.test(html),
+			'the end-aligned reactions row lost its label'
+		);
+		// the marker icon stays decorative; the author supplies the role
+		assert(/cm-marker__icon" aria-hidden/.test(html),
+			'marker icon is not hidden from assistive tech');
+		assert(html.includes('cm-bubble--end') && html.includes('cm-msg--end'),
+			'end alignment is unrendered');
+		assert(html.includes('cm-msg-group') && html.includes('cm-bubble-group'),
+			'group wrappers are unrendered');
+		// the family is pure composition: no motion, no stacking, no radius
+		assert(!/\.cm-bubble[^,{]*\{[^}]*animation/.test(css),
+			'bubbles must not animate');
+		assert(!/\.cm-(msg|marker)[^,{]*\{[^}]*z-index/.test(css),
+			'the conversation family must not stack');
+		assert(!/\.cm-(bubble|msg|marker)[^,{]*\{[^}]*border-radius/.test(css),
+			'sharp corners only - no radius in the chat family');
+	});
+	/* --- shadcn parity: attachment + questionnaire --- */
+	check('shadcn-parity: attachment composes with the utilities, quiz binds', () => {
+		const html = read('dist/index.html');
+		const css = read('src/styles/components.css');
+		const js = read('src/js/cli-mono.js');
+		for (const c of ['cm-attach', 'cm-attach__media', 'cm-attach__content',
+			'cm-attach__title', 'cm-attach__desc', 'cm-attach__actions',
+			'cm-attach__action', 'cm-attach__trigger', 'cm-attach-group',
+			'cm-attach--sm', 'cm-attach--xs', 'cm-attach--vertical',
+			'cm-attach--image', 'cm-attach--uploading', 'cm-attach--processing',
+			'cm-attach--error', 'cm-attach--done']) {
+			assert(html.includes(c), 'attachment part unrendered: ' + c);
+		}
+		// the lifecycle states are styling, not colour: shimmer in flight,
+		// the house double-rule on error, reason kept in the description
+		assert(/cm-attach--uploading[\s\S]{0,220}cm-shimmer/.test(html),
+			'uploading does not shimmer the title');
+		assert(/cm-attach--error[\s\S]{0,400}failed - /.test(html),
+			'error keeps its reason in text (meaning beyond colour)');
+		assert(/\.cm-attach--error \{[^}]*outline: 1px solid var\(--ink\);[^}]*outline-offset: -4px;/.test(css),
+			'error must carry a true double rule: two lines with a gap');
+		assert(/\.cm-attach__actions \{[^}]*gap: var\(--space-2\);/.test(css),
+			'the action pair keeps its breath');
+		// the trigger paints above content, below actions - by paint order:
+		// absolute trigger, relative actions LATER in DOM, no z-index ladder
+		assert(/\.cm-attach__trigger \{[^}]*position: absolute[^}]*inset: 0/.test(css),
+			'the trigger does not cover the card');
+		assert(/\.cm-attach__actions \{[^}]*position: relative/.test(css)
+			&& !/\.cm-attach__actions \{[^}]*z-index:\s*\d/.test(css),
+			'the actions must rely on paint order, not a stacking value');
+		// the media slot is a sub-frame of the card (their Media styling)
+		assert(/\.cm-attach__media \{[^}]*border: 1px solid var\(--line-soft\)/.test(css),
+			'the media slot lost its frame');
+		// the group is scrollable, snapping and composed with the batch-15 fade
+		assert(/\.cm-attach-group \{[^}]*overflow-x: auto/.test(css)
+			&& /scroll-snap-align: start/.test(css),
+			'the group is not a snapping scroll row');
+		assert(/cm-attach-group cm-scroll-fade/.test(html),
+			'the group does not compose cm-scroll-fade');
+		assert(/cm-attach-group[^>]*tabindex="0"[^>]*role="group"/.test(html)
+			|| /role="group"[^>]*tabindex="0"/.test(html),
+			'a presentational group is not keyboard-reachable');
+		for (const m of html.match(/class="cm-attach__action"[^>]*>/g) || []) {
+			assert(/aria-label=/.test(m), 'icon-only attachment action without a label: ' + m);
+		}
+		// questionnaire: the a11y contract is fieldset+legend+progressbar
+		assert((html.match(/<fieldset class="cm-quiz__item"/g) || []).length >= 3,
+			'quiz items are not fieldsets');
+		// EVERY item's legend must be focusable - one dead item is a dead
+		// navigation step, so count them (a single-match regex hides it)
+		assert((html.match(/<legend class="cm-quiz__title" tabindex="-1">/g) || []).length
+			=== (html.match(/<fieldset class="cm-quiz__item"/g) || []).length,
+			'an item legend is not focusable for navigation');
+		assert(/role="progressbar" aria-label="Questionnaire progress"/.test(html),
+			'progress is not a named progressbar');
+		assert(/data-cm-quiz/.test(html), 'the quiz is not marked for init');
+		// their a11y line: the freeform input needs a NAME - a placeholder
+		// is not a label
+		assert(/class="cm-quiz__input"[^>]*aria-label="Another answer"/.test(html),
+			'the freeform answer has no accessible name');
+		assert((html.match(/data-shortcut="/g) || []).length >= 5,
+			'answer shortcuts are unrendered');
+		assert((html.match(/class="cm-quiz__error" role="alert" hidden>/g) || []).length >= 2,
+			'per-item errors must exist, be alerts, and start hidden');
+		assert(js.includes('function cmInitQuiz(root)'), 'cmInitQuiz missing');
+		assert(js.includes('cmInitQuiz(root);'), 'cmInitQuiz is not registered in init');
+		assert(js.includes('[data-cm-quiz]'), 'the late-markup observer list omits the quiz');
+		assert(js.includes("form.reset()"), 'submit must wipe with a full form.reset()');
+		assert(js.includes("questionnaire submitted - "), 'submit must toast');
+		// sharp corners hold for the new family
+		assert(!/\.cm-(attach|quiz)[^{]*\{[^}]*border-radius/.test(css),
+			'sharp corners only - no radius in attachment/quiz');
+	});
+
 
 check('.cm-tag survives a word too long for its column', () => {
 	// Measured in WebKit at 390 and 320: a long single-word tag laid out at

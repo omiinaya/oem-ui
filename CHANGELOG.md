@@ -1802,6 +1802,42 @@ turning the sweep off, the full submit/fill/reset/blur validation
 flows), and suite 550/0 + WebKit 17/17 + 23/23 mutants killed
 (mutator: `tests/mutate-forms-fade.py`).
 
+## Added
+
+### Batch 16: the conversation family, attachment, questionnaire
+
+**Bubble, message, marker** - shadcn's chat trio as pure composition,
+no runtime. Seven bubble tones as border/ink treatments (base = strong
+inverted default, `ghost` full-width, `danger` with the house
+double-rule), the documented 80% cap as `--bubble-max`, edge-anchored
+reactions announced once as a single `role="img"` image, `cm-msg` with
+a bottom-anchored avatar and header/footer that follow the side,
+groups with the empty-avatar rhythm, and `cm-marker` inline / bordered
+/ labeled-separator (icon `aria-hidden`, author-supplied role,
+composing `cm-shimmer` on the typing indicator).
+
+**Attachment** - the composed file card: media/content/actions, a
+full-card trigger painted above the content and below the actions, five
+upload states (shimmer in flight, double-rule on error, reason kept in
+text), three sizes, two orientations, an image variant, and a snapping
+`cm-attach-group` composing `cm-scroll-fade`.
+
+**Questionnaire** - `data-cm-quiz`, the house's second init-owned
+runtime: `fieldset`+`legend` items, named progressbar, native
+radio/checkbox keyboard preserved, freeform input beside fixed choices,
+letter/number shortcuts, explicit skip, validation that jumps to the
+first unanswered required item (focus follows), and a submit that
+toasts then wipes with a full `form.reset()`.
+
+Proven: suite 552/0; `tests/verify-chat.py` (WebKit, 12 checks) with
+a 12-mutant run (`tests/mutate-chat.py`, rc 0); `tests/verify-attach-quiz.py`
+(WebKit, 14 checks) with a 22-mutant run (`tests/mutate-attach-quiz.py`,
+rc 0). The vision pass corrected three real defects: the error frame is a
+true double rule (border line + `outline-offset: -4px` companion, proven
+by pixel profile), the action pair keeps 8px between 44px targets, and
+the stacking contract now enforces ONE owner (DOM paint order, no
+`z-index` ladder).
+
 ## Fixed
 
 - Two stacking checks demanded a literal `z-index: <number>`, which fails on

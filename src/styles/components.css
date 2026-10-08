@@ -6989,6 +6989,328 @@ input.cm-slider:disabled {
 .cm-shimmer--reverse { animation-direction: reverse; }
 .cm-shimmer--none { animation: none; background-image: none; color: inherit; }
 
+/* ---------- the conversation family: bubble, message, marker ----------
+   shadcn splits chat into the surface (Bubble), the row (Message) and
+   the system notes (Marker). This slice is pure composition - no
+   runtime - and every tone maps to the MONO palette: a variant is a
+   border and ink treatment, never a hue (their own accessibility note
+   says pair variants with text, not color; the house takes that
+   literally). The base bubble IS the default variant - the strong,
+   inverted "me" bubble - and every other tone overrides it. Sizes cap
+   at --bubble-max (80%, their documented limit); ghost drops the frame
+   AND the cap for assistant text. Reactions anchor to the bubble edge
+   with negative space, and the markup labels the row role="img" so it
+   announces ONCE - a row of emoji read glyph by glyph is noise. */
+.cm-bubble {
+	--bubble-max: 80%;
+	display: inline-flex;
+	flex-direction: column;
+	align-self: flex-start;
+	max-width: var(--bubble-max, 80%);
+	border: 1px solid transparent;
+	background: var(--ink);
+	color: var(--bg);
+	padding: var(--space-2) var(--space-3);
+	font: inherit;
+}
+.cm-bubble__content { display: block; }
+.cm-bubble__content--interactive { text-decoration: none; cursor: pointer; }
+.cm-bubble--secondary { background: var(--panel); color: var(--ink); border-color: var(--line); }
+.cm-bubble--muted { background: transparent; color: var(--ink-dim); border-color: var(--line-soft); }
+.cm-bubble--tinted { background: color-mix(in srgb, var(--accent) 12%, var(--panel)); color: var(--ink); border-color: var(--line); }
+.cm-bubble--outline { background: transparent; color: var(--ink); border-color: var(--ink); }
+.cm-bubble--danger { background: transparent; color: var(--ink); border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.cm-bubble--ghost { background: transparent; border-color: transparent; color: var(--ink); max-width: none; width: 100%; padding-inline: 0; }
+.cm-bubble--end { align-self: flex-end; }
+/* consecutive bubbles from one sender: a tighter gap than the library
+   gap, because the stack reads as ONE turn */
+.cm-bubble-group { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); }
+.cm-bubble__reactions {
+	display: flex;
+	gap: var(--space-1);
+	align-self: flex-start;
+	margin-top: calc(-1 * (var(--space-1) + var(--space-2)));
+}
+.cm-bubble__reactions--end { align-self: flex-end; }
+.cm-bubble__reaction {
+	border: 1px solid var(--line);
+	background: var(--bg-2);
+	padding: 0 var(--space-1);
+	font-size: var(--text-micro);
+}
+/* the row: avatar anchored to the BOTTOM of the message (their spec),
+   body column carries header / bubble / footer; --end flips the
+   columns, the body alignment and the footer's actions together */
+.cm-msg {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: var(--space-2);
+	align-items: end;
+}
+.cm-msg--end { grid-template-columns: 1fr auto; }
+.cm-msg--end .cm-msg__avatar { order: 2; }
+.cm-msg__avatar { display: flex; align-items: flex-end; }
+.cm-msg__body { display: flex; flex-direction: column; gap: var(--space-1); align-items: flex-start; min-width: 0; }
+.cm-msg--end .cm-msg__body { align-items: flex-end; }
+.cm-msg__header,
+.cm-msg__footer {
+	margin: 0;
+	font-size: var(--text-micro);
+	color: var(--ink-faint);
+	display: flex;
+	gap: var(--space-2);
+	align-items: baseline;
+}
+.cm-msg--end .cm-msg__footer { justify-content: flex-end; }
+.cm-msg__action {
+	background: none;
+	border: 0;
+	margin: 0;
+	padding: 0;
+	font: inherit;
+	font-size: var(--text-micro);
+	color: var(--ink-dim);
+	text-decoration: underline;
+	cursor: pointer;
+}
+/* consecutive rows from one sender keep the avatar rhythm: earlier
+   rows carry an EMPTY .cm-msg__avatar and the gap tightens */
+.cm-msg-group { display: flex; flex-direction: column; gap: var(--space-1); }
+/* system notes: a centered inline marker, a bordered status row, or a
+   labeled separator - the icon slot is aria-hidden in the markup and
+   the row itself stays presentational (role comes from the author) */
+.cm-marker {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-2);
+	color: var(--ink-faint);
+	font-size: var(--text-micro);
+}
+.cm-marker__icon { display: inline-flex; }
+.cm-marker__content { display: inline-block; }
+.cm-marker--border {
+	width: 100%;
+	justify-content: flex-start;
+	border-block: 1px solid var(--line-soft);
+	padding-block: var(--space-1);
+}
+.cm-marker--separator {
+	width: 100%;
+	gap: var(--space-3);
+}
+.cm-marker--separator::before,
+.cm-marker--separator::after {
+	content: "";
+	flex: 1;
+	border-top: 1px solid var(--line-soft);
+}
+
+/* ---------- attachment: the file/upload card ----------
+   shadcn's Attachment is a composed card (media, content, actions, an
+   optional full-card trigger) with an upload lifecycle, three sizes, two
+   orientations, an image variant and a snapping group. Every state maps
+   to the mono palette: in-progress titles SHIMMER (their documented
+   cue), error is the house double-rule with the reason kept in the
+   description - never colour alone. The trigger paints ABOVE the static
+   content but BELOW the actions (position + paint order, not a z-index
+   ladder), so the card opens and the actions stay independently
+   clickable and focusable. The group composes .cm-scroll-fade - the
+   utility built in batch 15 - plus snap points. */
+.cm-attach {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	min-height: var(--tap);
+	max-width: 100%;
+	border: 1px solid var(--line);
+	background: var(--panel);
+	padding: var(--space-2) var(--space-3);
+	color: var(--ink);
+}
+.cm-attach--vertical { flex-direction: column; align-items: stretch; }
+.cm-attach--sm { padding: var(--space-1) var(--space-2); gap: var(--space-2); }
+.cm-attach--xs { padding: 2px var(--space-1); gap: var(--space-1); min-height: 0; }
+.cm-attach__media {
+	flex: none;
+	display: grid;
+	place-items: center;
+	width: calc(var(--tap) / 2);
+	height: calc(var(--tap) / 2);
+	border: 1px solid var(--line-soft);
+	background: var(--panel-nested);
+	color: var(--ink-dim);
+	font-size: var(--text-micro);
+	overflow: hidden;
+}
+.cm-attach--sm .cm-attach__media,
+.cm-attach--xs .cm-attach__media { width: calc(var(--tap) / 2); }
+.cm-attach--image .cm-attach__media { width: calc(var(--tap) * 1.6); height: calc(var(--tap) * 1.2); }
+.cm-attach__media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cm-attach__content {
+	flex: 1;
+	min-width: 0;
+	display: grid;
+	gap: var(--space-0);
+}
+.cm-attach__title {
+	margin: 0;
+	font-size: var(--text-sm);
+	font-weight: 600;
+	color: var(--ink);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.cm-attach__desc {
+	margin: 0;
+	font-size: var(--text-micro);
+	color: var(--ink-dim);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.cm-attach__actions {
+	/* stacking WITHOUT a value ladder: the trigger is absolute (z auto), the
+	   actions are relative and LATER in DOM, so paint order alone puts
+	   the actions on top - one owner of the mechanism */
+	position: relative;
+	flex: none;
+	display: flex;
+	gap: var(--space-2);
+}
+.cm-attach__action {
+	display: inline-grid;
+	place-items: center;
+	min-width: var(--tap);
+	min-height: var(--tap);
+	margin: 0;
+	border: 1px solid transparent;
+	background: transparent;
+	color: var(--ink-dim);
+	font: inherit;
+	cursor: pointer;
+}
+.cm-attach__action:hover { color: var(--ink); border-color: var(--line); }
+.cm-attach__trigger {
+	position: absolute;
+	inset: 0;
+	cursor: pointer;
+}
+/* upload lifecycle: shimmer while in flight, the double-rule on error */
+.cm-attach--uploading .cm-attach__title,
+.cm-attach--processing .cm-attach__title { color: var(--ink-faint); }
+.cm-attach--error {
+	border-color: var(--ink);
+	outline: 1px solid var(--ink);
+	outline-offset: -4px;
+}
+.cm-attach--error .cm-attach__desc { color: var(--ink); }
+.cm-attach--done .cm-attach__media { color: var(--ink); border-color: var(--ink); }
+.cm-attach-group {
+	display: flex;
+	gap: var(--space-2);
+	overflow-x: auto;
+	scroll-snap-type: x mandatory;
+	padding-block: var(--space-1);
+}
+.cm-attach-group > .cm-attach {
+	flex: none;
+	scroll-snap-align: start;
+}
+
+/* ---------- questionnaire: one question at a time ----------
+   shadcn's Questionnaire is a wizard over a form: fieldset+legend per
+   item (their a11y contract), a named progressbar, real buttons for
+   navigation, native radio/checkbox keyboard preserved, per-item error,
+   optional skip, letter/number shortcuts, and a submit that validates
+   EVERY required item - returning to the first offender - then toasts
+   and wipes with a full form.reset(). Inactive items are [hidden];
+   focus moves to the newly active legend on navigation (tabindex -1 in
+   the markup) and to the first available answer control on a failed
+   validation. */
+.cm-quiz {
+	display: grid;
+	gap: var(--space-3);
+	max-width: 46rem;
+}
+.cm-quiz__progress {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	font-size: var(--text-micro);
+	color: var(--ink-dim);
+}
+.cm-quiz__label { flex: none; font-variant-numeric: tabular-nums; }
+.cm-quiz__track {
+	flex: 1;
+	height: 4px;
+	background: var(--line);
+	overflow: hidden;
+}
+.cm-quiz__bar {
+	display: block;
+	height: 100%;
+	background: var(--ink);
+	transition: width 160ms ease-out;
+}
+.cm-quiz__item {
+	margin: 0;
+	padding: 0 0 var(--space-3);
+	border: 0;
+	border-bottom: 1px solid var(--line-soft);
+	display: grid;
+	gap: var(--space-2);
+}
+.cm-quiz__item[hidden] { display: none; }
+.cm-quiz__title {
+	padding: 0;
+	font-size: var(--text-md);
+	font-weight: 600;
+	color: var(--ink);
+}
+.cm-quiz__desc { margin: 0; font-size: var(--text-sm); color: var(--ink-dim); }
+.cm-quiz__choices { display: grid; gap: var(--space-1); }
+.cm-quiz__choice {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--space-2);
+	min-height: var(--tap);
+	padding: var(--space-2);
+	border: 1px solid var(--line-soft);
+	background: var(--panel);
+	cursor: pointer;
+}
+.cm-quiz__choice:has(input:checked) { border-color: var(--ink); }
+.cm-quiz__choice input { margin-top: var(--space-0); flex: none; }
+.cm-quiz__choice > span { display: grid; gap: var(--space-0); min-width: 0; }
+.cm-quiz__hint { font-size: var(--text-micro); color: var(--ink-dim); }
+.cm-quiz__input {
+	font: inherit;
+	font-size: var(--text-sm);
+	min-height: var(--tap);
+	max-width: 100%;
+	border: 1px solid var(--line);
+	background: var(--bg);
+	color: var(--ink);
+	padding: 0 var(--space-2);
+}
+.cm-quiz__error {
+	margin: 0;
+	font-size: var(--text-sm);
+	color: var(--ink);
+}
+.cm-quiz__error::before { content: "! "; font-weight: 700; }
+.cm-quiz__error[hidden] { display: none; }
+.cm-quiz__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+	justify-content: flex-end;
+}
+.cm-quiz__actions [hidden] { display: none; }
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;

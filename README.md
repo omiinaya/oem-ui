@@ -2054,33 +2054,85 @@ polite live-region count of what needs attention.
   `data-cm-validate-toast="..."`); `reset` clears every mark after the
   platform restores the values.
 
+### Chat: bubble, message, marker
+
+The conversation family is **pure composition** - no runtime, no script.
+`cm-bubble` is the surface: seven tones (the base class *is* the strong
+default; `--secondary --muted --tinted --outline --ghost --danger`), sizes
+to content up to `--bubble-max` (80% of the row, their documented cap),
+and `--ghost` drops the frame *and* the cap for full-width assistant text.
+Tones are border and ink treatments, never hues - the docs themselves say
+to pair variants with text or alignment, and the house takes that
+literally. `--danger` carries the same double-rule mark as
+`cm-btn--danger`. `cm-bubble--end` flips a bubble to the user's side.
+
+Reactions (`cm-bubble__reactions`, `--end` to anchor the other side)
+overlap the bubble edge with negative space, exactly as their layout note
+describes. Label the row `role="img"` with one `aria-label`: a screen
+reader announcing a row of emoji glyph by glyph is noise. Interactive
+bubbles are REAL links or buttons - put `cm-bubble__content` on the
+anchor and the text becomes the accessible name.
+
+`cm-msg` is the row: the avatar anchors to the **bottom** of the message,
+the body carries header / bubble / footer, and `--end` flips the columns,
+the body alignment, and the footer's actions together (the footer follows
+the message side). `cm-msg-group` stacks consecutive same-sender rows;
+earlier rows carry an **empty** `cm-msg__avatar` so the avatar rhythm
+holds. `cm-msg__action` is the bare footer button (copy, retry).
+
+`cm-marker` is the system note: inline and centered by default,
+`--border` for a full-width status row, `--separator` for a labeled
+divider. The icon slot is `aria-hidden` in the markup; the row itself is
+presentational, so the author supplies the role (`role="status"` for
+streaming). It composes with the utilities: `.cm-shimmer` on the content
+sweeps "typing..." text.
+
+### Attachment and questionnaire
+
+`cm-attach` is the composed file card - media, content, icon-only
+actions, a full-card `cm-attach__trigger` that paints above the content
+but below the actions (so activating the card never steals a click from
+`remove`), five upload states where in-progress titles **shimmer** and
+`error` is the house double-rule with the reason kept in text, three
+sizes, two orientations, an image variant, and a snapping
+`cm-attach-group` that composes `cm-scroll-fade` from the batch-15
+utilities. The questionnaire (`data-cm-quiz`, bound by `init` and the
+late-markup observer) is a one-question wizard over a real form:
+`fieldset`+`legend` per item, a named progressbar, native radio and
+checkbox keyboard, a freeform answer beside fixed choices, letter and
+number shortcuts, an explicit skip on optional items, validation that
+jumps to the first unanswered required item and focuses an answer
+control, and a submit that toasts and wipes with a full `form.reset()`.
+Successful navigation focuses the new legend; failed validation keeps
+focus in the field that failed.
+
 ## shadcn/ui parity status
 
 The standing goal is component parity with
 [shadcn/ui](https://ui.shadcn.com/docs/components) in the established
 theme. The catalog is 64 components as of this writing: this library
-implements **56** and deliberately does not implement **8**, each for a
+implements **61** and does not yet implement **3**, each for a
 stated reason.
 
 **Implemented (56):** Accordion, Alert, Alert Dialog (a confirming
-Dialog), Aspect Ratio, Avatar, Badge, Breadcrumb, Button (including
+Dialog), Aspect Ratio, Attachment, Avatar, Badge, Bubble,
+Breadcrumb, Button (including
 destructive, outline and joined), Button Group, Calendar, Card,
 Carousel, Checkbox, Collapsible, Combobox, Command (palette), Context
 Menu, Data Table (Table + sort), Date Picker, Dialog, Drawer, Dropdown
 Menu, Empty, Field (label/help/error wiring), Hover Card, Input, Input
-Group, Input OTP, Item, Kbd, Label, Menubar, Native Select (a styled
+Group, Input OTP, Item, Kbd, Label, Marker, Message, Menubar, Native Select (a styled
 `<select>`), Navigation Menu (as the rail + sticky header - see
-*The two nav states*), Pagination, Popover, Progress, Radio Group,
+*The two nav states*), Pagination, Popover, Progress, Questionnaire, Radio Group,
 Resizable, Scroll Area, Select, Separator, Sheet, Sidebar, Skeleton,
 Slider, Spinner, Switch, Table, Tabs, Textarea, Toast, Toggle, Toggle
 Group, Tooltip, Typography.
 
-**Not implemented (8), by decision:**
+**Not implemented (3):**
 
-- **Attachment, Bubble, Marker, Message, Message Scroller,
-  Questionnaire** - shadcn's conversation/AI family (two of them ship
-  in `@shadcn/react`). A terminal design system for applications has no
-  conversation thread to compose them into.
+- **Message Scroller** - the sixth and last of the conversation family,
+  in flight as the next batch: turn anchoring, `scrollToMessage` with a
+  peek, live-edge pinning, inert edge buttons.
 - **Chart** - a Recharts wrapper, not a design primitive; consumers
   compose their own charts.
 - **Direction** - an RTL/i18n direction helper; this system is LTR and

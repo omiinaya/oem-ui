@@ -2520,6 +2520,151 @@
 	   already merged its id into aria-describedby, so unfocusing a
 	   broken field announces exactly what is wrong). Default mode is
 	   submit; blur/input map to their onBlur/onChange. */
+	/* Questionnaire - the one-question-at-a-time wizard. Bound by
+	   [data-cm-quiz]; native radios/checkboxes keep their keyboard, the
+	   freeform input rides alongside, and submit validates every required
+	   item (jumping to the first offender) before toasting and resetting
+	   the WHOLE form - answers included. Shortcuts: a data-shortcut letter
+	   or number on a choice selects it while the quiz has focus. */
+	function cmInitQuiz(root) {
+		var forms = root.querySelectorAll('[data-cm-quiz]');
+		for (var q = 0; q < forms.length; q++) {
+			(function (form) {
+				if (form.__cmQuiz) return;
+				form.__cmQuiz = true;
+				var items = Array.prototype.slice.call(
+					form.querySelectorAll('.cm-quiz__item')
+				);
+				if (!items.length) return;
+				var progress = form.querySelector('.cm-quiz__progress');
+				var bar = form.querySelector('.cm-quiz__bar');
+				var label = form.querySelector('.cm-quiz__label');
+				var prev = form.querySelector('[data-quiz-prev]');
+				var next = form.querySelector('[data-quiz-next]');
+				var skip = form.querySelector('[data-quiz-skip]');
+				var submit = form.querySelector('[data-quiz-submit]');
+				var active = 0;
+
+				function required(item) { return item.hasAttribute('data-required'); }
+				function controls(item) {
+					return Array.prototype.slice.call(
+						item.querySelectorAll(
+							'input[type=radio], input[type=checkbox], .cm-quiz__input'
+						)
+					);
+				}
+				function answered(item) {
+					var boxes = item.querySelectorAll(
+						'input[type=radio], input[type=checkbox]'
+					);
+					for (var i = 0; i < boxes.length; i++) {
+						if (boxes[i].checked) return true;
+					}
+					var typed = item.querySelector('.cm-quiz__input');
+					return !!typed && typed.value.trim() !== '';
+				}
+				function mark(item, bad) {
+					var err = item.querySelector('.cm-quiz__error');
+					if (err) err.hidden = !bad;
+					var cs = controls(item);
+					for (var i = 0; i < cs.length; i++) {
+						if (bad) cs[i].setAttribute('aria-invalid', 'true');
+						else cs[i].removeAttribute('aria-invalid');
+					}
+					if (bad) item.setAttribute('data-invalid', '');
+					else item.removeAttribute('data-invalid');
+				}
+				function render(focus) {
+					for (var i = 0; i < items.length; i++) {
+						items[i].hidden = i !== active;
+					}
+					var total = items.length;
+					var cur = active + 1;
+					if (progress) {
+						progress.setAttribute('aria-valuenow', String(cur));
+						progress.setAttribute('aria-valuemin', '1');
+						progress.setAttribute('aria-valuemax', String(total));
+					}
+					if (label) label.textContent = cur + ' / ' + total;
+					if (bar) bar.style.width = Math.round((cur / total) * 100) + '%';
+					if (prev) prev.hidden = active === 0;
+					if (next) next.hidden = active === total - 1;
+					if (submit) submit.hidden = active !== total - 1;
+					if (skip) skip.hidden = required(items[active]);
+					if (focus) {
+						var legend = items[active].querySelector('.cm-quiz__title');
+						if (legend) legend.focus();
+					}
+				}
+				function advance() {
+					var item = items[active];
+					if (required(item) && !answered(item)) {
+						mark(item, true);
+						var first = controls(item)[0];
+						if (first) first.focus();
+						return false;
+					}
+					mark(item, false);
+					return true;
+				}
+				function step(to) {
+					active = to;
+					render(true);
+				}
+				if (next) {
+					next.addEventListener('click', function () {
+						if (advance() && active < items.length - 1) step(active + 1);
+					});
+				}
+				if (prev) {
+					prev.addEventListener('click', function () {
+						if (active > 0) step(active - 1);
+					});
+				}
+				if (skip) {
+					skip.addEventListener('click', function () {
+						mark(items[active], false);
+						if (active < items.length - 1) step(active + 1);
+					});
+				}
+				form.addEventListener('submit', function (e) {
+					e.preventDefault();
+					for (var i = 0; i < items.length; i++) {
+						if (required(items[i]) && !answered(items[i])) {
+							active = i;
+							render(false);
+							mark(items[i], true);
+							var first = controls(items[i])[0];
+							if (first) first.focus();
+							return;
+						}
+					}
+					var answers = 0;
+					for (var j = 0; j < items.length; j++) {
+						if (answered(items[j])) answers++;
+					}
+					toast('questionnaire submitted - ' + answers + ' answers', 'ok');
+					form.reset();
+					for (var k = 0; k < items.length; k++) mark(items[k], false);
+					active = 0;
+					render(true);
+				});
+				form.addEventListener('keydown', function (e) {
+					if (e.metaKey || e.ctrlKey || e.altKey) return;
+					if (!e.key || e.key.length !== 1) return;
+					var choice = items[active].querySelector(
+						'.cm-quiz__choice[data-shortcut="' + e.key.toLowerCase() + '"] input'
+					);
+					if (choice) {
+						choice.checked = true;
+						mark(items[active], false);
+					}
+				});
+				render(false);
+			})(forms[q]);
+		}
+	}
+
 	function cmInitForms(root) {
 		var forms = root.querySelectorAll('form[data-cm-validate]');
 		for (var i = 0; i < forms.length; i++) {
@@ -2641,6 +2786,7 @@
 		cmInitDrawer(root);
 		cmInitFields(root);
 		cmInitForms(root);
+		cmInitQuiz(root);
 		cmInitDatepickers(root);
 		cmInitSort(root);
 		cmInitShortcuts();
@@ -2701,7 +2847,8 @@
 	function hasLibraryMarkup() {
 		return !!document.querySelector(
 			'[data-cm-header], [data-cm-nav-toggle], [data-cm-copy], ' +
-			'[data-cm-tabs], [data-cm-toast], .cm-prose-table'
+			'[data-cm-tabs], [data-cm-toast], [data-cm-quiz], ' +
+			'.cm-prose-table'
 		);
 	}
 
