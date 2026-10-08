@@ -655,37 +655,8 @@
 	from { background: var(--panel); border-color: var(--line); }
 	to { background: var(--ink-dim); border-color: var(--ink-dim); }
 }
-@media (prefers-reduced-motion: reduce) {
-	/* Every animation in the system is listed here, not next to its own
-	   rule. A guard that lives beside one component silently leaves the next
-	   component unguarded, and an unguarded spinner is a real accessibility
-	   failure rather than a nit. */
-	.cm-cursor,
-	.cm-spec__chip--motion,
-	.cm-glyph-spin,
-	.cm-skeleton__line,
-	.cm-skeleton__block,
-	.cm-spinner,
-	.cm-toast,
-	.cm-alert--loading .cm-alert__mark::before,
-	.cm-alert--loading .cm-toast__mark::before,
-	.cm-toast--loading .cm-toast__mark::before { animation: none; }
-	/* With no pulse, a skeleton must still read as a placeholder, and a
-	   blinking caret must still read as a caret. */
-	.cm-skeleton__line, .cm-skeleton__block { opacity: 0.55; }
-	.cm-cursor { opacity: 1; }
-	/* The burger's bars morph into an X. A `transition` is motion too -
-	   `animation: none` above does not touch it, and the X still has to
-	   appear, just without sliding. */
-	.cm-nav-toggle__bars::before,
-	.cm-nav-toggle__bars::after,
-	.cm-nav-toggle__bar { transition: none; }
-	/* A progress fill sliding to its new value is motion too: under
-	   reduced motion the bar JUMPS to the value it is told. */
-	.cm-progress__fill { transition: none; }
-	.cm-js .cm-nav-scrim { transition: none; }
-	.cm-js .cm-header__links { animation: none; }
-}
+
+
 /* On a phone the three columns will not fit: stack the label above the
    sample and let the value sit on the same line as the label. */
 @media (max-width: 680px) {
@@ -2269,8 +2240,8 @@ button.cm-row:hover { background: var(--bg-2); }
 	   MEASURED on rpm: access-log is 806px inside a 308px scroll box
 	   (over by 498px) with no visible scrollbar — no hint it scrolls.
 	   Applied to the wrapper so every table page benefits. */
-	-webkit-mask-image: linear-gradient(to right, #000 0%, #000 92%, transparent 100%);
-	mask-image: linear-gradient(to right, #000 0%, #000 92%, transparent 100%);
+	/* The mask itself lives on the element now: .cm-scroll-fade-x
+	   tracks the scroll instead of fading blind. */
 }
 .cm-table { width: 100%; border-collapse: collapse; font-size: var(--text-xs); }
 /* Sticky needs the wrapper to be the scroll box, not the page. */
@@ -6897,6 +6868,127 @@ input.cm-slider:disabled {
 	overscroll-behavior: contain;
 }
 
+
+/* ---------- scroll-fade: the scrollport fades its own edges ----------
+   shadcn's utils/scroll-fade in house CSS - and its ZERO JS holds
+   literally: animation-timeline: scroll(self ...) maps the element's
+   OWN scroll position onto one registered number, --sf-p, and the mask
+   stops are calc() formulas over it. At rest (--sf-p: 0) the top/start
+   is crisp and the end fades - the "there is more" hint. Mid-scroll
+   both edges fade. At the end the end is sharp again and the top
+   fades: every cut edge is visible exactly when content is cut there.
+
+   @property --sf-p is load-bearing: custom properties do not
+   interpolate without registration, so without it the keyframes would
+   flip discretely at 50% scroll instead of sliding. The @supports gate
+   keeps non-timeline engines on the STATIC rest-state fade - the
+   affordance ships; only the scroll-linkage is lost. (The fallback is
+   free: --sf-p rests at 0 and nothing animates.)
+
+   Sizes: --fade-size, default min(12%, 40px) - shadcn's 12% with the
+   40px cap so a huge box does not fade a quarter of itself. The px
+   sugar (-4/-8/-16/-32) exists because a static stylesheet cannot
+   know an arbitrary scroll-fade-<n> class name; the var is the real
+   knob. MEASURED need: access-log is 806px inside a 308px scroll box
+   with no visible scrollbar - a mask on the scrollport IS the hint. */
+@property --sf-p { syntax: "<number>"; inherits: true; initial-value: 0; }
+.cm-scroll-fade,
+.cm-scroll-fade-y {
+	--fade-size: min(12%, 40px);
+	--sf-p: 0;
+	-webkit-mask-image: linear-gradient(to bottom,
+		transparent calc(var(--sf-p, 0) * var(--fade-size, min(12%, 40px)) * var(--sf-top-k, 1)),
+		black calc(var(--sf-p, 0) * var(--fade-size, min(12%, 40px)) * var(--sf-top-k, 1)),
+		black calc(100% - (1 - var(--sf-p, 0)) * var(--fade-size, min(12%, 40px)) * var(--sf-bot-k, 1)),
+		transparent calc(100% - (1 - var(--sf-p, 0)) * var(--fade-size, min(12%, 40px)) * var(--sf-bot-k, 1)));
+	mask-image: linear-gradient(to bottom,
+		transparent calc(var(--sf-p, 0) * var(--fade-size, min(12%, 40px)) * var(--sf-top-k, 1)),
+		black calc(var(--sf-p, 0) * var(--fade-size, min(12%, 40px)) * var(--sf-top-k, 1)),
+		black calc(100% - (1 - var(--sf-p, 0)) * var(--fade-size, min(12%, 40px)) * var(--sf-bot-k, 1)),
+		transparent calc(100% - (1 - var(--sf-p, 0)) * var(--fade-size, min(12%, 40px)) * var(--sf-bot-k, 1)));
+}
+.cm-scroll-fade-x {
+	--fade-size: min(12%, 40px);
+	--sf-p: 0;
+	-webkit-mask-image: linear-gradient(to right,
+		transparent calc(var(--sf-p, 0) * var(--fade-size, min(12%, 40px)) * var(--sf-s-k, 1)),
+		black calc(var(--sf-p, 0) * var(--fade-size, min(12%, 40px)) * var(--sf-s-k, 1)),
+		black calc(100% - (1 - var(--sf-p, 0)) * var(--fade-size, min(12%, 40px)) * var(--sf-e-k, 1)),
+		transparent calc(100% - (1 - var(--sf-p, 0)) * var(--fade-size, min(12%, 40px)) * var(--sf-e-k, 1)));
+	mask-image: linear-gradient(to right,
+		transparent calc(var(--sf-p, 0) * var(--fade-size, min(12%, 40px)) * var(--sf-s-k, 1)),
+		black calc(var(--sf-p, 0) * var(--fade-size, min(12%, 40px)) * var(--sf-s-k, 1)),
+		black calc(100% - (1 - var(--sf-p, 0)) * var(--fade-size, min(12%, 40px)) * var(--sf-e-k, 1)),
+		transparent calc(100% - (1 - var(--sf-p, 0)) * var(--fade-size, min(12%, 40px)) * var(--sf-e-k, 1)));
+}
+@keyframes cm-sf { from { --sf-p: 0; } to { --sf-p: 1; } }
+/* Two RULES on purpose: WebKit parses `animation-timeline` as a
+   longhand but rejects it inside the `animation` shorthand, and the
+   minifier folds longhands together when they share a rule - which
+   then voids the entire declaration. Keeping the shorthand and the
+   timeline in separate (equally specific, later-wins) rules is what
+   survives both. */
+@supports (animation-timeline: scroll()) {
+	.cm-scroll-fade,
+	.cm-scroll-fade-y,
+	.cm-scroll-fade-x { animation: cm-sf 1s linear both; }
+	.cm-scroll-fade,
+	.cm-scroll-fade-y { animation-timeline: scroll(self block); }
+	.cm-scroll-fade-x { animation-timeline: scroll(self inline); }
+}
+/* Edge modifiers pin one side's k to 0: the side never fades. Compose
+   freely - the k values only feed whichever axis the element uses. */
+.cm-scroll-fade--t { --sf-bot-k: 0; }
+.cm-scroll-fade--b { --sf-top-k: 0; }
+.cm-scroll-fade--l,
+.cm-scroll-fade--s { --sf-e-k: 0; }
+.cm-scroll-fade--r,
+.cm-scroll-fade--e { --sf-s-k: 0; }
+.cm-scroll-fade--4 { --fade-size: 4px; }
+.cm-scroll-fade--8 { --fade-size: 8px; }
+.cm-scroll-fade--16 { --fade-size: 16px; }
+.cm-scroll-fade--32 { --fade-size: 32px; }
+/* The stop sign: no mask, no timeline. Declared AFTER the @supports
+   gate so equal specificity lands later and wins. */
+.cm-scroll-fade--none {
+	-webkit-mask-image: none;
+	mask-image: none;
+	animation: none;
+}
+
+/* ---------- shimmer: a currentColor sweep clipped to the glyphs ----------
+   The gradient is built from currentColor (highlight = a color-mix
+   toward white), so the text is fully readable at EVERY frame and in
+   every state - the sweep is an addition, never the thing keeping the
+   words alive. That is also why the whole rule lives inside a
+   @supports gate: color: transparent without background-clip: text
+   would be invisible text, the classic shimmer failure. --none restores
+   plain text; reduced motion disables the sweep in the ONE RM block. */
+@supports ((background-clip: text) or (-webkit-background-clip: text)) {
+	.cm-shimmer {
+		--shimmer-duration: 2s;
+		--shimmer-spread: calc(3ch + 40px);
+		--shimmer-angle: 110deg;
+		background-image: linear-gradient(var(--shimmer-angle, 110deg),
+			currentColor 0,
+			currentColor calc(50% - var(--shimmer-spread, calc(3ch + 40px)) / 2),
+			color-mix(in srgb, currentColor 45%, white) 50%,
+			currentColor calc(50% + var(--shimmer-spread, calc(3ch + 40px)) / 2),
+			currentColor 100%);
+		background-size: 250% 100%;
+		background-repeat: no-repeat;
+		background-position: 100% 0;
+		-webkit-background-clip: text;
+		background-clip: text;
+		color: transparent;
+		animation: cm-shimmer var(--shimmer-duration, 2s) linear infinite;
+	}
+}
+@keyframes cm-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+.cm-shimmer--once { animation-iteration-count: 1; }
+.cm-shimmer--reverse { animation-direction: reverse; }
+.cm-shimmer--none { animation: none; background-image: none; color: inherit; }
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;
@@ -6993,6 +7085,41 @@ input.cm-slider:disabled {
 	background: var(--line);
 }
 
+@media (prefers-reduced-motion: reduce) {
+	/* Every animation in the system is listed here, not next to its own
+	   rule. A guard that lives beside one component silently leaves the next
+	   component unguarded, and an unguarded spinner is a real accessibility
+	   failure rather than a nit. */
+	.cm-cursor,
+	.cm-shimmer,
+	.cm-scroll-fade,
+	.cm-scroll-fade-y,
+	.cm-scroll-fade-x,
+	.cm-spec__chip--motion,
+	.cm-glyph-spin,
+	.cm-skeleton__line,
+	.cm-skeleton__block,
+	.cm-spinner,
+	.cm-toast,
+	.cm-alert--loading .cm-alert__mark::before,
+	.cm-alert--loading .cm-toast__mark::before,
+	.cm-toast--loading .cm-toast__mark::before { animation: none; }
+	/* With no pulse, a skeleton must still read as a placeholder, and a
+	   blinking caret must still read as a caret. */
+	.cm-skeleton__line, .cm-skeleton__block { opacity: 0.55; }
+	.cm-cursor { opacity: 1; }
+	/* The burger's bars morph into an X. A `transition` is motion too -
+	   `animation: none` above does not touch it, and the X still has to
+	   appear, just without sliding. */
+	.cm-nav-toggle__bars::before,
+	.cm-nav-toggle__bars::after,
+	.cm-nav-toggle__bar { transition: none; }
+	/* A progress fill sliding to its new value is motion too: under
+	   reduced motion the bar JUMPS to the value it is told. */
+	.cm-progress__fill { transition: none; }
+	.cm-js .cm-nav-scrim { transition: none; }
+	.cm-js .cm-header__links { animation: none; }
+}
 /* ============ stack ownership (LAST, on purpose) ============
    These two rules must beat every component's own block margin. They are
    at the end of the layer for that reason, and `gap` is a single number

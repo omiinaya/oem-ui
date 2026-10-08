@@ -2455,9 +2455,13 @@ check('the table owns its scroll wrapper', () => {
 	// and the wrapper must be keyboard reachable, which is a markup duty
 	const show = showcase.slice(showcase.indexOf('id="states"'),
 		showcase.indexOf('id="prose"'));
-	assert(/class="cm-table-wrap"[^>]*tabindex="0"/.test(show),
+	// Re-derived: the claim is that THE WRAPPER is reachable and named,
+	// not that its class list is exactly one class long - utilities
+	// compose onto it (.cm-scroll-fade-x) and pinning the list made a
+	// honest composition fail a reachability check.
+	assert(/class="[^"]*cm-table-wrap[^"]*"[^>]*tabindex="0"/.test(show),
 		'a scrollable region needs tabindex="0" to be keyboard reachable');
-	assert(/class="cm-table-wrap"[^>]*aria-label=/.test(show),
+	assert(/class="[^"]*cm-table-wrap[^"]*"[^>]*aria-label=/.test(show),
 		'a scrollable region needs an accessible name');
 });
 
@@ -8021,6 +8025,49 @@ check('shadcn-parity: the drawn shortcut, the toast vocabulary, the sticky chrom
 	const act = /^\.cm-toast__action \{[^}]*\}/m.exec(css);
 	assert(act && act[0].includes('margin-left: auto'), 'the action is not pushed to the far edge');
 });
+
+	/* --- shadcn parity: the utils pair and the validating forms ---
+	   scroll-fade must be scroll-LINKED (not a static mask wearing the
+	   name), shimmer must stay clipped behind its @supports gate and be
+	   listed in the ONE reduced-motion block, the table wrappers must
+	   carry the utility, and validation must be opt-in per form and
+	   wired by init(). */
+	check('shadcn-parity: scroll-fade, shimmer, validating forms', () => {
+		const html = read('dist/index.html');
+		const js = read('src/js/cli-mono.js');
+		const css = read('src/styles/components.css');
+
+		assert(/animation-timeline: scroll\(self block\)/.test(css),
+			'scroll-fade has no vertical scroll timeline');
+		assert(/animation-timeline: scroll\(self inline\)/.test(css),
+			'scroll-fade has no inline scroll timeline');
+		// the RULE, not the name: the doc comment above the block also
+		// says '@property --sf-p', and a substring assert read prose.
+		assert(css.includes('@property --sf-p { syntax: "<number>"; inherits: true; initial-value: 0; }'),
+			'the edge stops are not registered');
+		assert(css.includes('@supports (animation-timeline: scroll())'),
+			'no animation-timeline gate for the static fallback');
+		assert(css.includes('.cm-scroll-fade--none'), 'scroll-fade-none missing');
+		assert(css.includes('@supports ((background-clip: text) or (-webkit-background-clip: text))'),
+			'shimmer is not behind its background-clip gate');
+		assert(css.includes('--shimmer-duration'), 'the shimmer duration knob is missing');
+		assert(css.includes('.cm-cursor,\n\t.cm-shimmer,'),
+			'shimmer is not listed in the reduced-motion block');
+		assert(!css.includes('#000 92%'), 'the static table mask is still hardcoded');
+
+		assert((html.match(/cm-scroll-fade-x/g) || []).length >= 4,
+			'table wrappers or the x specimen lost the utility class');
+		assert(html.includes('id="utilities"'), 'no utilities section');
+		assert(html.includes('href="#utilities"'), 'utilities not registered in the nav');
+		assert(/class="[^"]*cm-shimmer[^"]*"/.test(html), 'no shimmer specimen');
+
+		assert(js.includes('function cmInitForms'), 'no cmInitForms');
+		assert(/cmInitForms\(root\)/.test(js), 'cmInitForms is not called by init()');
+		assert((html.match(/data-cm-validate(?![-a-z])/g) || []).length >= 2,
+			'fewer than two forms opt into validation');
+		assert(html.includes('data-cm-validate-mode="blur"'), 'the blur-mode form is gone');
+	});
+
 
 check('a variant is only called demonstrated if it differs from its base', () => {
 	// The trap this closes: `.cm-tag--accent { color: var(--ink) }` beside

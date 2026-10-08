@@ -1770,6 +1770,38 @@ retirement, promise through success and failure, sticky outliving the
 six seconds, headDelta/footDelta at exactly ±1 under a 500px scroll)
 with 18 mutants killed (mutator: `tests/mutate-shortcuts-toast.py`).
 
+## Batch 15 - the utils pair (scroll-fade, shimmer) and validating forms
+
+Three areas the feature-level audit called PARTIAL are now honest:
+
+- **scroll-fade**: a mask driven by `animation-timeline: scroll(self
+  ...)` off the scrollport's OWN position - no listener, no jank.
+  One registered number (`@property --sf-p`) interpolates the edge
+  stops; edge modifiers (`--t --b --l --r --s --e`), px size steps,
+  `--none`, and a static rest-state fallback where the timeline is
+  unsupported. Every `.cm-table-wrap` wears `.cm-scroll-fade-x` now,
+  replacing the hardcoded gradient that existed for the same measured
+  reason (806px of table in a 308px box, no scrollbar hint).
+- **shimmer**: a `color-mix(currentColor)` sweep clipped to text
+  behind a `background-clip` @supports gate (unsupporting engines
+  keep plain text - never transparent text), `--once/--reverse/--none`
+  modifiers, three knobs as custom properties, and the animation
+  listed in the one reduced-motion block.
+- **validating forms**: `form[data-cm-validate]` runs the browser's
+  own `checkValidity()` and renders shadcn's documented behaviours -
+  `aria-invalid` + `data-invalid` + message in `.cm-field__error` +
+  first-offender focus + polite count. Modes map to their table
+  (submit default, blur, input). `novalidate` keeps one voice;
+  success toasts; reset clears. No schema library, no re-implemented
+  email regex.
+
+Proven: suite + `tests/verify-forms-fade.py` WebKit checks
+(scroll-linked `--sf-p` actually moves with the scroll, static
+fallback mask, shimmer clip/color/animation, reduced-motion emulation
+turning the sweep off, the full submit/fill/reset/blur validation
+flows), and suite 550/0 + WebKit 17/17 + 23/23 mutants killed
+(mutator: `tests/mutate-forms-fade.py`).
+
 ## Fixed
 
 - Two stacking checks demanded a literal `z-index: <number>`, which fails on

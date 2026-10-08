@@ -40,7 +40,7 @@ const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'crumbs', 'lists', 'states', 'surface',
   'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'drawer', 'choice', 'keys-pages-people',
 	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'proselists', 'proselists-order', 'prosetap', 'prosetable', 'tablelabels', 'layout', 'surface-paint',
-	'forms', 'datepicker', 'scrollarea', 'search', 'auth', 'readme',
+	'forms', 'datepicker', 'scrollarea', 'utilities', 'search', 'auth', 'readme',
 ] as const;
 
 /* The log specimen. Long enough to actually scroll, because a sticky
@@ -716,7 +716,7 @@ What a surface shows before it has data, and after it fails. Status is carried b
 					that overflows the page is the most common way a mono layout breaks on a
 					phone, so the component refuses to let it.
 				</p>
-				<div class="cm-table-wrap" tabindex="0" role="region" aria-label="token cost by layer">
+				<div class="cm-scroll-fade-x cm-table-wrap" tabindex="0" role="region" aria-label="token cost by layer">
 					<table class="cm-table">
 						<thead>
 							<tr><th>layer</th><th>file</th><th class="num">lines</th><th class="num">touches</th></tr>
@@ -1329,7 +1329,7 @@ The title row every page starts with: a square glyph, the name, one line of what
 							<SectionHead title="table action">
 A row's control, in the table's own visual language. A <code>&lt;tr onClick&gt;</code> is not a control - it is not focusable and Enter does nothing - so this is a real button, drawn as text so the grid does not become a stack of chrome. The tap floor is its own padding box. On a coarse pointer the arrow is always visible, because there is no hover to reveal it.
 							</SectionHead>
-							<div class="cm-table-wrap">
+							<div class="cm-scroll-fade-x cm-table-wrap">
 								<table class="cm-table">
 									<thead>
 										<tr>
@@ -1415,7 +1415,7 @@ A row's control, in the table's own visual language. A <code>&lt;tr onClick&gt;<
 							<SectionHead title="table">
 For records a person scans <em>across</em> rather than one at a time - a log is the case that cannot be cards, because the columns have to line up. The header is sticky, because row 400 otherwise has no idea which column it is in. Status codes carry a weight and a marker, not a hue: a wall of red and green is unreadable in greyscale and to anyone with colour vision. Five of the seven headers are sort controls. Each is a &#60;button&#62; inside a &#60;th scope="col" aria-sort&#62;, which is the shape a sortable column actually has: the sort state lives on the th, where the accessibility tree reads it, and the dot is drawn by CSS from that same attribute so the visible mark and the announced state cannot drift apart. A &#123;&lt;th onClick&#125;&#125; is not a control - it cannot be focused and Enter does nothing to it.
 							</SectionHead>
-							<div class="cm-table-wrap">
+							<div class="cm-scroll-fade-x cm-table-wrap">
 								<table class="cm-table" data-cm-sort>
 									<thead>
 										<tr>
@@ -3345,6 +3345,54 @@ inputs are element defaults, so a bare <code>&lt;input&gt;</code> is already on-
 						<button type="submit" class="cm-btn cm-btn--primary">save</button>
 					</div>
 				</form>
+				<h3 class="cm-kicker">validation</h3>
+				<p class="cm-head__sub">
+					shadcn's forms guide is wiring, not a component - and the browser
+					already ships the schema engine. <code>data-cm-validate</code> reads
+					the constraints the author wrote (<code>required</code>,
+					<code>type</code>, <code>pattern</code>) and renders them the way the
+					guide documents: <code>aria-invalid</code> on the control,
+					<code>data-invalid</code> on the wrapper, the message unhidden in
+					<code>.cm-field__error</code>, focus on the first offender, a polite
+					count for screen readers. Default mode is submit (their onSubmit);
+					<code>data-cm-validate-mode="blur"</code> re-checks on blur (onBlur),
+					<code>"input"</code> on every keystroke (onChange).
+					<code>novalidate</code> silences the browser's own bubbles so this
+					display is the single voice. Save proves itself with a toast; reset
+					marks everything clean again.
+				</p>
+				<form class="cm-form" data-cm-validate data-cm-validate-toast="handle saved" novalidate>
+					<div class="cm-field-row">
+						<div class="cm-field">
+							<label class="cm-field__label" for="v-handle">handle <span class="cm-field__req">*</span></label>
+							<input id="v-handle" type="text" placeholder="omiinaya" required />
+							<span class="cm-field__help">empty submit is the first thing to catch.</span>
+							<span class="cm-field__error" hidden>required.</span>
+						</div>
+						<div class="cm-field">
+							<label class="cm-field__label" for="v-mail">email <span class="cm-field__req">*</span></label>
+							<input id="v-mail" type="email" placeholder="you@mrx.sh" required />
+							<span class="cm-field__help">type=email carries the format rule; no email regex is re-implemented here.</span>
+							<span class="cm-field__error" hidden>needs a valid address.</span>
+						</div>
+					</div>
+					<div class="cm-form__actions">
+						<button type="reset" class="cm-btn">reset</button>
+						<button type="submit" class="cm-btn cm-btn--primary">save</button>
+					</div>
+				</form>
+				<form class="cm-form" data-cm-validate data-cm-validate-mode="blur" novalidate>
+					<div class="cm-field">
+						<label class="cm-field__label" for="v-blur">repo <span class="cm-field__req">*</span></label>
+						<input id="v-blur" type="text" placeholder="owner/name" required />
+						<span class="cm-field__help">mode=blur: the message appears when you LEAVE the field, not when you submit.</span>
+						<span class="cm-field__error" hidden>required.</span>
+					</div>
+					<div class="cm-form__actions">
+						<button type="reset" class="cm-btn">reset</button>
+						<button type="submit" class="cm-btn cm-btn--primary">save</button>
+					</div>
+				</form>
 			</section>
 
 			<!-- ====================================================== search
@@ -3441,6 +3489,76 @@ A bounded vertical scrollport: the box grows to <code>--scroll-h</code> (14rem
 					<li class="cm-row"><span class="cm-row__title">node-14.example.internal</span><span class="cm-row__meta">10.0.14.14</span></li>
 					</ul>
 				</div>
+			</section>
+			<section id="utilities" class="cm-section cm-section--pad">
+				<SectionHead title="utilities">
+Two helpers shadcn ships under utils, in house CSS. <code>scroll-fade</code>
+					masks a scrollport's own edges off ITS OWN scroll position:
+					<code>animation-timeline: scroll(self ...)</code> is the entire
+					mechanism - no scroll listeners, nothing on the main thread, and
+					every cut edge shows its fade exactly while content is cut there.
+					The composition below is deliberate: <code>.cm-scrollarea</code>
+					owns the box, <code>.cm-scroll-fade</code> owns the edges.
+					<code>shimmer</code> sweeps a highlight derived from
+					<code>currentColor</code> across text - readable at every frame,
+					off under reduced motion, and absent (not invisible) where
+					<code>background-clip: text</code> is unsupported.
+				</SectionHead>
+				<div class="cm-scrollarea cm-scroll-fade" style="--scroll-h: 12rem; border: 1px solid var(--line); padding: var(--space-2) 0;">
+					<ul style="list-style: none; margin: 0; padding: 0;">
+					<li class="cm-row"><span class="cm-row__title">node-01.example.internal</span><span class="cm-row__meta">10.0.1.1</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-02.example.internal</span><span class="cm-row__meta">10.0.2.2</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-03.example.internal</span><span class="cm-row__meta">10.0.3.3</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-04.example.internal</span><span class="cm-row__meta">10.0.4.4</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-05.example.internal</span><span class="cm-row__meta">10.0.5.5</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-06.example.internal</span><span class="cm-row__meta">10.0.6.6</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-07.example.internal</span><span class="cm-row__meta">10.0.7.7</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-08.example.internal</span><span class="cm-row__meta">10.0.8.8</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-09.example.internal</span><span class="cm-row__meta">10.0.9.9</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-10.example.internal</span><span class="cm-row__meta">10.0.10.10</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-11.example.internal</span><span class="cm-row__meta">10.0.11.11</span></li>
+					<li class="cm-row"><span class="cm-row__title">node-12.example.internal</span><span class="cm-row__meta">10.0.12.12</span></li>
+					</ul>
+				</div>
+				<p class="cm-head__sub">
+					The horizontal case is the one tables need: the end of the row
+					fades while more of it lies to the right, sharpens when you reach
+					the end, and the start fades to say how far you have come.
+					<code>.cm-scroll-fade-x</code> sits on every
+					<code>.cm-table-wrap</code> for exactly that reason.
+				</p>
+				<p class="cm-head__sub">
+					Every modifier, one box each - the edges it names are the edges
+					that fade, the rest stay sharp; the px steps are the size sugar,
+					and <code>--none</code> is the stop sign (no mask, no timeline).
+					The inline styles are the box chrome only; the class carries the
+					behaviour.
+				</p>
+				<div style="display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2);">
+					<div class="cm-scroll-fade-y cm-scroll-fade--t" style="width: 7rem; height: 4rem; overflow-y: auto; border: 1px solid var(--line); padding: var(--space-1); font-size: var(--text-xs);">top edge only<br>line two<br>line three<br>line four<br>line five</div>
+					<div class="cm-scroll-fade cm-scroll-fade--b" style="width: 7rem; height: 4rem; overflow-y: auto; border: 1px solid var(--line); padding: var(--space-1); font-size: var(--text-xs);">bottom edge only<br>line two<br>line three<br>line four<br>line five</div>
+					<div class="cm-scroll-fade-x cm-scroll-fade--l" style="width: 7rem; height: 2.6rem; overflow-x: auto; border: 1px solid var(--line); padding: var(--space-1); font-size: var(--text-xs);"><span style="white-space: nowrap;">left edge: the long row scrolls on in this direction and fades behind</span></div>
+					<div class="cm-scroll-fade-x cm-scroll-fade--r" style="width: 7rem; height: 2.6rem; overflow-x: auto; border: 1px solid var(--line); padding: var(--space-1); font-size: var(--text-xs);"><span style="white-space: nowrap;">right edge: the long row scrolls on in this direction and fades ahead</span></div>
+					<div class="cm-scroll-fade-x cm-scroll-fade--s" style="width: 7rem; height: 2.6rem; overflow-x: auto; border: 1px solid var(--line); padding: var(--space-1); font-size: var(--text-xs);"><span style="white-space: nowrap;">logical start: in LTR this is the left edge, the same single-sided fade</span></div>
+					<div class="cm-scroll-fade-x cm-scroll-fade--e" style="width: 7rem; height: 2.6rem; overflow-x: auto; border: 1px solid var(--line); padding: var(--space-1); font-size: var(--text-xs);"><span style="white-space: nowrap;">logical end: in LTR this is the right edge, the fade that hints more</span></div>
+					<div class="cm-scroll-fade cm-scroll-fade--4" style="width: 7rem; height: 4rem; overflow-y: auto; border: 1px solid var(--line); padding: var(--space-1); font-size: var(--text-xs);">--4: a 4px fade<br>line two<br>line three<br>line four</div>
+					<div class="cm-scroll-fade cm-scroll-fade--8" style="width: 7rem; height: 4rem; overflow-y: auto; border: 1px solid var(--line); padding: var(--space-1); font-size: var(--text-xs);">--8: an 8px fade<br>line two<br>line three<br>line four</div>
+					<div class="cm-scroll-fade cm-scroll-fade--16" style="width: 7rem; height: 4rem; overflow-y: auto; border: 1px solid var(--line); padding: var(--space-1); font-size: var(--text-xs);">--16: a 16px fade<br>line two<br>line three<br>line four</div>
+					<div class="cm-scroll-fade cm-scroll-fade--32" style="width: 7rem; height: 4rem; overflow-y: auto; border: 1px solid var(--line); padding: var(--space-1); font-size: var(--text-xs);">--32: a 32px fade<br>line two<br>line three<br>line four</div>
+					<div class="cm-scroll-fade cm-scroll-fade--none" style="width: 7rem; height: 4rem; overflow-y: auto; border: 1px solid var(--line); padding: var(--space-1); font-size: var(--text-xs);">--none: no mask at all<br>line two<br>line three<br>line four</div>
+				</div>
+				<div class="cm-scroll-fade-x" style="overflow-x: auto; border: 1px solid var(--line); padding: var(--space-2);">
+					<span style="white-space: nowrap; font-family: var(--font-mono); font-size: var(--text-xs);">GET https://cdn.mrx.sh/assets/app.9f2c1a.js -> 200 in 4.2ms (cache hit, edge eu-west) | GET https://cdn.mrx.sh/assets/app.9f2c1a.css -> 200 in 1.1ms | GET https://links.mrx.sh/ -> 200 in 88ms | HEAD plex.mrx.sh/library/sections/ -> 304 in 0.9ms | GET https://cdn.mrx.sh/assets/app.9f2c1a.js -> 200 in 4.2ms (cache hit, edge eu-west)</span>
+				</div>
+				<p class="cm-head__sub">
+					<code class="cm-shimmer">cm-shimmer</code> sweeps;
+					<code class="cm-shimmer cm-shimmer--once">--once</code> runs a single pass;
+					<code class="cm-shimmer cm-shimmer--reverse">--reverse</code> runs it back;
+					<code class="cm-shimmer cm-shimmer--none">--none</code> declines - the same
+					plain text reduced motion leaves behind. Durations, spread, angle and
+					the highlight itself are knobs: <code>--shimmer-duration</code>,
+					<code>--shimmer-spread</code>, <code>--shimmer-angle</code>.
+				</p>
 			</section>
 			<section id="search" class="cm-section cm-section--pad">
 				<SectionHead title="search">

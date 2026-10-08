@@ -1994,7 +1994,67 @@ instead of pushing 26px past its row. It is `break-word` and not
 `anywhere`: `anywhere` also shrinks min-content sizing and splits `.cm-*`
 identifiers mid-token.
 
-### shadcn/ui parity status
+#### Utilities: scroll-fade + shimmer
+
+**`.cm-scroll-fade`** (and **`-y`**, **`-x`**) masks a scrollport's own
+edges off its OWN scroll position: `animation-timeline: scroll(self ...)`
+maps scroll progress onto one registered number (`@property --sf-p` -
+registration is what lets the gradient stops interpolate instead of
+flipping), and the mask stops are `calc()` formulas over it. Crisp edge
+at rest, both edges mid-scroll, sharp end at the end. No scroll
+listeners exist anywhere in the runtime for this - the scroll IS the
+timeline.
+
+- Modifiers: `--t` / `--b` / `--l` / `--r` (and logical `--s` / `--e`)
+  pin one side's fade off; `--4` `--8` `--16` `--32` are px steps;
+  `--none` removes the mask entirely. Sizes otherwise come from
+  `--fade-size` (default `min(12%, 40px)`, shadcn's 12% with the 40px
+  cap) - a static stylesheet cannot know an arbitrary
+  `scroll-fade-<n>` class, so the custom property is the real knob.
+- `@supports not`-style fallback: engines without `animation-timeline`
+  keep the static rest-state fade (the affordance ships, only the
+  scroll-linkage is lost). `.cm-table-wrap` now wears
+  `.cm-scroll-fade-x`, replacing the hardcoded static gradient.
+- Composition is the point: the scrollarea specimen is
+  `.cm-scrollarea .cm-scroll-fade` - the box from one, the edges from
+  the other.
+- Under `prefers-reduced-motion` the timeline stops (`animation: none`,
+  listed in the single RM block) and the mask rests at its static
+  state: the affordance stays, the movement goes. Keep the timeline
+  and the shorthand in SEPARATE rules - the minifier folds them
+  together and WebKit then rejects the whole declaration.
+
+**`.cm-shimmer`** sweeps a highlight derived from `currentColor`
+(`color-mix` toward white) across `background-clip: text` glyphs. The
+gradient is solid `currentColor` outside the sweep, so text is fully
+readable at every frame - the sweep is an addition, never the thing
+keeping the words alive. Modifiers `--once`, `--reverse`, `--none`;
+knobs `--shimmer-duration` (2s), `--shimmer-spread`, `--shimmer-angle`.
+The whole rule sits behind `@supports (background-clip: text)` - an
+unsupporting engine keeps plain readable text instead of invisible
+transparent text - and the animation is listed in the single
+reduced-motion block.
+
+### Validating forms
+
+`form[data-cm-validate]` opts a form into native-first validation: the
+browser's own `checkValidity()` reads the constraints the author wrote
+(`required`, `type`, `pattern`) and the runtime renders them the way
+shadcn's forms guide documents them - `aria-invalid` on the control,
+`data-invalid` on the `.cm-field` wrapper, the platform's message
+unhidden in `.cm-field__error` (whose id `cmInitFields` already merged
+into `aria-describedby`), focus moved to the first offender, and a
+polite live-region count of what needs attention.
+
+- Modes map to the guide's table: default `submit` (onSubmit),
+  `data-cm-validate-mode="blur"` (onBlur), `"input"` (onChange).
+- `novalidate` silences the browser's own bubbles so this display is
+  the single voice; nothing re-implements an email regex.
+- Success fires a toast (override with
+  `data-cm-validate-toast="..."`); `reset` clears every mark after the
+  platform restores the values.
+
+## shadcn/ui parity status
 
 The standing goal is component parity with
 [shadcn/ui](https://ui.shadcn.com/docs/components) in the established

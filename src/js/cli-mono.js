@@ -2508,6 +2508,112 @@
 		});
 	}
 
+
+	/* ---------- validating forms: the browser IS the validator ----------
+	   shadcn's forms guide documents behaviours, not a component:
+	   data-invalid on the wrapper, aria-invalid on the control, the
+	   message beside the field, focus on the first offender. Vanilla
+	   equivalent: checkValidity() over the constraints the author
+	   already wrote - the platform ships the email format, so nothing
+	   here re-implements a regex. The message lands in the
+	   .cm-field__error span that already exists (cmInitFields has
+	   already merged its id into aria-describedby, so unfocusing a
+	   broken field announces exactly what is wrong). Default mode is
+	   submit; blur/input map to their onBlur/onChange. */
+	function cmInitForms(root) {
+		var forms = root.querySelectorAll('form[data-cm-validate]');
+		for (var i = 0; i < forms.length; i++) {
+			(function (form) {
+				if (form.__cmValid) return;
+				form.__cmValid = '1';
+				var mode = form.getAttribute('data-cm-validate-mode') || 'submit';
+				var live = document.createElement('p');
+				live.className = 'cm-sr-only';
+				live.setAttribute('role', 'status');
+				live.setAttribute('aria-live', 'polite');
+				form.appendChild(live);
+
+				function fieldOf(el) { return el.closest ? el.closest('.cm-field') : null; }
+
+				function controls() {
+					var out = [];
+					var els = form.querySelectorAll('input, textarea, select');
+					for (var j = 0; j < els.length; j++) {
+						var el = els[j];
+						if (el.disabled || el.type === 'submit' || el.type === 'button' || el.type === 'reset') continue;
+						out.push(el);
+					}
+					return out;
+				}
+
+				function clear(el) {
+					el.removeAttribute('aria-invalid');
+					var f = fieldOf(el);
+					if (!f) return;
+					f.removeAttribute('data-invalid');
+					var err = f.querySelector('.cm-field__error');
+					if (!err || err.__cmOrig == null) return;
+					err.textContent = err.__cmOrig;
+					err.hidden = true;
+				}
+
+				function invalidate(el) {
+					el.setAttribute('aria-invalid', 'true');
+					var f = fieldOf(el);
+					if (!f) return;
+					f.setAttribute('data-invalid', '');
+					var err = f.querySelector('.cm-field__error');
+					if (!err) return;
+					if (err.__cmOrig == null) err.__cmOrig = err.textContent;
+					err.textContent = el.validationMessage || err.__cmOrig;
+					err.hidden = false;
+				}
+
+				function validate(show) {
+					var list = controls(), first = null, bad = 0;
+					for (var j = 0; j < list.length; j++) {
+						var el = list[j];
+						if (el.checkValidity()) clear(el);
+						else { bad++; if (!first) first = el; if (show) invalidate(el); }
+					}
+					if (show) {
+						live.textContent = bad === 0 ? '' :
+							(bad === 1 ? '1 field needs attention' : bad + ' fields need attention');
+						if (first) first.focus();
+					}
+					return bad === 0;
+				}
+
+				form.addEventListener('submit', function (e) {
+					e.preventDefault();
+					if (validate(true)) {
+						toast(form.getAttribute('data-cm-validate-toast') || 'saved', 'ok');
+					}
+				});
+				form.addEventListener('reset', function () {
+					setTimeout(function () {
+						var list = controls();
+						for (var j = 0; j < list.length; j++) clear(list[j]);
+						live.textContent = '';
+					}, 0);
+				});
+				if (mode === 'blur') {
+					form.addEventListener('blur', function (e) {
+						var el = e.target;
+						if (!el || el.form !== form || !el.checkValidity) return;
+						if (el.checkValidity()) clear(el); else invalidate(el);
+					}, true);
+				} else if (mode === 'input') {
+					form.addEventListener('input', function (e) {
+						var el = e.target;
+						if (!el || !el.checkValidity) return;
+						if (el.checkValidity()) clear(el); else invalidate(el);
+					});
+				}
+			})(forms[i]);
+		}
+	}
+
 	/* ---------- init ---------- */
 	function init(root) {
 		(root || document)
@@ -2534,6 +2640,7 @@
 		cmClampHovercards(root);
 		cmInitDrawer(root);
 		cmInitFields(root);
+		cmInitForms(root);
 		cmInitDatepickers(root);
 		cmInitSort(root);
 		cmInitShortcuts();
