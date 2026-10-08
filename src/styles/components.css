@@ -6408,6 +6408,69 @@ input.cm-slider:disabled {
 .cm-combobox__option.is-active { background: var(--bg-3); color: var(--ink); }
 .cm-combobox__hint { color: var(--ink-faint); font-size: var(--text-sm); }
 
+/* ---------- context menu ----------
+   The panel and the rows are the dropdown's; only WHERE it opens differs.
+   It opens at the POINTER, so the base menu rule's `right: 0;
+   top: calc(100% + var(--space-1))` — written for a trigger parked in a
+   corner — would put it against the wrong corner for the frame before the
+   runtime anchors it. Start fixed at the origin instead: that is exactly
+   where a pointer click leaves it. The width cap is the viewport minus the
+   runtime's own 8px clamp per side, so the two limits are one number (16)
+   rather than two that can disagree and squeeze a row mid-word. */
+.cm-ctx {
+	position: fixed;
+	inset: auto;
+	min-width: 11rem;
+	max-width: calc(100vw - 16px);
+}
+
+/* ---------- menubar ----------
+   A row of WORDS, each a hairline-divided cell, each opening its own
+   dropdown underneath. Nothing here is a rounded chip: the bar's cell rule
+   is the point — a desktop menu bar reads as cells, not as pills. */
+.cm-menubar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: stretch;
+	gap: 0;
+	margin: 0;
+	padding: 0;
+	border-bottom: 1px solid var(--line);
+	background: var(--bg-2);
+	font-family: var(--font-mono);
+	font-size: max(var(--min-font), var(--text-xs));
+}
+.cm-menubar__trigger {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	margin: 0;
+	padding: var(--space-2) var(--space-3);
+	border: 0;
+	border-right: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	background: transparent;
+	color: var(--ink-dim);
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+.cm-menubar__trigger:hover,
+.cm-menubar__trigger:focus-visible,
+.cm-menubar__trigger[aria-expanded='true'] {
+	background: var(--bg-3);
+	color: var(--ink);
+}
+/* The panel hangs under the WORD it belongs to rather than off a chevron's
+   right edge; the runtime anchors it from the same left edge (see
+   anchorPopover). Fixed like .cm-popover, so the frame before anchoring
+   is a box at the origin and not the base menu's corner offset. */
+.cm-menubar__menu {
+	position: fixed;
+	inset: auto;
+	min-width: 12rem;
+}
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;

@@ -1536,6 +1536,53 @@ what the choice just closed. The option value comes from `data-value`, falling
 back to the label: the row's text is presentation (a hint lives in it), the
 attribute is the wire.
 
+### Context menu and menubar
+
+```html
+<!-- MANUAL: light dismiss closes the interaction the menu was born in,
+     so the mouseup of the right-click shut it 2ms after it opened -->
+<div class="cm-card">
+  <p data-cm-ctx="ctx-demo" aria-haspopup="menu" tabindex="0">right-click this row</p>
+</div>
+<div class="cm-dropdown__menu cm-ctx" id="ctx-demo" popover="manual" role="menu">
+  <button type="button" class="cm-dropdown__item" role="menuitem">rename</button>
+  <button type="button" class="cm-dropdown__item" role="menuitem">duplicate</button>
+</div>
+
+<!-- the words are the tabs: Left/Right walk them, Down opens one -->
+<div class="cm-menubar" data-cm-menubar role="menubar">
+  <button type="button" class="cm-menubar__trigger" popovertarget="mb-file" aria-haspopup="menu">file</button>
+  <div class="cm-dropdown__menu cm-menubar__menu" id="mb-file" popover role="menu">
+    <button type="button" class="cm-dropdown__item" role="menuitem">new</button>
+  </div>
+  <button type="button" class="cm-menubar__trigger" popovertarget="mb-edit" aria-haspopup="menu">edit</button>
+  <div class="cm-dropdown__menu cm-menubar__menu" id="mb-edit" popover role="menu">...</div>
+</div>
+```
+
+The context menu reuses the menu panel and rows and differs only in where it
+opens: at the pointer. It is a `popover="manual"` because light dismiss
+treats the interaction that OPENED it as an outside one - measured, the
+panel opened 2,469ms in and closed at 2,471ms when the right-click's
+`mouseup` landed. Dismissal is therefore the runtime's: an outside
+pointerdown (the opening press has already ended, so it can never be
+mistaken for one), Escape, and scroll - a point anchor has no trigger to
+re-follow when the page moves. Because a manual popover gets no focus
+return either, the runtime stashes what the menu interrupted and hands it
+back on close. The context-menu key carries no pointer, so `clientX/Y` of
+0,0 anchors to the focused element instead of the corner.
+
+The menubar is the menu-bar pattern: Left/Right and Home/End walk the
+words when nothing is open, ArrowDown opens the focused word (Enter and
+Space are the platform's, ArrowDown is not), and while a menu is open the
+same keys walk to the **neighbouring menu** instead of the items - the
+second half is the whole difference between a menubar and four dropdowns
+in a row. Panels hang from the left edge of their own word, because a
+word, unlike a chevron, is not something the menu hangs off the right
+side of. The platform does not manage `aria-expanded` on `[popover]`, so
+the toggle handler mirrors it onto whichever `[popovertarget]` also carries
+`aria-haspopup`.
+
 ### Interactive primitives
 
 The runtime opts into managed segmented controls only when requested:

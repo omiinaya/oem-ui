@@ -1544,6 +1544,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Popover + combobox: 18/18 WebKit checks, 10/10 seeded faults killed (9 in
   the harness, 1 in the contract suite).
 
+- Added `.cm-ctx` (context menu) and `.cm-menubar` / `.cm-menubar__trigger`
+  / `.cm-menubar__menu`. Both reuse the dropdown's panel and rows; they
+  differ only in WHERE a panel opens and how the keys walk. The context
+  menu opens at the POINTER - clamped to the viewport - and closes on an
+  outside press, Escape or scroll. It is `popover="manual"` because light
+  dismiss closes the interaction the menu was born in: measured in WebKit,
+  the panel opened at 2,469ms and the right-click's `mouseup` closed it at
+  2,471ms. A manual popover also gets no focus return, so the runtime
+  stashes and restores it, and the context-menu key (no pointer: 0,0)
+  anchors to the focused element. The menubar walks its words with
+  Left/Right/Home/End, opens with ArrowDown, and while a menu is open walks
+  to the NEIGHBOURING menu instead of the items; panels hang from the left
+  edge of their word and `aria-expanded` is mirrored onto the trigger
+  because the platform does not manage it on `[popover]`.
+- `fix: the pointer menu opened 25,836px down the page` - the branch that
+  replaced `pinPopover()` for context menus set up dismissal and never
+  called `anchorPopover()`, so the panel sat at its static position.
+- `fix: the menubar's first pass could not be walked at all` - the vm test
+  double answered `querySelectorAll` with `[]`, so the trigger lookup that
+  now compares `[popovertarget]` values (rather than building a selector
+  that needs escaping) found nothing and every fake menu stayed unanchored.
+- 16/16 seeded faults killed (14 WebKit, 2 contract-suite).
+
 ## Fixed
 
 - Two stacking checks demanded a literal `z-index: <number>`, which fails on

@@ -1926,6 +1926,64 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 					</div>
 				</div>
 
+				<h3 class="cm-kicker">context menu</h3>
+				<p class="cm-head__sub">
+					Same panel, different anchor: right-click the row and the menu opens
+					at the <em>pointer</em>, never at a trigger, and closes when the page
+					moves under it &mdash; there is no trigger to follow. The OS menu is
+					suppressed by <code>preventDefault()</code> in the same handler.
+					It runs <code>popover="manual"</code>: light dismiss closes the
+					interaction that OPENED it, so the mouseup of the right-click shut
+					the menu again 2ms after it appeared &mdash; Escape, an outside
+					press and the scroll that invalidates the anchor are this
+					runtime's instead.
+				</p>
+				<div class="cm-card">
+					<p
+						class="cm-head__sub"
+						style="margin: 0; cursor: context-menu"
+						data-cm-ctx="ctx-demo"
+						aria-haspopup="menu"
+						tabindex="0"
+					>
+						right-click this row
+					</p>
+				</div>
+				<div class="cm-dropdown__menu cm-ctx" id="ctx-demo" popover="manual" role="menu" aria-label="row actions">
+					<button type="button" class="cm-dropdown__item" role="menuitem">rename</button>
+					<button type="button" class="cm-dropdown__item" role="menuitem">duplicate</button>
+					<hr class="cm-dropdown__sep" />
+					<button type="button" class="cm-dropdown__item" role="menuitem" aria-disabled="true">delete</button>
+				</div>
+
+				<h3 class="cm-kicker">menubar</h3>
+				<p class="cm-head__sub">
+					The desktop menu bar: the words are the tabs. Left/Right walk them,
+					Down opens one, and while a menu is open Left/Right walk to the
+					<em>neighbouring menu</em> instead of the items &mdash; the behaviour
+					that tells you this is a bar and not four dropdowns in a row. Each
+					panel hangs from the LEFT edge of its own word.
+				</p>
+				<div class="cm-menubar" data-cm-menubar role="menubar" aria-label="demo menubar">
+					<button type="button" class="cm-menubar__trigger" popovertarget="mb-file" aria-haspopup="menu" role="menuitem">file</button>
+					<div class="cm-dropdown__menu cm-menubar__menu" id="mb-file" popover role="menu" aria-label="file">
+						<button type="button" class="cm-dropdown__item" role="menuitem">new</button>
+						<button type="button" class="cm-dropdown__item" role="menuitem">open</button>
+						<hr class="cm-dropdown__sep" />
+						<button type="button" class="cm-dropdown__item" role="menuitem" aria-disabled="true">save</button>
+					</div>
+					<button type="button" class="cm-menubar__trigger" popovertarget="mb-edit" aria-haspopup="menu" role="menuitem">edit</button>
+					<div class="cm-dropdown__menu cm-menubar__menu" id="mb-edit" popover role="menu" aria-label="edit">
+						<button type="button" class="cm-dropdown__item" role="menuitem">undo</button>
+						<button type="button" class="cm-dropdown__item" role="menuitem">redo</button>
+					</div>
+					<button type="button" class="cm-menubar__trigger" popovertarget="mb-view" aria-haspopup="menu" role="menuitem">view</button>
+					<div class="cm-dropdown__menu cm-menubar__menu" id="mb-view" popover role="menu" aria-label="view">
+						<button type="button" class="cm-dropdown__item" role="menuitem">zoom in</button>
+						<button type="button" class="cm-dropdown__item" role="menuitem">zoom out</button>
+					</div>
+				</div>
+
 				<h3 class="cm-kicker">tooltip</h3>
 				<p class="cm-head__sub">
 					A real element rather than generated content, because

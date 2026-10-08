@@ -978,23 +978,63 @@
 	     capture phase, so one listener on `document` outlives every node. */
 	var POP_SEL = '.cm-dropdown__menu[popover], .cm-popover[popover]';
 	var popPin = null;
+	/* The open POINTER menu, if any. `popover="manual"` was the only way to
+	   keep it open: the platform's light dismiss treats the interaction the
+	   menu was born in as an outside one, so the mouseup of the right-click
+	   that opened it closed the panel 2ms later - measured, not guessed. */
+	var ctxMenu = null;
+
+	/* The trigger behind a popover, matched by comparing the ATTRIBUTE
+	   VALUE rather than by building a selector: an id is data, and data
+	   goes in as data, so an id nobody anticipated cannot escape into the
+	   selector language and quietly match nothing. */
+	function popTrigger(menu) {
+		if (!menu || !menu.id) return null;
+		var all = document.querySelectorAll('[popovertarget]');
+		for (var i = 0; i < all.length; i++) {
+			if (all[i].getAttribute('popovertarget') === menu.id) return all[i];
+		}
+		return null;
+	}
 
 	function anchorPopover(menu) {
 		var id = menu.id || '';
 		// [popovertarget] is a plain attribute selector: valid whether or
 		// not the engine implements the popover API.
-		var trigger = id ? document.querySelector('[popovertarget="' + id.replace(/["\\]/g, '\\$&') + '"]') : null;
-		if (!trigger) return;
-		var t = trigger.getBoundingClientRect();
+		var trigger = popTrigger(menu);
+		// A context menu has no trigger to measure: its anchor is the
+		// POINTER, stashed on the element by the contextmenu handler
+		// before showPopover(). Without this branch the function returned
+		// above and a right-click menu opened against a corner it was
+		// never opened from.
+		var at = menu.__cmCtx;
+		if (!trigger && !at) return;
+		var t = trigger ? trigger.getBoundingClientRect() : null;
 		menu.style.position = 'fixed';
 		menu.style.inset = 'auto';
 		var w = menu.offsetWidth;
 		var h = menu.offsetHeight;
 		var pad = 8;
+		if (at) {
+			// The point is where the finger was: move the PANEL to stay
+			// inside the viewport, never move the point itself, so the
+			// corner that was clicked stays the corner being read.
+		var cx = at.x, cy = at.y;
+		if (cx + w > window.innerWidth - pad) cx = window.innerWidth - w - pad;
+		if (cy + h > window.innerHeight - pad) cy = window.innerHeight - h - pad;
+		if (cx < pad) cx = pad;
+		if (cy < pad) cy = pad;
+		var cl = Math.round(cx) + 'px', ct = Math.round(cy) + 'px';
+		if (menu.style.left !== cl) menu.style.left = cl;
+		if (menu.style.top !== ct) menu.style.top = ct;
+		return;
+		}
 		// A menu hangs off a chevron, so its RIGHT edge aligns with the
-		// trigger; a card of prose opens from the LEFT edge it belongs to.
-		var card = menu.classList && menu.classList.contains('cm-popover');
-		var x = card ? t.left : t.right - w;
+		// trigger; a card of prose and the panel under a menubar WORD both
+		// open from the LEFT edge they belong to.
+		var start = menu.classList && (menu.classList.contains('cm-popover') ||
+				menu.classList.contains('cm-menubar__menu'));
+		var x = start ? t.left : t.right - w;
 		if (x < pad) x = pad;
 		else if (x + w > window.innerWidth - pad) x = window.innerWidth - w - pad;
 		var y = t.bottom + 4;                     // `calc(100% + var(--space-1))`, translated
@@ -1063,15 +1103,52 @@
 	function onPopoverToggle(e) {
 		var menu = e.target;
 		if (!menu || typeof menu.matches !== 'function' || !menu.matches(POP_SEL)) return;
+		// aria-expanded is not managed by the platform for [popover] the
+		// way it is for <details>: this handler already runs on every open
+		// and close, so it is the one place that knows, and a menubar cell
+		// that never flips is a cell a screen reader describes as closed.
+		var trig = popTrigger(menu);
+		if (trig && typeof trig.hasAttribute === 'function' && trig.hasAttribute('aria-haspopup')) {
+			trig.setAttribute('aria-expanded', menu.matches(':popover-open') ? 'true' : 'false');
+		}
 		if (menu.matches(':popover-open')) {
-			pinPopover(menu);
+			if (menu.__cmCtx) {
+				ctxMenu = menu;
+				// A manual popover gets no focus return of its own, so keep
+				// hold of what the right-click interrupted.
+				menu.__cmReturn =
+					(document.activeElement && typeof document.activeElement.blur === 'function')
+						? document.activeElement : null;
+				// A context menu belongs to a POINT. The page moving under
+				// it invalidates that anchor outright - there is no trigger
+				// to re-follow - so it closes rather than drifting to a
+				// place nobody clicked.
+				unpinPopover();
+				popPin = function () { if (typeof menu.hidePopover === 'function') menu.hidePopover(); };
+				window.addEventListener('scroll', popPin, { passive: true });
+				window.addEventListener('resize', popPin);
+				// ...and it still has to be PUT there: pinPopover() is what
+				// anchored every other panel, and this branch replaces it.
+				anchorPopover(menu);
+			} else pinPopover(menu);
 			// The menu-button pattern: opening moves focus INTO the menu, so
 			// the arrow keys have somewhere to start. Closing returns focus to
 			// the trigger - the popover API already does that half.
 			var first = menuItems(menu)[0] ||
 				menu.querySelector('button, a[href], input, [tabindex]:not([tabindex="-1"])');
 			if (first && typeof first.focus === 'function') first.focus();
-		} else unpinPopover();
+		} else {
+			if (menu.__cmCtx && ctxMenu === menu) {
+				var back = menu.__cmReturn;
+				var inside = document.activeElement &&
+					typeof menu.contains === 'function' &&
+					menu.contains(document.activeElement);
+				if (inside && back && typeof back.focus === 'function') back.focus();
+				menu.__cmReturn = null;
+				ctxMenu = null;
+			}
+			unpinPopover();
+		}
 	}
 
 	/* Arrow keys inside an open menu: Down/Up step and wrap, Home/End jump.
@@ -1092,6 +1169,107 @@
 		if (!next) return;
 		e.preventDefault();
 		next.focus();
+	}
+
+	/* ---------- context menu ----------
+	   One listener at the root, like the toggle handler above: a consumer
+	   that re-renders its rows keeps working, because the listener is
+	   bound once and finds the menu through the row's data-cm-ctx id. */
+	function onContextMenu(e) {
+		var t = e.target;
+		if (!t || typeof t.closest !== 'function') return;
+		var trg = t.closest('[data-cm-ctx]');
+		if (!trg) return;
+		var id = trg.getAttribute('data-cm-ctx');
+		var menu = id && document.getElementById(id);
+		if (!menu || typeof menu.showPopover !== 'function' || !menu.matches(POP_SEL)) return;
+		// The OS menu is the thing being replaced. Without this the panel
+		// opens underneath the browser's own, which nobody can see.
+		e.preventDefault();
+		// The context-menu KEY (and Shift+F10) fires this event with no
+		// pointer at all: 0,0 is a coordinate, not a click. Anchor the panel
+		// to the element that was focused instead of to the top-left corner.
+		var x = e.clientX, y = e.clientY;
+		if (!x && !y && typeof trg.getBoundingClientRect === 'function') {
+			var r = trg.getBoundingClientRect();
+			x = r.left;
+			y = r.bottom + 4;
+		}
+		menu.__cmCtx = { x: x, y: y };
+		// showPopover() on an already-open popover THROWS, so a second
+		// right-click closes first: the net effect is a menu that MOVES to
+		// the new point instead of a second panel in the top layer.
+		if (menu.matches(':popover-open') && typeof menu.hidePopover === 'function') menu.hidePopover();
+		menu.showPopover();
+	}
+
+	/* ---------- menubar ----------
+	   The menu-bar pattern: Left/Right walk the WORDS when nothing is
+	   open, and walk to the NEIGHBOURING MENU while one is open. That
+	   second half is the whole difference between a menubar and four
+	   dropdowns in a row, and it is why the handler looks at the menu you
+	   are in before it looks at the trigger you are on. */
+	function menubarTriggers(bar) {
+		return Array.prototype.filter.call(
+			bar.querySelectorAll('.cm-menubar__trigger'),
+			function (b) { return b.offsetParent !== null; }
+		);
+	}
+
+	function onMenubarKey(e) {
+		var bar = e.target && e.target.closest && e.target.closest('[data-cm-menubar]');
+		if (!bar) return;
+		var trg = e.target.closest('.cm-menubar__trigger');
+		// Enter/Space already activate the button (and with it
+		// [popovertarget]); ArrowDown is the key the platform does NOT map
+		// to "open", and it is the one readers reach for.
+		if (trg && e.key === 'ArrowDown') {
+			var oid = trg.getAttribute('popovertarget');
+			var om = oid && document.getElementById(oid);
+			if (om && typeof om.showPopover === 'function' && !om.matches(':popover-open')) om.showPopover();
+			e.preventDefault();
+			return;
+		}
+		if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(e.key) === -1) return;
+		var list = menubarTriggers(bar);
+		if (!list.length) return;
+		var open = e.target.closest('.cm-menubar__menu');
+		var cur = open
+			? popTrigger(open) || trg
+			: trg;
+		var i = list.indexOf(cur);
+		if (i === -1) return;
+		var next;
+		if (e.key === 'Home') next = list[0];
+		else if (e.key === 'End') next = list[list.length - 1];
+		else next = list[(i + (e.key === 'ArrowLeft' ? -1 : 1) + list.length) % list.length];
+		if (!next || next === cur) return;
+		e.preventDefault();
+		if (open && typeof open.hidePopover === 'function') open.hidePopover();
+		// Focus BEFORE opening: the toggle handler moves focus into the
+		// panel, and doing it in the other order would leave the new
+		// trigger focused while the panel's own focus steal is still to
+		// come.
+		next.focus();
+		var nid = next.getAttribute('popovertarget');
+		var nm = nid && document.getElementById(nid);
+		if (open && nm && typeof nm.showPopover === 'function' && !nm.matches(':popover-open')) nm.showPopover();
+	}
+
+	/* A manual popover has no light dismiss and no Escape - those are the
+	   two halves the platform would otherwise own, so they are HERE. An
+	   outside POINTERDOWN is the only "outside" that cannot be the gesture
+	   that opened the menu: that one already ended. */
+	function onCtxOutside(e) {
+		if (!ctxMenu || typeof ctxMenu.hidePopover !== 'function') return;
+		if (e.target && typeof ctxMenu.contains === 'function' &&
+			ctxMenu.contains(e.target)) return;
+		ctxMenu.hidePopover();
+	}
+
+	function onCtxEscape(e) {
+		if (!ctxMenu || e.key !== 'Escape' || typeof ctxMenu.hidePopover !== 'function') return;
+		ctxMenu.hidePopover();
 	}
 
 	/* ---------- toggle group ----------
@@ -1788,6 +1966,14 @@
 		// Delegated at the root for the same reason: re-rendered markup
 		// keeps working without a re-bind.
 		document.addEventListener('keydown', onMenuKey);
+		document.addEventListener('keydown', onMenubarKey);
+		// Capture: the browser's own context menu is suppressed by this
+		// handler, and capture runs before a consumer's row handler.
+		document.addEventListener('contextmenu', onContextMenu, true);
+		// The context menu's dismissal lives at the root too: an outside
+		// press must close it even when it lands on another component's node.
+		document.addEventListener('pointerdown', onCtxOutside, true);
+		document.addEventListener('keydown', onCtxEscape, true);
 		document.addEventListener('click', onSegClick);
 		document.addEventListener('click', onSearchClear);
 		document.addEventListener('click', onTableSort);

@@ -397,7 +397,15 @@ check('a dropdown menu anchors to its trigger, and flips when it will not fit', 
 			const m = /^\[popovertarget="(.*)"\]$/.exec(sel);
 			return m ? triggers[m[1]] || null : null;
 		},
-		querySelectorAll: () => [],
+		querySelectorAll: (sel) => sel === '[popovertarget]'
+			? Object.keys(triggers).map((id) => ({
+				getAttribute: (n) => (n === 'popovertarget' ? id : null),
+				// the fake has to expose EVERY method the runtime touches on a
+				// trigger: a double that answers only half the wire fails later
+				// with "x is not a function" and reads like a runtime bug.
+				getBoundingClientRect: (...a) => triggers[id].getBoundingClientRect(...a),
+			}))
+			: [],
 		getElementById: () => null,
 		addEventListener: (type, fn, opts) => listeners.push({ type, fn, capture: opts === true }),
 		createElement: () => ({ setAttribute() {}, style: {}, classList: { add() {} }, appendChild() {} }),
@@ -12426,8 +12434,10 @@ check("the input group collapses to one hairline", () => {
 			'the trigger must open it through popovertarget, not through script');
 		assert(/POP_SEL = '[^']*\.cm-popover\[popover\]/.test(js),
 			'the card must join POP_SEL or it is never anchored, pinned or focused');
-		assert(/classList\.contains\('cm-popover'\)/.test(js) && /var x = card \? t\.left : t\.right - w/.test(js),
+		assert(/classList\.contains\('cm-popover'\)/.test(js) && /var x = start \? t\.left : t\.right - w/.test(js),
 			'a card aligns to the LEFT edge it opened from; only a menu right-aligns to its chevron');
+		assert(/classList\.contains\('cm-menubar__menu'\)/.test(js),
+			'the menubar panel must be in that left-align set too - it hangs under its WORD');
 		const rule = css.match(/\.cm-popover \{([^}]*)\}/);
 		assert(rule, '.cm-popover is not defined');
 		assert(/border-radius:\s*var\(--radius-sm\)/.test(rule[1]), 'the card must take the sharp radius token');
@@ -12460,5 +12470,94 @@ check("the input group collapses to one hairline", () => {
 		const later = css.slice(paint.index + paint[0].length)
 			.match(/\.cm-combobox__option\.is-active[^{}]*\{[^}]*background:\s*[^;}]+/s);
 		assert(!later, `a later rule repaints the active option: ${later && later[0].replace(/\s+/g, ' ').slice(0, 90)}`);
+	});
+}
+
+// ---------- shadcn-parity: context menu + menubar ----------
+{
+	const page = read('src/pages/index.astro');
+	const css = read('src/styles/components.css');
+	const js = read('src/js/cli-mono.js');
+
+	check('a context menu opens at the pointer, not at a trigger', () => {
+		assert(/data-cm-ctx="ctx-demo"/.test(page), 'the showcase must ship a right-click specimen');
+		assert(/id="ctx-demo" popover="manual" role="menu"/.test(page),
+			'the panel must be a platform [popover] menu, not a positioned div');
+		// MANUAL is a measured decision, not a preference: with light dismiss
+		// on, the mouseup of the right-click that opened it closed the panel
+		// 2ms after it appeared (open 2469ms, closed 2471ms). So the two
+		// things light dismiss and Escape would have owned must be runtime.
+		assert(/addEventListener\('pointerdown', onCtxOutside, true\)/.test(js),
+			'an outside press must dismiss it - nothing else does in manual mode');
+		assert(/addEventListener\('keydown', onCtxEscape, true\)/.test(js),
+			'Escape must dismiss it - nothing else does in manual mode');
+		assert(/menu\.__cmReturn/.test(js),
+			'a manual popover gets no focus return; the runtime has to remember it');
+		assert(/addEventListener\('contextmenu', onContextMenu, true\)/.test(js),
+			'the contextmenu listener must be bound, in capture, at the root');
+		assert(/closest\('\[data-cm-ctx\]'\)/.test(js), 'the handler must find its trigger through data-cm-ctx');
+		assert(/var x = e\.clientX, y = e\.clientY;/.test(js),
+			'the pointer is the anchor: without reading it there is no point to open at');
+		assert(/if \(!x && !y && typeof trg\.getBoundingClientRect/.test(js),
+			'the context-menu KEY carries no pointer: 0,0 must resolve to the element');
+		assert(/menu\.__cmCtx = \{ x: x, y: y \}/.test(js),
+			'the resolved point must ride on the menu until the anchor reads it');
+		// preventDefault must be IN this handler - the browser's own menu
+		// is the thing being replaced, and a panel under it is invisible.
+		const body = js.slice(js.indexOf('function onContextMenu'), js.indexOf('/* ---------- menubar'));
+		assert(/\s\s\te\.preventDefault\(\);/.test(body), 'the OS menu must be suppressed inside onContextMenu');
+		// showPopover() on an open popover THROWS, so the close must come first.
+		assert(body.indexOf('hidePopover') !== -1 && body.indexOf('hidePopover') < body.indexOf('menu.showPopover()'),
+			'a second right-click must close before it reopens, or it throws');
+		assert(/if \(!trigger && !at\) return;/.test(js),
+			'the anchor must accept a pointer-only menu; a bare return strands it at the origin');
+		assert(/if \(at\) \{[\s\S]*?cx \+ w > window\.innerWidth - pad/.test(js),
+			'the panel must be clamped inside the viewport at the point that was clicked');
+		// A context menu belongs to a point: the page moving under it
+		// invalidates the anchor, so it closes rather than drifts.
+		assert(/popPin = function \(\) \{ if \(typeof menu\.hidePopover/.test(js),
+			'a pointer menu must close when the page moves under it');
+		const rule = css.match(/\.cm-ctx \{([^}]*)\}/);
+		assert(rule, '.cm-ctx is not defined');
+		assert(/position:\s*fixed/.test(rule[1]), 'it must start where a pointer click leaves it, not at a corner offset');
+		assert(/max-width:\s*calc\(100vw - 16px\)/.test(rule[1]),
+			'width cap must be the viewport minus the runtime\'s own 8px clamp per side');
+	});
+
+	check('a menubar is a row of words whose panels hang under them', () => {
+		assert(/<div class="cm-menubar" data-cm-menubar role="menubar"/.test(page),
+			'the showcase must ship a real menubar');
+		const triggers = (page.match(/class="cm-menubar__trigger"/g) || []).length;
+		assert(triggers >= 3, `a menubar needs words to walk, found ${triggers}`);
+		const panels = (page.match(/cm-dropdown__menu cm-menubar__menu/g) || []).length;
+		assert(panels >= 3, `each word needs its own panel, found ${panels}`);
+		const bar = css.match(/\.cm-menubar \{([^}]*)\}/);
+		assert(bar && /display:\s*flex/.test(bar[1]), 'the bar is a row, not a stack');
+		const trg = css.match(/\.cm-menubar__trigger \{([^}]*)\}/);
+		assert(trg, '.cm-menubar__trigger is not defined');
+		assert(/border-radius:\s*var\(--radius-sm\)/.test(trg[1]), 'the cell takes the sharp radius token');
+		assert(/border-right:\s*1px solid var\(--line\)/.test(trg[1]),
+			'cells are divided by a hairline - a menu bar without rules reads as one blob');
+		const panel = css.match(/\.cm-menubar__menu \{([^}]*)\}/);
+		assert(panel && /position:\s*fixed/.test(panel[1]),
+			'the panel must be out of flow, or opening one widens the bar');
+		assert(/function menubarTriggers\(bar\)/.test(js) && /function onMenubarKey\(e\)/.test(js),
+			'the menubar keyboard handler is missing');
+		assert(/closest\('\[data-cm-menubar\]'\)/.test(js), 'the handler must be scoped to its own bar');
+		assert(/e\.key === 'ArrowDown'/.test(js),
+			'ArrowDown must open a focused word - Enter and Space are the platform\'s, ArrowDown is not');
+		assert(/\['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/.test(js),
+			'walking the words and their menus is the whole point of the pattern');
+		const kbody = js.slice(js.indexOf('function onMenubarKey'), js.indexOf('/* ---------- toggle group'));
+		assert(kbody.indexOf('next.focus();') !== -1 &&
+			kbody.indexOf('next.focus();') < kbody.indexOf('nm.showPopover()'),
+			'focus the new word before opening: the toggle handler steals focus into the panel');
+		assert(/var x = start \? t\.left : t\.right - w/.test(js),
+			'the panel must align to the LEFT edge of its word');
+		assert(/aria-expanded'.*?trig\.setAttribute/.test(js.replace(/\n/g, ' ')) ||
+			/trig\.setAttribute\('aria-expanded'/.test(js),
+			'the platform does not manage aria-expanded on [popover]; the toggle handler must');
+		assert(/function popTrigger\(menu\)/.test(js),
+			'the trigger must be found by comparing the attribute value, not by a selector that needs escaping');
 	});
 }
