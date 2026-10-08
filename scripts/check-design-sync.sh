@@ -602,12 +602,26 @@ for t in "${targets[@]}"; do
 		# all, `sources` came back empty, and the entire reachability
 		# pass - the one added because dev-blog imported none of what it
 		# vendored - was skipped outright for this layout.
+		#
+		# *.tsx and *.jsx are in it because a React consumer keeps its
+		# components there and NOWHERE else. MEASURED on code-spaces
+		# (2026-10-08, the migration that found this): 87 .tsx files
+		# against 50 .ts, so the scan was reading a third of the
+		# project and the runtime note fired even though main.tsx
+		# imports './js/cli-mono.js' on line one. Same class of miss
+		# as *.py: a file extension the sweep never learned is a
+		# consumer it grades from a partial transcript - here it
+		# reports "vendors cli-mono.js but references no script tag"
+		# for a site that wires it through the module graph, which is
+		# the correct wiring and steers the next person toward a
+		# <script src> that Vite does not even serve.
 		sources=$(find "$t" \
 			\( -type d \( -name node_modules -o -name .git -o -name dist \
 				-o -name build -o -name target -o -name .astro \
 				-o -name .next -o -name vendor \) -prune \) -o \
 			\( -type f \
-			\( -name '*.astro' -o -name '*.ts' -o -name '*.js' -o -name '*.css' -o -name '*.mjs' -o -name '*.html' \
+			\( -name '*.astro' -o -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' \
+				-o -name '*.css' -o -name '*.mjs' -o -name '*.html' \
 				-o -name '*.py' \) \
 			! -path "*/styles/cli-mono/*" ! -path "$t/$CD/*" \
 			! -name 'cli-mono.js' \

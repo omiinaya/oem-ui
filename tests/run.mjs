@@ -3920,6 +3920,69 @@ check('the drift checker can see a flat, src-less consumer at all', async () => 
 	}
 });
 
+check('the reachability scan reads .tsx, so a React consumer is graded whole', async () => {
+	// A consumer whose components are .tsx was invisible to this sweep.
+	// MEASURED (2026-10-08, the code-spaces migration): that repo holds
+	// 87 .tsx files against 50 .ts, and the scan matched only '*.ts' -
+	// so the runtime check ran over a third of the project, printed
+	// "vendors cli-mono.js but references no script tag" for a site
+	// whose main.tsx imports exactly that through the module graph
+	// (the correct wiring for a Vite bundle), and steered the next
+	// person toward a <script src> the bundler does not even serve.
+	// Same shape as the *.py miss recorded in the script's own comments:
+	// an extension the sweep never learned is a consumer graded from a
+	// partial transcript, and "partial" here reads as comfortable.
+	const dir = mkdtempSync(join(tmpdir(), 'cm-tsx-'));
+	const run = (d) => spawnSync('bash', [join(root, 'scripts/check-design-sync.sh'), d], {
+		encoding: 'utf8', env: { ...process.env, OEM_UI_SRC: root },
+	});
+	try {
+		spawnSync('bash', [join(root, 'scripts/install.sh'), dir], { encoding: 'utf8' });
+		mkdirSync(join(dir, 'src'), { recursive: true });
+
+		// Half 1: the ONLY source file is a .tsx that wires nothing.
+		// With '*.tsx' missing from the scan, `sources` is empty, the
+		// whole reachability pass is skipped, and an unwired consumer
+		// reports success. It must FAIL and name the missing guard.
+		writeFileSync(join(dir, 'src/App.tsx'), 'export const App = () => null;\n');
+		const bare = run(dir);
+		assert(bare.status === 1,
+			`a .tsx-only consumer must still be graded, got ${bare.status}: ${bare.stdout.trim()}`);
+		assert(/UNREACHABLE\s+cli-mono-theme-guard\.js/.test(bare.stdout),
+			`the unwired guard must be named from a .tsx scan, got: ${bare.stdout.trim()}`);
+
+		// Half 2: wire it the way a Vite consumer really does - all five
+		// layers through the entry module, the runtime as a side-effect
+		// import, the guard resolved by URL. That must read as adoption:
+		// no SKIPPED source set, and NO script-tag note, because an ESM
+		// import is not a missing <script src>.
+		writeFileSync(join(dir, 'src/App.tsx'), [
+			"import './styles/cli-mono/tokens.css';",
+			"import './styles/cli-mono/base.css';",
+			"import './styles/cli-mono/components.css';",
+			"import './js/cli-mono.js';",
+			"import { guardHref } from './guard';",
+			'export const App = () => guardHref;',
+		].join('\n') + '\n');
+		mkdirSync(join(dir, 'src'), { recursive: true });
+		writeFileSync(join(dir, 'src/guard.ts'), [
+			"import { fileURLToPath } from 'node:url';",
+			"export const guardHref = fileURLToPath(",
+			"  new URL('../js/cli-mono-theme-guard.js', import.meta.url),",
+			');',
+		].join('\n') + '\n');
+		const wired = run(dir);
+		assert(wired.status === 0,
+			`a fully wired .tsx consumer must pass, got ${wired.status}: ${wired.stdout.trim()}`);
+		assert(!/SKIPPED/.test(wired.stdout),
+			`the source set must not be empty for a .tsx consumer, got: ${wired.stdout.trim()}`);
+		assert(!/vendors cli-mono\.js/.test(wired.stdout),
+			`an ESM import is wired; the script-tag note must not fire, got: ${wired.stdout.trim()}`);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
 check('the drift checker catches a shadow copy of the runtime on an unchecked path', async () => {
 	// THE GAP THIS EXISTS FOR.
 	//
@@ -8878,8 +8941,20 @@ check('the drift checker names surface built inside a vendored layer', () => {
 			`a BEM variant the library does not define must be reported, got: ${outText.trim()}`);
 		assert(/cm-not-a-library-part-xyz/.test(outText),
 			`and so must a wholly new name, got: ${outText.trim()}`);
-		assert(!/\bcm-header\b/.test(outText),
-			`an EXISTING library class must not be reported as rogue, got: ${outText.trim()}`);
+		// Scope this to the RESERVED class LIST, not the whole stdout.
+		// The advisory ".cm-header is defined but no source emits it"
+		// note is a separate, legitimate line and it NAMES cm-header;
+		// grepping the transcript for the bare word trips on the
+		// advice instead of the report. (It started appearing once the
+		// reachability scan learned .tsx: the fixture's app.tsx was
+		// previously invisible, the pass was skipped, and no note
+		// could print at all - a passing assertion that was passing
+		// because nothing had run.)
+		const rogueList = /the library does not:\s*\n\s+([^\n]+)/.exec(outText)?.[1] ?? '';
+		assert(/RESERVED/.test(outText) && /cm-toolbar__group/.test(rogueList),
+			`expected a RESERVED report listing the rogue classes, got: ${outText.trim()}`);
+		assert(!/\bcm-header\b/.test(rogueList),
+			`an EXISTING library class must not be reported as rogue, got: ${rogueList}`);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
