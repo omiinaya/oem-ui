@@ -1491,6 +1491,51 @@ promise. The stepper's connector hangs off the `<li>`, because each
 `.cm-step` is the only child of its own `<li>` and `:not(:last-child)` on
 the button can never match.
 
+### Popover and combobox
+
+```html
+<!-- a card anchored to its trigger: the button is a toggle, not a submit -->
+<div class="cm-btn-group">
+  <button type="button" class="cm-btn" popovertarget="pop-demo" aria-haspopup="dialog">deploy</button>
+</div>
+<div class="cm-popover" id="pop-demo" popover role="dialog" aria-labelledby="pop-demo-t">
+  <p class="cm-popover__title" id="pop-demo-t">Ship to production</p>
+  <p class="cm-popover__body">every push runs the gates first.</p>
+  <div class="cm-popover__actions">
+    <button type="button" class="cm-btn" popovertarget="pop-demo" popovertargetaction="hide">cancel</button>
+    <button type="button" class="cm-btn cm-btn--primary" popovertarget="pop-demo" popovertargetaction="hide">deploy</button>
+  </div>
+</div>
+
+<!-- the list never pushes the form: it is absolutely placed over it,
+     and at rest it has no box at all (display:none beats its own flex) -->
+<div class="cm-combobox">
+  <input class="cm-combobox__input" type="text" placeholder="pick a runtime"
+         role="combobox" aria-expanded="false" aria-controls="f-fw-list"
+         aria-autocomplete="list" autocomplete="off">
+  <ul class="cm-combobox__list" id="f-fw-list" role="listbox" hidden>
+    <li class="cm-combobox__option" role="option" data-value="node"><span>node 22</span><span class="cm-combobox__hint">lts</span></li>
+    <li class="cm-combobox__option" role="option" data-value="deno"><span>deno 2</span><span class="cm-combobox__hint">secure</span></li>
+  </ul>
+</div>
+```
+
+The card is the platform's `popover`: the top layer, the focus return, the
+Escape and the light-dismiss are all the browser's, and the runtime only owns
+alignment - left-aligned to its trigger, flipped above it when it will not fit
+below, clamped inside the gutter. Anchoring runs *on* the scroll event, never
+in a deferred callback: an earlier version debounced through
+`requestAnimationFrame`, and the callback that eventually ran carried the
+page's old position, leaving the card 276px short of its trigger for good.
+
+The combobox takes the label span, not the whole row: `optionLabel()` skips the
+hint so `deno 2` never becomes `deno 2secure`, and a `choosing` flag holds the
+list shut while the field takes focus back after a click - WebKit does not blur
+a focused field when you click elsewhere, so that click would otherwise reopen
+what the choice just closed. The option value comes from `data-value`, falling
+back to the label: the row's text is presentation (a hint lives in it), the
+attribute is the wire.
+
 ### Interactive primitives
 
 The runtime opts into managed segmented controls only when requested:

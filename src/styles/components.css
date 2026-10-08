@@ -6324,6 +6324,90 @@ input.cm-slider:disabled {
 	.cm-stepper > li:not(:last-child)::after { display: none; }
 }
 
+/* ============ shadcn-parity: popover + combobox ============ */
+
+/* A popover is the dropdown's panel without the list: same native
+   [popover] element, same light dismiss, same focus return - so it joins
+   POP_SEL in the runtime and inherits the anchoring instead of growing a
+   second positioning system. The only new decision is the alignment:
+   a menu aligns its RIGHT edge with the trigger because it hangs off a
+   chevron in a corner, while a card of prose reads better aligned to the
+   LEFT edge it was opened from. */
+.cm-popover {
+	position: fixed;
+	inset: auto;
+	z-index: var(--z-popover);
+	min-width: 14rem;
+	max-width: min(22rem, calc(100vw - (2 * var(--gutter))));
+	margin: 0;
+	padding: var(--space-4);
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	background: var(--bg-2);
+	color: var(--ink);
+	box-shadow: var(--shadow-card);
+}
+.cm-popover__title {
+	margin: 0 0 var(--space-2);
+	font-size: var(--text);
+	font-weight: 600;
+}
+.cm-popover__body { margin: 0 0 var(--space-3); color: var(--ink-dim); }
+.cm-popover__body:last-child { margin-bottom: 0; }
+.cm-popover__row { display: flex; gap: var(--space-2); justify-content: flex-end; }
+
+/* A combobox is an input and a listbox that share one frame. The frame
+   keeps a single hairline, and the list is hidden with a DISPLAY rule
+   because an author `display: grid` outranks the UA's `[hidden]` - the
+   same trap the command palette documents. */
+.cm-combobox { position: relative; display: block; }
+.cm-combobox__input {
+	width: 100%;
+	margin: 0;
+	padding: var(--space-2) var(--space-3);
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	background: var(--bg-2);
+	color: var(--ink);
+	font: inherit;
+}
+.cm-combobox__list {
+	position: absolute;
+	z-index: var(--z-popover);
+	top: calc(100% + 4px);
+	left: 0;
+	right: 0;
+	display: block;
+	margin: 0;
+	padding: var(--space-1);
+	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
+	background: var(--bg-2);
+	box-shadow: var(--shadow-card);
+	list-style: none;
+	max-height: 14rem;
+	overflow: auto;
+}
+.cm-combobox__list[hidden],
+.cm-combobox__option[hidden] { display: none; }
+.cm-combobox__option {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+	margin: 0;
+	padding: var(--space-2) var(--space-3);
+	border: 0;
+	background: transparent;
+	color: var(--ink-dim);
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+.cm-combobox__option:hover,
+.cm-combobox__option.is-active { background: var(--bg-3); color: var(--ink); }
+.cm-combobox__hint { color: var(--ink-faint); font-size: var(--text-sm); }
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;

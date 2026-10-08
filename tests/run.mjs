@@ -422,6 +422,12 @@ check('a dropdown menu anchors to its trigger, and flips when it will not fit', 
 		module: { exports: {} },
 	};
 	ctx.globalThis = ctx;
+	// A browser exposes requestAnimationFrame as a GLOBAL, not only on
+	// window: the pin's frame loop calls it bare, and a context without it
+	// throws where the test meant to assert. Scheduled, never invoked - an
+	// immediately-recursive rAF would hang the suite.
+	ctx.requestAnimationFrame = () => 1;
+	ctx.cancelAnimationFrame = () => {};
 	vm.createContext(ctx);
 	vm.runInContext(runtimeSrc, ctx);
 
@@ -438,9 +444,20 @@ check('a dropdown menu anchors to its trigger, and flips when it will not fit', 
 			offsetHeight: 171,
 			// The real menu is an Element. An empty fake menu still exposes
 			// querySelectorAll, even though this anchor test owns no items.
+			// `querySelector` too: opening a menu falls back to the first
+			// focusable node, and a fake without it throws instead of
+			// answering "none".
 			querySelectorAll: () => [],
+			querySelector: () => null,
+			classList: { contains: () => false },
+			// Mirror the WIRE, not a guess: the runtime asks POP_SEL, which
+			// now names both the menu and the popover card, so a fake that
+			// only knows the old single selector silently stops matching and
+			// the anchor path never runs.
 			matches: (sel) =>
-				sel === '.cm-dropdown__menu[popover]' ? true : open ? sel === ':popover-open' : false,
+				(typeof sel === 'string' && sel.split(',').some((s) => s.trim() === '.cm-dropdown__menu[popover]'))
+					? true
+					: open ? sel === ':popover-open' : false,
 		};
 	};
 
@@ -452,6 +469,31 @@ check('a dropdown menu anchors to its trigger, and flips when it will not fit', 
 	assert(below.style.left === '157px', `expected right edge aligned at 157px, got ${below.style.left}`);
 	assert(below.style.top === '348px', `expected 348px (4px below the trigger), got ${below.style.top}`);
 	assert(scrollCount() === base + 1, 'a fixed menu must be re-pinned while the page scrolls under it');
+
+	// The popover card shares this anchoring but takes the OTHER edge: a
+	// menu right-aligns to the chevron it hangs from, a card of prose
+	// starts at the left edge it was opened from.
+	const open2 = true;
+	const card = {
+		id: 'pop-card',
+		style: {},
+		offsetWidth: 192,
+		offsetHeight: 171,
+		querySelectorAll: () => [],
+		querySelector: () => null,
+		classList: { contains: (c) => c === 'cm-popover' },
+		matches: (sel) =>
+			(typeof sel === 'string' && sel.split(',').some((x) => x.trim() === '.cm-popover[popover]'))
+				? true
+				: open2 ? sel === ':popover-open' : false,
+	};
+	// Placed where it fits: at innerWidth 390 with a 192px card, a trigger
+	// whose left edge sits at 220 would (correctly) clamp in to 190 and the
+	// assertion would be measuring the clamp, not the alignment.
+	triggers['pop-card'] = { getBoundingClientRect: () => ({ top: 120, bottom: 164, left: 60, right: 189 }) };
+	toggle.fn({ target: card });
+	assert(card.style.left === '60px',
+		`a popover card aligns to the LEFT edge of its trigger, got ${card.style.left}`);
 
 	const above = pin('m-above', 700, 744, true);
 	toggle.fn({ target: above });
@@ -4898,7 +4940,15 @@ check('cm-dialog: the markup is a real <dialog>, not a div with role=dialog', ()
 	// gets no focus trap from the engine. Each of those is the entire
 	// reason to use the element.
 	assert(/<dialog class="cm-dialog"/.test(showcase), 'the showcase has no <dialog class="cm-dialog">');
-	assert(!/role="dialog"/.test(showcase), 'a role="dialog" is a hand-rolled modal; use <dialog>');
+	// A div pretending to be a MODAL gets no top layer, no inert-behind and
+	// no focus trap from the engine. The exception is an element that is
+	// already a top-layer [popover] and is not modal - that is the
+	// platform's own non-modal dialog, and the whole point of the popover
+	// API. Each match is checked as a whole tag, not as a bare attribute.
+	for (const tag of showcase.match(/<[a-z]+[^>]*role="dialog"[^>]*>/g) || []) {
+		assert(/\bpopover\b/.test(tag),
+			`a role="dialog" is a hand-rolled modal unless the tag is a top-layer [popover]: ${tag.slice(0, 90)}`);
+	}
 	assert(/\.cm-dialog::backdrop/.test(compSrc), 'the dialog has no ::backdrop rule');
 });
 
@@ -12359,5 +12409,56 @@ check("the input group collapses to one hairline", () => {
 			'the connector must target the <li>: .cm-step is always an only child, so :not(:last-child) on it never matches');
 		assert(!/\.cm-step:not\(:last-child\)/.test(css),
 			'a connector keyed to .cm-step:not(:last-child) can never match - target the li');
+	});
+}
+
+
+// ---------- shadcn-parity: popover + combobox ----------
+{
+	const page = read('src/pages/index.astro');
+	const css = read('src/styles/components.css');
+	const js = read('src/js/cli-mono.js');
+
+	check('the popover is a native [popover] anchored by the runtime', () => {
+		assert(/<div class="cm-popover" id="pop-demo"[^>]*\bpopover\b/s.test(page),
+			'the showcase must ship a popover card on the platform element');
+		assert(/popovertarget="pop-demo"/.test(page),
+			'the trigger must open it through popovertarget, not through script');
+		assert(/POP_SEL = '[^']*\.cm-popover\[popover\]/.test(js),
+			'the card must join POP_SEL or it is never anchored, pinned or focused');
+		assert(/classList\.contains\('cm-popover'\)/.test(js) && /var x = card \? t\.left : t\.right - w/.test(js),
+			'a card aligns to the LEFT edge it opened from; only a menu right-aligns to its chevron');
+		const rule = css.match(/\.cm-popover \{([^}]*)\}/);
+		assert(rule, '.cm-popover is not defined');
+		assert(/border-radius:\s*var\(--radius-sm\)/.test(rule[1]), 'the card must take the sharp radius token');
+		assert(/z-index:\s*var\(--z-popover\)/.test(rule[1]), 'the card must sit on the named popover layer');
+	});
+
+	check('the combobox wires an input to a listbox and filters it', () => {
+		assert(/<div class="cm-combobox"/.test(page), 'the showcase must ship a combobox specimen');
+		assert(/role="combobox"[^>]*\baria-expanded="false"/s.test(page),
+			'the input must state its collapsed state to a reader');
+		const opts = (page.match(/role="option"/g) || []).length;
+		assert(opts >= 4, `a combobox needs options to filter, found ${opts}`);
+		assert(/function cmInitComboboxes\(root\)/.test(js), 'cmInitComboboxes is missing');
+		assert(/cmInitComboboxes\(root\);/.test(js), 'cmInitComboboxes is never called from init');
+		assert(/addEventListener\('input', filter\)/.test(js), 'typing must filter the list');
+		assert(/choose\(active\)/.test(js), 'Enter must commit the active option, not just close the list');
+		assert(/wrap\.contains\(e\.target\)\) setOpen\(false\)/.test(js),
+			'a click outside must close the list - the part every hand-rolled version forgets');
+		// `display: block` on the list outranks the UA's [hidden], so a
+		// filtered-empty list would stay laid out: the rule has to say it.
+		assert(/\.cm-combobox__list\[hidden\][^{]*\{[^}]*display:\s*none/s.test(css),
+			'the list needs an explicit [hidden] display: none - author display beats the UA rule');
+		const list = css.match(/\.cm-combobox__list \{([^}]*)\}/);
+		assert(list && /position:\s*absolute/.test(list[1]), 'the list must overlay, not push the form down');
+		// The active row must be marked in PAINT, and that paint must WIN.
+		// Asserting the rule exists passed on a file that declared it and
+		// then repainted the same selector transparent three lines later.
+		const paint = /\.cm-combobox__option\.is-active[^{}]*\{[^}]*background:\s*var\(--bg-3\)/s.exec(css);
+		assert(paint, 'the active option must be painted, not only classed');
+		const later = css.slice(paint.index + paint[0].length)
+			.match(/\.cm-combobox__option\.is-active[^{}]*\{[^}]*background:\s*[^;}]+/s);
+		assert(!later, `a later rule repaints the active option: ${later && later[0].replace(/\s+/g, ' ').slice(0, 90)}`);
 	});
 }

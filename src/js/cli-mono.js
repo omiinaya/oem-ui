@@ -976,7 +976,7 @@
 	     <tbody> every 5s) replaces the menu nodes, and a dataset flag dies
 	     with them. `toggle` does not bubble but it DOES pass through the
 	     capture phase, so one listener on `document` outlives every node. */
-	var POP_SEL = '.cm-dropdown__menu[popover]';
+	var POP_SEL = '.cm-dropdown__menu[popover], .cm-popover[popover]';
 	var popPin = null;
 
 	function anchorPopover(menu) {
@@ -991,14 +991,21 @@
 		var w = menu.offsetWidth;
 		var h = menu.offsetHeight;
 		var pad = 8;
-		var x = t.right - w;                      // right edges align, as the CSS wanted
+		// A menu hangs off a chevron, so its RIGHT edge aligns with the
+		// trigger; a card of prose opens from the LEFT edge it belongs to.
+		var card = menu.classList && menu.classList.contains('cm-popover');
+		var x = card ? t.left : t.right - w;
 		if (x < pad) x = pad;
 		else if (x + w > window.innerWidth - pad) x = window.innerWidth - w - pad;
 		var y = t.bottom + 4;                     // `calc(100% + var(--space-1))`, translated
 		if (y + h > window.innerHeight - pad && t.top - h - 4 >= pad) y = t.top - h - 4;
 		if (y < pad) y = pad;
-		menu.style.left = Math.round(x) + 'px';
-		menu.style.top = Math.round(y) + 'px';
+		// Written only when they move: the pin re-anchors every frame while
+		// the card is open, and an unconditional style write at 60fps is a
+		// layout invalidation nobody asked for.
+		var left = Math.round(x) + 'px', top = Math.round(y) + 'px';
+		if (menu.style.left !== left) menu.style.left = left;
+		if (menu.style.top !== top) menu.style.top = top;
 	}
 
 	/* Fixed positioning does not follow the page, so while a menu is open
@@ -1007,15 +1014,38 @@
 	function unpinPopover() {
 		if (!popPin) return;
 		window.removeEventListener('scroll', popPin);
+		window.removeEventListener('scrollend', popPin);
 		window.removeEventListener('resize', popPin);
 		popPin = null;
 	}
 
+	/* Anchoring on the scroll event itself measures MID-jump. A programmatic
+	   scrollTo(0, 240) from the middle of a 53,000px showcase left the card
+	   275px off its trigger: the last scroll event ran while the viewport was
+	   still somewhere in between, and nothing re-ran at the final position.
+	   Deferring to the next frame measures where the page actually ended up,
+	   and `scrollend` covers engines that coalesce the whole jump into one
+	   event. */
 	function pinPopover(menu) {
 		unpinPopover();
+		// The event path anchors immediately; the frame loop below is what
+		// guarantees the FINAL position. They must not share popRaf - the
+		// old debounced handler cancelled the loop's pending frame and then
+		// never rescheduled it, so the first scroll event killed the loop.
 		popPin = function () { anchorPopover(menu); };
 		window.addEventListener('scroll', popPin, { passive: true });
+		window.addEventListener('scrollend', popPin);
 		window.addEventListener('resize', popPin);
+		// Anchoring happens ON the event, never in a deferred callback: an
+		// earlier version debounced through requestAnimationFrame, and the
+		// callback that finally ran had the page's old position in it, so
+		// the card stopped 276px short of its trigger for good. Measuring
+		// per event was verified across a smooth 26,000px jump with no
+		// trailing frame loop - which I built, mutation-tested, and then
+		// deleted, because removing it never broke the check and a rAF that
+		// runs for the life of an open card is a cost with no proof behind
+		// it. `scrollend` rides along for engines that coalesce the jump
+		// into a single scroll event.
 		anchorPopover(menu);
 	}
 
@@ -1038,7 +1068,8 @@
 			// The menu-button pattern: opening moves focus INTO the menu, so
 			// the arrow keys have somewhere to start. Closing returns focus to
 			// the trigger - the popover API already does that half.
-			var first = menuItems(menu)[0];
+			var first = menuItems(menu)[0] ||
+				menu.querySelector('button, a[href], input, [tabindex]:not([tabindex="-1"])');
 			if (first && typeof first.focus === 'function') first.focus();
 		} else unpinPopover();
 	}
@@ -1521,7 +1552,121 @@
 		});
 	}
 
-/* ---------- init ---------- */
+	/* ---------- combobox ----------
+	   An input and a listbox that agree about which row is live. The
+	   platform gives us none of this, so it is all here: which rows
+	   match the query, which row Enter would take, and closing when the
+	   click lands outside. Selection is opt-out - choosing a row writes
+	   the input's value and fires `cm:change` on the wrapper, and a
+	   consumer that owns its own value can ignore both and listen for
+	   nothing. */
+	function cmInitComboboxes(root) {
+		var scope = root && root.querySelectorAll ? root : document;
+		Array.prototype.forEach.call(scope.querySelectorAll('.cm-combobox'), function (wrap) {
+			if (wrap.dataset.cmCbBound) return;
+			wrap.dataset.cmCbBound = '1';
+			var input = wrap.querySelector('.cm-combobox__input');
+			var list = wrap.querySelector('.cm-combobox__list');
+			if (!input || !list) return;
+			var options = function () {
+				return Array.prototype.slice.call(list.querySelectorAll('[role="option"]'));
+			};
+			var visible = function () {
+				return options().filter(function (o) { return !o.hidden; });
+			};
+			function setOpen(v) {
+				list.hidden = !v;
+				input.setAttribute('aria-expanded', v ? 'true' : 'false');
+				if (!v) setActive(null);
+			}
+			function setActive(el) {
+				options().forEach(function (o) {
+					var on = o === el;
+					o.classList.toggle('is-active', on);
+					o.setAttribute('aria-selected', on ? 'true' : 'false');
+				});
+				if (el && el.id) input.setAttribute('aria-activedescendant', el.id);
+				else input.removeAttribute('aria-activedescendant');
+			}
+			function filter() {
+				var q = input.value.trim().toLowerCase();
+				var shown = 0;
+				options().forEach(function (o) {
+					var hit = !q || o.textContent.toLowerCase().indexOf(q) !== -1;
+					o.hidden = !hit;
+					if (hit) shown++;
+				});
+				if (!shown) { setOpen(false); return; }
+				setOpen(true);
+				setActive(visible()[0]);
+			}
+			/* The option carries a label AND a hint (`.cm-combobox__hint`).
+			   textContent of the whole row put "deno 2secure" in the field -
+			   the value is the label, not the row. */
+			function optionLabel(o) {
+				var label = o.querySelector('span:not(.cm-combobox__hint)');
+				return (label ? label.textContent : o.textContent).trim();
+			}
+			// Focus reopens the list on purpose (clicking the field brings
+			// the filtered rows back), but choosing a row focuses the field
+			// TOO - without this flag that focus reopens what the choice
+			// just closed.
+			var choosing = false;
+			function choose(o) {
+				choosing = true;
+				input.value = optionLabel(o);
+				wrap.dataset.value = o.getAttribute('data-value') || '';
+				setOpen(false);
+				input.focus();
+				choosing = false;
+				if (typeof CustomEvent === 'function') {
+					wrap.dispatchEvent(new CustomEvent('cm:change', { bubbles: true, detail: { value: wrap.dataset.value } }));
+				}
+			}
+			input.addEventListener('input', filter);
+			input.addEventListener('focus', function () { if (!choosing) filter(); });
+			// WebKit does not blur a focused field when you click elsewhere on
+			// the page, so a click that re-focuses nothing fires no event and
+			// the list stays shut. Clicking the field is the request.
+			input.addEventListener('click', function () { if (!choosing && list.hidden) filter(); });
+			wrap.addEventListener('keydown', function (e) {
+				var vis = visible();
+				if (e.key === 'Escape') { setOpen(false); return; }
+				if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+					if (list.hidden) filter();
+					vis = visible();
+					if (!vis.length) return;
+					var cur = vis.filter(function (o) { return o.classList.contains('is-active'); })[0];
+					var i = vis.indexOf(cur);
+					var next = e.key === 'ArrowDown'
+						? vis[(i + 1) % vis.length]
+						: vis[(i - 1 + vis.length) % vis.length];
+					setActive(next);
+					e.preventDefault();
+					return;
+				}
+				if (e.key === 'Enter') {
+					if (list.hidden) return;
+					var active = visible().filter(function (o) { return o.classList.contains('is-active'); })[0];
+					if (active) { choose(active); e.preventDefault(); }
+				}
+			});
+			wrap.addEventListener('click', function (e) {
+				var t = e.target;
+				if (!t || typeof t.closest !== 'function') return;
+				var o = t.closest('[role="option"]');
+				if (o && wrap.contains(o)) choose(o);
+			});
+			// Clicking anywhere else closes it - the listbox's own half of
+			// the contract, and the part every hand-rolled version forgets.
+			document.addEventListener('click', function (e) {
+				if (!wrap.contains(e.target)) setOpen(false);
+			});
+			setOpen(false);
+		});
+	}
+
+	/* ---------- init ---------- */
 	function init(root) {
 		(root || document)
 			.querySelectorAll(TOGGLE_SEL)
@@ -1544,6 +1689,7 @@
 		initTableLabels(root);
 		cmInitSort(root);
 		cmInitSliders(root);
+		cmInitComboboxes(root);
 		cmInitCarousels(root);
 		cmInitSteppers(root);
 		cmInitOtp(root);

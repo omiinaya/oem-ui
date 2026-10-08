@@ -1517,6 +1517,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `fix: the stepper connector targeted `.cm-step:not(:last-child)`, which can never match - each button is the only child of its own `<li>` - so the first version shipped with no connector at any width.
 - `fix: carousel landing coordinates came from `slide.offsetLeft`, measured against a positioned ancestor 40px away at 402px; scroll-snap had been quietly rescuing every wrong landing.
 
+- Added `.cm-popover`: a sharp card on the platform `popover`. The top layer,
+  the focus return, Escape and the light-dismiss are the browser's; the runtime
+  owns only alignment - left-aligned to its trigger (the POP_SEL in the
+  dropdown's toggle handler gained the card, so the one handler covers both),
+  flipped above when it will not fit below, clamped inside the gutter. The card
+  element starts with `pointer-events: none` because the UA's
+  `[popover]:not(:popover-open) { pointer-events: none }` is in the UA
+  stylesheet, which author styles always beat.
+- Added `.cm-combobox`: an input over a listbox, filtering as you type, with
+  an active row mirrored to `aria-activedescendant`, an Enter/click choice
+  that fires `cm:change`, and a list that is `display: none` at rest (the
+  option rule's `display: flex` outranks the UA's `[hidden]`). The committed
+  value comes from `data-value` falling back to the label span, never from
+  `textContent`: a row carries a hint, and the hint is not the value.
+- `fix: an anchored card stopped 276px short of its trigger during a long
+  smooth scroll`. The re-anchor was debounced through `requestAnimationFrame`,
+  and the callback that eventually ran still had the page's old position in
+  it - the last scroll event of a 26,000px jump arrived at scrollY 520. It now
+  anchors on the event, and the trailing frame loop built as belt-and-braces
+  was deleted once mutation testing showed removing it changed nothing: an
+  unproven rAF running for the life of an open card is a cost, not a fix.
+- `fix: a choice re-opened the list it had just closed` (WebKit does not blur
+  a focused field on an outside click, so focusing back fired `filter()`), and
+  `fix: the value read the whole row including its hint` (`deno 2secure`).
+- Popover + combobox: 18/18 WebKit checks, 10/10 seeded faults killed (9 in
+  the harness, 1 in the contract suite).
+
 ## Fixed
 
 - Two stacking checks demanded a literal `z-index: <number>`, which fails on

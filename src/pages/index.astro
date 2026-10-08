@@ -1819,6 +1819,23 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 				</span>
 				<div class="cm-btn-group">
 					<button type="button" class="cm-btn" data-cm-open="dlg-demo">open dialog</button>
+					<button type="button" class="cm-btn" popovertarget="pop-demo" aria-haspopup="dialog">open popover</button>
+				</div>
+
+				<!-- The same native [popover] the dropdown uses, so light
+				     dismiss, Escape and focus return come from the platform
+				     and only the anchoring is ours. -->
+				<div class="cm-popover" id="pop-demo" popover role="dialog" aria-labelledby="pop-demo-title">
+					<p class="cm-popover__title" id="pop-demo-title">deploy to production?</p>
+					<p class="cm-popover__body">
+						The panel is the platform's element: Escape closes it, focus
+						returns to the trigger, and a click anywhere outside
+						dismisses it without a line of script.
+					</p>
+					<div class="cm-popover__row">
+						<button type="button" class="cm-btn cm-btn--sm" popovertarget="pop-demo" popovertargetaction="hide">cancel</button>
+						<button type="button" class="cm-btn cm-btn--sm cm-btn--primary" popovertarget="pop-demo" popovertargetaction="hide">deploy</button>
+					</div>
 				</div>
 				<dialog class="cm-dialog" id="dlg-demo" aria-labelledby="dlg-demo-title">
 					<form method="dialog" class="cm-dialog__head">
@@ -2990,6 +3007,28 @@ inputs are element defaults, so a bare <code>&lt;input&gt;</code> is already on-
 							</div>
 							<span class="cm-field__help"><code>.cm-otp</code> cells are plain inputs. Digits type forward, <kbd class="cm-kbd">Backspace</kbd> clears before it retreats, and pasting <code>481902</code> fills all six at once.</span>
 						</div>
+
+					<!-- A select when the list is small, a combobox when it
+					     is not. Typing filters, arrows choose, Enter commits
+					     and the value lands in the field. -->
+					<div class="cm-field">
+						<label class="cm-field__label" for="f-fw">runtime</label>
+						<div class="cm-combobox" id="f-fw-wrap">
+							<input class="cm-combobox__input" id="f-fw" type="text" role="combobox"
+							       aria-expanded="false" aria-controls="f-fw-list"
+							       aria-autocomplete="list" autocomplete="off"
+							       placeholder="search runtimes…" />
+							<ul class="cm-combobox__list" id="f-fw-list" role="listbox" aria-label="runtimes" hidden>
+								<li class="cm-combobox__option" role="option" id="f-fw-0" data-value="node" aria-selected="false"><span>node 22</span><span class="cm-combobox__hint">lts</span></li>
+								<li class="cm-combobox__option" role="option" id="f-fw-1" data-value="deno" aria-selected="false"><span>deno 2</span><span class="cm-combobox__hint">secure</span></li>
+								<li class="cm-combobox__option" role="option" id="f-fw-2" data-value="bun" aria-selected="false"><span>bun 1.1</span><span class="cm-combobox__hint">fast</span></li>
+								<li class="cm-combobox__option" role="option" id="f-fw-3" data-value="python" aria-selected="false"><span>python 3.12</span><span class="cm-combobox__hint">wide</span></li>
+								<li class="cm-combobox__option" role="option" id="f-fw-4" data-value="rust" aria-selected="false"><span>rust 1.82</span><span class="cm-combobox__hint">steady</span></li>
+								<li class="cm-combobox__option" role="option" id="f-fw-5" data-value="go" aria-selected="false"><span>go 1.23</span><span class="cm-combobox__hint">plain</span></li>
+							</ul>
+						</div>
+						<span class="cm-field__help">typing filters the list; <code>arrow keys</code> choose and <code>enter</code> commits the value.</span>
+					</div>
 
 					<div class="cm-form__actions">
 						<button type="reset" class="cm-btn">cancel</button>
