@@ -375,6 +375,16 @@ with sync_playwright() as pw:
     tiny.goto(URL, wait_until='load')
     kill_smooth(tiny)
     tiny.wait_for_timeout(400)
+    # Settle the page's pre-existing phantom first (the overlays head-row
+    # lays out +8px wide on a fresh load; one invalidation of that subtree
+    # collapses it and never comes back) - then the width is a fact again.
+    tiny.evaluate("""async () => {
+        await document.fonts.ready;
+        const hr = document.querySelector('#overlays .cm-head-row');
+        if (hr) { hr.style.display = 'none'; void document.body.offsetHeight;
+                  hr.style.display = ''; }
+        void document.body.offsetHeight;
+    }""")
     t = tiny.evaluate("() => ({docW: document.documentElement.scrollWidth, vw: window.innerWidth})")
     # the PAGE carried a pre-existing ~8px sideways scroll at 320 (an older
     # section, layout-fragile, unrelated to this batch - hiding almost any

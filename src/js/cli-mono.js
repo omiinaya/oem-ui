@@ -2259,6 +2259,98 @@
 		});
 	}
 
+	/* ---------- drawer: the bottom sheet you can PULL DOWN ----------
+	   Everything structural belongs to the sheet below it - showModal()
+	   gives the trap, Escape, the top layer and focus restore, so this
+	   adds exactly two things: a handle, and a gesture.
+	   The drag transforms the dialog against the pointer's own Y (no
+	   easing: it must sit exactly under the finger, and the house
+	   reduced-motion guard would flatten an eased one anyway). The
+	   RELEASE is the decision: past the threshold the dialog closes for
+	   real, below it the sheet snaps home - a half-pull is a no-op, not
+	   a stuck drawer. Only the HANDLE drags; a gesture that began in the
+	   body would fight the content's own scrolling, so the body gets no
+	   pointer handlers at all. */
+	function cmInitDrawer(root) {
+		(root || document).querySelectorAll('.cm-drawer').forEach(function (dlg) {
+			if (dlg.dataset.cmDragBound) return;
+			dlg.dataset.cmDragBound = '1';
+			var handle = dlg.querySelector('.cm-drawer__handle');
+			if (!handle) return;
+			var startY = 0;
+			var dy = 0;
+			var dragging = false;
+			handle.addEventListener('pointerdown', function (e) {
+				if (typeof dlg.showModal !== 'function' || !dlg.open) return;
+				dragging = true;
+				startY = e.clientY;
+				dy = 0;
+				dlg.classList.add('cm-drawer--dragging');
+				try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+			});
+			handle.addEventListener('pointermove', function (e) {
+				if (!dragging) return;
+				dy = Math.max(0, e.clientY - startY); /* never pull UP */
+				dlg.style.transform = 'translateY(' + dy + 'px)';
+			});
+			var release = function () {
+				if (!dragging) return;
+				dragging = false;
+				dlg.classList.remove('cm-drawer--dragging');
+				dlg.style.transform = '';
+				var tall = dlg.getBoundingClientRect().height;
+				if (dy >= 96 || dy >= tall * 0.4) {
+					if (typeof dlg.close === 'function') dlg.close();
+				}
+			};
+			handle.addEventListener('pointerup', release);
+			handle.addEventListener('pointercancel', release);
+			/* Escape (or a programmatic close) mid-drag would otherwise
+			   leave an inline transform behind for the next open */
+			dlg.addEventListener('close', function () {
+				dragging = false;
+				dlg.classList.remove('cm-drawer--dragging');
+				dlg.style.transform = '';
+			});
+		});
+	}
+
+	/* ---------- field: the wiring the markup should not repeat ----------
+	   label->control, help->control and error->control are relations a
+	   screen reader can only act on when they are IDS in the DOM, and
+	   hand-writing them is exactly the copy-paste a fourth field gets
+	   wrong. Ids are generated only when MISSING - a consumer's own ids
+	   win - and aria-describedby MERGES with whatever is already there
+	   instead of overwriting it, because the same control may already
+	   point at a hint of its own. */
+	function cmInitFields(root) {
+		var n = 0;
+		(root || document).querySelectorAll('.cm-field').forEach(function (field) {
+			var control = field.querySelector(
+				'.cm-field__control > input, .cm-field__control > textarea, .cm-field__control > select'
+			) || field.querySelector('input, textarea, select');
+			var label = field.querySelector('label');
+			if (!control || !label) return;
+			if (!control.id) control.id = 'cm-field-' + (++n);
+			if (!label.htmlFor) label.htmlFor = control.id;
+			var generated = [];
+			[['.cm-field__help', '-help'], ['.cm-field__error', '-error']].forEach(function (pair) {
+				var node = field.querySelector(pair[0]);
+				if (!node) return;
+				if (!node.id) node.id = control.id + pair[1];
+				generated.push(node.id);
+			});
+			if (generated.length) {
+				var keep = (control.getAttribute('aria-describedby') || '')
+					.split(/\s+/)
+					.filter(function (id) { return id && generated.indexOf(id) === -1; });
+				control.setAttribute('aria-describedby', keep.concat(generated).join(' '));
+			}
+			if (field.querySelector('.cm-field__req') && !control.hasAttribute('required'))
+				control.setAttribute('aria-required', 'true');
+		});
+	}
+
 	/* ---------- init ---------- */
 	function init(root) {
 		(root || document)
@@ -2283,6 +2375,8 @@
 		cmInitResize(root);
 		cmInitCal(root);
 		cmClampHovercards(root);
+		cmInitDrawer(root);
+		cmInitFields(root);
 		cmInitSort(root);
 		cmInitSliders(root);
 		cmInitComboboxes(root);

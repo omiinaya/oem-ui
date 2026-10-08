@@ -38,7 +38,7 @@ import SectionHead from '../astro/SectionHead.astro';
  */
 const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'crumbs', 'lists', 'states', 'surface',
-  'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'choice', 'keys-pages-people',
+  'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'drawer', 'choice', 'keys-pages-people',
 	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'proselists', 'proselists-order', 'prosetap', 'prosetable', 'tablelabels', 'layout', 'surface-paint',
 	'forms', 'search', 'auth', 'readme',
 ] as const;
@@ -1589,7 +1589,7 @@ The monospace surface for structured text, in the two forms it is always used: a
 							<SectionHead title="dialog, as a side sheet">
 The same native <code>&lt;dialog&gt;</code> as the confirm modal, anchored to the right edge instead of the centre. Only the frame changes, so it keeps the focus trap, Escape, the top layer and the inertness of the page behind it - all of which a hand-rolled <code>position: fixed</code> panel gives up. Full-width and flush below 640px.
 							</SectionHead>
-							<dialog class="cm-dialog cm-dialog--sheet" style="position:static;height:16rem;margin:0 auto;max-height:16rem">
+							<dialog class="cm-dialog--spec cm-dialog cm-dialog--sheet" style="position:static;margin:0 auto">
 								<div class="cm-dialog__head">
 									<div>
 										<div class="cm-dialog__title">app.example.com</div>
@@ -1603,14 +1603,52 @@ The same native <code>&lt;dialog&gt;</code> as the confirm modal, anchored to th
 									</p>
 								</div>
 							</dialog>
-							<dialog class="cm-dialog cm-dialog--sheet cm-dialog--sheet-left" style="position:static;height:8rem;max-height:8rem;margin-top:var(--space-4)">
+							<dialog class="cm-dialog--spec cm-dialog cm-dialog--sheet cm-dialog--sheet-left" style="position:static;margin-top:var(--space-4)">
 								<div class="cm-dialog__head"><div class="cm-dialog__title">left sheet</div></div>
 							</dialog>
-							<dialog class="cm-dialog cm-dialog--sheet cm-dialog--sheet-top" style="position:static;height:8rem;max-height:8rem;margin-top:var(--space-4)">
+							<dialog class="cm-dialog--spec cm-dialog cm-dialog--sheet cm-dialog--sheet-top" style="position:static;margin-top:var(--space-4)">
 								<div class="cm-dialog__head"><div class="cm-dialog__title">top sheet</div></div>
 							</dialog>
-							<dialog class="cm-dialog cm-dialog--sheet cm-dialog--sheet-bottom" style="position:static;height:8rem;max-height:8rem;margin-top:var(--space-4)">
+							<dialog class="cm-dialog--spec cm-dialog cm-dialog--sheet cm-dialog--sheet-bottom" style="position:static;margin-top:var(--space-4)">
 								<div class="cm-dialog__head"><div class="cm-dialog__title">bottom sheet</div></div>
+							</dialog>
+						</section>
+						<section id="drawer" class="cm-section cm-section--pad">
+							<SectionHead title="drawer">
+The bottom sheet with a handle on it. Grab the strip and pull: past the threshold the drawer closes for real, so focus lands back on whatever opened it; short of the threshold it snaps home - a half-pull is a no-op, not a stuck drawer. The drag is transform against the pointer itself, so the sheet sits exactly under your finger with no easing of its own. Only the HANDLE drags: the body scrolls underneath, and a gesture that began in the content would fight that scroll. The frame is still the native <code>&lt;dialog&gt;</code> from the sheet above - focus trap, Escape, top layer, inert page - because a pull-to-dismiss drawer that gives those up is a worse trade than a drawer without a handle.
+							</SectionHead>
+							<dialog class="cm-dialog--spec cm-dialog cm-dialog--sheet cm-dialog--sheet-bottom cm-drawer" style="position:static;margin-top:var(--space-4)">
+								<div class="cm-drawer__handle" aria-hidden="true"></div>
+								<div class="cm-dialog__head">
+									<div class="cm-dialog__title">pull me down</div>
+									<button class="cm-btn cm-btn--sm cm-btn--ghost">Close</button>
+								</div>
+								<div class="cm-dialog__body">
+									<p>
+										Rendered as a specimen: handle and square
+										bar are the whole frame change. Below is
+										the live one - drag its handle.
+									</p>
+								</div>
+							</dialog>
+							<div style="margin-top:var(--space-4)">
+								<button type="button" class="cm-btn" data-cm-open="drawer-demo">open drawer</button>
+							</div>
+							<dialog id="drawer-demo" class="cm-dialog cm-dialog--sheet cm-dialog--sheet-bottom cm-drawer">
+								<div class="cm-drawer__handle" aria-hidden="true"></div>
+								<form method="dialog" class="cm-dialog__head">
+									<div class="cm-dialog__title">drawer</div>
+									<button type="submit" class="cm-btn cm-btn--sm cm-btn--ghost" value="close">Close</button>
+								</form>
+								<div class="cm-dialog__body">
+									<p>
+										Pull the handle down past the threshold and
+										this closes for real. Pull it a little and
+										it snaps back. Escape works, and so does
+										the close button - the gesture is an
+										extra, never the only way out.
+									</p>
+								</div>
 							</dialog>
 						</section>
 						<section id="choice" class="cm-section cm-section--pad">
@@ -3140,8 +3178,9 @@ inputs are element defaults, so a bare <code>&lt;input&gt;</code> is already on-
 
 					<div class="cm-field">
 						<label class="cm-field__label" for="f-url">url <span class="cm-field__req">*</span></label>
-						<input id="f-url" type="url" placeholder="https://" aria-invalid="true" />
-						<span class="cm-field__error">must include the scheme.</span>
+						<input id="f-url" type="url" placeholder="https://" aria-invalid="true" aria-describedby="f-url-scheme" />
+						<span id="f-url-scheme" class="cm-sr-only">include the scheme, for example https://</span>
+								<span class="cm-field__error">must include the scheme.</span>
 					</div>
 
 					<div class="cm-field">

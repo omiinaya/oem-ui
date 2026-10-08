@@ -1721,6 +1721,73 @@ the grid is rebuilt, which REPLACES the button under the cursor, so focus
 follows the pick back onto the new button - without it every click would
 drop focus to `<body>` and the next arrow would land nowhere.
 
+### Drawer and field wiring
+
+```html
+<!-- a drawer: the bottom sheet plus a grab strip you can pull -->
+<button type="button" class="cm-btn" data-cm-open="drawer-demo">open drawer</button>
+<dialog id="drawer-demo" class="cm-dialog cm-dialog--sheet cm-dialog--sheet-bottom cm-drawer">
+  <div class="cm-drawer__handle" aria-hidden="true"></div>
+  <form method="dialog" class="cm-dialog__head">
+    <div class="cm-dialog__title">drawer</div>
+    <button type="submit" class="cm-btn cm-btn--sm cm-btn--ghost" value="close">Close</button>
+  </form>
+  <div class="cm-dialog__body">...</div>
+</dialog>
+
+<!-- a field: the runtime fills the wiring the markup should not repeat -->
+<div class="cm-field">
+  <label class="cm-field__label">url <span class="cm-field__req">*</span></label>
+  <input type="url" aria-invalid="true" aria-describedby="f-url-scheme" />
+  <span id="f-url-scheme" class="cm-sr-only">include the scheme: https://</span>
+  <span class="cm-field__error">must include the scheme.</span>
+</div>
+```
+
+**Drawer** (`.cm-drawer`, additive to the sheet-bottom classes). The frame
+is still the native `<dialog>` - focus trap, Escape, top layer, inert page -
+so this adds only the strip and the gesture:
+
+- **The strip is the only handle.** 44px tall (the tap minimum), a
+  square-ended 48px bar in `--ink-faint`. Rounded is what every other
+  drawer ships; sharp is what this library ships.
+- **Only the strip drags.** A gesture that starts in the body would fight
+  the content's own scroll, so the listeners bind to the handle - and the
+  handle sets pointer capture, so the drag survives leaving it.
+- **The drag has no easing of its own:** the transform is written straight
+  from the pointer's Y, so the sheet sits under the finger. Release is the
+  decision: past the threshold (96px or 40% of the sheet's height) the
+  dialog `close()`s for real - focus returns where `showModal()` took it
+  from - and short of it the sheet snaps home. An upward pull clamps at
+  zero instead of lifting the sheet off the screen.
+- **Escape mid-drag** is the same close path: a `close` listener clears the
+  inline transform, so the next open never inherits a sheet hanging
+  mid-screen.
+- The body's bottom padding is `max(--space-5, env(safe-area-inset-bottom))`
+  so the last line clears the home indicator. The contract suite pins that
+  rule - `env()` resolves to 0 in desktop WebKit, where a harness cannot
+  tell it from no rule at all.
+
+**Field wiring** (`cmInitFields`, runs for every `.cm-field` at init and
+again when a consumer calls `cliMono.init(document)`). Three relations a
+screen reader can only act on when they are ids in the DOM:
+
+- a missing `id` gets `cm-field-N`, a missing `for` gets that id - a
+  consumer's own ids always win;
+- `aria-describedby` is BUILT by merging: whatever the control already
+  points at (a hand-written hint, a tooltip) is kept, and the help/error
+  nodes are appended - never overwritten;
+- a `.cm-field__req` asterisk without a native `required` sets
+  `aria-required="true"`. Native `required` already exposes it, so the
+  runtime does not say it twice.
+
+**The static dialog specimens used to paint nothing.** A `<dialog>` the page
+lays out itself (`position: static`) is still `dialog:not([open])` to the
+user agent, which is `display: none` - every preview in the sheet section
+was invisible while its section described it. `cm-dialog--spec` re-shows
+exactly those, and the harness reads their height so it cannot regress
+silently.
+
 ### Interactive primitives
 
 The runtime opts into managed segmented controls only when requested:

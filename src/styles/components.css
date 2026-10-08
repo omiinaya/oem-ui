@@ -3326,6 +3326,25 @@ button.cm-row:hover { background: var(--bg-2); }
 	z-index: var(--z-raised);
 	background: var(--bg-2);
 }
+/* The specimens are <dialog> elements laid out IN the page flow
+   (position: static in the markup), but a non-open dialog is
+   display: none in the UA sheet - so every "preview" on this page
+   painted nothing while prose described it. Only the specimen class
+   overrides that; the live dialogs keep every UA rule intact. */
+dialog.cm-dialog--spec:not([open]) { display: block; }
+/* An in-flow preview is not anchored to a viewport edge: the sheet
+   modifiers strip the side borders and claim 100% width for edge
+   docking, which in the page reads as two hairlines instead of a
+   dialog. The preview gets its frame back - bounded, centred,
+   four borders, the shadow a real dialog paints with. */
+dialog.cm-dialog--spec:not([open]) {
+	width: min(24rem, 100%);
+	border-width: 1px;
+	box-shadow: var(--shadow-card);
+	margin-left: auto;
+	margin-right: auto;
+}
+
 .cm-dialog__head {
 	display: flex;
 	align-items: baseline;
@@ -6733,6 +6752,38 @@ input.cm-slider:disabled {
 	gap: var(--space-5);
 	margin: 0;
 }
+
+/* ============ drawer ============
+   The bottom sheet, plus a handle you can grab. The frame stays the
+   native <dialog>'s - focus trap, Escape, top layer, inert page - so
+   only the handle and the gesture are new. The bar is SQUARE-ended:
+   the house rule is pointy corners and there is no reason a grab strip
+   needs a radius. */
+/* the class itself: content clears the home indicator, because a
+   drawer pinned to the screen bottom is exactly where one sits */
+.cm-drawer .cm-dialog__body {
+	padding-bottom: max(var(--space-5), env(safe-area-inset-bottom, 0px));
+}
+.cm-drawer__handle {
+	display: block;
+	width: 100%;
+	/* a tap-sized grab strip: 44px tall, the 4px bar centred in it */
+	height: var(--tap);
+	padding: calc((var(--tap) - 4px) / 2) 0;
+	border: 0;
+	background: transparent;
+	cursor: grab;
+	touch-action: none; /* the pointer owns this gesture, not the page */
+}
+.cm-drawer__handle::after {
+	content: '';
+	display: block;
+	width: 3rem;
+	height: 4px;
+	margin: 0 auto;
+	background: var(--ink-faint);
+}
+.cm-drawer--dragging { cursor: grabbing; }
 
 .cm-auth {
 	min-height: 100dvh;

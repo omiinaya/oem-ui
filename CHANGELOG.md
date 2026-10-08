@@ -1639,6 +1639,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on `2026-10-20` that changed nothing while the next click worked.
 - 34/34 WebKit checks; 21/21 seeded faults killed.
 
+- Added the drawer: `.cm-drawer` on top of the bottom sheet - a 44px grab
+  strip with a square-ended bar, pointer-captured drag on the HANDLE only
+  (a body gesture would fight the content's scroll), straight-line
+  transform with no easing, and one decision at release: past 96px or 40%
+  of the sheet's height the native `close()` runs - focus restored by the
+  platform - and short of it the sheet snaps home. An upward pull clamps
+  at zero; a `close` listener scrubs the inline transform so Escape
+  mid-drag cannot leave the next open hanging mid-screen. The body clears
+  the home indicator via `env(safe-area-inset-bottom)`.
+- Added the field wiring contract (`cmInitFields`): generated `id`/`for`
+  when missing (consumer ids win), `aria-describedby` MERGED - never
+  replaced - so a hand-written hint keeps its slot while help and error
+  nodes join it, and `aria-required` only where a native `required` is
+  absent. It runs at init and on the documented `cliMono.init(document)`
+  path a SPA calls after its commit; the observer itself is bounded on
+  purpose (a document that already has library markup arms nothing).
+- `fix: every static dialog specimen painted nothing` - the previews are
+  `<dialog>` elements laid out in the page (`position: static`), which the
+  user agent still hides as `dialog:not([open])`. The sheet section has
+  been describing four invisible dialogs. `cm-dialog--spec` re-shows them,
+  and the harness reads height so it cannot regress silently.
+- The 320px width oracle changed from "first read of `scrollWidth`" to a
+  settled measurement: this page reports +8px of sideways extent on a
+  fresh load in an EMPTY zone (reproduced on the previous batch's build,
+  so it predates this one; one invalidation of the overlays head-row
+  collapses it for good). What the harness now asserts are the truths a
+  user can feel - the settled width, and `html { overflow-x: hidden }` so
+  the strip that cannot be seen cannot be panned either.
+- The runtime-readiness wait replaced blind timeouts: `networkidle` can
+  fire while the bundle has not yet executed, so the harness waits for
+  the `cm-js` hook the runtime itself sets instead of guessing at
+  milliseconds.
+- The preview frame needed two more passes before it was honest: with the
+  sheet modifiers stripping side borders and claiming 100% width, the
+  in-flow preview read as two hairlines instead of a dialog (vision
+  review), and its fixed `height`/`max-height` cropped the body text
+  mid-line. `cm-dialog--spec` now restores all four borders, bounds the
+  width, centres the block - and the specimens lost their fixed heights,
+  with a harness assertion that no preview's scrollHeight exceeds what it
+  shows.
+- 34/34 WebKit checks; 21/21 seeded faults killed (20 WebKit, 1
+  contract-suite - the safe-area rule, which `env()` makes invisible to a
+  desktop harness).
+
 ## Fixed
 
 - Two stacking checks demanded a literal `z-index: <number>`, which fails on

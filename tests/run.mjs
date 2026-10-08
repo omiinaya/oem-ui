@@ -7784,6 +7784,8 @@ check('every class the library defines is rendered somewhere on the page', () =>
 		['cm-js', /classList\.add\(\s*'cm-js'\s*\)/],
 		['cm-nav-scrim', /cm-nav-scrim/],
 		['cm-spec__state', /createElement\('span'\)\s*;?\s*\n\s*out\.className = 'cm-spec__state'/],
+		// applied while the pointer is down, removed on release
+		['cm-drawer--dragging', /classList\.add\(\s*'cm-drawer--dragging'\s*\)/],
 	]);
 	for (const [cls, proof] of runtimeOnly) {
 		assert(proof.test(runtimeSrc),
@@ -7816,6 +7818,51 @@ check('every class the library defines is rendered somewhere on the page', () =>
 	// markup the browser got only when the script has run.
 	assert(unstyled.length === 0,
 		`${unstyled.length} class(es) render on the page but no rule styles them: ${unstyled.join(', ')}`);
+});
+
+check('shadcn-parity: drawer + field wiring', () => {
+	const html = read('dist/index.html');
+	const js = read('src/js/cli-mono.js');
+	const css = read('src/styles/components.css');
+
+	assert(html.includes('id="drawer"'), 'no #drawer section on the built page');
+	assert(html.includes('cm-drawer__handle'), 'the drawer has no handle markup');
+	assert(/id="drawer-demo"[^>]*cm-drawer|cm-drawer[^>]*id="drawer-demo"/.test(html),
+		'the live drawer is not a .cm-drawer');
+	assert(html.includes('data-cm-open="drawer-demo"'), 'nothing opens the live drawer');
+	assert(css.includes('.cm-drawer__handle'), 'no handle rule');
+	assert(css.includes('.cm-drawer--dragging'), 'no dragging rule');
+	// The drawer is pinned to the screen bottom: its body must clear the
+	// home indicator. env() cannot be faked in a WebKit harness (it
+	// resolves to 0 and the rule becomes indistinguishable from no rule),
+	// so this contract is the only place that can hold it.
+	assert(css.includes('safe-area-inset-bottom'),
+		'the drawer body no longer clears the home indicator');
+	assert(css.includes('env(safe-area-inset-bottom'), 'the drawer does not clear the home indicator');
+	assert(/function cmInitDrawer\(/.test(js), 'cmInitDrawer is not defined');
+	assert(/function cmInitFields\(/.test(js), 'cmInitFields is not defined');
+	assert((js.match(/cmInitDrawer\(root\);/g) || []).length >= 1, 'cmInitDrawer never runs from init');
+	assert((js.match(/cmInitFields\(root\);/g) || []).length >= 1, 'cmInitFields never runs from init');
+	// the gesture lives on the HANDLE, not the drawer: a body-started
+	// drag would fight the content's own scrolling.
+	assert(/handle\.addEventListener\('pointermove'/.test(js),
+		'the drag handler is not bound to the handle');
+	assert(js.includes('Math.max(0, e.clientY - startY)'), 'the pull is not clamped to downward');
+	assert(js.includes('aria-describedby'), 'the field wiring does not build describedby');
+	assert(js.includes('keep.concat(generated)'), 'describedby is replaced, not merged');
+	assert(js.includes('aria-required'), 'the asterisk does not become aria-required');
+	// the merge is provable only if the specimen OWNS a describedby the
+	// runtime must keep beside the one it generates.
+	assert(/id="f-url"[^>]*aria-describedby="f-url-scheme"|aria-describedby="f-url-scheme"[^>]*id="f-url"/.test(html),
+		'f-url lost the hand-written describedby the merge is about');
+	assert(html.includes('id="f-url-scheme"'), 'the manual describedby target is missing');
+	// A non-open <dialog> is display:none in the UA sheet: without this
+	// rule every static preview on the page paints NOTHING while prose
+	// describes it. The class is what opts a preview in.
+	assert(css.includes('dialog.cm-dialog--spec:not([open]) { display: block; }'),
+		'the dialog specimens are UA-hidden with no override');
+	assert((html.match(/cm-dialog--spec/g) || []).length >= 5,
+		'fewer than 5 static dialog previews are tagged cm-dialog--spec');
 });
 
 check('a variant is only called demonstrated if it differs from its base', () => {
