@@ -1272,6 +1272,160 @@
 		ctxMenu.hidePopover();
 	}
 
+	/* ---------- tree ----------
+	   The platform owns expansion; this owns the ARROWS, because a tree
+	   without keyboard movement is a tree only a mouse can read. Rows are
+	   visible or they are not - a branch inside a closed <details> is
+	   display:none, so "visible" needs no bookkeeping of our own. */
+	function treeRows(tree) {
+		return Array.prototype.filter.call(
+			tree.querySelectorAll('.cm-tree__row'),
+			function (row) {
+				// checkVisibility(), not getClientRects(): WebKit LAYS OUT the
+				// children of a closed <details> (every row reported a rect
+				// while the hit test said nothing was there), so rects walk
+				// the arrow keys into rows nobody can see. elementFromPoint
+				// would also work but only for what is on screen, and the
+				// tree is taller than the viewport.
+				if (row.checkVisibility) return row.checkVisibility();
+				return row.getClientRects().length > 0;
+			}
+		);
+	}
+
+	function treeRove(row) {
+		var tree = row.closest('[data-cm-tree]');
+		if (!tree) return;
+		treeRows(tree).forEach(function (r) { r.tabIndex = r === row ? 0 : -1; });
+	}
+
+	function treeParentRow(row) {
+		var li = row.closest('li');
+		var up = li && li.parentElement && li.parentElement.closest('li');
+		if (!up) return null;
+		return up.querySelector('summary, a');
+	}
+
+	function onTreeFocus(e) {
+		var row = e.target && e.target.closest && e.target.closest('.cm-tree__row');
+		if (row) treeRove(row);
+	}
+
+	function onTreeKey(e) {
+		var row = e.target && e.target.closest && e.target.closest('.cm-tree__row');
+		if (!row) return;
+		var tree = row.closest('[data-cm-tree]');
+		if (!tree) return;
+		var rows = treeRows(tree);
+		if (!rows.length) return;
+		var i = rows.indexOf(row);
+		var next = null;
+		var branch = row.tagName === 'SUMMARY' ? row.parentElement : null;
+		if (e.key === 'ArrowDown') next = rows[Math.min(i + 1, rows.length - 1)];
+		else if (e.key === 'ArrowUp') next = rows[Math.max(i - 1, 0)];
+		else if (e.key === 'Home') next = rows[0];
+		else if (e.key === 'End') next = rows[rows.length - 1];
+		else if (e.key === 'ArrowRight') {
+			// closed branch: open it. open branch: step inside. leaf: pass.
+			if (branch && !branch.open) {
+				// .click() on a summary is how a PERSON opens it: the state
+				// still changes through the platform's path, so a consumer
+				// listening for the click hears the keyboard too.
+				row.click();
+				next = rows[rows.indexOf(row) + 1] || row;
+			} else if (branch) {
+				next = rows[i + 1] || row;
+			}
+		} else if (e.key === 'ArrowLeft') {
+			if (branch && branch.open) row.click();
+			else if (branch || (i > 0)) next = treeParentRow(row) || rows[Math.max(i - 1, 0)];
+		}
+		if (!next || next === row) return;
+		e.preventDefault();
+		next.focus();
+	}
+
+	/* ---------- resizable ----------
+	   OPT-IN via [data-cm-resize]. The handle drags with pointer capture
+	   (one code path for mouse, pen and touch), reads the axis from the
+	   group's own flex-direction so the stacked phone layout needs no
+	   second implementation, and reports itself in aria-valuenow as the
+	   same percentage the CSS consumes. */
+	function cmInitResize(root) {
+		Array.prototype.forEach.call(root.querySelectorAll('[data-cm-resize]'), function (g) {
+			if (g.__cmResize) return;
+			g.__cmResize = true;
+			var handle = g.querySelector('.cm-resize__handle');
+			if (!handle) return;
+			var stacked = function () {
+				return getComputedStyle(g).flexDirection.indexOf('column') === 0;
+			};
+			// The separator is vertical in a row layout and horizontal once the
+			// group stacks - a reader that hears the wrong one has been told
+			// the wrong axis to push in. Re-read on resize: the media query
+			// flips the layout, not the markup.
+			var syncAxis = function () {
+				handle.setAttribute('aria-orientation', stacked() ? 'horizontal' : 'vertical');
+			};
+			syncAxis();
+			window.addEventListener('resize', syncAxis);
+			var clamp = function (pct) {
+				var min = parseFloat(handle.getAttribute('aria-valuemin'));
+				var max = parseFloat(handle.getAttribute('aria-valuemax'));
+				if (isNaN(min)) min = 15;
+				if (isNaN(max)) max = 85;
+				return Math.min(max, Math.max(min, pct));
+			};
+			function set(pct) {
+				pct = clamp(pct);
+				g.style.setProperty('--cm-resize', pct + '%');
+				handle.setAttribute('aria-valuenow', String(Math.round(pct)));
+			}
+			function fromPointer(e) {
+				var r = g.getBoundingClientRect();
+				var base = stacked() ? r.height : r.width;
+				var at = stacked() ? (e.clientY - r.top) : (e.clientX - r.left);
+				return base ? (at / base) * 100 : 50;
+			}
+			handle.addEventListener('pointerdown', function (e) {
+				if (e.button && e.button !== 0) return;
+				if (typeof handle.setPointerCapture === 'function') handle.setPointerCapture(e.pointerId);
+				handle.focus();
+			});
+			handle.addEventListener('pointermove', function (e) {
+				if (typeof handle.hasPointerCapture !== 'function' ||
+					!handle.hasPointerCapture(e.pointerId)) return;
+				set(fromPointer(e));
+			});
+			var release = function (e) {
+				if (typeof handle.releasePointerCapture !== 'function') return;
+				if (handle.hasPointerCapture && handle.hasPointerCapture(e.pointerId)) {
+					handle.releasePointerCapture(e.pointerId);
+				}
+			};
+			handle.addEventListener('pointerup', release);
+			handle.addEventListener('pointercancel', release);
+			handle.addEventListener('keydown', function (e) {
+				var now = parseFloat(handle.getAttribute('aria-valuenow'));
+				if (isNaN(now)) now = 50;
+				var box = g.getBoundingClientRect();
+				var base = stacked() ? box.height : box.width;
+				// A step is a PIXEL, not a percentage: 10% of a 300px panel is
+				// a nudge on one screen and a leap on another.
+				var step = base ? (16 / base) * 100 : 4;
+				var mult = (e.key === 'PageUp' || e.key === 'PageDown') ? 4 : 1;
+				var next = null;
+				if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = now - step * mult;
+				else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = now + step * mult;
+				else if (e.key === 'Home') next = parseFloat(handle.getAttribute('aria-valuemin')) || 15;
+				else if (e.key === 'End') next = parseFloat(handle.getAttribute('aria-valuemax')) || 85;
+				if (next === null) return;
+				e.preventDefault();
+				set(next);
+			});
+		});
+	}
+
 	/* ---------- toggle group ----------
 	   OPT-IN via [data-cm-seg], because a consumer that already owns
 	   aria-pressed in its framework state must not have the runtime
@@ -1865,6 +2019,7 @@
 		initYears();
 		initMeasureReadout();
 		initTableLabels(root);
+		cmInitResize(root);
 		cmInitSort(root);
 		cmInitSliders(root);
 		cmInitComboboxes(root);
@@ -1970,6 +2125,10 @@
 		// Capture: the browser's own context menu is suppressed by this
 		// handler, and capture runs before a consumer's row handler.
 		document.addEventListener('contextmenu', onContextMenu, true);
+		// A tree row keeps itself the tab stop while it has focus; arrows
+		// move focus without re-binding anything per node.
+		document.addEventListener('focusin', onTreeFocus);
+		document.addEventListener('keydown', onTreeKey);
 		// The context menu's dismissal lives at the root too: an outside
 		// press must close it even when it lands on another component's node.
 		document.addEventListener('pointerdown', onCtxOutside, true);

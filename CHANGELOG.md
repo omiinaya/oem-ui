@@ -1566,6 +1566,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now compares `[popovertarget]` values (rather than building a selector
   that needs escaping) found nothing and every fake menu stayed unanchored.
 - 16/16 seeded faults killed (14 WebKit, 2 contract-suite).
+- Added `.cm-tree` (with `data-cm-tree`) and `.cm-resizable` panels
+  (`[data-cm-resize]`). The tree keeps NO state of its own: open/closed
+  is native `<details>`, clicks and `aria-expanded` included, and the
+  arrows expand a branch by calling `.click()` on its summary rather
+  than assigning `open`, so a consumer listening for clicks hears the
+  keyboard too. What the runtime adds is what the platform lacks -
+  arrows walking VISIBLE rows with one roving `tabindex`, ArrowRight
+  opening a closed branch and landing on its first child (stepping
+  inside when it is already open), ArrowLeft closing or stepping out to
+  the parent. "Visible" is `checkVisibility()`, not `getClientRects()`:
+  WebKit lays out rows behind a closed branch (they report a perfect
+  rect) while painting nothing, so the cheap test walks the cursor into
+  the dark - the harness steps over a closed branch to prove it. Leaves
+  are real links and share the summary's row class; indentation comes
+  from nesting, never a depth written into a style.
+- The resizable seam turns ONE knob, `--cm-resize`, into both the
+  painted split and `aria-valuenow`, read from the same `pct` in the
+  same statement, so the handle cannot describe a layout that is not on
+  screen. The drag uses pointer capture (mouse, pen and touch are one
+  path) with `touch-action: none`; the axis comes from the group's
+  `flexDirection`, so under 640px the panels stack, the seam turns
+  horizontal, the same number measures height, and `aria-orientation`
+  flips to match. Keyboard steps are 16px - a pixel step is the same
+  gesture at any width - and Home/End jump to the declared range.
+- Measured the reduced-motion trap: the house guard sets every
+  transition to `0.01ms`, which is instant for a person but not for a
+  synchronous computed-style read, so the first harness run measured
+  the START value of a change it had just made and called a working
+  component broken. The harness now settles a frame after each
+  gesture - and that measurement bug is exactly what the `0.01ms`
+  transition hides from anyone who writes the same test.
+- 24/24 WebKit checks; 16/16 seeded faults killed.
 
 ## Fixed
 

@@ -6471,6 +6471,123 @@ input.cm-slider:disabled {
 	min-width: 12rem;
 }
 
+
+/* ---------- tree ----------
+   Expansion is the PLATFORM's: a <details> branch opens, closes and toggles
+   on Enter/Space with no JavaScript, a summary is already focusable, and
+   the state a reader hears is the one the element actually has. What no
+   platform does is walk a tree with the arrow keys - so that is the only
+   part the runtime owns.
+   Indentation comes from nesting: each <ul> pads its children, so depth
+   is never typed into a style and a branch moved to another level keeps
+   its geometry. */
+.cm-tree {
+	margin: 0;
+	padding: 0 0 0 var(--space-4);
+	list-style: none;
+}
+.cm-tree--root { padding-left: 0; }
+.cm-tree > li { margin: 0; }
+/* ONE row treatment for both shapes. A branch summary and a leaf link that
+   measure differently make the tree stop reading as a single list. */
+.cm-tree__row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	width: 100%;
+	min-width: 0;
+	margin: 0;
+	padding: var(--space-1) var(--space-2);
+	border: 0;
+	border-radius: var(--radius-sm);
+	background: transparent;
+	color: var(--ink-dim);
+	font: inherit;
+	text-align: left;
+	text-decoration: none;
+	cursor: pointer;
+}
+.cm-tree__row:hover,
+.cm-tree__row:focus-visible {
+	background: var(--bg-3);
+	color: var(--ink);
+	text-decoration: none;
+}
+/* The twisty is the disclosure's own glyph: it is already rotated by
+   .cm-disclosure[open] and already carries the reduced-motion guard. */
+.cm-tree__row .cm-disclosure__mark { color: var(--ink-faint); }
+
+/* ---------- resizable ----------
+   The boundary is a percentage, not pixels: a split that survives a
+   reflow is the only split worth dragging. The handle is the seam, so it
+   is drawn as two hairlines rather than a chunky bar - and it is 9px wide
+   because a 1px seam cannot be grabbed on a touchscreen. */
+.cm-resize {
+	display: flex;
+	gap: 0;
+	margin: 0;
+	--cm-resize: 50%;
+}
+.cm-resize__panel {
+	min-width: 0;
+	min-height: 0;
+	padding: var(--space-3);
+	border: 1px solid var(--line);
+	background: var(--bg-2);
+}
+.cm-resize__panel:first-child { flex: 0 0 var(--cm-resize, 50%); }
+.cm-resize__panel + .cm-resize__panel { flex: 1 1 auto; }
+.cm-resize__handle {
+	position: relative;
+	flex: 0 0 auto;
+	width: 9px;
+	margin: 0 -1px;
+	border: 0;
+	border-left: 1px solid var(--line);
+	border-right: 1px solid var(--line);
+	background: var(--bg-3);
+	cursor: col-resize;
+	touch-action: none;
+	user-select: none;
+}
+.cm-resize__handle:focus-visible { outline-offset: -3px; }
+/* The grip: two hairlines centred in the seam, sharp like everything else */
+.cm-resize__handle::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 3px;
+	height: 18px;
+	transform: translate(-50%, -50%);
+	border-left: 1px solid var(--ink-faint);
+	border-right: 1px solid var(--ink-faint);
+}
+@media (max-width: 640px) {
+	/* Two panes side by side on a phone are two unusable panes: stack, and
+	   the handle becomes a horizontal seam that drags vertically. The
+	   runtime reads flexDirection, so the same --cm-resize drives height. */
+	.cm-resize { flex-direction: column; }
+	.cm-resize__handle {
+		width: auto;
+		height: 9px;
+		margin: -1px 0;
+		border-left: 0;
+		border-right: 0;
+		border-top: 1px solid var(--line);
+		border-bottom: 1px solid var(--line);
+		cursor: row-resize;
+	}
+	.cm-resize__handle::after {
+		width: 18px;
+		height: 3px;
+		border-left: 0;
+		border-right: 0;
+		border-top: 1px solid var(--ink-faint);
+		border-bottom: 1px solid var(--ink-faint);
+	}
+}
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;

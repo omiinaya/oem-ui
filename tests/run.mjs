@@ -12561,3 +12561,64 @@ check("the input group collapses to one hairline", () => {
 			'the trigger must be found by comparing the attribute value, not by a selector that needs escaping');
 	});
 }
+
+// ---------- shadcn-parity: tree + resizable ----------
+{
+	const page = read('src/pages/index.astro');
+	const css = read('src/styles/components.css');
+	const js = read('src/js/cli-mono.js');
+
+	check('a tree expands with the platform and walks with the arrows', () => {
+		assert(/data-cm-tree/.test(page), 'the showcase must ship a tree');
+		const branches = (page.match(/<details class="cm-disclosure"/g) || []).length;
+		assert(branches >= 2, `a tree needs branches to expand, found ${branches}`);
+		// Expansion is the PLATFORM's. The moment the runtime toggles
+		// `open`, there are two owners of one piece of state.
+		assert(!/\.open\s*=\s*(true|false)/.test(js),
+			'the runtime must not open or close branches - <details> already does');
+		assert(/function onTreeKey\(e\)/.test(js) && /function onTreeFocus\(e\)/.test(js),
+			'the arrow walker and the roving-focus handler are the runtime\'s half');
+		assert(/addEventListener\('keydown', onTreeKey\)/.test(js), 'the walker must be bound at the root');
+		assert(/row\.click\(\)/.test(js),
+			'Right opens and Left closes through the summary\'s OWN click path - the keys no platform maps, with the state still owned by the platform');
+		const tree = css.match(/\.cm-tree \{([^}]*)\}/);
+		assert(tree && /padding: 0 0 0 var\(--space-4\)/.test(tree[1]),
+			'each level must pad its own children: a depth typed into a style is a lie');
+		assert(/\.cm-tree--root \{ padding-left: 0; \}/.test(css), 'the root must not be indented twice');
+		const leaves = (page.match(/<a class="cm-tree__row"/g) || []).length;
+		assert(leaves >= 3, `leaves must be real links, found ${leaves}`);
+		assert(/cm-disclosure__summary cm-tree__row/.test(page),
+			'a branch summary and a leaf link must share one row treatment');
+		assert(/\.cm-tree__row \{[^}]*border-radius:\s*var\(--radius-sm\)/s.test(css),
+			'the row takes the sharp radius token like every other surface');
+	});
+
+	check('the resizable group reports the same percentage it paints', () => {
+		assert(/data-cm-resize/.test(page), 'the showcase must ship a resizable group');
+		assert(/role="separator"[^>]*tabindex="0"/.test(page.replace(/\s+/g, ' ')) ||
+			/class="cm-resize__handle" role="separator" tabindex="0"/.test(page.replace(/\n/g, ' ')),
+			'the boundary must be a focusable separator, not a bare div');
+		assert(/aria-valuenow="58"/.test(page), 'the reported value must match the initial split');
+		assert(/aria-valuemin="20"/.test(page) && /aria-valuemax="80"/.test(page),
+			'the range the drag clamps to must be declared');
+		assert(/function cmInitResize\(root\)/.test(js) && /cmInitResize\(root\);/.test(js),
+			'cmInitResize must exist and be called from init');
+		assert(/setPointerCapture/.test(js) && /hasPointerCapture/.test(js),
+			'the drag must use pointer capture: one path for mouse, pen and touch');
+		assert(/touch-action:\s*none/.test(css),
+			'without touch-action: none the browser scrolls instead of dragging');
+		assert(/flexDirection/.test(js),
+			'the axis must come from the group, or the stacked phone layout needs a second implementation');
+		assert(/\(16 \/ base\) \* 100/.test(js),
+			'a keyboard step must be 16px, not a percentage - 10% is a nudge or a leap');
+		assert(/g\.style\.setProperty\('--cm-resize', pct \+ '%'\)/.test(js) &&
+			/handle\.setAttribute\('aria-valuenow', String\(Math\.round\(pct\)\)\)/.test(js),
+			'the separator must report the split it just painted - the eye and the reader share one number');
+		assert(/Math\.min\(max, Math\.max\(min, pct\)\)/.test(js),
+			'the boundary must clamp to the declared range');
+		assert(/@media \(max-width: 640px\)/s.test(css) && /flex-direction: column;/.test(css),
+			'two panes on a phone are two unusable panes - they must stack');
+		assert(/var\(--cm-resize, 50%\)/.test(css),
+			'a consumer that never sets the knob must still lay out: an undeclared var() invalidates its declaration');
+	});
+}

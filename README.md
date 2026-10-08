@@ -1583,6 +1583,74 @@ side of. The platform does not manage `aria-expanded` on `[popover]`, so
 the toggle handler mirrors it onto whichever `[popovertarget]` also carries
 `aria-haspopup`.
 
+### Tree and resizable panels
+
+```html
+<!-- STRUCTURE is the platform's: native details/summary, so click,
+     keyboard and assistive tech all come for free -->
+<ul class="cm-tree cm-tree--root" data-cm-tree role="tree">
+  <li>
+    <details class="cm-disclosure" open>
+      <summary class="cm-disclosure__summary cm-tree__row" tabindex="0">
+        <span class="cm-disclosure__mark" aria-hidden="true">▸</span>src/
+      </summary>
+      <ul class="cm-tree" role="group">
+        <li><a class="cm-tree__row" tabindex="-1" href="#tokens">tokens.css</a></li>
+      </ul>
+    </details>
+  </li>
+</ul>
+
+<!-- ONE knob paints the split and reports it: aria-valuenow is the
+     same number the CSS custom property is set to -->
+<div class="cm-resize" data-cm-resize style="--cm-resize: 58%;">
+  <section class="cm-resize__panel">left</section>
+  <div class="cm-resize__handle" role="separator" tabindex="0"
+       aria-orientation="vertical" aria-valuenow="58"
+       aria-valuemin="20" aria-valuemax="80"
+       aria-label="Resize the panes"></div>
+  <section class="cm-resize__panel">right</section>
+</div>
+```
+
+The tree keeps NO state of its own: open/closed is the `<details>`, so a
+plain click, the platform's own disclosure keyboard, and `aria-expanded`
+all keep working without the runtime writing any of them. What the
+runtime adds is the part the platform does not do - arrow keys that walk
+**visible rows only**, with one roving `tabindex` so the tree is a single
+tab stop. "Visible" is `checkVisibility()`, not `getClientRects()`:
+WebKit lays out rows behind a closed branch (they report a perfect
+rect) while painting and hit-testing nothing, so the cheaper test walks
+you into rows no one can see - proven by a harness check that steps the
+cursor over a closed branch. ArrowRight on a closed branch opens it and
+lands on its first child; on an open one it steps inside; ArrowLeft
+closes, or steps out to the parent row when there is nothing to close.
+Expansion goes through `.click()` on the summary rather than assigning
+`open`, so a consumer listening for clicks hears the keyboard too. Leaves
+are real links - the pager's rule - and a branch summary and a leaf link
+are the *same* row class, because a tree where the two are styled
+separately grows a visual grammar nobody asked for. Depth comes from
+nesting (`padding-left` per level, the root unindented): a depth written
+into a style attribute is a lie the moment something filters or reorders
+the tree.
+
+The resizable group turns one knob, `--cm-resize`, into both the painted
+split and the reported one: `aria-valuenow` is set from the same `pct`
+the custom property is written with, so the handle cannot describe a
+layout that is not on screen. The drag uses pointer capture, which is
+what makes mouse, pen and touch the *same* code path, plus
+`touch-action: none` so the browser scrolls instead of dragging on a
+phone. The axis comes from the group's `flexDirection`, not from a
+second implementation: under 640px the panels stack, the seam turns
+horizontal, and the same number now measures height - while
+`aria-orientation` flips to match, because a separator that says
+"vertical" while sitting flat on a phone is describing another layout.
+Keyboard steps are **16px per arrow**: a pixel step is the same gesture
+at any width, a percent step is not. Home and End jump to the declared
+`aria-valuemin`/`max`, and the value is clamped to that range on every
+input - pointer or key - so the painted split, the reported number and
+the markup's initial value are one fact stated three ways.
+
 ### Interactive primitives
 
 The runtime opts into managed segmented controls only when requested:

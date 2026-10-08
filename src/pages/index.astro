@@ -537,6 +537,53 @@ Two states, two different questions. <code>active</code> marks the page you are 
 
 			<section id="lists" class="cm-section cm-section--pad">
 				<SectionHead title="lists / rows" />
+
+				<h3 class="cm-kicker">tree</h3>
+				<p class="cm-head__sub">
+					Expansion is the platform's &mdash; a <code>&lt;details&gt;</code> branch opens
+					with no JavaScript and a summary is already focusable &mdash; so the runtime
+					only walks it with the arrows: Down/Up step the visible rows, Right opens
+					or steps inside, Left closes or steps out, Home/End jump. Indentation is
+					nesting: each level pads its own children, so depth is never a style.
+				</p>
+				<ul class="cm-tree cm-tree--root" data-cm-tree aria-label="repository">
+					<li>
+						<details class="cm-disclosure" open>
+							<summary class="cm-disclosure__summary cm-tree__row">
+								<span class="cm-disclosure__mark" aria-hidden="true">&#9656;</span>
+								oem-ui/
+							</summary>
+							<ul class="cm-tree">
+								<li>
+									<details class="cm-disclosure" open>
+										<summary class="cm-disclosure__summary cm-tree__row">
+											<span class="cm-disclosure__mark" aria-hidden="true">&#9656;</span>
+											src/
+										</summary>
+										<ul class="cm-tree">
+											<li><a class="cm-tree__row" href="#tree">tokens.css</a></li>
+											<li><a class="cm-tree__row" href="#tree">components.css</a></li>
+											<li><a class="cm-tree__row" href="#tree">cli-mono.js</a></li>
+										</ul>
+									</details>
+								</li>
+								<li>
+									<details class="cm-disclosure">
+										<summary class="cm-disclosure__summary cm-tree__row">
+											<span class="cm-disclosure__mark" aria-hidden="true">&#9656;</span>
+											tests/
+										</summary>
+										<ul class="cm-tree">
+											<li><a class="cm-tree__row" href="#tree">run.mjs</a></li>
+											<li><a class="cm-tree__row" href="#tree">verify-tree-resize.py</a></li>
+										</ul>
+									</details>
+								</li>
+								<li><a class="cm-tree__row" href="#tree">README.md</a></li>
+							</ul>
+						</details>
+					</li>
+				</ul>
 				<div class="cm-list-head" style="margin-bottom:0.4rem">Index / compact</div>
 				<ul class="cm-rows cm-rows--inline">
 					<PostRow href="#1" index={3} title="Extract components from a design" description="separate tokens, base, components and runtime." date={new Date('2025-09-26')} />
@@ -2709,6 +2756,38 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 				     transform to desync from what the finger actually did.
 				     The page marks are the position readout; each one is a
 				     full --tap target with an 8px square painted inside it. -->
+				<h3 class="cm-kicker">resizable panels</h3>
+				<p class="cm-head__sub">
+					The boundary is <code>--cm-resize</code>, a percentage, so the split
+					survives a reflow instead of snapping back to pixels the window no
+					longer has. The handle is the seam itself: a hairline pair 9px wide
+					(a 1px seam cannot be grabbed), dragged with pointer capture and
+					nudged by 16px steps with the arrow keys. Below 640px the group
+					stacks and the same handle drags vertically.
+				</p>
+				<div class="cm-resize" data-cm-resize style="--cm-resize: 58%;">
+					<section class="cm-resize__panel">
+						<p class="cm-kicker cm-kicker--flush">index</p>
+						<p class="cm-head__sub" style="margin:0">
+							A narrow column of metadata. It takes the percentage; the
+							sibling takes whatever is left, which is why neither panel
+							declares a width of its own.
+						</p>
+					</section>
+					<div class="cm-resize__handle" role="separator" tabindex="0"
+						aria-orientation="vertical" aria-valuenow="58"
+						aria-valuemin="20" aria-valuemax="80" aria-label="resize panels">
+					</div>
+					<section class="cm-resize__panel">
+						<p class="cm-kicker cm-kicker--flush">content</p>
+						<p class="cm-head__sub" style="margin:0">
+							Drag the seam, or focus it and press an arrow key: the step
+							is 16px in either direction and the range is the same
+							aria-valuemin/valuemax the separator reports.
+						</p>
+					</section>
+				</div>
+
 				<h3 class="cm-kicker">carousel</h3>
 				<div class="cm-carousel" data-cm-carousel aria-label="oem/ui surfaces">
 					<div class="cm-carousel__track" tabindex="0">
