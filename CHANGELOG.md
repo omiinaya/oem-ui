@@ -1838,6 +1838,31 @@ by pixel profile), the action pair keeps 8px between 44px targets, and
 the stacking contract now enforces ONE owner (DOM paint order, no
 `z-index` ladder).
 
+## Added
+
+### Batch 17: message scroller
+
+Completes the chat family (6/6). `data-cm-scroller` (init-owned):
+labelled focusable viewport mirroring `data-scrollable` /
+`data-following` / `data-current-anchor`, inert jump controls
+(`tabindex=-1` + `data-active=false`), `scrollToMessage` with a peek of
+the previous turn, `role="log"` content, `content-visibility` rows,
+live-edge pinning through a ResizeObserver, outline-driven
+`data-track-visible` intersection tracking, and `data-start-at-end`
+so the frame opens at the live edge with no flash.
+
+Proven: suite 553/0 (the source contract pins roles, mirrors, the
+observer list and the phone type-floor), `tests/verify-scroller.py`
+(WebKit, 11 checks) with a 16-mutant run (`tests/mutate-scroller.py`,
+rc=0). Three findings shaped the final shape: the one-shot pin at bind
+raced `content-visibility` intrinsic sizing and stranded the frame
+mid-log (fixed by a bounded re-pin loop that stands down for any scroll
+it did not ask for), the outline must live INSIDE the frame for the
+jump click and the aria-current highlight to exist at all, and the
+late-markup watcher only arms on a cold document - so that proof loads
+the library blank and lets the scroller arrive, instead of asserting a
+surface the library deliberately never watches.
+
 ## Fixed
 
 - Two stacking checks demanded a literal `z-index: <number>`, which fails on

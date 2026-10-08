@@ -8237,6 +8237,57 @@ check('a variant is only called demonstrated if it differs from its base', () =>
 	});
 
 
+/* --- shadcn parity: the message scroller --- */
+check('shadcn-parity: message scroller mirrors their state contract', () => {
+	const html = read('dist/index.html');
+	const css = read('src/styles/components.css');
+	const js = read('src/js/cli-mono.js');
+	// late markup: the observer list is the second owner of this component,
+	// so forgetting the scroller there is a real regression, not a nit
+	assert(/\[data-cm-quiz\], \[data-cm-scroller\],/.test(js),
+		'the late-markup observer must own the scroller');
+	for (const c of ['cm-scroller', 'cm-scroller__viewport', 'cm-scroller__content',
+		'cm-scroller__item', 'cm-scroller__bar', 'cm-scroller__status',
+		'cm-scroller__pill', 'cm-scroller__outline', 'cm-scroller__outline-title',
+		'cm-scroller__link']) {
+		assert(html.includes(c), 'scroller part unrendered: ' + c);
+	}
+	// the viewport is THEIR accessibility contract: labelled, focusable,
+	// and a log so additions announce without token-by-token streaming
+	assert(/class="cm-scroller__viewport" role="region" aria-label="Messages" tabindex="0"/.test(html),
+		'the viewport is not a labelled focusable region');
+	assert(/class="cm-scroller__content" role="log" aria-relevant="additions"/.test(html),
+		'the transcript is not a live log region');
+	// rows are addressable; anchors mark turn starts
+	assert((html.match(/data-message-id="/g) || []).length >= 12,
+		'rows are not addressable by message id');
+	// every outline target must be an anchored turn - the outline IS
+	// their TOC, which highlights the current anchored turn
+	const outline = [...html.matchAll(/data-jump-to="([^"]+)"/g)].map((m) => m[1]);
+	assert(outline.length >= 6, 'the outline lost its entries');
+	for (const id of outline) {
+		assert(new RegExp('data-message-id="' + id + '" data-scroll-anchor').test(html),
+			'outline target is not an anchored turn: ' + id);
+	}
+	// controls ship in the state they claim (inert until scrolled)
+	assert(/data-scroller-start data-active="false" tabindex="-1"/.test(html),
+		'the start button must ship inert (nothing to scroll toward at the edge)');
+	// the runtime owns the three mirrors + the commands
+	for (const frag of ['data-scrollable', 'data-following', 'data-current-anchor',
+		'scrollToMessage', 'scrollToEnd', 'scrollToStart', 'inert = !s',
+		'data-track-visible', 'data-start-at-end']) {
+		assert(js.includes(frag), 'runtime missing: ' + frag);
+	}
+	assert(js.includes('function cmInitScroller(root)'), 'cmInitScroller missing');
+	assert(js.includes('cmInitScroller(root);'), 'not registered in init');
+	assert(js.includes('[data-cm-scroller]'), 'observer list omits the scroller');
+	// rows skip off-screen paint work; the frame has no hue of its own
+	assert(/\.cm-scroller__item \{[^}]*content-visibility: auto/.test(css),
+		'rows must opt into content-visibility');
+	assert(!/\.cm-scroller[^,{]*\{[^}]*border-radius/.test(css),
+		'sharp corners only in the scroller');
+});
+
 check('.cm-tag survives a word too long for its column', () => {
 	// Measured in WebKit at 390 and 320: a long single-word tag laid out at
 	// its max-content width and pushed 26px past a 220px row, because

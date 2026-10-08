@@ -2087,6 +2087,26 @@ presentational, so the author supplies the role (`role="status"` for
 streaming). It composes with the utilities: `.cm-shimmer` on the content
 sweeps "typing..." text.
 
+### Message scroller
+
+The transcript frame completes the chat family. `cm-scroller` is a
+labelled, keyboard-focusable scroll region (`role="region"`,
+`aria-label`, `tabindex="0"`) whose `data-scrollable` tokens drive
+everything: the status line, the pill, and the jump buttons - a button
+with nothing to scroll toward goes `inert` with `tabindex="-1"` and
+`data-active="false"`, so it never becomes an extra focus stop. Rows
+carry `data-message-id` (addressable from the outline via
+`scrollToMessage`, which parks a row near the top with a peek of the
+previous turn) and ship `content-visibility: auto` so off-screen rows
+skip paint work while staying selectable and announceable. The content
+is a `role="log"` with `aria-relevant="additions"`. State mirrors
+exactly where their docs say styling should read it:
+`data-scrollable`, `data-following` (the live edge pins growing content
+while you are on it), and `data-current-anchor` (the anchored turn,
+kept after it scrolls above the viewport). Visible-row tracking runs
+only while something subscribes - the outline does, with an
+IntersectionObserver, and marks rows on screen.
+
 ### Attachment and questionnaire
 
 `cm-attach` is the composed file card - media, content, icon-only
@@ -2111,7 +2131,7 @@ focus in the field that failed.
 The standing goal is component parity with
 [shadcn/ui](https://ui.shadcn.com/docs/components) in the established
 theme. The catalog is 64 components as of this writing: this library
-implements **61** and does not yet implement **3**, each for a
+implements **62** and does not yet implement **2**, each for a
 stated reason.
 
 **Implemented (56):** Accordion, Alert, Alert Dialog (a confirming
@@ -2121,18 +2141,15 @@ destructive, outline and joined), Button Group, Calendar, Card,
 Carousel, Checkbox, Collapsible, Combobox, Command (palette), Context
 Menu, Data Table (Table + sort), Date Picker, Dialog, Drawer, Dropdown
 Menu, Empty, Field (label/help/error wiring), Hover Card, Input, Input
-Group, Input OTP, Item, Kbd, Label, Marker, Message, Menubar, Native Select (a styled
+Group, Input OTP, Item, Kbd, Label, Marker, Message, Message Scroller, Menubar, Native Select (a styled
 `<select>`), Navigation Menu (as the rail + sticky header - see
 *The two nav states*), Pagination, Popover, Progress, Questionnaire, Radio Group,
 Resizable, Scroll Area, Select, Separator, Sheet, Sidebar, Skeleton,
 Slider, Spinner, Switch, Table, Tabs, Textarea, Toast, Toggle, Toggle
 Group, Tooltip, Typography.
 
-**Not implemented (3):**
+**Not implemented (2):**
 
-- **Message Scroller** - the sixth and last of the conversation family,
-  in flight as the next batch: turn anchoring, `scrollToMessage` with a
-  peek, live-edge pinning, inert edge buttons.
 - **Chart** - a Recharts wrapper, not a design primitive; consumers
   compose their own charts.
 - **Direction** - an RTL/i18n direction helper; this system is LTR and

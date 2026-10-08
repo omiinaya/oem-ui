@@ -2526,6 +2526,179 @@
 	   item (jumping to the first offender) before toasting and resetting
 	   the WHOLE form - answers included. Shortcuts: a data-shortcut letter
 	   or number on a choice selects it while the quiz has focus. */
+	/* Message Scroller - the transcript frame. Bound by [data-cm-scroller];
+	   mirrors scroll state to data-scrollable / data-following /
+	   data-current-anchor exactly where their docs say styling should read
+	   it, drives inert buttons, exposes the commands as frame.__scroller
+	   (scrollToMessage / scrollToStart / scrollToEnd), pins the live edge
+	   while following, and tracks visible rows only when the outline asks
+	   (data-track-visible). */
+	function cmInitScroller(root) {
+		var frames = root.querySelectorAll('[data-cm-scroller]');
+		for (var i = 0; i < frames.length; i++) {
+			(function (frame) {
+				if (frame.__cmScrollerBound) return;
+				frame.__cmScrollerBound = true;
+				var vp = frame.querySelector('.cm-scroller__viewport');
+				if (!vp) return;
+				var content = frame.querySelector('.cm-scroller__content');
+				var btnStart = frame.querySelector('[data-scroller-start]');
+				var btnEnd = frame.querySelector('[data-scroller-end]');
+				var pill = frame.querySelector('[data-scroller-pill]');
+				var status = frame.querySelector('[data-scroller-status]');
+
+				function atStart() { return vp.scrollTop <= 1; }
+				function atEnd() {
+					return vp.scrollTop + vp.clientHeight >= vp.scrollHeight - 1;
+				}
+				function markAnchor() {
+					if (!content) return;
+					var anchors = content.querySelectorAll('[data-scroll-anchor]');
+					var vr = vp.getBoundingClientRect();
+					var current = anchors.length
+						? anchors[0].getAttribute('data-message-id') : '';
+					for (var a = 0; a < anchors.length; a++) {
+						if (anchors[a].getBoundingClientRect().top <= vr.top + 32) {
+							current = anchors[a].getAttribute('data-message-id');
+						}
+					}
+					frame.setAttribute('data-current-anchor', current);
+					var marks = frame.querySelectorAll('[data-jump-to]');
+					for (var m = 0; m < marks.length; m++) {
+						if (marks[m].getAttribute('data-jump-to') === current) {
+							marks[m].setAttribute('aria-current', 'true');
+						} else {
+							marks[m].removeAttribute('aria-current');
+						}
+					}
+				}
+				function paint() {
+					var s = !atStart(), e = !atEnd();
+					var bits = [];
+					if (s) bits.push('start');
+					if (e) bits.push('end');
+					vp.setAttribute('data-scrollable', bits.join(' '));
+					if (btnStart) {
+						btnStart.inert = !s;
+						btnStart.tabIndex = s ? 0 : -1;
+						btnStart.setAttribute('data-active', s ? 'true' : 'false');
+					}
+					if (btnEnd) {
+						btnEnd.inert = !e;
+						btnEnd.tabIndex = e ? 0 : -1;
+						btnEnd.setAttribute('data-active', e ? 'true' : 'false');
+					}
+					if (pill) pill.hidden = !e;  // pill = jump to latest: shows while NOT at the end
+					frame.setAttribute('data-following', e ? 'false' : 'true');
+					if (status) {
+						status.textContent = s && e ? 'both ways scrollable'
+							: s ? 'up only - at the latest message'
+							: e ? 'down only - at the first message'
+							: 'all messages in view';
+					}
+					markAnchor();
+				}
+				function scrollToStart(smooth) {
+					vp.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+				}
+				function scrollToEnd(smooth) {
+					vp.scrollTo({ top: vp.scrollHeight,
+						behavior: smooth ? 'smooth' : 'auto' });
+				}
+				function scrollToMessage(id) {
+					var row = content
+						? content.querySelector('[data-message-id="' + id + '"]')
+						: null;
+					if (!row) return false;
+					// park near the top with a peek of the previous turn
+					var vr = vp.getBoundingClientRect();
+					var rr = row.getBoundingClientRect();
+					vp.scrollTop += rr.top - vr.top - 24;
+					return true;
+				}
+				frame.__scroller = {
+					scrollToMessage: scrollToMessage,
+					scrollToStart: function () { scrollToStart(true); },
+					scrollToEnd: function () { scrollToEnd(true); },
+					atStart: atStart,
+					atEnd: atEnd
+				};
+				vp.addEventListener('scroll', paint, { passive: true });
+				if (btnStart) btnStart.addEventListener('click', function () {
+					scrollToStart(true);
+				});
+				if (btnEnd) btnEnd.addEventListener('click', function () {
+					scrollToEnd(true);
+				});
+				if (pill) pill.addEventListener('click', function () {
+					scrollToEnd(true);
+				});
+				frame.addEventListener('click', function (e) {
+					var jump = e.target.closest ? e.target.closest('[data-jump-to]') : null;
+					if (jump && frame.contains(jump)) {
+						e.preventDefault();
+						scrollToMessage(jump.getAttribute('data-jump-to'));
+					}
+				});
+				// the live edge: growing content pins only while following
+				if (content && 'ResizeObserver' in window) {
+					new ResizeObserver(function () {
+						if (frame.getAttribute('data-following') === 'true') {
+							vp.scrollTop = vp.scrollHeight;
+							paint();
+						}
+					}).observe(content);
+				}
+				// visible rows, only while the outline subscribes
+				if (frame.hasAttribute('data-track-visible')
+						&& 'IntersectionObserver' in window && content) {
+					var seen = [];
+					var io = new IntersectionObserver(function (entries) {
+						for (var k = 0; k < entries.length; k++) {
+							var id = entries[k].target.getAttribute('data-message-id');
+							var at = seen.indexOf(id);
+							if (entries[k].isIntersecting && at < 0) seen.push(id);
+							if (!entries[k].isIntersecting && at >= 0) seen.splice(at, 1);
+						}
+						var links = frame.querySelectorAll('[data-jump-to]');
+						for (var L = 0; L < links.length; L++) {
+							if (seen.indexOf(links[L].getAttribute('data-jump-to')) >= 0) {
+								links[L].setAttribute('data-visible', 'true');
+							} else {
+								links[L].removeAttribute('data-visible');
+							}
+						}
+					}, { root: vp });
+					var rows = content.querySelectorAll('[data-message-id]');
+					for (var r = 0; r < rows.length; r++) io.observe(rows[r]);
+				}
+				// no flash on load: open at the live edge when asked
+				if (frame.hasAttribute('data-start-at-end')) {
+					vp.scrollTop = vp.scrollHeight;
+					// content-visibility rows keep resizing their intrinsic size
+					// for a few frames after bind, which would strand the
+					// position mid-log. Re-pin every frame for a bounded
+					// window; any scroll we did not ask for is the reader,
+					// and the loop stands down for them.
+					var pinFrames = 0;
+					var asked = vp.scrollTop;
+					var readerMoved = false;
+					var pinEdge = function () {
+						if (readerMoved) return;
+						vp.scrollTop = vp.scrollHeight;
+						asked = vp.scrollTop;
+						if (++pinFrames < 120) requestAnimationFrame(pinEdge);
+					};
+					vp.addEventListener('scroll', function () {
+						if (Math.abs(vp.scrollTop - asked) > 2) readerMoved = true;
+					}, { passive: true });
+					requestAnimationFrame(pinEdge);
+				}
+				paint();
+			})(frames[i]);
+		}
+	}
+
 	function cmInitQuiz(root) {
 		var forms = root.querySelectorAll('[data-cm-quiz]');
 		for (var q = 0; q < forms.length; q++) {
@@ -2787,6 +2960,7 @@
 		cmInitFields(root);
 		cmInitForms(root);
 		cmInitQuiz(root);
+		cmInitScroller(root);
 		cmInitDatepickers(root);
 		cmInitSort(root);
 		cmInitShortcuts();
@@ -2847,7 +3021,7 @@
 	function hasLibraryMarkup() {
 		return !!document.querySelector(
 			'[data-cm-header], [data-cm-nav-toggle], [data-cm-copy], ' +
-			'[data-cm-tabs], [data-cm-toast], [data-cm-quiz], ' +
+			'[data-cm-tabs], [data-cm-toast], [data-cm-quiz], [data-cm-scroller], ' +
 			'.cm-prose-table'
 		);
 	}

@@ -40,7 +40,7 @@ const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'crumbs', 'lists', 'states', 'surface',
   'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'drawer', 'choice', 'keys-pages-people',
 	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'proselists', 'proselists-order', 'prosetap', 'prosetable', 'tablelabels', 'layout', 'surface-paint',
-	'forms', 'datepicker', 'scrollarea', 'utilities', 'chat', 'attachment', 'quiz', 'search', 'auth', 'readme',
+	'forms', 'datepicker', 'scrollarea', 'utilities', 'chat', 'scroller', 'attachment', 'quiz', 'search', 'auth', 'readme',
 ] as const;
 
 /* The log specimen. Long enough to actually scroll, because a sticky
@@ -3658,6 +3658,141 @@ Two helpers shadcn ships under utils, in house CSS. <code>scroll-fade</code>
 					</div>
 				</div>
 			</section>
+			<section id="scroller" class="cm-section cm-section--pad">
+				<SectionHead title="message scroller">
+					the transcript frame: a labelled, keyboard-focusable scroll
+					region whose <code>data-scrollable</code> tokens drive the
+					controls - a button with nothing to scroll toward goes
+					<code>inert</code>, <code>tabindex="-1"</code> and
+					<code>data-active="false"</code>, so it is never an extra
+					focus stop. Rows are addressable (<code>data-message-id</code>)
+					and skip off-screen paint work; the outline jumps by message id,
+					highlights the current anchored turn, and marks rows on screen -
+					tracking runs only because the outline asks for it. Growing
+					content pins the live edge while following; scroll away and the
+					pill appears.
+				</SectionHead>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">runtime</span>
+						<span class="cm-spec__val">data-cm-scroller (init + observer)</span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">state</span>
+						<span class="cm-spec__val">data-scrollable / data-following / data-current-anchor</span>
+					</div>
+				</div>
+				<div class="cm-scroller" data-cm-scroller data-track-visible data-start-at-end>
+					<div class="cm-scroller__bar">
+						<span class="cm-scroller__status" data-scroller-status>live edge</span>
+						<span class="cm-scroller__bar">
+							<button class="cm-btn cm-btn--sm" type="button" data-scroller-start data-active="false" tabindex="-1">jump to start</button>
+							<button class="cm-btn cm-btn--sm" type="button" data-scroller-end data-active="true">jump to latest</button>
+						</span>
+					</div>
+					<div class="cm-scroller__viewport" role="region" aria-label="Messages" tabindex="0" data-scrollable="">
+						<div class="cm-scroller__content" role="log" aria-relevant="additions">
+					<div class="cm-scroller__item cm-msg" data-message-id="m1" data-scroll-anchor>
+						<div class="cm-msg__avatar"><span class="cm-avatar cm-avatar--sm" aria-hidden="true">om</span></div>
+						<div class="cm-msg__body">
+							<p class="cm-msg__header">m1</p>
+							<div class="cm-bubble cm-bubble--secondary">deploy the branch to staging?</div>
+						</div>
+					</div>
+					<div class="cm-scroller__item cm-msg" data-message-id="m2" data-scroll-anchor>
+						<div class="cm-msg__avatar"><span class="cm-avatar cm-avatar--sm" aria-hidden="true">ol</span></div>
+						<div class="cm-msg__body">
+							<p class="cm-msg__header">m2</p>
+							<div class="cm-bubble cm-bubble--secondary">running the build now - dependency cache is warm.</div>
+						</div>
+					</div>
+					<div class="cm-scroller__item cm-msg" data-message-id="m3" data-scroll-anchor>
+						<div class="cm-msg__avatar"><span class="cm-avatar cm-avatar--sm" aria-hidden="true">om</span></div>
+						<div class="cm-msg__body">
+							<p class="cm-msg__header">m3</p>
+							<div class="cm-bubble cm-bubble--secondary">include the migration step this time.</div>
+						</div>
+					</div>
+					<div class="cm-scroller__item cm-msg" data-message-id="m4" data-scroll-anchor>
+						<div class="cm-msg__avatar"><span class="cm-avatar cm-avatar--sm" aria-hidden="true">ol</span></div>
+						<div class="cm-msg__body">
+							<p class="cm-msg__header">m4</p>
+							<div class="cm-bubble cm-bubble--secondary">migration applied; seeding the preview database.</div>
+						</div>
+					</div>
+					<div class="cm-scroller__item cm-msg" data-message-id="m5" data-scroll-anchor>
+						<div class="cm-msg__avatar"><span class="cm-avatar cm-avatar--sm" aria-hidden="true">om</span></div>
+						<div class="cm-msg__body">
+							<p class="cm-msg__header">m5</p>
+							<div class="cm-bubble cm-bubble--secondary">what changed in the schema?</div>
+						</div>
+					</div>
+					<div class="cm-scroller__item cm-msg" data-message-id="m6" data-scroll-anchor>
+						<div class="cm-msg__avatar"><span class="cm-avatar cm-avatar--sm" aria-hidden="true">ol</span></div>
+						<div class="cm-msg__body">
+							<p class="cm-msg__header">m6</p>
+							<div class="cm-bubble cm-bubble--secondary">one column on sessions: last_seen_at, indexed.</div>
+						</div>
+					</div>
+					<div class="cm-scroller__item cm-msg" data-message-id="m7" data-scroll-anchor>
+						<div class="cm-msg__avatar"><span class="cm-avatar cm-avatar--sm" aria-hidden="true">om</span></div>
+						<div class="cm-msg__body">
+							<p class="cm-msg__header">m7</p>
+							<div class="cm-bubble cm-bubble--secondary">good. keep the rollback script next to it.</div>
+						</div>
+					</div>
+					<div class="cm-scroller__item cm-msg" data-message-id="m8">
+						<div class="cm-msg__avatar"><span class="cm-avatar cm-avatar--sm" aria-hidden="true">ol</span></div>
+						<div class="cm-msg__body">
+							<p class="cm-msg__header">m8</p>
+							<div class="cm-bubble cm-bubble--secondary">rollback is in the same migration folder.</div>
+						</div>
+					</div>
+					<div class="cm-scroller__item cm-msg" data-message-id="m9" data-scroll-anchor>
+						<div class="cm-msg__avatar"><span class="cm-avatar cm-avatar--sm" aria-hidden="true">om</span></div>
+						<div class="cm-msg__body">
+							<p class="cm-msg__header">m9</p>
+							<div class="cm-bubble cm-bubble--secondary">did the smoke tests pass?</div>
+						</div>
+					</div>
+					<div class="cm-scroller__item cm-msg" data-message-id="m10">
+						<div class="cm-msg__avatar"><span class="cm-avatar cm-avatar--sm" aria-hidden="true">ol</span></div>
+						<div class="cm-msg__body">
+							<p class="cm-msg__header">m10</p>
+							<div class="cm-bubble cm-bubble--secondary">all 14 green, including the slow retry case.</div>
+						</div>
+					</div>
+					<div class="cm-scroller__item cm-msg" data-message-id="m11" data-scroll-anchor>
+						<div class="cm-msg__avatar"><span class="cm-avatar cm-avatar--sm" aria-hidden="true">om</span></div>
+						<div class="cm-msg__body">
+							<p class="cm-msg__header">m11</p>
+							<div class="cm-bubble cm-bubble--secondary">ship it to staging then.</div>
+						</div>
+					</div>
+					<div class="cm-scroller__item cm-msg" data-message-id="m12">
+						<div class="cm-msg__avatar"><span class="cm-avatar cm-avatar--sm" aria-hidden="true">ol</span></div>
+						<div class="cm-msg__body">
+							<p class="cm-msg__header">m12</p>
+							<div class="cm-bubble cm-bubble--secondary">live - the build link is in the channel.</div>
+						</div>
+					</div>
+						</div>
+					</div>
+					<div class="cm-scroller__bar">
+						<button class="cm-btn cm-scroller__pill" type="button" data-scroller-pill hidden>1 new message - jump to the live edge</button>
+					</div>
+				<div class="cm-scroller__outline" style="margin-top: var(--space-3);">
+					<span class="cm-scroller__outline-title">transcript outline</span>
+					<button class="cm-scroller__link" type="button" data-jump-to="m1">deploy the branch?</button>
+					<button class="cm-scroller__link" type="button" data-jump-to="m3">include the migration step</button>
+					<button class="cm-scroller__link" type="button" data-jump-to="m5">what changed in the schema?</button>
+					<button class="cm-scroller__link" type="button" data-jump-to="m7">keep the rollback script</button>
+					<button class="cm-scroller__link" type="button" data-jump-to="m9">did the smoke tests pass?</button>
+					<button class="cm-scroller__link" type="button" data-jump-to="m11">ship it to staging</button>
+				</div>
+				</div>
+			</section>
+
 
 
 			<section id="attachment" class="cm-section cm-section--pad">

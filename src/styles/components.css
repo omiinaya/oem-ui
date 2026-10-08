@@ -7311,6 +7311,83 @@ input.cm-slider:disabled {
 }
 .cm-quiz__actions [hidden] { display: none; }
 
+/* ---------- message scroller: the transcript frame ----------
+   The sixth chat-family piece. Their contract is behavioural, so the
+   stylesheet only owns structure: a labelled scroll region, live-region
+   content, rows that skip off-screen paint work (content-visibility),
+   and controls that read their state from data-* rather than colour.
+   Height comes from the --scroll-h token (the house scroll-area line),
+   not a magic number. */
+.cm-scroller { display: grid; gap: var(--space-2); }
+.cm-scroller__viewport {
+	height: calc(var(--scroll-h, 18rem) * 1.4);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	border: 1px solid var(--line);
+	background: var(--panel);
+	padding: var(--space-3);
+	scrollbar-width: thin;
+}
+.cm-scroller__content { display: grid; gap: var(--space-3); }
+.cm-scroller__item {
+	content-visibility: auto;
+	contain-intrinsic-size: auto 76px;
+}
+.cm-scroller__bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-2);
+	justify-content: space-between;
+}
+.cm-scroller__status {
+	font-size: var(--text-micro);
+	color: var(--ink-dim);
+	font-variant-numeric: tabular-nums;
+}
+.cm-scroller__pill[hidden] { display: none; }
+.cm-scroller__outline {
+	display: grid;
+	gap: var(--space-1);
+	border: 1px solid var(--line-soft);
+	background: var(--panel);
+	padding: var(--space-2);
+}
+.cm-scroller__outline-title {
+	font-size: var(--text-micro);
+	color: var(--ink-faint);
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+}
+.cm-scroller__link {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-2);
+	min-height: var(--tap);
+	margin: 0;
+	padding: 0 var(--space-2);
+	border: 1px solid transparent;
+	background: transparent;
+	color: var(--ink-dim);
+	font: inherit;
+	font-size: var(--text-sm);
+	text-align: left;
+	cursor: pointer;
+	width: 100%;
+}
+.cm-scroller__link:hover { color: var(--ink); border-color: var(--line); }
+.cm-scroller__link[aria-current="true"] {
+	color: var(--ink);
+	border-color: var(--ink);
+}
+.cm-scroller__link[data-visible="true"]::after {
+	content: "\25a0";
+	color: var(--ink-faint);
+	font-size: var(--text-micro);
+}
+.cm-scroller__link[aria-current="true"]::after { content: "\25b6"; }
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;
