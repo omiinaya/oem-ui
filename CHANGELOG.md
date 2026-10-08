@@ -1512,6 +1512,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (0,1,1); an explicit `[hidden] { display: none }` is required because
   the item rule's `display: flex` outranks the UA's. 31/31 WebKit checks,
   9/9 seeded faults killed.
+- Added `.cm-carousel`: a horizontal scrollport with snap, arrow/mark controls that disable at the ends, tap-sized page marks and arrow keys that move exactly one slide (the UA only line-scrolls a focused container).
+- Added `.cm-stepper`: an `<ol>` of steps with done/current/future states, a connector between steps that collapses to a stacked row on narrow screens, and opt-in click-to-move via `data-cm-stepper`.
+- `fix: the stepper connector targeted `.cm-step:not(:last-child)`, which can never match - each button is the only child of its own `<li>` - so the first version shipped with no connector at any width.
+- `fix: carousel landing coordinates came from `slide.offsetLeft`, measured against a positioned ancestor 40px away at 402px; scroll-snap had been quietly rescuing every wrong landing.
 
 ## Fixed
 

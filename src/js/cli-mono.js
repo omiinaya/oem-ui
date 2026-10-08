@@ -1409,7 +1409,119 @@
 		});
 	}
 
-	/* ---------- init ---------- */
+		/* ---------- carousel ----------
+	   The track is the source of truth: it is already scrolled by the
+	   finger, so the script only READS its offset to light the right page
+	   mark, and only WRITES it when a button is pressed. Two facts here
+	   are why this survives a resize: the active slide is found by
+	   nearest offsetLeft (not `scrollLeft / width`, which the gap breaks),
+	   and the write is `scrollTo` with the slide's own offsetLeft, so it
+	   lands where snap would have landed it anyway. */
+	function cmInitCarousels(root) {
+		var scope = root && root.querySelectorAll ? root : document;
+		Array.prototype.forEach.call(scope.querySelectorAll('.cm-carousel'), function (car) {
+			if (car.dataset.cmCarouselBound) return;
+			car.dataset.cmCarouselBound = '1';
+			var track = car.querySelector('.cm-carousel__track');
+			var slides = track ? Array.prototype.slice.call(track.children) : [];
+			var pages = Array.prototype.slice.call(car.querySelectorAll('.cm-carousel__page'));
+			var prev = car.querySelector('[data-cm-carousel-prev]');
+			var next = car.querySelector('[data-cm-carousel-next]');
+			if (!track || !slides.length) return;
+
+			/* Every coordinate here is the track's, not the page's.
+			   `slide.offsetLeft` is measured against the nearest POSITIONED
+			   ancestor, which is not the track: at 402px it ran 40px larger
+			   than the slide's real scroll offset. It still "worked" because
+			   scroll-snap pulled the wrong landing back onto the right one,
+			   so the error stayed invisible until a test compared the two.
+			   Measuring from the rects is right with or without snap. */
+			function slideOffset(i) {
+				var t = track.getBoundingClientRect();
+				var r = slides[i].getBoundingClientRect();
+				return track.scrollLeft + (r.left - t.left);
+			}
+			function activeIndex() {
+				var x = track.scrollLeft, best = 0, dist = Infinity;
+				slides.forEach(function (s, i) {
+					var d = Math.abs(slideOffset(i) - x);
+					if (d < dist) { dist = d; best = i; }
+				});
+				return best;
+			}
+			function paint() {
+				var i = activeIndex();
+				pages.forEach(function (p, n) {
+					if (n === i) p.setAttribute('aria-current', 'true');
+					else p.removeAttribute('aria-current');
+				});
+				if (prev) prev.disabled = i <= 0;
+				if (next) next.disabled = i >= slides.length - 1;
+			}
+			function go(i) {
+				var s = slides[Math.max(0, Math.min(slides.length - 1, i))];
+				if (!s) return;
+				var reduce = window.matchMedia &&
+					window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+				track.scrollTo({ left: slideOffset(i), behavior: reduce ? 'auto' : 'smooth' });
+			}
+
+			// A plain listener on a scroll that fires in bursts: paint on the
+			// next frame instead of per event, or a fast swipe does layout
+			// work on every tick of a gesture that is already over.
+			var raf = 0;
+			track.addEventListener('scroll', function () {
+				if (raf) return;
+				raf = window.requestAnimationFrame(function () { raf = 0; paint(); });
+			}, { passive: true });
+			// The UA does not scroll a focused scroll container from the
+			// arrow keys in every engine we care about (measured: WebKit
+			// ignored ArrowRight on the focused track), so the track owns
+			// its own keys. Without this the slides are reachable by Tab
+			// and then stuck.
+			track.addEventListener('keydown', function (e) {
+				var i = activeIndex();
+				if (e.key === 'ArrowRight') { go(i + 1); e.preventDefault(); }
+				else if (e.key === 'ArrowLeft') { go(i - 1); e.preventDefault(); }
+				else if (e.key === 'Home') { go(0); e.preventDefault(); }
+				else if (e.key === 'End') { go(slides.length - 1); e.preventDefault(); }
+			});
+			if (prev) prev.addEventListener('click', function () { go(activeIndex() - 1); });
+			if (next) next.addEventListener('click', function () { go(activeIndex() + 1); });
+			pages.forEach(function (p, n) { p.addEventListener('click', function () { go(n); }); });
+			window.addEventListener('resize', paint, { passive: true });
+			paint();
+		});
+	}
+
+	/* ---------- stepper ----------
+	   A click rewrites three states at once - the step you land on is
+	   current, everything before it is done, everything after is neither -
+	   because a stepper where "done" and "current" can disagree is a
+	   stepper that lies about where the user is. `aria-current="step"`
+	   moves with the class; a screen reader must not be told one thing and
+	   shown another. */
+	function cmInitSteppers(root) {
+		var scope = root && root.querySelectorAll ? root : document;
+		Array.prototype.forEach.call(scope.querySelectorAll('[data-cm-stepper]'), function (list) {
+			if (list.dataset.cmStepperBound) return;
+			list.dataset.cmStepperBound = '1';
+			var steps = Array.prototype.slice.call(list.querySelectorAll('.cm-step'));
+			list.addEventListener('click', function (e) {
+				var btn = steps.filter(function (s) { return s === e.target || s.contains(e.target); })[0];
+				if (!btn) return;
+				var i = steps.indexOf(btn);
+				steps.forEach(function (s, n) {
+					s.classList.toggle('is-current', n === i);
+					s.classList.toggle('is-done', n < i);
+					if (n === i) s.setAttribute('aria-current', 'step');
+					else s.removeAttribute('aria-current');
+				});
+			});
+		});
+	}
+
+/* ---------- init ---------- */
 	function init(root) {
 		(root || document)
 			.querySelectorAll(TOGGLE_SEL)
@@ -1432,6 +1544,8 @@
 		initTableLabels(root);
 		cmInitSort(root);
 		cmInitSliders(root);
+		cmInitCarousels(root);
+		cmInitSteppers(root);
 		cmInitOtp(root);
 		cmInitCommand(root);
 		if (!root || root === document) initExternalLinks();

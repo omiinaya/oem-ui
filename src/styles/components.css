@@ -6198,6 +6198,132 @@ input.cm-slider:disabled {
 .cm-command .cm-command__group[hidden],
 .cm-command .cm-command__empty[hidden] { display: none; }
 
+/* ============ shadcn-parity: carousel + stepper ============ */
+
+/* A carousel is a SCROLLPORT, not a slideshow. The track scrolls with the
+   finger, `scroll-snap` lands a slide whole, and the buttons only move
+   that scroll position - so there is no transform to desync from the real
+   offset, no slide rendered at half scale mid-scroll, and swiping works
+   before any script runs. The scrollbar is hidden because the page marks
+   below are the affordance; the track keeps `tabindex` so it is still
+   keyboard-reachable. */
+.cm-carousel { display: grid; gap: var(--space-3); }
+.cm-carousel__track {
+	display: flex;
+	gap: var(--space-3);
+	overflow-x: auto;
+	scroll-snap-type: x mandatory;
+	scrollbar-width: none;
+	-webkit-overflow-scrolling: touch;
+}
+.cm-carousel__track::-webkit-scrollbar { display: none; }
+.cm-carousel__slide {
+	flex: 0 0 100%;
+	min-width: 0;
+	scroll-snap-align: start;
+	border: 1px solid var(--line);
+	background: var(--bg-2);
+	padding: var(--space-4);
+}
+.cm-carousel__bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+	flex-wrap: wrap;
+}
+.cm-carousel__pages { display: flex; gap: var(--space-1); }
+/* An 8px mark is not a touch target. The BUTTON is the target - it is the
+   full tap box - and the square inside it is the picture. The same shape
+   inverts when current, so the position is legible without hue. */
+.cm-carousel__page {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--tap);
+	height: var(--tap);
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+}
+.cm-carousel__page::before {
+	content: '';
+	display: block;
+	width: 8px;
+	height: 8px;
+	border: 1px solid var(--ink-faint);
+	background: transparent;
+}
+.cm-carousel__page[aria-current='true']::before {
+	background: var(--ink);
+	border-color: var(--ink);
+}
+.cm-carousel__page:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* A stepper is a list of states. Done reads by border weight, current by
+   inversion - the two cues this system already uses everywhere else, so a
+   stepper needs no new vocabulary. The connector is a 1px rule, hidden
+   when the row stacks on a phone, because a horizontal rule under a
+   vertical list is a line pointing at nothing. */
+.cm-stepper {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-2);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.cm-stepper > li { margin: 0; display: flex; align-items: center; }
+.cm-step {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-3);
+	margin: 0;
+	padding: var(--space-1) 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+}
+.cm-step__marker {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.75rem;
+	height: 1.75rem;
+	padding: 0 0.25rem;
+	border: 1px solid var(--line);
+	background: var(--bg-2);
+	color: var(--ink-dim);
+	font-size: var(--text-sm);
+	font-variant-numeric: tabular-nums;
+}
+.cm-step__label { font-size: var(--text-sm); color: var(--ink-dim); }
+.cm-step.is-done .cm-step__marker { border-color: var(--ink); color: var(--ink); }
+.cm-step.is-done .cm-step__label { color: var(--ink); }
+.cm-step.is-current .cm-step__marker { background: var(--ink); border-color: var(--ink); color: var(--bg-2); }
+.cm-step.is-current .cm-step__label { color: var(--ink); }
+/* The connector belongs on the <li>, never on `.cm-step`: each button is
+   the ONLY child of its own li, so `:not(:last-child)` on the button is
+   always false and the rule silently never matched - the first version of
+   this component shipped with no connector at all and nothing failed. */
+.cm-stepper > li:not(:last-child)::after {
+	content: '';
+	width: var(--space-5);
+	height: 1px;
+	background: var(--line);
+}
+.cm-stepper > li:not(:last-child):hover::after { background: var(--ink-faint); }
+@media (max-width: 640px) {
+	.cm-stepper { flex-direction: column; align-items: flex-start; }
+	.cm-stepper > li:not(:last-child)::after { display: none; }
+}
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;

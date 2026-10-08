@@ -1456,6 +1456,41 @@ so a filtered row keeps its box until you say `display: none` yourself;
 and a *prefix* match turns "inst" into "no matches" for *copy install
 command*.
 
+### Carousel and stepper
+
+```html
+<!-- the track is the scrollport: snap lands a slide whole, and the
+     marks are tap-sized even though the painted square is 8px -->
+<div class="cm-carousel" data-cm-carousel>
+  <div class="cm-carousel__track">
+    <div class="cm-carousel__slide">...</div>
+    <div class="cm-carousel__slide">...</div>
+  </div>
+  <div class="cm-carousel__bar">
+    <button type="button" class="cm-btn cm-btn--sm" data-cm-carousel-prev>prev</button>
+    <div class="cm-carousel__pages" aria-label="slides">
+      <button type="button" class="cm-carousel__page" aria-label="slide 1" aria-current="true"></button>
+      <button type="button" class="cm-carousel__page" aria-label="slide 2"></button>
+    </div>
+    <button type="button" class="cm-btn cm-btn--sm" data-cm-carousel-next>next</button>
+  </div>
+</div>
+
+<!-- opt-in: clicking a step moves aria-current and marks the rest done -->
+<ol class="cm-stepper" data-cm-stepper>
+  <li><button type="button" class="cm-step is-done"><span class="cm-step__marker" aria-hidden="true">&#10003;</span><span class="cm-step__label">plan</span></button></li>
+  <li><button type="button" class="cm-step is-current" aria-current="step"><span class="cm-step__marker" aria-hidden="true">2</span><span class="cm-step__label">build</span></button></li>
+</ol>
+```
+
+The carousel scrolls with the finger and the buttons only move that scroll
+position - nothing is transformed, so a half-scrolled row never renders at
+half scale. The track owns its arrow keys: a focused scroll container is
+line-scrolled by the UA, not slide-scrolled, and one slide per press is the
+promise. The stepper's connector hangs off the `<li>`, because each
+`.cm-step` is the only child of its own `<li>` and `:not(:last-child)` on
+the button can never match.
+
 ### Interactive primitives
 
 The runtime opts into managed segmented controls only when requested:

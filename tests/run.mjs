@@ -12279,3 +12279,85 @@ check("the input group collapses to one hairline", () => {
 			'there must be an empty state to reveal');
 	});
 }
+
+// ---------- shadcn-parity: carousel + stepper ----------
+{
+	const css = read('src/styles/components.css');
+	const js = read('src/js/cli-mono.js');
+	const page = read('src/pages/index.astro');
+
+	check('the carousel is a scrollport with snap, not a transform slideshow', () => {
+		const track = css.match(/\.cm-carousel__track\s*\{([^}]*)\}/);
+		assert(track, '.cm-carousel__track is not defined');
+		assert(/scroll-snap-type:\s*x mandatory/.test(track[1]),
+			'the track must snap on x, or a swipe lands between slides');
+		assert(/overflow-x:\s*auto/.test(track[1]),
+			'the track must be the scroll container; without it the page scrolls sideways');
+		const slide = css.match(/\.cm-carousel__slide\s*\{([^}]*)\}/);
+		assert(slide, '.cm-carousel__slide is not defined');
+		assert(/flex:\s*0 0 100%/.test(slide[1]), 'a slide must be one viewport of the track, not shrink to fit');
+		assert(/scroll-snap-align:\s*start/.test(slide[1]), 'a slide must snap on start');
+		assert(!/transform:|translateX\(/.test(slide[1] + (track[1] || '')),
+			'the carousel must not transform slides: a transform desyncs from the real scroll offset');
+	});
+
+	check('the page marks are tap-sized and carry the current position', () => {
+		// An 8px square is not a target. The button is the box; the square
+		// is painted inside it, so the hit area is --tap and the mark is 8.
+		assert(/\.cm-carousel__page\s*\{[^}]*width:\s*var\(--tap\)/s.test(css),
+			'page buttons must be --tap wide, or a thumb cannot hit the position mark');
+		assert(/\.cm-carousel__page\[aria-current='true'\]::before\s*\{[^}]*background:\s*var\(--ink\)/s.test(css),
+			'the current page must fill, or position is carried by hue alone');
+		assert(page.includes('cm-carousel__page'), 'the showcase must render page marks');
+		assert((page.match(/cm-carousel__page/g) || []).length >= 4,
+			'the showcase carousel needs at least three marks to prove the contract');
+	});
+
+	check('the carousel runtime reads the track and writes only its scroll', () => {
+		assert(/function cmInitCarousels\(root\)/.test(js), 'cmInitCarousels is missing');
+		assert(/cmInitCarousels\(root\);/.test(js), 'cmInitCarousels is never called from init');
+		assert(/addEventListener\('scroll'/.test(js), 'the active mark must follow the track scroll');
+		assert(/track\.addEventListener\('keydown'/.test(js),
+			'the track must own its arrow keys: WebKit does not scroll a focused scroll container for you');
+		// The landing coordinate must be measured in the TRACK's frame.
+		// `slide.offsetLeft` is measured against the nearest positioned
+		// ancestor - at 402px it is 40px larger than the scroll offset, and
+		// scroll-snap quietly rescued every wrong landing, so nothing looked
+		// broken until a test compared the two numbers directly.
+		assert(/track\.scrollTo\(\{\s*left:\s*slideOffset\(i\)/.test(js),
+			'buttons must scroll to the slide offset measured in track coordinates');
+		assert(/return track\.scrollLeft \+ \(r\.left - t\.left\)/.test(js),
+			'the slide offset must come from the rects (getBoundingClientRect), not from offsetLeft');
+		assert(!/scrollTo\(\{\s*left:\s*s\.offsetLeft/.test(js),
+			'offsetLeft is not a scroll coordinate: measured against a positioned ancestor, 40px off at 402px');
+		assert(/aria-current', 'true'/.test(js) && /removeAttribute\('aria-current'\)/.test(js),
+			'the active mark must be mirrored to aria-current, both ways');
+		assert(/prev\.disabled = i <= 0/.test(js) && /next\.disabled = i >= slides\.length - 1/.test(js),
+			'prev/next must disable at the ends, or an end button scrolls nowhere and looks broken');
+	});
+
+	check('the stepper marks one current step and moves aria with it', () => {
+		assert(page.includes('data-cm-stepper'), 'the showcase must render an interactive stepper');
+		assert(/function cmInitSteppers\(root\)/.test(js) && /cmInitSteppers\(root\);/.test(js),
+			'cmInitSteppers must exist and be called from init');
+		assert(/classList\.toggle\('is-current', n === i\)/.test(js),
+			'exactly one step may be current; a stepper that can show two is a stepper that lies');
+		assert(/classList\.toggle\('is-done', n < i\)/.test(js),
+			'every step before the current one must read as done');
+		assert(/setAttribute\('aria-current', 'step'\)/.test(js),
+			'the current step must carry aria-current="step" and move with the class');
+		const marker = css.match(/\.cm-step\.is-current \.cm-step__marker\s*\{([^}]*)\}/);
+		assert(marker && /background:\s*var\(--ink\)/.test(marker[1]),
+			'the current marker must invert, not take a hue this system does not have');
+		assert(/\.cm-stepper\s*\{[^}]*list-style:\s*none/s.test(css),
+			'the stepper is an <ol>: the list marker must be suppressed, not left to the UA');
+		// The connector must hang off the <li>. Each .cm-step is the only
+		// child of its own li, so `:not(:last-child)` on the button is
+		// always false - the first version of this component had no
+		// connector at any width and every check in the suite stayed green.
+		assert(/\.cm-stepper > li:not\(:last-child\)::after\s*\{[^}]*content:\s*''/s.test(css),
+			'the connector must target the <li>: .cm-step is always an only child, so :not(:last-child) on it never matches');
+		assert(!/\.cm-step:not\(:last-child\)/.test(css),
+			'a connector keyed to .cm-step:not(:last-child) can never match - target the li');
+	});
+}

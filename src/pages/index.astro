@@ -568,7 +568,26 @@ What a surface shows before it has data, and after it fails. Status is carried b
 					</div>
 				</div>
 
-				<h3 class="cm-kicker">loading</h3>
+								<!-- Progress is carried by weight and inversion, the two cues
+				     the rest of the system already speaks: done keeps a strong
+				     border, current fills. The connector is a 1px rule that
+				     disappears when the row stacks. Clicking a step rewrites
+				     all three states at once, so "done" and "current" can
+				     never disagree. -->
+				<h3 class="cm-kicker">steps</h3>
+				<p class="cm-head__sub">
+					A wizard's progress line. State is legible in greyscale and
+					to a screen reader, because <code>aria-current="step"</code>
+					moves with the class instead of being set once and left to rot.
+				</p>
+				<ol class="cm-stepper" data-cm-stepper>
+					<li><button type="button" class="cm-step is-done"><span class="cm-step__marker" aria-hidden="true">✓</span><span class="cm-step__label">plan</span></button></li>
+					<li><button type="button" class="cm-step is-current" aria-current="step"><span class="cm-step__marker" aria-hidden="true">2</span><span class="cm-step__label">build</span></button></li>
+					<li><button type="button" class="cm-step"><span class="cm-step__marker" aria-hidden="true">3</span><span class="cm-step__label">verify</span></button></li>
+					<li><button type="button" class="cm-step"><span class="cm-step__marker" aria-hidden="true">4</span><span class="cm-step__label">ship</span></button></li>
+				</ol>
+
+<h3 class="cm-kicker">loading</h3>
 				<p class="cm-head__sub">
 					Two different jobs. A <strong>skeleton</strong> is for a surface whose
 					shape you already know; a <strong>spinner</strong> is for an action in
@@ -2610,7 +2629,39 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 <code>.cm-lede</code> is the opening sentence under a page head, and <code>.cm-split</code> puts a metadata column beside a content block. The measure comes from <code>--measure</code>, not a number typed next to it, so changing the reading width is a token change. The split stacks below 700px on purpose: two columns of text on a phone is two unreadable columns.
 				</SectionHead>
 
-					<!-- `.cm-shell--rail` centres a PROSE measure in the space
+									<!-- A carousel is a scrollport: swipe first, buttons second,
+				     and both drive the same scroll position, so there is no
+				     transform to desync from what the finger actually did.
+				     The page marks are the position readout; each one is a
+				     full --tap target with an 8px square painted inside it. -->
+				<h3 class="cm-kicker">carousel</h3>
+				<div class="cm-carousel" data-cm-carousel aria-label="oem/ui surfaces">
+					<div class="cm-carousel__track" tabindex="0">
+						<div class="cm-carousel__slide">
+							<p class="cm-kicker cm-kicker--flush">01 / tokens</p>
+							<p class="cm-head__sub" style="margin:0">Radius, rhythm, ink and line are tokens. A component never names a number it could take from one.</p>
+						</div>
+						<div class="cm-carousel__slide">
+							<p class="cm-kicker cm-kicker--flush">02 / states</p>
+							<p class="cm-head__sub" style="margin:0">Empty, loading and error are designed surfaces, not afterthoughts that show a spinner.</p>
+						</div>
+						<div class="cm-carousel__slide">
+							<p class="cm-kicker cm-kicker--flush">03 / layers</p>
+							<p class="cm-head__sub" style="margin:0">Stacking is a named scale. One line retunes what sits above what, instead of hunting eleven literals.</p>
+						</div>
+					</div>
+					<div class="cm-carousel__bar">
+						<button type="button" class="cm-btn cm-btn--sm" data-cm-carousel-prev>prev</button>
+						<div class="cm-carousel__pages" aria-label="slide">
+							<button type="button" class="cm-carousel__page" aria-label="slide 1" aria-current="true"></button>
+							<button type="button" class="cm-carousel__page" aria-label="slide 2"></button>
+							<button type="button" class="cm-carousel__page" aria-label="slide 3"></button>
+						</div>
+						<button type="button" class="cm-btn cm-btn--sm" data-cm-carousel-next>next</button>
+					</div>
+				</div>
+
+<!-- `.cm-shell--rail` centres a PROSE measure in the space
 					     beside the rail, which is right for a content page. An
 					     application shell wants the whole column instead: with
 					     the prose measure the page slid right as the window
