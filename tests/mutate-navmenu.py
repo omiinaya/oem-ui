@@ -34,13 +34,20 @@ PATTERNS = [
 
     ('the next panel never opens in the same press',
      'src/js/cli-mono.js',
-     "\t\t\tif (!menu.matches(':popover-open')) menu.showPopover();\n\t\t\tanchorPopover(menu);",
-     '\t\t\tvoid menu;', 'harness'),
+     "\t\t\tif (!menu.matches(':popover-open')) menu.showPopover();\n\t\t}, 0);",
+     '\t\t\tvoid menu;\n\t\t}, 0);', 'harness'),
 
+    # Placement's owner is anchorPopover on the toggle path, not the swap
+    # callback. The original mutant removed the swap's belt-and-braces
+    # anchorPopover() call - and that call was then DELETED from the
+    # product after measurement, so the pattern became PATTERN ABSENT.
+    # Retargeted to the write that actually places the panel: a mutant that
+    # stops writing `left` leaves the panel at its static position, which
+    # is what "opens but is never placed" means.
     ('the panel opens but is never placed',
      'src/js/cli-mono.js',
-     "\t\t\tif (!menu.matches(':popover-open')) menu.showPopover();\n\t\t\tanchorPopover(menu);",
-     "\t\t\tif (!menu.matches(':popover-open')) menu.showPopover();", 'harness'),
+     "\t\tif (menu.style.left !== left) menu.style.left = left;",
+     "\t\tif (false) menu.style.left = left;", 'harness'),
 
     ('a navmenu panel starts pulling focus into its first link again',
      'src/js/cli-mono.js',

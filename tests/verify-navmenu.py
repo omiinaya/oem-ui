@@ -1,5 +1,5 @@
 #!/root/.venvs/mau/bin/python
-"""WebKit proof for the navigation menu (batch 19).
+"""WebKit proof for the navigation menu (batch 20).
 
 Everything here is measured in the engine Omar actually reads on: WebKit at
 an iPhone viewport. The claims are the three a nav menu makes and a dropdown
@@ -39,6 +39,22 @@ with sync_playwright() as pw:
     page.on('pageerror', lambda e: errors.append(str(e)))
     page.goto(URL, wait_until='load')
     page.wait_for_function("() => window.cliMono && document.documentElement.classList.contains('cm-js')")
+
+    # Fail READABLY if the bar is not a bound landmark. The bar is located
+    # by its data hook everywhere below, so a mutant that drops the hook
+    # makes the FIRST querySelector return null and every later evaluate
+    # throws - the run dies with `TypeError: null is not an object` and
+    # prints no FAIL line at all. A mutation sweep that greps the output
+    # for FAIL then counts a real kill as a survivor: measured on this
+    # batch, the suite killed that mutant (566 passed, 1 failed) while the
+    # harness reported SURVIVED. A harness that cannot state its failure is
+    # not a harness.
+    if not page.evaluate("() => !!document.querySelector('[data-cm-navmenu]')"):
+        print('FAIL the page has no [data-cm-navmenu] bar at all - '
+              'nothing below can be measured')
+        print('\n0 passed, 1 failed\n  FAIL the bar is missing')
+        browser.close()
+        sys.exit(1)
 
     # ---- the state the runtime is supposed to have written, at rest
     page.evaluate("() => document.querySelector('%s').scrollIntoView({block:'center'})" % BAR)
