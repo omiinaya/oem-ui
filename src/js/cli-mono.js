@@ -2180,7 +2180,24 @@
 			clearTimeout(bar.__cmNavLeaveT);
 			bar.__cmNavLeaveT = 0;
 		}
-		if (bar.__cmNavHoverLast === trigger) return;
+		// Written, never trusted as a REASON to skip on its own. The guard
+		// above already asked the only question that matters - is this
+		// hover already ACTED on - and answering it again with the bare
+		// record made the word permanently dead to the pointer: a click
+		// closes the panel without a pointerout, so the record survives and
+		// every later hover returned before the timer could re-arm. The one
+		// thing that DOES justify swallowing a hover is a click, because the
+		// 200ms timer it arms fires after the click and would steal the
+		// panel back.
+		// A click only holds the word for as long as its PANEL is open -
+		// that is the whole content of "the reader asked for it to stay".
+		// Left standing, it is the same permanent-death bug the record
+		// caused: the click's own panel closed, so nothing would clear it.
+		if (bar.__cmNavHoverLast === trigger &&
+			bar.__cmNavClickOwned &&
+			navHoverPanel(bar, trigger) &&
+			navHoverPanel(bar, trigger).matches(':popover-open')) return;
+		bar.__cmNavClickOwned = 0;
 		bar.__cmNavHoverLast = trigger;
 		if (bar.__cmNavHoverT) {
 			clearTimeout(bar.__cmNavHoverT);
@@ -2256,6 +2273,12 @@
 		var bar = trigger.closest('[data-cm-navmenu]');
 		if (!bar) return;
 		bar.__cmNavHoverOwned = 0;
+		// The click claims the word: the 200ms hover timer armed by the
+		// pointer arriving on this trigger fires AFTER the click, so the
+		// over-handler has to know a click - not a hover - is what owns
+		// this word. Read by onNavmenuOver, which is the only place that
+		// decides whether a hover may re-arm.
+		bar.__cmNavClickOwned = 1;
 		var vid = bar.getAttribute('data-cm-navmenu-viewport');
 		if (!vid) return;
 		var viewport = document.getElementById(vid);

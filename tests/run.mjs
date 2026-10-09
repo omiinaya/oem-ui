@@ -14293,6 +14293,25 @@ check('batch 23 nav: hover is delayed, gated at event time, and the hover owns i
 		'ownership may only be claimed after the already-open guard');
 	assert(open.slice(claim, claim + 120).includes('menu.showPopover();'),
 		'the claim must sit on the branch that actually opens');
+	// A click holds its word ONLY while that word's own panel is open.
+	// This is the fix for a permanent-death bug: the record alone decided
+	// the hover, and nothing cleared it after a click, so the word could
+	// never be hovered open again. A guard that trusts either of these
+	// bare is the same bug wearing a different name - both must be asked
+	// about the PLATFORM's state, not about a memory.
+	assert(js.includes('bar.__cmNavClickOwned = 1;'),
+		'the click door must record that a click owns this word');
+	const over = js.slice(js.indexOf('function onNavmenuOver'),
+		js.indexOf('function onNavmenuOut'));
+	const clickGuard = over.indexOf("bar.__cmNavClickOwned &&");
+	assert(clickGuard !== -1 &&
+		over.slice(clickGuard, clickGuard + 260).includes(":popover-open"),
+		'a click must hold its word only while its own panel is open');
+	// And the bare-record guard must be GONE: two owners for one question
+	// is how the record came to decide.
+	assert(!/if \(bar\.__cmNavHoverLast === trigger\) return;/.test(over),
+		'must not answer the arrival twice, once on the bare record');
+
 	// The click door turns ownership OFF - that is what "sticky" means.
 	const click = js.slice(js.indexOf('function onNavmenuClick'),
 		js.indexOf("document.addEventListener('click', onNavmenuClick)"));

@@ -538,6 +538,96 @@ with sync_playwright() as pw:
     check('hovering past the 200ms delay opens the panel',
           later['open'] and later['exp'] == 'true', later)
 
+    # (a2) The record must heal. The guard that swallows the engine's
+    # pointerover STORM is right to ask "is this hover already handled",
+    # but ONLY about what the hover actually did: a timer pending, or this
+    # word's panel open. A record alone is a memory that NOTHING clears
+    # except a pointerout from a trigger - so a pointer that leaves a word
+    # for a surface still inside the bar (the bar's own padding) leaves the
+    # record naming a word nobody is over. Measured in WebKit: with the
+    # record as the test, that word is then dead to the pointer forever,
+    # because coming back to it re-arms nothing.
+    #
+    # ORDER is the whole point - the panel must be CLOSED while the record
+    # still names the word:
+    #   padding -> word    record set, panel opens on the delay
+    #   click              panel closes; pointer never left, so the record
+    #                      survives the click
+    #   padding -> word    record still names the word, panel shut
+    # The second hover must open it again. A guard that trusts the record
+    # returns early right there and the word stays dead to the pointer.
+    page.mouse.move(8, 8)
+    page.wait_for_timeout(400)
+    box = page.locator(PRODUCT).bounding_box()
+    bar = page.evaluate("""(sel) => {
+        const b = document.querySelector(sel).closest('.cm-navmenu');
+        const r = b.getBoundingClientRect();
+        return { x: r.left, y: r.top, w: r.width, h: r.height };
+    }""", PRODUCT)
+    # A point that is INSIDE the bar but on NO word, found by asking the
+    # page rather than by arithmetic. It has to be bare bar: if it lands on
+    # another word, that word's pointerover rewrites the record and the
+    # precondition - the record naming OUR word while the panel is shut -
+    # never exists, and the check passes on a build that never heals.
+    pad = page.evaluate("""(sel) => {
+        const bar = document.querySelector(sel).closest('.cm-navmenu');
+        const r = bar.getBoundingClientRect();
+        for (let dy = 2; dy < r.height; dy += 3) {
+            for (let dx = 2; dx < r.width; dx += 6) {
+                const x = r.left + dx, y = r.top + dy;
+                const el = document.elementFromPoint(x, y);
+                if (!el) continue;
+                if (el.closest('.cm-navmenu__trigger')) continue;
+                if (el.closest('.cm-navmenu') !== bar) continue;
+                return { x, y };
+            }
+        }
+        return null;
+    }""", PRODUCT)
+    check('the bar has a point that is not on any word', pad is not None, {'pad': pad})
+    pad_x, pad_y = pad['x'], pad['y']
+    word_x, word_y = box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
+
+    # 1. pad -> word: the first hover opens the panel.
+    page.mouse.move(pad_x, pad_y)
+    page.wait_for_timeout(120)
+    page.mouse.move(word_x, word_y)
+    page.wait_for_timeout(300)
+    # 2. click with the pointer STILL on the word: the panel closes and no
+    #    pointerout fires, so the record survives naming this word.
+    page.mouse.click(word_x, word_y)
+    page.wait_for_timeout(250)
+    # 3. Back out to bare bar (pointerout target is not a trigger, so the
+    #    record is NOT cleared) and read the precondition.
+    page.mouse.move(pad_x, pad_y)
+    page.wait_for_timeout(450)
+    before = page.evaluate("""(sel) => {
+        const word = document.querySelector(sel);
+        const own = word.closest('.cm-navmenu');
+        return { open: document.getElementById('nav-product').matches(':popover-open'),
+                 recIsWord: own.__cmNavHoverLast === word,
+                 recLabel: own.__cmNavHoverLast
+                     ? own.__cmNavHoverLast.textContent.trim().slice(0, 20) : null };
+    }""", PRODUCT)
+    # 4. Return to the word: this is the hover that must work.
+    page.mouse.move(word_x, word_y)
+    page.wait_for_timeout(440)
+    heal = page.evaluate("""(sel) => {
+        const p = document.getElementById('nav-product');
+        const word = document.querySelector(sel);
+        const own = word.closest('.cm-navmenu');
+        return { open: p.matches(':popover-open'),
+                 recIsWord: own.__cmNavHoverLast === word,
+                 exp: word.getAttribute('aria-expanded') };
+    }""", PRODUCT)
+    # BOTH readings are asserted: the precondition (the record really did
+    # name our word while the panel was shut - otherwise a build that never
+    # heals passes for free) and the outcome (the re-hover opened it).
+    check('re-hovering a word the pointer left without leaving the bar opens again',
+          before['recIsWord'] and not before['open']
+          and heal['open'] and heal['exp'] == 'true',
+          {'before': before, 'after': heal})
+
     # (b) leaving the bar: the grace keeps the panel up while the pointer
     # is still crossing, then the HOVER-opened panel closes. Two reads,
     # because a close-at-0ms and a never-close both fail one of them.
@@ -888,6 +978,72 @@ with sync_playwright() as pw:
           and open_widths['subW'] < open_widths['parentW'] - 8
           and open_widths['ratio'] <= 0.85, open_widths)
 
+    # The same key with the submenu SHUT is the other half of the contract.
+    # NOT a rove: a nav is not a menu bar, so with no panel open anywhere
+    # the arrows stay the PAGE's keys. What matters for a nested word is
+    # only that the step-in guard does not fire - it must not try to focus
+    # a hidden panel's first row, which is a reader sent nowhere.
+    shut = page.evaluate("""(id) => {
+        const panel = document.getElementById(id);
+        if (panel && panel.matches(':popover-open')) panel.hidePopover();
+        // The parent panel must be OPEN here: with it shut the bar's own
+        // idle gate says the arrows are the page's, and Right would do
+        // nothing at all - a weaker observation than the one wanted. With
+        // it open the step-in guard is the ONLY thing that can pull focus
+        // into the submenu, so a guard that fires is unmistakable.
+        const parent = document.getElementById('nav-product');
+        if (!parent.matches(':popover-open')) parent.showPopover();
+        const words = [...document.querySelectorAll(
+            '[data-cm-navmenu-sub] .cm-navmenu__trigger')];
+        // aria-expanded is re-derived from the panel on every transition,
+        // so a hide that has not been observed yet can leave it stale.
+        // The state under test is a CLOSED submenu, and that means both
+        // the panel shut and the word no longer claiming expansion.
+        words[0].setAttribute('aria-expanded', 'false');
+        words[0].focus();
+        return { closed: !(panel && panel.matches(':popover-open')),
+                 firstLabel: words[0].textContent.trim().slice(0, 20),
+                 expanded: words[0].getAttribute('aria-expanded') };
+    }""", subPanel)
+    page.wait_for_timeout(200)
+    page.keyboard.press('ArrowRight')
+    page.wait_for_timeout(200)
+    roved = page.evaluate("""(id) => {
+        const panel = document.getElementById(id);
+        const words = [...document.querySelectorAll(
+            '[data-cm-navmenu-sub] .cm-navmenu__trigger')];
+        const a = document.activeElement;
+        return { stillShut: !(panel && panel.matches(':popover-open')),
+                 rovedToSibling: words.indexOf(a) === 1,
+                 stayedOnFirst: a === words[0],
+                 // The mutant's failure: focus inside a panel that is shut.
+                 inHiddenPanel: !!(panel && panel.contains(a)),
+                 landedOn: a ? a.textContent.trim().slice(0, 20) : null };
+    }""", subPanel)
+    # NOT a rove. A nav is not a menu bar: with no panel open anywhere the
+    # arrows stay the PAGE's keys, and that rule is the bar's own idle gate.
+    # What matters for a nested word is only that the step-in guard does
+    # not fire - it must not try to focus a hidden panel's first row.
+    check('ArrowRight on a shut nested word stays put instead of stepping in',
+          shut['closed'] and shut['expanded'] == 'false'
+          and not roved['inHiddenPanel'], {**shut, **roved})
+
+    # And back OUT, one level per press - Radix's rule, and the house
+    # dropdown's existing rule: ArrowLeft from INSIDE a submenu returns to
+    # the row that owns it. The second press, from that word, is the step
+    # out to the parent word. Asserting only the end state would pass on
+    # a single jump that skipped the level in between.
+    page.keyboard.press('ArrowLeft')
+    page.wait_for_timeout(250)
+    kout1 = page.evaluate("""(id) => {
+        const panel = document.getElementById(id);
+        const a = document.activeElement;
+        return { closed: !(panel && panel.matches(':popover-open')),
+                 onOwnerWord: !!a && a.classList
+                     && a.classList.contains('cm-navmenu__trigger')
+                     && !!a.closest('[data-cm-navmenu-sub]'),
+                 focusedLabel: a ? a.textContent.trim().slice(0, 40) : null };
+    }""", subPanel)
     # The parent closing retires the open submenu: a submenu popover lives
     # in the top layer and survives its parent's close, which is the one
     # state that makes nested navigation unreadable.
