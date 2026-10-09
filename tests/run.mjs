@@ -10038,7 +10038,7 @@ check('a numeric column outranks the cell rule to align on the digit', () => {
 		`the numeric rule is scoped "${sel.trim()}" with no element, so ` +
 		"`.cm-table td` (specificity 0,1,1) beats it and the column is " +
 		'left-aligned with a ragged right edge');
-	assert(/text-align:\s*right/.test(num[1]),
+	assert(/text-align:\s*end/.test(num[1]),
 		'the numeric column does not align right, so durations of different ' +
 		'lengths cannot be compared without reading each one');
 	// The header must match the cells, or the column reads as misaligned
@@ -10175,7 +10175,7 @@ check('the meter note is a fixed-width column, not loose text', () => {
 	assert(/min-width:\s*(?!0)\S/.test(note[1]),
 		'the meter note has no fixed width, so a column of percentages ' +
 		'rags and the reader cannot scan it for the one they want');
-	assert(/text-align:\s*right/.test(note[1]),
+	assert(/text-align:\s*end/.test(note[1]),
 		'the meter note is not right-aligned, so the decimals do not line ' +
 		'up and "96.0%" reads differently from "3.0%"');
 	assert(/font-variant-numeric:\s*tabular-nums/.test(note[1]),

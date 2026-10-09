@@ -219,7 +219,7 @@
 .cm-prose td {
 	padding: var(--space-2) var(--space-3);
 	border-bottom: 1px solid var(--line);
-	text-align: left;
+	text-align: start;
 }
 .cm-prose th {
 	color: var(--ink-dim);
@@ -623,7 +623,7 @@
 .cm-spec__row:last-child { border-bottom: 0; }
 .cm-spec__label { flex: 0 0 6.5rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .cm-spec__sample { flex: 1; min-width: 0; line-height: 1.1; }
-.cm-spec__val { flex: 0 0 auto; text-align: right; }
+.cm-spec__val { flex: 0 0 auto; text-align: end; }
 /* A specimen that reports its own live state. The inline row's title
    column is only in play inside a width band, and a static `42ch` beside
    it is decoration -- it cannot tell you that at 700px the excerpt has
@@ -672,7 +672,7 @@
 	/* The value keeps only the width its text needs. flex:1 here would let a
 	   wrapping row's value claim the entire line, which is how --space-10's
 	   "6rem · 96px" ballooned to 283px and made its own row taller. */
-	.cm-spec__val { flex: 0 1 auto; text-align: right; margin-inline-start: auto; }
+	.cm-spec__val { flex: 0 1 auto; text-align: end; margin-inline-start: auto; }
 	.cm-spec__sample { flex: 1 0 100%; }
 	/* The bar must NOT stretch: its width IS the measurement. It keeps the
 	   label's line and starts at the label's left edge, so the scale still
@@ -1049,7 +1049,7 @@ html {
    in a style prop, which is the thing a stylesheet exists to prevent. */
 button.cm-row {
 	width: 100%;
-	text-align: left;
+	text-align: start;
 	background: transparent;
 	border: 0;
 	border-bottom: 1px solid var(--line);
@@ -1296,7 +1296,7 @@ button.cm-row:hover { background: var(--bg-2); }
 .cm-rows--stacked .cm-row__meta { display: block; font-size: var(--text-micro); margin-top: var(--space-1); }
 
 /* list footer link, right-aligned */
-.cm-list-more { margin-top: var(--space-6); text-align: right; }
+.cm-list-more { margin-top: var(--space-6); text-align: end; }
 .cm-list-more a {
 	font-family: var(--font-mono); font-size: var(--text-xs); color: var(--ink-dim);
 }
@@ -1425,7 +1425,7 @@ button.cm-row:hover { background: var(--bg-2); }
 }
 .cm-prose-table caption {
 	caption-side: top;
-	text-align: left;
+	text-align: start;
 	color: var(--ink-faint);
 	font-size: var(--min-font);
 	padding-bottom: var(--space-2);
@@ -1434,7 +1434,7 @@ button.cm-row:hover { background: var(--bg-2); }
    readable stacked-ish rows instead of a horizontal scrollbar. */
 .cm-prose-table th,
 .cm-prose-table td {
-	text-align: left;
+	text-align: start;
 	vertical-align: top;
 	padding: var(--space-2) var(--space-3);
 	border-bottom: 1px solid var(--line);
@@ -2246,7 +2246,7 @@ button.cm-row:hover { background: var(--bg-2); }
 .cm-table { width: 100%; border-collapse: collapse; font-size: var(--text-xs); }
 /* Sticky needs the wrapper to be the scroll box, not the page. */
 .cm-table th, .cm-table td {
-	text-align: left;
+	text-align: start;
 	padding: var(--space-2) var(--space-3);
 	border-bottom: 1px solid var(--line);
 	white-space: nowrap;
@@ -2267,7 +2267,7 @@ button.cm-row:hover { background: var(--bg-2); }
 	background: var(--bg-3);
 	color: var(--ink);
 }
-.cm-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.cm-table td.num { text-align: end; font-variant-numeric: tabular-nums; }
 /* A numeric column aligns on the digit, which is the only way a column of
    durations or sizes can be compared without reading each one. The
    `__num` form matches the BEM of the rest of the block; `.num` above is
@@ -2280,7 +2280,7 @@ button.cm-row:hover { background: var(--bg-2); }
    correctly in the source the whole time. */
 .cm-table td.cm-table__num,
 .cm-table th.cm-table__num {
-	text-align: right;
+	text-align: end;
 	font-variant-numeric: tabular-nums;
 }
 /* A long host or path must not set the column width for the whole
@@ -2329,7 +2329,7 @@ button.cm-row:hover { background: var(--bg-2); }
 	color: var(--ink);
 	font: inherit;
 	font-family: var(--font-mono);
-	text-align: left;
+	text-align: start;
 	cursor: pointer;
 }
 .cm-table__action:hover { text-decoration: underline; }
@@ -3601,7 +3601,7 @@ dialog.cm-dialog--spec:not([open]) {
 	background: transparent;
 	color: var(--ink-dim);
 	font: inherit;
-	text-align: left;
+	text-align: start;
 	text-decoration: none;
 	cursor: pointer;
 }
@@ -4805,7 +4805,7 @@ dialog.cm-dialog--spec:not([open]) {
 .cm-meter--row .cm-meter__label {
 	flex: 1 1 auto;
 	order: 2;
-	text-align: right;
+	text-align: end;
 }
 .cm-meter--row .cm-meter__track {
 	flex: 1 1 0;
@@ -4825,7 +4825,7 @@ dialog.cm-dialog--spec:not([open]) {
 	order: 4;
 	flex: 0 0 auto;
 	min-width: 3.5rem;
-	text-align: right;
+	text-align: end;
 	font-size: max(var(--min-font), var(--text-xs));
 	font-family: var(--font-mono);
 	font-variant-numeric: tabular-nums;
@@ -4844,10 +4844,10 @@ dialog.cm-dialog--spec:not([open]) {
    infer from tint. */
 th.cm-table__sortcol {
 	padding: 0;
-	text-align: left;
+	text-align: start;
 }
 th.cm-table__sortcol.right {
-	text-align: right;
+	text-align: end;
 }
 button.cm-table__sort {
 	display: flex;
@@ -6344,7 +6344,7 @@ input.cm-slider:disabled {
 	background: transparent;
 	color: var(--ink-dim);
 	font: inherit;
-	text-align: left;
+	text-align: start;
 	cursor: pointer;
 }
 /* Hover and the script's roving row highlight the same way, so a mouse
@@ -6466,7 +6466,7 @@ input.cm-slider:disabled {
 	background: transparent;
 	color: inherit;
 	font: inherit;
-	text-align: left;
+	text-align: start;
 }
 .cm-step__marker {
 	display: inline-flex;
@@ -6579,7 +6579,7 @@ input.cm-slider:disabled {
 	background: transparent;
 	color: var(--ink-dim);
 	font: inherit;
-	text-align: left;
+	text-align: start;
 	cursor: pointer;
 }
 .cm-combobox__option:hover,
@@ -6630,7 +6630,7 @@ input.cm-slider:disabled {
 	background: transparent;
 	color: var(--ink-dim);
 	font: inherit;
-	text-align: left;
+	text-align: start;
 	cursor: pointer;
 }
 .cm-menubar__trigger:hover,
@@ -6885,7 +6885,7 @@ input.cm-slider:disabled {
 	background: transparent;
 	color: var(--ink-dim);
 	font: inherit;
-	text-align: left;
+	text-align: start;
 	text-decoration: none;
 	cursor: pointer;
 }
@@ -7701,7 +7701,7 @@ input.cm-slider:disabled {
 	color: var(--ink-dim);
 	font: inherit;
 	font-size: var(--text-sm);
-	text-align: left;
+	text-align: start;
 	cursor: pointer;
 	width: 100%;
 }
@@ -7920,7 +7920,7 @@ input.cm-slider:disabled {
 	font-size: var(--text-micro);
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
-	text-align: left;
+	text-align: start;
 	cursor: pointer;
 }
 .cm-sidebar__grouplabel::after {
@@ -7968,7 +7968,7 @@ input.cm-slider:disabled {
 	color: var(--sidebar-foreground);
 	font-family: inherit;
 	font-size: var(--text-sm);
-	text-align: left;
+	text-align: start;
 	text-decoration: none;
 	cursor: pointer;
 }
@@ -8037,7 +8037,7 @@ input.cm-slider:disabled {
 	color: var(--ink-dim);
 	font-family: inherit;
 	font-size: var(--text-sm);
-	text-align: left;
+	text-align: start;
 	text-decoration: none;
 	cursor: pointer;
 }
