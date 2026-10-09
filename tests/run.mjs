@@ -968,8 +968,8 @@ check('.cm-select draws its arrow from a gradient, so it needs no image or icon 
 	assert(!/#[0-9a-f]{3,8}\b/i.test(body), '.cm-select hardcodes a colour');
 	assert(!/url\(/.test(body), '.cm-select loads an arrow image; currentColor is the point');
 	// the clearance, from the token that owns it
-	assert(/padding-right:\s*var\(--space-7\)/.test(body),
-		'the value runs under the wedges without padding-right clearance');
+	assert(/padding-inline-end:\s*var\(--space-7\)/.test(body),
+		'the value runs under the wedges without padding-inline-end clearance');
 });
 
 check('the element default and the class agree, or a full and a scoped adoption differ', () => {
@@ -3095,7 +3095,7 @@ check('the rail is a bounded column, so a long list scrolls instead of escaping'
 
 check('the rail clears the content, and the measure stays centred beside it', () => {
 	assert(/\.cm-shell--rail/.test(RAIL), 'nothing offsets the content clear of the rail');
-	assert(/padding-left:\s*calc\(var\(--rail-w\)/.test(RAIL),
+	assert(/padding-inline-start:\s*calc\(var\(--rail-w\)/.test(RAIL),
 		'the shell offset is not derived from --rail-w');
 	// `margin: 0 auto` in base.css centres main on the VIEWPORT. Left
 	// alone, the rail overlapped the first section by 58px at 1440.
@@ -5729,12 +5729,14 @@ check('cm-timeline: the dot is centred on the rail by construction', () => {
 	const dot = /^\.cm-timeline__item::after\s*\{([^}]*)\}/m.exec(compSrc);
 	assert(dot, 'no ::after dot on the timeline item');
 	const w = /width:\s*([0-9.]+)rem/.exec(dot[1]);
-	// The offset is read unit-TOLERANT on purpose: `left: 0` is the exact
-	// mutation this check exists to catch, and a rem-only pattern would
-	// fail to match it and report the wrong defect ("no left offset")
-	// instead of the real one (the dot is off the rail).
-	const left = /left:\s*(-?[0-9.]+)(rem)?\s*;/.exec(dot[1]);
-	assert(w && left, 'the dot must declare a rem width and a left offset');
+	// The offset is read unit-TOLERANT on purpose: `inset-inline-start:
+	// 0` is the exact mutation this check exists to catch, and a rem-only
+	// pattern would fail to match it and report the wrong defect ("no
+	// start-edge offset") instead of the real one (the dot is off the
+	// rail). The Direction baseline spells the axis logically; the
+	// mutation runner reverts exactly this declaration.
+	const left = /inset-inline-start:\s*(-?[0-9.]+)(rem)?\s*;/.exec(dot[1]);
+	assert(w && left, 'the dot must declare a rem width and a start-edge offset');
 	const half = parseFloat(w[1]) / 2;
 	const offset = parseFloat(left[1]);
 	assert(Math.abs(offset + half) < 0.001,
@@ -5806,7 +5808,7 @@ check('cm-timeline: the body cannot inherit a bullet or snap under the rail', ()
 	// the body must not inherit the outer list's own padding.
 	const pad = /\.cm-timeline__body ul\s*\{([^}]*)\}/.exec(compSrc);
 	assert(pad, '.cm-timeline__body ul has no rule of its own');
-	assert(/padding-left:\s*1\.2em/.test(pad[1]), 'the inner list must be indented explicitly');
+	assert(/padding-inline-start:\s*1\.2em/.test(pad[1]), 'the inner list must be indented explicitly');
 	assert(/\.cm-timeline__body li::before\s*\{([^}]*)\}/.test(compSrc),
 		'the inner list must cancel the inherited ::before marker');
 });
@@ -7484,7 +7486,7 @@ check('the grouped rail row carries the same declarations as the flat one', () =
 	// the failure says which one went.
 	for (const [prop, why] of [
 		[/min-height:\s*var\(--tap\)/, 'the tap floor'],
-		[/border-left:\s*2px solid transparent/, 'the current-page marker width'],
+		[/border-inline-start:\s*2px solid transparent/, 'the current-page marker width'],
 		[/margin-inline:\s*var\(--space-2\)/, 'the inset that keeps the tick off the rail edge'],
 	]) {
 		assert(prop.test(grouped), `the grouped rail row is missing ${why}`);
@@ -8162,7 +8164,7 @@ check('shadcn-parity: the drawn shortcut, the toast vocabulary, the sticky chrom
 	assert(/\.cm-toast--loading \.cm-toast__mark::before,?[\s\S]{0,200}cm-spin/.test(css),
 		'the loading mark does not spin');
 	const act = /^\.cm-toast__action \{[^}]*\}/m.exec(css);
-	assert(act && act[0].includes('margin-left: auto'), 'the action is not pushed to the far edge');
+	assert(act && act[0].includes('margin-inline-start: auto'), 'the action is not pushed to the far edge');
 });
 
 	/* --- shadcn parity: the utils pair and the validating forms ---
@@ -9627,7 +9629,7 @@ check('a disclosure action is walked to the end of the summary row', () => {
 	const comp = read('src/styles/components.css');
 	const m = /((?:^|[,{}\s])[^{}\n]*\.cm-disclosure__action[^{}\n]*)\{([^}]*)\}/.exec(comp);
 	assert(m, 'the disclosure action slot must have its own rule');
-	assert(/margin-left:\s*auto/.test(m[2]),
+	assert(/margin-inline-start:\s*auto/.test(m[2]),
 		`the action must be walked to the far end of the row, got: ${m[2].trim()}`);
 	// `align-self` only matters once the summary is allowed to wrap, and at
 	// 390px it is: without it the button sits on the first line while the
@@ -10568,7 +10570,7 @@ check('the search field keeps the 16px form-text floor the base rule gives up', 
 check('the search gutter is derived from the clear button, not guessed', () => {
 	const inp = declsFor(compSrc, '.cm-search__input');
 	assert(inp, '.cm-search__input has no rule of its own');
-	assert(/padding-right:[^;]*var\(--search-clear\)/.test(inp),
+	assert(/padding-inline-end:[^;]*var\(--search-clear\)/.test(inp),
 		'padding-right is not derived from --search-clear, so the value can '
 		+ 'run under the X as soon as the button changes size');
 	const clr = declsFor(compSrc, '.cm-search__clear');
@@ -10640,8 +10642,8 @@ check('.cm-field__control keeps its affordance on the control, not a new row', (
 		'.cm-field__control is not a positioning context, so its affordance ' +
 		'cannot sit on the control it belongs to');
 	const btn = ruleBodies(compSrc, '.cm-field__control > .cm-icon-btn')[0];
-	assert(btn && /position:\s*absolute/.test(btn) && /right:\s*0/.test(btn),
-		'the affordance is not pinned to the control\'s right edge');
+	assert(btn && /position:\s*absolute/.test(btn) && /inset-inline-end:\s*0/.test(btn),
+		'the affordance is not pinned to the control\'s end edge');
 	assert(btn && /top:\s*50%/.test(btn) && /translateY\(-50%\)/.test(btn),
 		'the affordance is not centred on the control, so it drifts when the ' +
 		'control is taller than one line');
@@ -10698,7 +10700,7 @@ check('.cm-field__control keeps its affordance on the control, not a new row', (
 	// perfectly good declaration and reports a pass.
 	const reserveBody = /\.cm-field__control\.cm-field__control[^\n{]*>\s*input\s*\{([^}]*)\}/.exec(compSrc);
 	const pr = reserveBody
-		&& /padding-right:\s*calc\(var\(--tap\) \+ ([^)]+)\)/.exec(reserveBody[1]);
+		&& /padding-inline-end:\s*calc\(var\(--tap\) \+ ([^)]+)\)/.exec(reserveBody[1]);
 	assert(pr,
 		'the reserve does not leave a gap beside the glyph: it must be the '
 		+ 'overlay width PLUS a gap, read from the reserve rule itself');
@@ -14145,7 +14147,7 @@ check('batch 21 tabs: vertical is declared once and read once', () => {
 	const col = /\.cm-tabs\[data-orientation='vertical'\]\s*\.cm-tabs__list\s*\{[^}]*flex-direction:\s*column/.test(compSrc);
 	assert(col, 'the vertical group does not flip the list through the SAME attribute');
 	// Every row pays the same marker edge, so selecting shifts nothing.
-	assert(/\.cm-tabs\[data-orientation='vertical'\]\s*\.cm-tabs__tab\s*\{[^}]*border-left:\s*2px solid transparent/.test(compSrc),
+	assert(/\.cm-tabs\[data-orientation='vertical'\]\s*\.cm-tabs__tab\s*\{[^}]*border-inline-start:\s*2px solid transparent/.test(compSrc),
 		'the vertical marker is not a shared, layout-free edge');
 	const src = read('src/js/cli-mono.js');
 	assert(src.includes("getAttribute('data-orientation') === 'vertical'"),
