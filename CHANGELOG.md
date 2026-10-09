@@ -2052,6 +2052,39 @@ Proven: suite 564/0 (2 new contracts);
 button-qualified page selector and dies on select-all holding.
 
 
+### Batch 20: sidebar
+
+- The full surface, as attributes on one scope: `data-side` (left/right),
+  `data-variant` (sidebar/floating/inset), `data-collapsible`
+  (icon/offcanvas/none), open state plus its phone twin (`data-mobile-open`),
+  and `--sidebar-*` tokens across all four themes. The rail clicks to collapse
+  (icon mode: labels step aside, `aria-label` keeps the name) and drags to
+  resize — anchored at the press, signed by `data-side`, clamped 12rem..32rem.
+  `⌘B` / `Ctrl+B` toggles through one delegated keydown (editors keep their
+  B); at 767px the panel becomes a sheet over a scrim, and the trigger's
+  `aria-expanded` starts off the VIEWPORT, not the state attribute. Groups and
+  submenus are disclosures — `aria-expanded` and `hidden` move together; no
+  popover machinery.
+- Found and fixed while proving it: the drag grows the panel *under the
+  pointer*, so the cursor crosses a menu `<a>` mid-gesture, WebKit starts a
+  native link-drag, and the pointer stream dies with no `pointerup` and no
+  `pointercancel` — the resize froze at whatever width the last delivered move
+  computed (measured: +40 of an intended +80). The rail gesture now vetoes the
+  native drag it would otherwise trip over.
+- **Proof, including its own misses.** Suite 567/0 ·
+  `tests/verify-sidebar.py` 34/34 (WebKit, 1280 desktop + 402 phone) ·
+  `tests/mutate-sidebar.py` 44/44 patterns present. The FIRST run came back
+  41/44 with three survivors, and all three were oracle holes, not escapes:
+  the desktop offcanvas was never driven (only its phone-sheet cousin), the
+  icon-mode check counted labels leaving but never asserted that what stays
+  *centers*, and the group/sub disclosures were driven by
+  `querySelector('[data-cm-sidebar-group]')` — the first match — so a rename
+  on group 1 slid the selector to group 2, which still routes. Fixed at the
+  oracle: the harness now drives each disclosure by the panel its button
+  *owns* (`aria-controls`, the contract a rename cannot touch), the suite
+  pins every group label as ROUTED (counted, not sampled), and offcanvas is
+  asserted parked out of the flow. Re-run: 44/44 killed.
+
 ## Fixed
 
 - Two stacking checks demanded a literal `z-index: <number>`, which fails on

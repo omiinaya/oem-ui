@@ -7650,6 +7650,345 @@ input.cm-slider:disabled {
 	z-index: calc(var(--z-popover) + 1);
 }
 
+/* ---- sidebar ------------------------------------------------------------
+   shadcn's Sidebar, in house terms. Every knob the docs list as a prop
+   (side / variant / collapsible) and every piece of state (open / mobile)
+   is an ATTRIBUTE ON THE SCOPE, not a class - one element owns the whole
+   description, so a toggle is a setAttribute and the visuals derive from
+   CSS alone. shadcn splits the config onto the inner panel; the split buys
+   nothing without a JS context, and our story is "state in the DOM".
+   The layout is in-flow, not shadcn's fixed panel: the panel is a sticky
+   flex child, so its own width IS the spacing the content needs and a
+   collapse reflows the content with no offset variable to keep in step.
+   A sticky panel also RELEASES when the section scrolls away - a fixed
+   one would follow the reader into the next section. */
+.cm-sidebar {
+	display: flex;
+	align-items: flex-start;
+	min-width: 0;
+}
+/* The in-flow model: the panel's own width is the spacing the inset
+   needs - no offset variable, because flex reflows the moment the width
+   changes. Offcanvas is the one state that LEAVES the flow (fixed), and
+   there the reflow is the same reflow. collapsible=none is a promise the
+   state attr must not break: width and position ignore the collapse. */
+
+.cm-sidebar__panel {
+	flex: none;
+	position: sticky;
+	top: 0;
+	width: var(--sidebar-width);
+	height: 100dvh;
+	display: flex;
+	flex-direction: column;
+	background: var(--sidebar-background);
+	color: var(--sidebar-foreground);
+	border-inline-end: 1px solid var(--sidebar-border);
+	overflow: hidden;
+	transition: width 0.2s ease-linear, transform 0.2s ease-linear;
+}
+.cm-sidebar[data-state='collapsed'] .cm-sidebar__panel {
+	width: var(--sidebar-icon-width);
+}
+.cm-sidebar[data-collapsible='offcanvas'][data-state='collapsed']
+	.cm-sidebar__panel {
+	position: fixed;
+	inset-block: 0;
+	inset-inline-start: 0;
+	transform: translateX(-100%);
+}
+.cm-sidebar[data-side='right'] .cm-sidebar__panel {
+	order: 2;
+	border-inline-end: none;
+	border-inline-start: 1px solid var(--sidebar-border);
+}
+.cm-sidebar[data-side='right'][data-collapsible='offcanvas']
+	[data-state='collapsed'] .cm-sidebar__panel {
+	inset-inline-start: auto;
+	inset-inline-end: 0;
+	transform: translateX(100%);
+}
+/* never collapses, whatever the state says */
+.cm-sidebar[data-collapsible='none'] .cm-sidebar__panel {
+	width: var(--sidebar-width);
+	transform: none;
+	position: sticky;
+}
+
+/* variant: floating - the panel gets its own frame, off the page edge */
+.cm-sidebar[data-variant='floating'] .cm-sidebar__panel {
+	margin: var(--space-3);
+	border: 1px solid var(--sidebar-border);
+}
+/* variant: inset - the CONTENT becomes the card instead (shadcn moves
+   the frame the same direction) */
+.cm-sidebar[data-variant='inset'] .cm-sidebar__inset {
+	margin: var(--space-3);
+	background: var(--panel);
+	border: 1px solid var(--line);
+}
+
+/* icon mode: labels, group titles and badges step aside; the width
+   token above does the rest. Names stay reachable - the specimen puts
+   aria-label on each button, the same way shadcn's tooltip takes over. */
+.cm-sidebar[data-collapsible='icon'][data-state='collapsed'] .cm-sidebar__label,
+.cm-sidebar[data-collapsible='icon'][data-state='collapsed'] .cm-sidebar__grouplabel,
+.cm-sidebar[data-collapsible='icon'][data-state='collapsed'] .cm-sidebar__badge,
+.cm-sidebar[data-collapsible='icon'][data-state='collapsed']
+	.cm-sidebar__groupaction {
+	display: none;
+}
+.cm-sidebar[data-collapsible='icon'][data-state='collapsed']
+	.cm-sidebar__link,
+.cm-sidebar[data-collapsible='icon'][data-state='collapsed']
+	.cm-sidebar__grouphead {
+	justify-content: center;
+	padding-inline: 0;
+}
+
+.cm-sidebar__header,
+.cm-sidebar__footer {
+	flex: none;
+	padding: var(--space-3);
+}
+.cm-sidebar__header { border-block-end: 1px solid var(--sidebar-border); }
+.cm-sidebar__footer { border-block-start: 1px solid var(--sidebar-border); }
+.cm-sidebar__content {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding-block: var(--space-2);
+}
+.cm-sidebar__inset {
+	flex: 1 1 auto;
+	min-width: 0;
+	align-self: stretch;
+	/* UA stylesheets give <main> a 20px margin in WebKit - MEASURED on a
+	   freshly created element. The inset aligns to the panel, not to the
+	   engine's opinion about the main element. */
+	margin: 0;
+}
+
+.cm-sidebar__group { padding-block: var(--space-1); }
+.cm-sidebar__grouphead {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	width: 100%;
+}
+.cm-sidebar__grouplabel {
+	flex: 1 1 auto;
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	min-height: var(--space-7);
+	padding-inline: var(--space-3);
+	background: none;
+	border: none;
+	color: var(--ink-dim);
+	font-family: inherit;
+	font-size: var(--text-micro);
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	text-align: left;
+	cursor: pointer;
+}
+.cm-sidebar__grouplabel::after {
+	content: '\25BE';
+	transition: transform 0.15s ease;
+}
+.cm-sidebar__grouplabel[aria-expanded='true']::after { transform: rotate(180deg); }
+/* visibility of the group/sub panels is the `hidden` ATTRIBUTE, flipped
+   with aria-expanded by the handler - one mechanism, and the markup's
+   own initial state is honest with no JS at all. */
+.cm-sidebar__groupaction {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--space-7);
+	height: var(--space-7);
+	margin-inline-end: var(--space-2);
+	background: none;
+	border: none;
+	color: var(--ink-dim);
+	cursor: pointer;
+}
+.cm-sidebar__groupaction:hover { color: var(--ink); }
+.cm-sidebar__groupcontent { padding-inline: var(--space-2); }
+
+.cm-sidebar__menu {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+}
+.cm-sidebar__item { list-style: none; position: relative; }
+.cm-sidebar__link {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	width: 100%;
+	min-height: var(--tap);
+	padding: var(--space-2) var(--space-3);
+	background: none;
+	border: none;
+	color: var(--sidebar-foreground);
+	font-family: inherit;
+	font-size: var(--text-sm);
+	text-align: left;
+	text-decoration: none;
+	cursor: pointer;
+}
+.cm-sidebar__link:hover { background: var(--sidebar-accent); }
+/* active: the house marker (weight + colour step) on shadcn's accent
+   fill - a menu row reads the fill that a breadcrumb must not use. */
+.cm-sidebar__link[aria-current='page'] {
+	background: var(--sidebar-accent);
+	color: var(--ink);
+	font-weight: 700;
+}
+.cm-sidebar__label {
+	flex: 1 1 auto;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.cm-sidebar__badge {
+	flex: none;
+	margin-inline-start: auto;
+	padding-inline-start: var(--space-2);
+	color: var(--ink-dim);
+	font-size: var(--text-xs);
+}
+/* the per-row action (…) is chrome: it appears for the pointer or the
+   keyboard, never for the reading flow. */
+.cm-sidebar__action {
+	position: absolute;
+	inset-inline-end: var(--space-1);
+	top: 50%;
+	transform: translateY(-50%);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--space-7);
+	height: var(--space-7);
+	background: none;
+	border: none;
+	color: var(--ink-dim);
+	visibility: hidden;
+	cursor: pointer;
+}
+.cm-sidebar__item:hover .cm-sidebar__action,
+.cm-sidebar__item:focus-within .cm-sidebar__action { visibility: visible; }
+.cm-sidebar__action:hover { color: var(--ink); }
+
+/* the sub list expands IN the panel - no popover, no placer: it is
+   disclosure, same as every other inline reveal in the library. */
+.cm-sidebar__sub {
+	list-style: none;
+	margin: var(--space-1) 0 var(--space-1) var(--space-3);
+	padding-inline-start: var(--space-3);
+	border-inline-start: 1px solid var(--sidebar-border);
+}
+.cm-sidebar__subitem { list-style: none; }
+.cm-sidebar__sublink {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	width: 100%;
+	min-height: var(--space-7);
+	padding: var(--space-1) var(--space-2);
+	background: none;
+	border: none;
+	color: var(--ink-dim);
+	font-family: inherit;
+	font-size: var(--text-sm);
+	text-align: left;
+	text-decoration: none;
+	cursor: pointer;
+}
+.cm-sidebar__sublink:hover { background: var(--sidebar-accent); color: var(--ink); }
+.cm-sidebar__sublink[aria-current='page'] {
+	color: var(--ink);
+	font-weight: 700;
+}
+
+/* the rail: a handle you can CLICK (toggle) or DRAG (resize). It
+   straddles the panel edge so the hit area is real, and it disappears
+   when there is no collapse to toggle and on phones, where the sheet
+   owns the interaction. */
+.cm-sidebar__rail {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-end: -6px;
+	width: 12px;
+	cursor: col-resize;
+	touch-action: none;
+	z-index: var(--z-raised);
+}
+.cm-sidebar__rail::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	inset-inline-start: 50%;
+	transform: translate(-50%, -50%);
+	width: 2px;
+	height: 2.5rem;
+	background: var(--line);
+	opacity: 0;
+	transition: opacity 0.15s ease;
+}
+.cm-sidebar__rail:hover::after,
+.cm-sidebar__rail[data-dragging]::after { opacity: 1; }
+.cm-sidebar[data-collapsible='none'] .cm-sidebar__rail { display: none; }
+
+.cm-sidebar__scrim { display: none; }
+
+@media (max-width: 767px) {
+	/* the phone is a sheet: fixed, its own width token, off-canvas
+	   until data-mobile-open says otherwise - the drawer's contract,
+	   re-read from this scope's attributes. */
+	.cm-sidebar__panel {
+		position: fixed;
+		inset-block: 0;
+		inset-inline-start: 0;
+		width: var(--sidebar-width-mobile);
+		transform: translateX(-100%);
+		z-index: var(--z-drawer);
+	}
+	.cm-sidebar[data-mobile-open='true'] .cm-sidebar__panel {
+		transform: none;
+	}
+	.cm-sidebar[data-side='right'] .cm-sidebar__panel {
+		inset-inline-start: auto;
+		inset-inline-end: 0;
+		transform: translateX(100%);
+	}
+	.cm-sidebar[data-side='right'][data-mobile-open='true']
+		.cm-sidebar__panel {
+		transform: none;
+	}
+	/* width tokens and icon mode are desktop ideas; the sheet is
+	   always full-width mobile and always shows its labels. */
+	.cm-sidebar .cm-sidebar__panel { width: var(--sidebar-width-mobile); }
+	.cm-sidebar .cm-sidebar__rail { display: none; }
+	.cm-sidebar__scrim {
+		display: block;
+		position: fixed;
+		inset: 0;
+		background: var(--scrim);
+		z-index: var(--z-scrim);
+	}
+	.cm-sidebar[data-mobile-open='false'] .cm-sidebar__scrim {
+		display: none;
+	}
+}
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;

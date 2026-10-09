@@ -3429,6 +3429,7 @@
 		cmInitDatepickers(root);
 		cmInitSort(root);
 		cmInitTables(root);
+		cmInitSidebars(root);
 		cmInitShortcuts();
 		cmInitSliders(root);
 		cmInitComboboxes(root);
@@ -3647,6 +3648,184 @@
 			.forEach(function (scope) { cmTableRefresh(scope); });
 	}
 
+	/* ---- sidebar --------------------------------------------------
+	   Every knob shadcn carries as a prop or context value (side,
+	   variant, collapsible, open, openMobile) is an attribute on the
+	   scope, so this file never stores a single sidebar fact: it READS
+	   attributes and WRITES attributes, and the CSS derives the look.
+	   aria-expanded mirrors EFFECTIVE visibility, which differs by
+	   viewport - the phone's sheet is closed while the desktop's panel
+	   is open, and useSidebar's state union is what keeps those two
+	   honest. */
+	function sidebarIsPhone() {
+		return !!(window.matchMedia &&
+			window.matchMedia('(max-width: 767px)').matches);
+	}
+	function sidebarOpen(scope) {
+		if (!scope) return false;
+		return sidebarIsPhone()
+			? scope.getAttribute('data-mobile-open') === 'true'
+			: scope.getAttribute('data-state') === 'expanded';
+	}
+	function sidebarSyncTriggers(scope) {
+		var panel = scope && scope.querySelector('.cm-sidebar__panel');
+		if (!panel || !panel.id) return;
+		var open = sidebarOpen(scope);
+		var triggers = document.querySelectorAll(
+			'[data-cm-sidebar-trigger][aria-controls="' + panel.id + '"]');
+		Array.prototype.forEach.call(triggers, function (btn) {
+			btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+		});
+	}
+	/* The trigger finds its panel through aria-controls - markup the
+	   component already owes its assistive tech - so there is no id
+	   registry to keep in step. */
+	function sidebarTriggerScope(btn) {
+		var id = btn && btn.getAttribute('aria-controls');
+		var panel = id ? document.getElementById(id) : null;
+		return panel ? panel.closest('[data-cm-sidebar]') : null;
+	}
+	function sidebarToggle(scope) {
+		if (!scope) return;
+		if (sidebarIsPhone()) {
+			scope.setAttribute('data-mobile-open',
+				sidebarOpen(scope) ? 'false' : 'true');
+		} else {
+			scope.setAttribute('data-state',
+				sidebarOpen(scope) ? 'collapsed' : 'expanded');
+		}
+		sidebarSyncTriggers(scope);
+	}
+	/* Groups and submenus are disclosures: aria-expanded and hidden move
+	   together, and CSS owns nothing about visibility - one mechanism,
+	   and the markup's own initial state is honest with no JS. */
+	function sidebarDisclosure(btn) {
+		var id = btn.getAttribute('aria-controls');
+		var panel = id ? document.getElementById(id) : null;
+		if (!panel) return;
+		var open = btn.getAttribute('aria-expanded') === 'true';
+		btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+		if (open) panel.setAttribute('hidden', '');
+		else panel.removeAttribute('hidden');
+	}
+	function onSidebarClick(e) {
+		var t = e.target;
+		if (!t || typeof t.closest !== 'function') return;
+		var trigger = t.closest('[data-cm-sidebar-trigger]');
+		if (trigger) {
+			sidebarToggle(sidebarTriggerScope(trigger));
+			return;
+		}
+		var group = t.closest('[data-cm-sidebar-group]');
+		if (group) { sidebarDisclosure(group); return; }
+		var sub = t.closest('[data-cm-sidebar-sub]');
+		if (sub) { sidebarDisclosure(sub); return; }
+		var scrim = t.closest('[data-cm-sidebar-scrim]');
+		if (scrim) {
+			var scope = scrim.closest('[data-cm-sidebar]');
+			if (scope) {
+				scope.setAttribute('data-mobile-open', 'false');
+				sidebarSyncTriggers(scope);
+			}
+		}
+	}
+	function sidebarEditable(el) {
+		if (!el || !el.tagName) return false;
+		return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' ||
+			el.tagName === 'SELECT' || el.isContentEditable === true;
+	}
+	function onSidebarKeydown(e) {
+		if (e.defaultPrevented) return;
+		// Escape leaves the SHEET, on the phone, and gives focus back
+		// to the control that opened it. It must not touch the desktop
+		// panel: there Escape belongs to whatever transient is open.
+		if (e.key === 'Escape') {
+			if (!sidebarIsPhone()) return;
+			var scope = document.querySelector(
+				'[data-cm-sidebar][data-mobile-open="true"]');
+			if (!scope) return;
+			scope.setAttribute('data-mobile-open', 'false');
+			sidebarSyncTriggers(scope);
+			var panel = scope.querySelector('.cm-sidebar__panel');
+			var trig = panel && panel.id && document.querySelector(
+				'[data-cm-sidebar-trigger][aria-controls="' + panel.id + '"]');
+			if (trig) trig.focus();
+			return;
+		}
+		// CMD/CTRL-B: the documented trigger. The browser only reserves
+		// this chord inside editors, which is the guard above.
+		if ((e.key === 'b' || e.key === 'B') &&
+			(e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey) {
+			if (sidebarEditable(e.target)) return;
+			var first = document.querySelector('[data-cm-sidebar]');
+			if (!first) return;
+			sidebarToggle(first);
+			e.preventDefault();
+		}
+	}
+	/* The rail is one pointer session: drag resizes, and a press that
+	   never moved IS the click that toggles. The threshold is what stops
+	   a wobbling click from nudging the width token, and the width is
+	   written where every other fact lives - an inline attribute on the
+	   scope, which is still the DOM. */
+	var railDrag = null;
+	function onSidebarPointerDown(e) {
+		var t = e.target;
+		if (!t || typeof t.closest !== 'function') return;
+		var rail = t.closest('[data-cm-sidebar-rail]');
+		if (!rail) return;
+		var scope = rail.closest('[data-cm-sidebar]');
+		if (!scope || scope.getAttribute('data-collapsible') === 'none') return;
+		if (sidebarIsPhone()) return;
+		var panel = scope.querySelector('.cm-sidebar__panel');
+		if (!panel) return;
+		railDrag = {
+			rail: rail, scope: scope,
+			startX: e.clientX,
+			startW: panel.getBoundingClientRect().width,
+			moved: false,
+		};
+		rail.setAttribute('data-dragging', '');
+	}
+	function onSidebarPointerMove(e) {
+		if (!railDrag) return;
+		var dx = e.clientX - railDrag.startX;
+		if (Math.abs(dx) < 3) return;
+		railDrag.moved = true;
+		// side=left: the rail IS the right edge, so +x grows it.
+		// side=right: the rail is the left edge, so +x shrinks it.
+		var sign = railDrag.scope.getAttribute('data-side') === 'right' ? -1 : 1;
+		var w = railDrag.startW + sign * dx;
+		var min = 12 * 16, max = 32 * 16; // 12rem..32rem, in px
+		if (w < min) w = min;
+		if (w > max) w = max;
+		railDrag.scope.style.setProperty('--sidebar-width', w + 'px');
+	}
+	function onSidebarPointerUp() {
+		if (!railDrag) return;
+		var drag = railDrag;
+		railDrag = null;
+		drag.rail.removeAttribute('data-dragging');
+		if (!drag.moved) sidebarToggle(drag.scope);
+	}
+	/* A gesture that began on the rail must not turn into the browser's
+	   native link-drag when the pointer drifts over a menu item while
+	   the button is still down - the panel is GROWING under the cursor,
+	   so crossing an <a> is not an edge case, it is every drag. WebKit
+	   kills the pointer stream the moment its drag session starts (no
+	   pointerup, no pointercancel - the events just stop), which froze
+	   the resize mid-gesture at whatever width the last delivered move
+	   computed. Scoped to the gesture: a drag that starts any other way
+	   is none of our business. */
+	function onSidebarDragStart(e) {
+		if (railDrag) e.preventDefault();
+	}
+	function cmInitSidebars(root) {
+		(root || document)
+			.querySelectorAll('[data-cm-sidebar]')
+			.forEach(sidebarSyncTriggers);
+	}
+
 	function onTableFilter(e) {
 		var t = e.target;
 		if (!t || !t.matches || !t.matches('[data-cm-filter]')) return;
@@ -3837,5 +4016,18 @@
 		document.addEventListener('change', onTableSizeChange);
 		document.addEventListener('change', onTableSelectChange);
 		document.addEventListener('input', onTableFilter);
+		// Sidebar: one click router for trigger/groups/subs/scrim, one
+		// keydown for CMD-B and Escape, and a pointer session for the rail
+		// (drag resizes, an unmoved press toggles) - all at the root, so a
+		// panel a consumer re-renders keeps every control.
+		document.addEventListener('click', onSidebarClick);
+		document.addEventListener('keydown', onSidebarKeydown);
+		document.addEventListener('pointerdown', onSidebarPointerDown);
+		document.addEventListener('pointermove', onSidebarPointerMove);
+		document.addEventListener('pointerup', onSidebarPointerUp);
+		// ...and the same rail gesture vetoes the native link-drag it
+		// would otherwise trip over as the panel grows under the cursor.
+		document.addEventListener('dragstart', onSidebarDragStart);
+		document.addEventListener('pointercancel', onSidebarPointerUp);
 	}
 })();

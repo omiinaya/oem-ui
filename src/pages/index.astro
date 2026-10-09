@@ -37,7 +37,7 @@ import SectionHead from '../astro/SectionHead.astro';
  * wrong place fails the suite instead of quietly breaking the spy.
  */
 const SECTION_ORDER = [
-	'foundation', 'buttons', 'nav', 'crumbs', 'lists', 'states', 'surface',
+	'foundation', 'buttons', 'nav', 'sidebar', 'crumbs', 'lists', 'states', 'surface',
   'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'data-table', 'json', 'rowon', 'switch', 'sheet', 'drawer', 'choice', 'keys-pages-people',
 	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'proselists', 'proselists-order', 'prosetap', 'prosetable', 'tablelabels', 'layout', 'surface-paint',
 	'forms', 'datepicker', 'scrollarea', 'utilities', 'chat', 'dropdown-depth', 'navmenu', 'scroller', 'attachment', 'quiz', 'search', 'auth', 'readme',
@@ -505,6 +505,115 @@ Two states, two different questions. <code>active</code> marks the page you are 
 					</div>
 				</div>
 				</section>
+
+			<section id="sidebar" class="cm-section cm-section--pad">
+				<SectionHead title="sidebar">
+shadcn's Sidebar is a layout, not a widget: a panel that knows which side it is on, what it collapses to, and whether it is a sheet yet &mdash; and every one of those facts is an <em>attribute</em>, so opening is one <code>setAttribute</code> and the CSS does the rest. The scope (<code>data-cm-sidebar</code>) owns the five knobs the docs carry as props: <code>data-side</code>, <code>data-variant</code>, <code>data-collapsible</code>, plus open state and its phone-sized twin. On the desktop the <strong>rail</strong> on the panel's edge clicks to collapse (icon mode: labels step aside, <code>aria-label</code> keeps the name) and drags to resize; at 402px the same panel becomes a <strong>sheet</strong> over a scrim, which is why the trigger starts itself with <code>aria-expanded</code> off the viewport. <code>&#8984;B</code> / <code>Ctrl+B</code> is wired through one delegated keydown, the same path <code>&#8984;K</code> already takes. Groups and submenus are <strong>disclosures</strong> &mdash; the platform's job, not a popover's &mdash; so this component never re-enters the placement machinery it does not own.
+				</SectionHead>
+				<div class="cm-toolbar">
+					<button type="button" class="cm-btn" data-cm-sidebar-trigger
+							aria-controls="sidebar-demo" aria-expanded="true">toggle sidebar</button>
+					<span class="cm-kbd-group"><kbd class="cm-kbd">&#8984;</kbd>+<kbd class="cm-kbd">B</kbd></span>
+					<span class="cm-kbd-group"><kbd class="cm-kbd">Ctrl</kbd>+<kbd class="cm-kbd">B</kbd></span>
+				</div>
+				<div class="cm-sidebar" data-cm-sidebar data-state="expanded" data-mobile-open="false"
+						 data-side="left" data-variant="sidebar" data-collapsible="icon">
+					<aside class="cm-sidebar__panel" id="sidebar-demo" aria-label="specimen sidebar">
+						<div class="cm-sidebar__header">
+							<ul class="cm-sidebar__menu">
+								<li class="cm-sidebar__item">
+									<button type="button" class="cm-sidebar__link">
+										<span aria-hidden="true">&#9638;</span>
+										<span class="cm-sidebar__label">mrxlab / workspace</span>
+									</button>
+								</li>
+							</ul>
+						</div>
+						<div class="cm-sidebar__content">
+							<div class="cm-sidebar__group">
+								<div class="cm-sidebar__grouphead">
+									<button type="button" class="cm-sidebar__grouplabel" data-cm-sidebar-group
+										aria-expanded="true" aria-controls="sb-group-1">application</button>
+									<button type="button" class="cm-sidebar__groupaction" aria-label="add project">+</button>
+								</div>
+								<div class="cm-sidebar__groupcontent" id="sb-group-1">
+									<ul class="cm-sidebar__menu">
+										<li class="cm-sidebar__item">
+											<a class="cm-sidebar__link" href="#nav" aria-current="page">
+												<span aria-hidden="true">&#8962;</span>
+												<span class="cm-sidebar__label">home</span>
+											</a>
+										</li>
+										<li class="cm-sidebar__item">
+											<button type="button" class="cm-sidebar__link" data-cm-sidebar-sub
+												aria-expanded="false" aria-controls="sb-sub-1">
+												<span aria-hidden="true">&#9633;</span>
+												<span class="cm-sidebar__label">projects</span>
+												<span class="cm-sidebar__badge">6</span>
+											</button>
+											<button type="button" class="cm-sidebar__action" aria-label="project actions">&#8943;</button>
+											<ul class="cm-sidebar__sub" id="sb-sub-1" hidden>
+												<li class="cm-sidebar__subitem"><a class="cm-sidebar__sublink" href="#data-table">oem-ui</a></li>
+												<li class="cm-sidebar__subitem"><a class="cm-sidebar__sublink" href="#table">hermes-proxy</a></li>
+												<li class="cm-sidebar__subitem"><a class="cm-sidebar__sublink" href="#json">spacetime-rpm</a></li>
+											</ul>
+										</li>
+										<li class="cm-sidebar__item">
+											<button type="button" class="cm-sidebar__link">
+												<span aria-hidden="true">&#9707;</span>
+												<span class="cm-sidebar__label">deploys</span>
+												<span class="cm-sidebar__badge">12</span>
+											</button>
+										</li>
+								</ul>
+								</div>
+							</div>
+							<div class="cm-sidebar__group">
+								<div class="cm-sidebar__grouphead">
+									<button type="button" class="cm-sidebar__grouplabel" data-cm-sidebar-group
+										aria-expanded="true" aria-controls="sb-group-2">insights</button>
+								</div>
+								<div class="cm-sidebar__groupcontent" id="sb-group-2">
+									<ul class="cm-sidebar__menu">
+										<li class="cm-sidebar__item">
+											<a class="cm-sidebar__link" href="#states">
+												<span aria-hidden="true">&#8776;</span>
+												<span class="cm-sidebar__label">analytics</span>
+												<span class="cm-sidebar__badge">beta</span>
+											</a>
+										</li>
+										<li class="cm-sidebar__item">
+											<span class="cm-sidebar__link">
+												<span class="cm-skeleton__line cm-skeleton__line--w60" aria-hidden="true"></span>
+											</span>
+										</li>
+								</ul>
+								</div>
+							</div>
+						</div>
+						<div class="cm-sidebar__footer">
+							<ul class="cm-sidebar__menu">
+								<li class="cm-sidebar__item">
+									<button type="button" class="cm-sidebar__link">
+										<span aria-hidden="true">&#9679;</span>
+										<span class="cm-sidebar__label">omar</span>
+										<span class="cm-sidebar__badge">pro</span>
+									</button>
+								</li>
+							</ul>
+						</div>
+						<div class="cm-sidebar__rail" data-cm-sidebar-rail aria-hidden="true"></div>
+					</aside>
+					<div class="cm-sidebar__scrim" data-cm-sidebar-scrim></div>
+					<main class="cm-sidebar__inset">
+						<div class="cm-card">
+							<p>The inset is the content the sidebar makes room for. At the desktop it sits in the flex
+							beside the panel and reflows the moment the panel's width token changes; below 768px the
+							offset is zero, because there the panel is a sheet over this content, not a neighbour of it.</p>
+						</div>
+					</main>
+				</div>
+			</section>
 
 			<section id="crumbs" class="cm-section cm-section--pad">
 				<SectionHead title="breadcrumb">

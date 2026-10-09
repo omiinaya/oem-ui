@@ -13705,3 +13705,152 @@ check('shadcn-parity: the navmenu bar walks and the panel swaps', () => {
 		/triggers\[\(i - 1 \+ triggers\.length\) % triggers\.length\]/.test(js),
 		'the walk must wrap');
 });
+/* --- batch 20: sidebar ---------------------------------------------- */
+/*
+ * The Sidebar carries shadcn's prop surface as ATTRIBUTES on one scope
+ * (side / variant / collapsible / state / mobile twin), and the bug this
+ * block exists for is a native one: the panel GROWS under the pointer
+ * during a rail drag, so the cursor crosses a menu <a> mid-gesture,
+ * WebKit starts a link-drag, and the pointer stream dies with no
+ * pointerup and no pointercancel - the resize froze at whatever width
+ * the last delivered move computed (measured: +40 of an intended +80).
+ * The dragstart veto below is load-bearing, not defensive padding.
+ */
+
+check('the sidebar: state in attributes, one session per rail, the gesture it must not lose', () => {
+	const js = read('src/js/cli-mono.js');
+
+	// One fact per viewport: desktop reads data-state, the phone reads
+	// data-mobile-open, and the trigger's aria says EFFECTIVE truth -
+	// the property that made aria-expanded a liar for one viewport in
+	// every two is pinned at both read sites and the write site.
+	assert(js.includes("function sidebarIsPhone()"), 'the phone test is one function');
+	assert(js.includes("matchMedia('(max-width: 767px)')"),
+		'sidebarIsPhone must use the sheet boundary the CSS uses');
+	assert(js.includes("? scope.getAttribute('data-mobile-open') === 'true'") &&
+		js.includes(": scope.getAttribute('data-state') === 'expanded';"),
+		'sidebarOpen must read the attribute the VIEWPORT owns');
+	assert(js.includes("scope.setAttribute('data-mobile-open',") &&
+		js.includes("scope.setAttribute('data-state',"),
+		'the toggle must write the attribute the viewport owns');
+	assert(js.includes("btn.setAttribute('aria-expanded', open ? 'true' : 'false');"),
+		'triggers mirror effective state');
+
+	// Disclosures: aria-expanded and hidden move as ONE fact. A handler
+	// that flips the button and forgets hidden (or vice versa) leaves
+	// assistive tech and pixels disagreeing.
+	assert(js.includes("btn.setAttribute('aria-expanded', open ? 'false' : 'true');") &&
+		js.includes("if (open) panel.setAttribute('hidden', '');"),
+		'aria-expanded and hidden must flip together');
+
+	// CMD-B / Ctrl+B is the documented toggle: editable targets are
+	// skipped (the browser owns B inside editors), and the page's own
+	// scrolling is told to stand down only after we act.
+	assert(js.includes("if ((e.key === 'b' || e.key === 'B') &&") &&
+		js.includes('(e.metaKey || e.ctrlKey)'),
+		'the shortcut is CMD-B or Ctrl-B');
+	assert(js.includes('if (sidebarEditable(e.target)) return;'),
+		'editors keep their B');
+	assert(js.includes('e.preventDefault();'),
+		'the shortcut must not also bold/scroll');
+
+	// The rail: ONE pointer session anchored at the press (startX +
+	// startW), signed by data-side, clamped, written as the inline
+	// --sidebar-width - and an unmoved press IS the click that toggles.
+	assert(js.includes('startW: panel.getBoundingClientRect().width,'),
+		'the drag must anchor at the press, not chase the transition');
+	assert(js.includes("railDrag.scope.getAttribute('data-side') === 'right' ? -1 : 1"),
+		'side=right drags the other way');
+	assert(js.includes("railDrag.scope.style.setProperty('--sidebar-width', w + 'px');"),
+		'the resize lives on the scope as an inline token');
+	assert(js.includes('if (!drag.moved) sidebarToggle(drag.scope);'),
+		'a press that never moved is a click');
+
+	// THE fix: while the rail gesture is live, the native link-drag it
+	// trips over is vetoed. Delete this line and the harness's drag
+	// check freezes mid-gesture - proven by mutation.
+	assert(js.includes('if (railDrag) e.preventDefault();'),
+		'the gesture must veto the native drag it crosses into');
+
+	// Delegation, so the sheet works wherever the trigger is rendered.
+	for (const binding of [
+		"document.addEventListener('click', onSidebarClick)",
+		"document.addEventListener('keydown', onSidebarKeydown)",
+		"document.addEventListener('pointerdown', onSidebarPointerDown)",
+		"document.addEventListener('pointermove', onSidebarPointerMove)",
+		"document.addEventListener('pointerup', onSidebarPointerUp)",
+		"document.addEventListener('dragstart', onSidebarDragStart)",
+	]) {
+		assert(js.includes(binding), `missing delegation binding: ${binding}`);
+	}
+	assert(js.includes('cmInitSidebars(root);'),
+		'sidebars must sync their triggers at init - the phone starts closed and the aria has to say so before any click');
+});
+
+check('the sidebar: the CSS derives from the attributes alone, and none keeps its promise', () => {
+	const css = read('src/styles/components.css');
+
+	assert(css.includes(".cm-sidebar[data-state='collapsed'] .cm-sidebar__panel {\n\twidth: var(--sidebar-icon-width);"),
+		'collapsed width comes from the token');
+	assert(css.includes(".cm-sidebar[data-collapsible='none'] .cm-sidebar__panel {\n\twidth: var(--sidebar-width);\n\ttransform: none;\n\tposition: sticky;"),
+		'collapsible=none must keep width, position and transform however the state attr reads');
+	assert(css.includes(".cm-sidebar[data-collapsible='none'] .cm-sidebar__rail { display: none; }"),
+		'no rail to collapse with');
+	// offcanvas leaves the FLOW (fixed), each side sliding off its own
+	// edge; the right side must park at the right edge or it parks in
+	// the middle of the screen mid-slide.
+	assert(css.includes(".cm-sidebar[data-collapsible='offcanvas'][data-state='collapsed']\n\t.cm-sidebar__panel {\n\tposition: fixed;") &&
+		css.includes('transform: translateX(-100%);'),
+		'offcanvas parks off-screen, out of the flow');
+	assert(css.includes(".cm-sidebar[data-side='right'][data-collapsible='offcanvas']\n\t[data-state='collapsed'] .cm-sidebar__panel {\n\tinset-inline-start: auto;\n\tinset-inline-end: 0;\n\ttransform: translateX(100%);"),
+		'offcanvas on the right parks at the RIGHT edge');
+	// icon mode: labels step aside; the aria-label keeps the name.
+	assert(css.includes(".cm-sidebar[data-collapsible='icon'][data-state='collapsed'] .cm-sidebar__label,") &&
+		css.includes(".cm-sidebar[data-collapsible='icon'][data-state='collapsed']\n\t.cm-sidebar__grouphead {\n\tjustify-content: center;"),
+		'icon mode hides labels and centers what stays');
+	// variants.
+	assert(css.includes(".cm-sidebar[data-variant='floating'] .cm-sidebar__panel {\n\tmargin: var(--space-3);"),
+		'floating frames the panel');
+	assert(css.includes(".cm-sidebar[data-variant='inset'] .cm-sidebar__inset {\n\tmargin: var(--space-3);"),
+		'inset cards the CONTENT');
+	// the sheet: same boundary in CSS and JS (767px), full phone width,
+	// parked off its own edge, scrimmed.
+	assert(css.includes('@media (max-width: 767px) {'),
+		'the sheet boundary matches sidebarIsPhone');
+	assert(css.includes('width: var(--sidebar-width-mobile);'),
+		'the sheet carries the phone width token');
+	assert(css.includes('.cm-sidebar .cm-sidebar__panel { width: var(--sidebar-width-mobile); }'),
+		'even an expanded state is a sheet at phone width');
+	// the inset aligns to the panel - UA <main> margins measured at 20px
+	// in WebKit are not our spacing.
+	assert(css.includes('/* UA stylesheets give <main> a 20px margin in WebKit'),
+		'the inset must zero the engine\'s <main> margin');
+});
+
+check('the sidebar specimen: registered, opted in, every affordance the JS routes on', () => {
+	const html = read('src/pages/index.astro');
+
+	assert(html.includes("'sidebar'"), 'SECTION_ORDER must list the specimen');
+	assert(html.includes('id="sidebar"') && html.includes('data-cm-sidebar'),
+		'the section exists and opts in');
+	for (const attr of ['data-cm-sidebar-trigger', 'data-cm-sidebar-rail',
+		'data-cm-sidebar-group', 'data-cm-sidebar-sub', 'data-cm-sidebar-scrim',
+		'aria-controls', 'aria-expanded', 'aria-current']) {
+		assert(html.includes(attr), `specimen is missing ${attr}`);
+	}
+	// The keyboard story is worthless if the reader cannot find it.
+	assert(html.includes('&#8984;B') || html.includes('⌘B'),
+		'the lede must name the shortcut it wires');
+
+	// `includes` proves ONE row carries the attribute; a rename on one
+	// group while its sibling still routes is exactly the mutation that
+	// survived proof. Every label that LOOKS like a disclosure must be
+	// ROUTED as one - counted, not sampled.
+	const groups = (html.match(/class="cm-sidebar__grouplabel"/g) || []).length;
+	const routed = (html.match(/data-cm-sidebar-group/g) || []).length;
+	assert(groups >= 2 && routed === groups,
+		`every group label must carry data-cm-sidebar-group (${routed}/${groups})`);
+	const subs = (html.match(/data-cm-sidebar-sub/g) || []).length;
+	assert(subs >= 1 && subs === (html.match(/aria-controls="sb-sub-/g) || []).length,
+		'every submenu trigger must carry data-cm-sidebar-sub and own its list');
+});

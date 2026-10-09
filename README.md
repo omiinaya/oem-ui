@@ -2207,6 +2207,52 @@ caught the rows-per-page label rendering unstyled on first pass.
 `tests/mutate-data-table.py`: 34/34 killed, 0 survived - including the
 select-all killer reverted as pattern 1.
 
+### Sidebar
+
+shadcn's Sidebar is a layout, not a widget: a panel that knows which
+side it is on, what it collapses to, and whether it is a sheet yet -
+and every one of those facts is an *attribute*, so opening is one
+`setAttribute` and the CSS does the rest. The scope (`data-cm-sidebar`)
+owns the five knobs the docs carry as props: `data-side`, `data-variant`,
+`data-collapsible`, open state, and its phone-sized twin
+(`data-mobile-open`).
+
+On the desktop the **rail** on the panel's edge clicks to collapse
+(icon mode: labels step aside, `aria-label` keeps the name) and drags to
+resize - anchored at the press and signed by `data-side`, so a drag
+never reads a width that a CSS transition is mid-way through painting.
+`⌘B` / `Ctrl+B` is wired through one delegated keydown, the same path
+`⌘K` already takes, and editors keep their B. Groups and submenus are
+**disclosures** - `aria-expanded` and `hidden` move together, and the
+markup is honest with no JS at all - so this component never re-enters
+the placement machinery it does not own. At 767px the same panel
+becomes a **sheet** over a scrim, which is why the trigger starts
+itself with `aria-expanded` off the *viewport*: a phone's sheet is
+closed even while the state attribute still reads a desktop `expanded`.
+
+Two things the proof found that the code did not say out loud. The
+drag grows the panel *under the pointer*, so the cursor crosses a menu
+link mid-gesture, WebKit starts a native link-drag, and the pointer
+stream dies with no `pointerup` and no `pointercancel` - the resize
+froze at whatever width the last delivered move computed (measured:
++40 of an intended +80). The rail gesture now vetoes the native drag it
+would otherwise trip over. And the phone inset inherited the engine's
+own 20px `main` margin - a fresh `<main>` in the console shows it -
+so the inset zeroes its own box instead of trusting the UA sheet.
+
+`tests/verify-sidebar.py` drives the whole surface at 1280 and 402;
+`tests/mutate-sidebar.py` seeds 44 faults. The first proof run came
+back 41/44, and all three survivors were oracle holes rather than
+escapes: the desktop offcanvas was never driven (only its phone-sheet
+cousin), the icon-mode check counted labels leaving without asserting
+that what stays *centers*, and the group disclosure was driven by
+`querySelector('[data-cm-sidebar-group]')` - the first match - so a
+rename on group 1 slid the selector to group 2, which still routes. The
+harness now drives each disclosure by the panel its button *owns*
+(`aria-controls`, the contract a rename cannot touch), and the suite
+pins every group label as routed, counted rather than sampled. Re-run:
+44/44 killed.
+
 ## shadcn/ui parity status
 
 The standing goal is component parity with
