@@ -14442,3 +14442,126 @@ check('batch 23 nav: the vertical bar declares itself and paints on the height a
 		assert(h.includes(pin), 'the harness lost a batch-23 check: ' + pin);
 	}
 });
+
+/* ================= the Direction baseline: logical properties only =================
+   shadcn documents Direction (RTL support) as part of the catalog, and this
+   library's answer is the honest subset: every directional declaration is
+   spelled LOGICALLY. In an LTR document `margin-inline-start` and
+   `margin-left` resolve to the same physical property, so the conversion is a
+   pixel-level no-op today and buys RTL for free later - no `dir`, no mirroring,
+   no runtime.
+
+   Two declarations stay physical, each documented AT ITS RULE and listed here
+   with the same reason. A third one appearing anywhere is a regression:
+     .cm-hovercard__panel { left: 0 }     the runtime anchor writes a physical
+                                          style.left in viewport coordinates;
+                                          the CSS rule is its no-JS fallback
+     .cm-navmenu__chev { border-right }   glyph geometry: a border pair rotated
+                                          45deg IS the caret; a logical mirror
+                                          flips the border but not rotate()
+
+   The source scan is half the proof; the built stylesheet is the other half.
+   A minifier that rewrote `border-inline-start` back to `border-left` would
+   keep every consumer RTL-blind while the source looked converted, so the dist
+   is scanned with the same walker and the same permit. */
+{
+	const PHYSICAL = new Set([
+		'margin-left', 'margin-right', 'padding-left', 'padding-right',
+		'border-left', 'border-right',
+		'border-left-width', 'border-left-style', 'border-left-color',
+		'border-right-width', 'border-right-style', 'border-right-color',
+		'left', 'right', 'float',
+	]);
+	const ALLOW = [
+		['.cm-hovercard__panel', 'left',
+			'runtime anchor: cmClampHovercards() clears and rewrites a physical style.left on every init and resize'],
+		['.cm-navmenu__chev', 'border-right',
+			'glyph geometry: the rotated caret is drawn from physical borders'],
+	];
+	// A declaration walker: mask comments (newlines survive, so line numbers
+	// stay true), then track braces and read each `prop: value` chunk. The
+	// innermost enclosing selector rides along - the permit is keyed on it,
+	// so a `left: 50%` centring a tick is judged by the rule it sits in.
+	function declsOf(css, withLines) {
+		const masked = css.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
+		const out = [];
+		const stack = [];
+		let pos = 0;
+		for (let i = 0; i < masked.length;) {
+			const c = masked[i];
+			if (c === '{') {
+				stack.push(masked.slice(pos, i).split('}').pop().trim());
+				i++; pos = i;
+			} else if (c === '}') {
+				stack.pop();
+				i++; pos = i;
+			} else if (c === ';') {
+				const m = /^\s*([a-zA-Z-]+)\s*:\s*([^;]*)$/.exec(css.slice(pos, i));
+				if (m) {
+					out.push({
+						sel: stack[stack.length - 1] || '',
+						prop: m[1],
+						value: m[2].trim(),
+						line: withLines ? css.slice(0, pos).split('\n').length : 0,
+					});
+				}
+				i++; pos = i;
+			} else {
+				i++;
+			}
+		}
+		return out;
+	}
+	const isPhysical = (d) => PHYSICAL.has(d.prop)
+		|| (d.prop === 'text-align' && (d.value === 'left' || d.value === 'right'));
+	const permitted = (d) => ALLOW.some(([sel, prop]) => d.prop === prop && d.sel.includes(sel));
+
+	check('the Direction baseline: the stylesheets carry no physical directional declaration', () => {
+		const files = ['src/styles/tokens.css', 'src/styles/base.css', 'src/styles/components.css'];
+		const bad = [];
+		for (const f of files) {
+			for (const d of declsOf(read(f), true)) {
+				if (isPhysical(d) && !permitted(d)) {
+					bad.push(`${f}:${d.line} \`${d.sel}\` { ${d.prop}: ${d.value} }`);
+				}
+			}
+		}
+		assert(bad.length === 0,
+			'physical directional declarations crept back in (convert them to their logical twin, '
+			+ 'or document a runtime/glyph exception at the rule AND in the permit list):\n  '
+			+ bad.join('\n  '));
+	});
+
+	check('the Direction baseline: every permit still documents a real declaration', () => {
+		const all = ['src/styles/tokens.css', 'src/styles/base.css', 'src/styles/components.css']
+			.flatMap((f) => declsOf(read(f), true));
+		for (const [sel, prop, why] of ALLOW) {
+			const live = all.filter((d) => d.prop === prop && d.sel.includes(sel));
+			assert(live.length > 0,
+				`the permit for \`${sel} { ${prop} }\` is stale: ${why}. The declaration it documents `
+				+ 'is gone, so the permit must go too - a widening permit nobody revisits is how '
+				+ 'a baseline erodes');
+		}
+	});
+
+	check('the Direction baseline: the BUILT stylesheet ships logical properties too', () => {
+		const dir = join(root, 'dist', '_astro');
+		assert(existsSync(dir), 'dist/_astro is missing - run `npm run build` before the contract tests');
+		const names = readdirSync(dir).filter((n) => n.endsWith('.css'));
+		assert(names.length > 0, 'no built CSS in dist/_astro');
+		const built = names.map((n) => readFileSync(join(dir, n), 'utf8')).join('');
+		const bad = declsOf(built, false).filter((d) => isPhysical(d) && !permitted(d));
+		assert(bad.length === 0,
+			'the built CSS carries physical directional declarations the source does not - the '
+			+ 'minifier or the build rewrote them back:\n  '
+			+ bad.slice(0, 10).map((d) => `${d.sel} { ${d.prop}: ${d.value} }`).join('\n  '));
+		const logical = built.match(/(?:margin|padding|border|inset)-inline-(?:start|end)/g) || [];
+		// Measured at 109 on the commit that introduced this check. A build
+		// that dropped the logical properties would sail through the physical
+		// scan above (nothing physical left = nothing to flag), so the count
+		// is the half that proves the converted declarations SURVIVED.
+		assert(logical.length >= 100,
+			`the built CSS carries ${logical.length} logical declarations, expected at least 100 - `
+			+ 'the conversion did not survive the build');
+	});
+}
