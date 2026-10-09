@@ -1919,29 +1919,6 @@
 			trigger.getAttribute('popovertarget');
 		return id ? document.getElementById(id) : null;
 	}
-	function navSubOut(trigger) {
-		var bar = trigger.closest('[data-cm-navmenu]');
-		var sub = navSubPanel(bar, trigger);
-		if (!sub || !sub.matches(':popover-open')) return false;
-		// The parent word is the owner: the word whose panel had to be
-		// open for this submenu to be reachable at all. It is NOT
-		// `trigger.closest('.cm-navmenu__panel')` - a submenu panel carries
-		// that class too, so closest() returns the submenu's OWN panel and
-		// the walk back stops one level short of the word the reader came
-		// from. The parent is the panel that CONTAINS the nested bar, which
-		// is the same question asked from the bar rather than the trigger.
-		var nested = trigger.closest('[data-cm-navmenu-sub]');
-		var parent = nested && nested.parentNode &&
-			nested.parentNode.closest
-				? nested.parentNode.closest('.cm-navmenu__panel') : null;
-		if (!parent) parent = trigger.closest('.cm-navmenu__panel');
-		var owner = parent && parent.id &&
-			document.querySelector('[popovertarget="' + parent.id + '"]');
-		sub.hidePopover();
-		var back = owner || parent;
-		if (back && typeof back.focus === 'function') back.focus();
-		return true;
-	}
 	function navSubIn(trigger) {
 		// ArrowRight on a nested word steps INTO its panel - the mirror of
 		// ArrowLeft out. Only on a nested word: on the outer bar, Right is
@@ -1963,15 +1940,15 @@
 		if (!t || typeof t.closest !== 'function') return;
 		var trigger = t.closest('.cm-navmenu__trigger');
 		if (!trigger) return;
-		// Guarded on the submenu actually being OPEN, so ArrowLeft on an
-		// ordinary word still belongs to the horizontal bar walk. The
-		// walk runs on the bubble phase and this on capture, so the
-		// stopPropagation is what keeps a handled key from being walked
-		// a second time by the bar's own handler.
-		if (e.key === 'ArrowLeft' && navSubOut(trigger)) {
-			e.preventDefault();
-			e.stopPropagation();
-		} else if (e.key === 'ArrowRight' && navSubIn(trigger)) {
+		// IN only. OUT is the dropdown's: its menu keydown already closes an
+		// open submenu and returns focus to the owning row, which is the same
+		// rule and the same owner - a second implementation here would be a
+		// second thing to disagree with, and measured in WebKit it changed
+		// nothing a reader could see. So the sub root owns the one direction
+		// the dropdown's walk cannot reach: ArrowRight steps INTO an open
+		// nested panel, because on a nav bar Right is the rove between
+		// sections and would otherwise carry focus past the submenu.
+		if (e.key === 'ArrowRight' && navSubIn(trigger)) {
 			e.preventDefault();
 			e.stopPropagation();
 		}

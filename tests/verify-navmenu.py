@@ -864,6 +864,29 @@ with sync_playwright() as pw:
           geo['subTop'] > geo['parentTop'] - 1
           or geo['subLeft'] >= geo['parentRight'] - 2, geo)
     check('the submenu stays inside the viewport', geo['inViewport'], geo)
+    # NARROWER than the panel it hangs off, and by a real margin: a
+    # second 20rem wall stacked on the first buries the page it sits over,
+    # which is the whole reason the rule exists. Read while the submenu is
+    # OPEN (a closed popover measures zero, which is no reading at all) and
+    # against the PARENT panel's own width, so the check survives a panel
+    # that resizes.
+    open_widths = page.evaluate("""(id) => {
+        const sub = document.getElementById(id);
+        const parent = document.getElementById('nav-product');
+        // BOTH open. A closed panel is display:none and measures zero, so
+        // a ratio read while either is shut is not a reading.
+        if (!parent.matches(':popover-open')) parent.showPopover();
+        if (!sub.matches(':popover-open')) sub.showPopover();
+        const sr = sub.getBoundingClientRect(), pr = parent.getBoundingClientRect();
+        return { open: sub.matches(':popover-open'),
+                 subW: Math.round(sr.width), parentW: Math.round(pr.width),
+                 ratio: Math.round((sr.width / pr.width) * 100) / 100 };
+    }""", subPanel)
+    check('the submenu panel is narrower than the panel it hangs off',
+          open_widths['open'] and open_widths['subW'] > 0
+          and open_widths['parentW'] > 0
+          and open_widths['subW'] < open_widths['parentW'] - 8
+          and open_widths['ratio'] <= 0.85, open_widths)
 
     # The parent closing retires the open submenu: a submenu popover lives
     # in the top layer and survives its parent's close, which is the one
