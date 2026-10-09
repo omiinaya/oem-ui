@@ -1927,7 +1927,12 @@
 		// on aria-expanded - with nothing open the key belongs to the bar.
 		var nested = trigger.closest('[data-cm-navmenu-sub]');
 		if (!nested) return false;
-		if (trigger.getAttribute('aria-expanded') !== 'true') return false;
+		// `:popover-open` is the PLATFORM's own answer and it is the only
+		// gate this needs: a shut submenu fails it whatever its word's
+		// aria-expanded says. The aria-expanded check that used to sit here
+		// was an equivalent mutant - mutation-proved, both forms leave
+		// focus exactly where it was - so it is cut rather than claimed as
+		// a kill. One owner of the question.
 		var panel = navSubPanel(nested, trigger);
 		if (!panel || !panel.matches(':popover-open')) return false;
 		var items = menuItems(panel);
