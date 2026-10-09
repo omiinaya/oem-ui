@@ -2135,6 +2135,41 @@ button-qualified page selector and dies on select-all holding.
   mutant window, restore verified byte-for-byte, final rebuild
   inside the mutator).
 
+
+### Batch 22: the drift checker can see src/astro/
+
+- **`check-design-sync.sh` grades a consumer's vendored Astro
+  components.** MAP and ALT name the three CSS layers and the two
+  runtime files; nothing named `src/astro/`, so a consumer could fork
+  the library's flagship component and pass every fleet check.
+  install.sh's own header already claimed this script "names any
+  consumer whose copy of a library component has drifted" - the flag
+  it promised (`--astro`) does not exist, because the checker takes no
+  argument at all. The pass now runs unconditionally whenever a target
+  has `src/astro/`, in BOTH directions (a library component missing or
+  stale here, and a file here the library no longer ships).
+- **`config.ts` is excluded, matching install.sh's own reasoning**: it
+  skips an existing config.ts because it is the one file the consumer
+  owns and edits with its own title, author and email, so comparing it
+  would fail every correct consumer for having an identity. A consumer
+  with no `src/astro/` is SILENT, not MISSING - the components are an
+  optional adoption, and a checker that demanded them would fail the
+  majority of the fleet that never took them.
+- **MEASURED**: dev-blog's `src/astro/Header.astro` and
+  `HeaderLink.astro` were stale and `current.ts` - the module both
+  import - was missing outright, and every fleet check reported the
+  consumer IN SYNC the whole time. With the pass in place the same
+  consumer reads `in sync` after its re-vendor, and a one-line
+  mutation to `src/astro/SectionHead.astro` turns it
+  `STALE src/astro/SectionHead.astro (2 lines differ)` - the pass
+  failing both ways. `links` was already byte-identical, so the only
+  other consumer with `src/astro/` costs nothing.
+- `install.sh`'s header is corrected to describe the unconditional
+  pass instead of a flag that never existed.
+- The dev-blog half of this (re-vendor, wrapper, test re-derivations,
+  12/12 mutations, 129/129 WebKit checks) ships in oem-log, commit
+  `c524a49` - it is the consumer's change, not the library's.
+
 ## Fixed
 
 - Two stacking checks demanded a literal `z-index: <number>`, which fails on

@@ -47,9 +47,12 @@
 # green precisely when the divergence moved somewhere it cannot reach.
 #
 # So this flag closes the gap from BOTH ends: it makes the components
-# installable, and check-design-sync.sh --astro names any consumer whose
-# copy of a library component has drifted, which is the only way the next
-# one gets caught before it reaches a phone.
+# installable, and check-design-sync.sh grades every consumer's
+# src/astro/ copy against the library - config.ts excepted, the one file
+# the consumer owns - which is the only way the next one gets caught
+# before it reaches a phone. The checker takes NO argument: the astro
+# pass runs whenever a target has a src/astro/ directory, because a
+# flag would be a thing to forget.
 #
 # For a project that serves static files from elsewhere (a plain
 # web/index.html, an mkdocs site), pass --flat to get them at the top level:

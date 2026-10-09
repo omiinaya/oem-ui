@@ -455,6 +455,54 @@ for t in "${targets[@]}"; do
 		fi
 	done
 
+	# ---- the Astro components: the other half of install.sh's promise ----
+	# install.sh's own header says this script "names any consumer whose
+	# copy of a library component has drifted". It did not, until this
+	# block: MAP and ALT name the three CSS layers and the two runtime
+	# files, and NOTHING named src/astro/. MEASURED 2026-10-09 on
+	# dev-blog - the blog the library's header was copied FROM - its
+	# Header.astro and HeaderLink.astro were both stale and current.ts,
+	# the module both of them import, was missing outright, and every
+	# fleet check reported the consumer IN SYNC the whole time. A
+	# consumer could fork the library's flagship component and pass.
+	#
+	# config.ts is EXCLUDED and on purpose, matching install.sh: it skips
+	# an existing config.ts because it is the one file the consumer owns
+	# and edits with its own title, author and email. Comparing it would
+	# fail every correct consumer for having an identity.
+	#
+	# A consumer with no src/astro/ at all is SILENT, not MISSING: the
+	# components are an optional adoption, and a checker that demanded
+	# them would fail the majority of the fleet that never took them.
+	if [ -d "$t/src/astro" ] && [ -d "$SRC/src/astro" ]; then
+		for f in "$SRC/src/astro/"*.astro "$SRC/src/astro/"*.ts; do
+			[ -e "$f" ] || continue
+			b="$(basename "$f")"
+			[ "$b" = "config.ts" ] && continue
+			d="$t/src/astro/$b"
+			if [ ! -f "$d" ]; then
+				out+="  MISSING  src/astro/$b (install.sh --astro installs it)"$'\n'
+				stale=1; tstale=1
+			elif ! cmp -s "$f" "$d"; then
+				n=$(diff "$f" "$d" | grep -c '^[<>]' || true)
+				out+="  STALE    src/astro/$b ($n lines differ)"$'\n'
+				stale=1; tstale=1
+			fi
+		done
+		# The reverse direction too: a file here the library no longer
+		# ships is a fork or a leftover, and nothing but this consumer's
+		# own suite can see it.
+		for d in "$t/src/astro/"*.astro "$t/src/astro/"*.ts; do
+			[ -e "$d" ] || continue
+			b="$(basename "$d")"
+			[ "$b" = "config.ts" ] && continue
+			if [ ! -e "$SRC/src/astro/$b" ]; then
+				out+="  ORPHAN   src/astro/$b (the library no longer ships it)"$'\n'
+				stale=1; tstale=1
+			fi
+		done
+	fi
+
 	# ---- shadow copies (the map is a whitelist, and a whitelist is a hole) ----
 	# MAP and ALT together are still a WHITELIST: they name paths this script
 	# already knows. A consumer can hold a copy on any other path, and that
