@@ -1,5 +1,39 @@
 # Changelog
 
+## Unreleased — header geometry: 900px at desktop is the rail, not a blown-up bar
+
+- **A height-only probe reports the desktop header as 900px tall and
+  `position: fixed`, against 63px and `position: sticky` on a phone, and
+  that reads as a regression. It is the rail.** Above `1000px` the showcase
+  header opts into `.cm-header--rail`: a FIXED column of `--rail-w` (232px)
+  at `x=0`, `height: 100vh` so the link list is a bounded flex child, with
+  `.cm-shell--rail` padding the content 252px clear of it. **MEASURED** in
+  WebKit at 1280×900: header 232×900 at x=0, shell `padding-left: 252px`,
+  brand at y=20, list at y=67 (749px, scrolling), controls at y=836 inside
+  the 900 - nothing overlaps, nothing is clipped. The rail was added on
+  purpose (`b94cb4b`, "Turn the desktop header into a rail, opt-in") because
+  the horizontal bar wrapped into **seven rows** at 1280. **No CSS changed.**
+
+- **The two readings of that one number are now asserted separately**, so
+  neither can pass for the other again:
+  - `tests/verify-header-geometry.py` sweeps **320/390/402/768/1280** in
+    WebKit and fails if the header is ever a **full-width, viewport-tall**
+    box (the actual defect), if the rail stops being 232px at x=0 or the
+    content stops clearing it, or if the bar is not exactly **63px sticky**
+    (nav 62) at the phone widths and 61px at 768. Stickiness is read while
+    scrolling the 50,000px showcase — `behavior: "instant"` (a smooth
+    programmatic scroll of 80,000px is still travelling when the rect is
+    read), `|scrollY − target| < 2` settle, `scrollY > 0` asserted — and
+    the header's rect is still `top: 0` with the brand on screen at five
+    scroll positions per width. Reading before `document.fonts.ready` +
+    `initHeader` reports 61px, not the 63 the reader sees: the harness
+    waits both out. **110 checks, 0 failed.**
+  - `tests/run.mjs` pins the source half: every `height: …vh` reaching a
+    `.cm-header*` selector must name `--rail`, the fixed rail must declare
+    `width: var(--rail-w)` and `inset-block: 0`, the base header stays
+    `position: sticky; top: 0` with no height of its own, and the phone's
+    `height: auto; min-height: 60px` stays inside `max-width: 640px`.
+
 ## Unreleased — the navigation menu: the nav that opens PANELS
 
 - **`.cm-navmenu` ships, the last real gap in the shadcn catalog.** The

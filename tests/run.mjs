@@ -14418,3 +14418,100 @@ check('batch 23 nav: the vertical bar declares itself and paints on the height a
 		assert(h.includes(pin), 'the harness lost a batch-23 check: ' + pin);
 	}
 });
+
+/* ================= header geometry: bar vs rail =================
+   A height-only probe reports two readings of the same number: at 1280
+   the header is 900px tall - the whole viewport - and `position: fixed`;
+   at 402 it is 63px and `position: sticky`. As a defect that says "the
+   desktop header blew up"; as what it is, it says "the header opted into
+   the rail". Both readings fit, which is exactly why the source has to
+   make them separable:
+
+     - a viewport-TALL header may exist only as a width-BOUNDED rail
+       (232px at x=0, content offset past it). The reported defect is a
+       full-width viewport-tall box, and that is asserted impossible:
+       every `height: …vh` that can reach the header must name the rail
+       modifier, and the fixed rail must still declare its width.
+     - below the rail breakpoint the header stays a compact sticky bar:
+       `position: sticky; top: 0`, no height on `.cm-header` itself, the
+       60px nav row, and the phone's `height: auto; min-height: 60px`
+       still inside `max-width: 640px`.
+     - the behaviour - "pinned to the top while the 50,000px showcase
+       scrolls" - is read in a real browser, at 320/390/402/768/1280, by
+       tests/verify-header-geometry.py. The suite pins that harness's
+       checks so one of them cannot be deleted quietly; the suite itself
+       is the zero-dependency half of the repo and does not open pages.
+*/
+console.log('\nheader geometry: bar vs rail');
+
+check('a viewport-tall header can only be the width-bounded rail', () => {
+	const bare = compNoComment;
+	// Every `height: …vh` on any .cm-header* selector must name the rail
+	// modifier. A vh height on `.cm-header` or `.cm-header__nav` alone is
+	// the reported defect: a bar sized to the window.
+	for (const m of bare.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+		const sel = m[1].trim();
+		if (!/\.cm-header/.test(sel)) continue;
+		if (!/height:\s*[\d.]+vh/.test(m[2])) continue;
+		assert(/\.cm-header--rail/.test(sel),
+			'a viewport-height declaration reaches the header outside the rail: ' + sel);
+	}
+	// The rail is allowed the viewport height; it is not allowed the
+	// viewport WIDTH. Drop `width` from the fixed rule and the same 900px
+	// box spans the whole window - the shape of the reported bug.
+	const fixed = ruleBodies(bare, '.cm-header--rail')
+		.filter((b) => /position:\s*fixed/.test(b));
+	assert(fixed.length >= 1, 'the rail never becomes a fixed column at desktop');
+	assert(fixed.some((b) => /width:\s*var\(--rail-w\)/.test(b)),
+		'the fixed rail declares no width, so it can span the full viewport');
+	assert(fixed.some((b) => /inset-block:\s*0/.test(b)),
+		'the fixed rail is not pinned to both viewport edges, so its height is its content');
+});
+
+check('below the rail breakpoint the header stays a compact sticky bar', () => {
+	const bare = compNoComment;
+	const base = ruleBodies(bare, '.cm-header')
+		.find((b) => /position:\s*sticky/.test(b));
+	assert(base, 'the base .cm-header rule is no longer sticky - the bar scrolls away');
+	assert(/top:\s*0/.test(base), 'the sticky header lost `top: 0`, so it does not pin to the top');
+	assert(!/height:/.test(base),
+		'.cm-header declares its own height, which is how a bar grows into a column');
+	const nav = ruleBodies(bare, '.cm-header__nav')
+		.find((b) => /height:\s*60px/.test(b));
+	assert(nav, 'the nav row lost the 60px it is measured against');
+	// The phone override must still live INSIDE max-width: 640px. Sitting
+	// outside it, `height: auto` would reach a desktop bar; a vh value
+	// there would be the reported defect wearing the phone's clothes.
+	const phoneIdx = bare.search(
+		/\.cm-header__nav\s*\{\s*height:\s*auto;\s*min-height:\s*60px;/);
+	assert(phoneIdx > -1,
+		'the phone nav override (height: auto, min-height: 60px) is missing');
+	const mq = bare.lastIndexOf('@media', phoneIdx);
+	assert(mq > -1 && bare.slice(mq, phoneIdx).includes('max-width: 640px'),
+		'the phone nav override is not inside max-width: 640px, so it can reach a desktop bar');
+});
+
+check('the header geometry harness owns the behaviour reads, at five widths', () => {
+	const h = read('tests/verify-header-geometry.py');
+	for (const pin of [
+		'the header is never a full-width viewport-tall box',
+		'rail mode - fixed column, width-bound, x=0',
+		'the phone bar is exactly 63px, nav 62',
+		'header pinned at the top after scrolling to',
+		'actually scrolled to',
+		'header itself is on screen after scrolling to',
+		'served_is_ours',
+		'PORT = 8098',
+		'behavior: "instant"']) {
+		assert(h.includes(pin), 'the harness lost a header check: ' + pin);
+	}
+	assert(/WIDTHS = \[\(320, 667\), \(390, 667\), \(402, 667\), \(768, 900\), \(1280, 900\)\]/
+		.test(h), 'the harness no longer sweeps 320/390/402/768/1280');
+	// The scroll wait is what makes "pinned" mean scrolled-to-position
+	// rather than scrolled-to-somewhere: a smooth programmatic scroll of
+	// 80,000px is still travelling when the rect is read.
+	assert(h.includes('Math.abs(window.scrollY - t) < 2'),
+		'the harness no longer waits for the scroll to settle');
+	assert(h.includes('if target > 0:') && h.includes('got > 0'),
+		'the harness never asserts it actually scrolled');
+});
