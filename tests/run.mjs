@@ -13137,3 +13137,141 @@ check("the input group collapses to one hairline", () => {
 			'below ~350px the grid scrolls inside the card, never the page');
 	});
 }
+/* --- generated scoped entries: the fleet check that can see them ------ */
+/*
+ * MAP and ALT name the files a CONSUMER copies. Nothing in the checker
+ * named the file the LIBRARY generates FOR the consumer, so a scoped
+ * adoption could carry a token set frozen at generation time and report
+ * "in sync" forever.
+ *
+ * MEASURED 2026-10-08: all three scoped consumers on the fleet
+ * (spacetime-kanban, spacetime-memory, hermes-articles) were generated
+ * before the library gained its --z-* scale and were missing all nine
+ * tokens. In WebKit at 390px the four selectors that CONSUME them
+ * (.cm-toolbar, .cm-header, .cm-toast-region, .cm-js .cm-nav-scrim) then
+ * computed `z-index: auto` - `z-index: var(--missing)` is invalid at
+ * computed-value time and falls back silently, so the scrim drew under
+ * the drawer and the toast under everything.
+ */
+
+const CHECKER = read('scripts/check-design-sync.sh');
+const GENERATOR_PATH = 'scripts/make-scoped-entry.mjs';
+
+check('the fleet checker looks at generated scoped entries', () => {
+	assert(/make-scoped-entry\.mjs/.test(CHECKER),
+		'check-design-sync.sh never mentions the scoped-entry generator, so a ' +
+		'scoped consumer can freeze its token set and still report in sync');
+});
+
+check('the scoped-entry pass is keyed on CONTENT, not on a filename', () => {
+	// hermes-articles calls its entry cm-prose.css, the other two
+	// cm-scoped.css. A filename rule would grade two of three consumers
+	// and miss the third silently - the same class of miss as the *.tsx
+	// and *.py gaps this script already carries.
+	assert(/grep -q 'make-scoped-entry\.mjs'/.test(CHECKER),
+		'the pass must identify a generated entry by its own header, which is ' +
+		'the only contract that covers every name the generator was pointed at');
+});
+
+check('the scoped-entry pass delegates to the generator, never reimplements it', () => {
+	// A second implementation of "what the generator would emit" is a
+	// second thing to drift - and this script already learned that from
+	// the runtime, where a hand-copied vendored file sat 140 lines behind.
+	// ONE line, not two independent greps: `--check ` also appears in this
+	// script's own --check branch and in the install tests, so a two-part
+	// assertion stays green when the generator call is replaced by an
+	// inline reimplementation - which is the exact mutant that survived it.
+	assert(/scoped_out="\$\(cd "\$t" && node "\$SRC\/scripts\/make-scoped-entry\.mjs" \\\n\t*\t--check /.test(CHECKER),
+		'the checker must call the generator\'s own --check rather than ' +
+		'comparing against a second copy of the token list');
+});
+
+check('a scoped entry is handed the components.css it actually IMPORTS', () => {
+	// The generator resolves --components relative to the TARGET FILE's
+	// directory. Handing it a project-root-relative path resolved
+	// `../cli-mono/components.css` to web/src/web/cli-mono/... and made
+	// a correct consumer print NOT FOUND.
+	assert(/--components "\$imp"/.test(CHECKER),
+		'the --components argument must be the import path as the entry ' +
+		'spells it, read out of the file rather than guessed by directory layout');
+});
+
+check('a scoped entry importing a MISSING components.css fails loudly', () => {
+	// PostCSS drops an unresolvable @import with no error, so the whole
+	// design system can be absent while every other check reports success -
+	// the Vite/tailwind trap install.sh documents.
+	assert(/SCOPED/.test(CHECKER) && /does not exist/.test(CHECKER),
+		'an unresolvable @import must be a finding, not a silent skip');
+});
+
+check('every z-index token components.css consumes is declared in the scoped scale', () => {
+	const css = read('src/styles/components.css');
+	const tokens = read('src/styles/tokens.css');
+	// Read the CONSUMED names out of the component layer and require each
+	// in :root. A generator that emits a partial scale reproduces exactly
+	// the defect this pass exists to catch, one library token later.
+	const used = new Set(
+		[...css.matchAll(/z-index:\s*var\((--[a-z0-9-]+)\)/g)].map((m) => m[1])
+	);
+	// 13 declarations across 8 DISTINCT tokens: --z-root is declared for a
+	// consumer to override the in-flow baseline and consumed by nothing yet,
+	// which is a legal token, not a gap. Asserting a count would fail on a
+	// library that legitimately added or dropped a level.
+	assert(used.size >= 8,
+		`expected the component layer to consume a real z scale, found ${used.size}`);
+	const undeclared = [...used].filter((t) => !new RegExp(`\\${t}\\s*:`).test(tokens));
+	assert(undeclared.length === 0,
+		'these z tokens are consumed but never declared in tokens.css, so every ' +
+		'scoped consumer computes them as invalid: ' + undeclared.join(', '));
+});
+
+check('the z scale is a single contiguous block in :root', () => {
+	const tokens = read('src/styles/tokens.css');
+	const names = [...tokens.matchAll(/^\t(--z-[a-z]+):\s*(-?\d+);/gm)].map((m) => m[1]);
+	// The values are the INVARIANT, and they only mean anything in order:
+	// a drawer above its scrim, a popover above the header, a toast above
+	// everything. Assert the relationships, not the literal numbers, so a
+	// retune does not have to edit this test to keep it true.
+	const v = Object.fromEntries(
+		[...tokens.matchAll(/^\t(--z-[a-z]+):\s*(-?\d+);/gm)].map((m) => [m[1], +m[2]])
+	);
+	for (const c of [
+		['--z-scrim', '--z-drawer'], ['--z-drawer', '--z-header'],
+		['--z-header', '--z-popover'], ['--z-popover', '--z-toast'],
+		['--z-root', '--z-raised'],
+	]) {
+		assert(v[c[0]] !== undefined && v[c[1]] !== undefined,
+			`z scale is missing ${c.join(' or ')}; found ${names.join(', ')}`);
+		assert(v[c[0]] < v[c[1]],
+			`${c[0]} (${v[c[0]]}) must sit below ${c[1]} (${v[c[1]]})`);
+	}
+});
+
+check('the scoped-entry generator emits EVERY z token, not a sample', () => {
+	// The generator is the thing that decides what a consumer's subtree
+	// can resolve. A token it omits is a token that consumer can never
+	// have, and --check would still pass, because it compares against the
+	// generator's own (equally incomplete) output.
+	// Run the generator rather than reading its source: it copies the bare
+	// `:root` block verbatim, so grepping the .mjs for token names tests the
+	// spelling of its own template, not what it writes. The first draft of
+	// this check did exactly that and FAILED on a generator that emits all
+	// nine correctly.
+	const dir = mkdtempSync(join(tmpdir(), 'cm-zscale-'));
+	const out = join(dir, 'cm-scoped.css');
+	const { status, stdout, stderr } = spawnSync(process.execPath,
+		[GENERATOR_PATH, '--out', out, '--components',
+			join(root, 'src/styles/components.css')],
+		{ encoding: 'utf8' });
+	assert(status === 0, `generator failed: ${stdout}${stderr}`);
+	const emitted = read(out);
+	const tokens = read('src/styles/tokens.css');
+	const declared = [...tokens.matchAll(/^\t(--z-[a-z]+):/gm)].map((m) => m[1]);
+	assert(declared.length >= 9, `expected a real z scale, found ${declared.length}`);
+	for (const t of declared) {
+		assert(new RegExp(`\\${t}\\s*:`).test(emitted),
+			`the generator does not emit ${t}, so every scoped consumer resolves ` +
+			'it to nothing and each z-index silently computes to auto');
+	}
+	rmSync(dir, { recursive: true, force: true });
+});

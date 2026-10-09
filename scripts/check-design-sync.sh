@@ -563,6 +563,80 @@ for t in "${targets[@]}"; do
 		fi
 	done
 
+	# ---- generated scoped entries ------------------------------------------
+	# A THIRD file class, and the one this script could not see at all.
+	#
+	# MAP and ALT name files the CONSUMER copies. They cannot name a file the
+	# LIBRARY generates for the consumer: `make-scoped-entry.mjs` writes a
+	# `cm-scoped.css` (any name) that re-declares the theme-independent token
+	# scale and imports components.css, for the consumer whose build inlines
+	# Tailwind into @layers and cannot import base.css globally. The
+	# components.css it imports is compared here, so this consumer looks
+	# perfectly adopted - while the file that actually carries the tokens is
+	# on a path nothing in MAP names.
+	#
+	# MEASURED 2026-10-08, all three scoped consumers on the fleet
+	# (spacetime-kanban, spacetime-memory, hermes-articles): each was
+	# generated before the library gained its --z-* scale, and each was
+	# missing ALL NINE tokens, so `z-index: var(--z-header)` and its twelve
+	# siblings (13 declarations in components.css) computed as invalid at
+	# computed-value time and resolved to `auto`. The stale toolbar, scrim,
+	# drawer, popover, hovercard and toast all had NO stacking order at all -
+	# verified in WebKit at 390px, reading the computed value rather than
+	# the source. They also still carried `--radius: 10px` from before
+	# e79e3d5 took the rounding out.
+	#
+	# The check is by CONTENT, never by filename: the generator is told which
+	# components.css each consumer actually serves, because a scoped entry
+	# whose @import target does not exist is dropped silently by PostCSS -
+	# the same failure install.sh documents for an unserved copy. So the
+	# import path is READ from the file and resolved relative to it, which
+	# is what makes one rule cover cm-scoped.css, cm-prose.css and any
+	# other name the generator was pointed at.
+	#
+	# Delegated to the generator's own `--check`, not reimplemented: a second
+	# implementation of "what the generator would emit" is a second thing to
+	# drift, and this script already learned that lesson from the runtime.
+	for f in $(find "$t" -type f -name '*.css' \
+		! -path '*/dist/*' ! -path '*/build/*' ! -path '*/node_modules/*' \
+		! -path '*/.git/*' ! -path '*/target/*' 2>/dev/null | sort); do
+		# Only a file the generator claims. The header is the contract,
+		# and it is checked on the RAW text: stripping comments first
+		# would discard the very line that identifies the file.
+		head -6 "$f" 2>/dev/null | grep -q 'make-scoped-entry.mjs' || continue
+		imp="$(sed -n 's/^@import "\(.*components\.css\)";.*/\1/p' "$f" | head -1)"
+		[ -n "$imp" ] || continue
+		# The import is relative to the FILE, not the project root - a
+		# flat-scoped entry at web/src/ says ../cli-mono/components.css.
+		resolved="$(cd "$(dirname "$f")" 2>/dev/null && cd "$(dirname "$imp")" 2>/dev/null && pwd)/$(basename "$imp")"
+		if [ ! -f "$resolved" ]; then
+			out+="  SCOPED   ${f#$t/} imports $imp, which does not exist - PostCSS drops it silently"$'\n'\
+			     "            the whole design system is absent while every other check passes"$'\n'
+			stale=1; tstale=1
+			continue
+		fi
+		# The generator resolves --components relative to the TARGET
+		# FILE's own directory (make-scoped-entry.mjs:
+		# `path.resolve(targetDir, relComponents)`) - NOT relative to
+		# the CWD and NOT relative to the project root. So the argument
+		# is the import path exactly as the scoped entry already spells
+		# it. Prefixing the file's directory onto it is what produced
+		# `web/src/../cli-mono/...` resolving to web/src/web/cli-mono/...
+		# and a perfectly correct consumer printing NOT FOUND.
+		scoped_out="$(cd "$t" && node "$SRC/scripts/make-scoped-entry.mjs" \
+			--check "${f#$t/}" --components "$imp" 2>&1)"
+		if ! printf '%s' "$scoped_out" | grep -q 'in sync'; then
+			out+="  STALE    ${f#$t/} (generated scoped entry)"$'\n'
+			# Appending to the VARIABLE. `>> "$out"` created a file
+			# literally named `out` and the generator's own
+			# "first difference at line 36" went to stderr beside the
+			# verdict - so the finding carried no explanation.
+			out+="$(printf '%s\n' "$scoped_out" | sed 's/^/            /')"$'\n'
+			out+="  fix:      (cd $t && node $SRC/scripts/make-scoped-entry.mjs --out ${f#$t/} --components $imp)"$'\n'
+			stale=1; tstale=1
+		fi
+	done
+
 	# ---- reachability -----------------------------------------------------
 	# Byte-identical and unreferenced is the failure this check missed. Scan
 	# the project's source for any mention of the vendored file names. A

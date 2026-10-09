@@ -3286,3 +3286,43 @@ layers.
 - A frontmatter `import` of `cli-mono.js` in Astro is tree-shaken away and
   the runtime silently does nothing. Use a `<script src>` tag. Documented in
   the README and the test suite.
+
+## Unreleased — the fleet checker can see a scoped entry
+
+- **`check-design-sync.sh` now grades GENERATED scoped entries.** `MAP` and
+  `ALT` name the files a consumer *copies*; nothing named the file the
+  library *generates for* the consumer. `make-scoped-entry.mjs` writes a
+  `cm-scoped.css` - re-declaring the theme-independent token scale and
+  importing `components.css` - for the consumer whose build inlines Tailwind
+  into `@layer`s and cannot import `base.css` globally. So a scoped adoption
+  could freeze its token set at generation time and report `in sync` forever.
+  The pass is keyed on the file's own **generator header**, not on a
+  filename (hermes-articles calls its entry `cm-prose.css`; the other two
+  call it `cm-scoped.css`), hands the generator the `components.css` the
+  entry **actually imports** (resolved relative to the entry's own
+  directory), and delegates to the generator's own `--check` rather than
+  reimplementing the token list in bash. An `@import` that does not resolve
+  is now a loud finding: PostCSS drops it with no error, so the whole design
+  system can be absent while every other check reports success.
+
+- **All three scoped consumers were carrying a STALE generated entry**, and
+  each was missing the library's entire `--z-*` scale (added after they were
+  generated). `z-index: var(--missing)` is invalid at computed-value time and
+  falls back to `auto` **silently**. MEASURED in WebKit at 390px, before the
+  repair: `.cm-toolbar`, `.cm-header`, `.cm-toast-region` and
+  `.cm-js .cm-nav-scrim` - the four selectors that consume those tokens -
+  all computed `z-index: auto`, so the nav scrim drew under the drawer and a
+  toast under everything, in three live apps. After regenerating, the same
+  four read `10` / `100` / `200` / `98`. They also still carried
+  `--radius: 10px` from before `e79e3d5` took the rounding out; `components.css`
+  consumes `var(--radius)` zero times, so that one has no teeth there and is
+  reported only as the token value it is.
+
+Proven: suite 562/0 (9 new contracts). `tests/verify-scoped-entry.py`
+measures the repair in WebKit (8 reproduced symptoms, 0 failures);
+`tests/verify-showcase-live.py` re-proves the live showcase at 390px against
+the LAN preview. Mutator `tests/mutate-scoped-entry.py`: **8/8 killed, 0
+survived, 0 errors** - one of them a genuine survivor found and fixed this
+cycle (the "delegates to the generator" contract matched `--check` anywhere
+in the script and passed an inline reimplementation, so it now asserts the
+single call site).
