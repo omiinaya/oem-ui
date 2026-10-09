@@ -2253,6 +2253,55 @@ harness now drives each disclosure by the panel its button *owns*
 pins every group label as routed, counted rather than sampled. Re-run:
 44/44 killed.
 
+### Select, tabs, accordion: depth
+
+The three were in the catalog as classes; this batch is the behavior
+shadcn documents, feature by feature.
+
+**Select** is `.cm-dropdown` wearing a value. `setRadio` - the one
+function the pointer and the keyboard already shared - now mirrors the
+picked label into the trigger and retires the placeholder, so a select
+whose trigger never shows the selection is no longer a menu. The
+opt-in is structural: only a trigger carrying the value/placeholder
+pair is written, which is why the toolbar's density menu and every
+other radio menu are untouched. The panel opens with the **checked
+row over the trigger** (`data-cm-align-item` opts in, and the step
+lives inside `anchorPopover`, the single placer, so scroll re-pins are
+idempotent). Long lists **scroll inside the panel** - `max-height:
+60vh`, `overflow-y: auto`, `overscroll-behavior: contain` - and the
+placer pins the panel to the viewport floor when neither side fits.
+A radio pick retires the menu the way every native radio menu does;
+arrow arrival does not, because browsing while open is the APG
+pattern and the two doors are not the same door.
+
+**Tabs** gained `data-orientation="vertical"`: the keydown reads it
+once, Up/Down move (Left/Right keep working in both orientations),
+and the list flips at any width. The vertical marker is a shared
+transparent 2px left border - every row pays it, so selecting one
+shifts nothing, and the selected row lights it from the ink token.
+A **disabled tab** is skipped by every door: the wrap-around walk,
+Home/End, and the click handler all step over it, and `selectTab`
+refuses a disabled target as the shared invariant. Bind-time
+normalisation prefers the selected *enabled* tab, so a frozen tab the
+author marked `aria-selected` is overruled rather than trusted.
+
+**Accordion** kept its platform story - exclusive single-open is the
+native `name` attribute, drop `name` and several stand open together -
+and gained the one thing `<details>` has no attribute for: an
+**`aria-disabled` summary is frozen by a veto** at the summary itself.
+`preventDefault` in one capture-phase listener kills both the pointer
+click and the click the engine fires for Space/Enter; there is no
+second toggler, because a `toggle` veto would fight the platform's own
+`name` closing and loop.
+
+Proof: suite 584/0 · `tests/verify-select-tabs.py` 40/40 ·
+`tests/mutate-select-tabs.py` 45 patterns, killed=45 survived=0. The
+first proof run found an oracle hole of its own - the harness had no
+nonzero exit, so every kill only it could see would have been
+recorded as a survivor. The run was aborted, the half-eaten tree
+restored from git, the exit path added, and the proof re-run from a
+clean build.
+
 ## shadcn/ui parity status
 
 The standing goal is component parity with
