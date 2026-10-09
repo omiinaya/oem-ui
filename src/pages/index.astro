@@ -1585,16 +1585,21 @@ For records a person scans <em>across</em> rather than one at a time - a log is 
 										<option>50</option>
 									</select>
 								</label>
-								<span data-cm-pageinfo>page 1 of 3</span>
-								<div class="cm-table__pages">
-									<button type="button" class="cm-btn cm-btn--sm cm-table__far"
-										data-cm-page="first" aria-label="first page">&#171;</button>
-									<button type="button" class="cm-btn cm-btn--sm"
-										data-cm-page="prev" aria-label="previous page">&#8249;</button>
-									<button type="button" class="cm-btn cm-btn--sm"
-										data-cm-page="next" aria-label="next page">&#8250;</button>
-									<button type="button" class="cm-btn cm-btn--sm cm-table__far"
-										data-cm-page="last" aria-label="last page">&#187;</button>
+								<!-- The readout and the buttons it reads out travel as one group:
+								     wrapping must never strand prev/next on their own line, a
+								     whole row away from "page 1 of 3". -->
+								<div class="cm-table__footgroup">
+									<span data-cm-pageinfo>page 1 of 3</span>
+									<div class="cm-table__pages">
+										<button type="button" class="cm-btn cm-btn--sm cm-table__far"
+											data-cm-page="first" aria-label="first page">&#171;</button>
+										<button type="button" class="cm-btn cm-btn--sm"
+											data-cm-page="prev" aria-label="previous page">&#8249;</button>
+										<button type="button" class="cm-btn cm-btn--sm"
+											data-cm-page="next" aria-label="next page">&#8250;</button>
+										<button type="button" class="cm-btn cm-btn--sm cm-table__far"
+											data-cm-page="last" aria-label="last page">&#187;</button>
+									</div>
 								</div>
 							</div>
 						</div>
