@@ -40,7 +40,7 @@ const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'crumbs', 'lists', 'states', 'surface',
   'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'data-table', 'json', 'rowon', 'switch', 'sheet', 'drawer', 'choice', 'keys-pages-people',
 	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'proselists', 'proselists-order', 'prosetap', 'prosetable', 'tablelabels', 'layout', 'surface-paint',
-	'forms', 'datepicker', 'scrollarea', 'utilities', 'chat', 'dropdown-depth', 'scroller', 'attachment', 'quiz', 'search', 'auth', 'readme',
+	'forms', 'datepicker', 'scrollarea', 'utilities', 'chat', 'dropdown-depth', 'navmenu', 'scroller', 'attachment', 'quiz', 'search', 'auth', 'readme',
 ] as const;
 
 /* The log specimen. Long enough to actually scroll, because a sticky
@@ -3871,6 +3871,95 @@ Two helpers shadcn ships under utils, in house CSS. <code>scroll-fade</code>
 						</button>
 					</div>
 				</div>
+			</section>
+
+			<section id="navmenu" class="cm-section cm-section--pad">
+				<SectionHead title="navigation menu">
+					the nav that opens <em>panels</em>, not lists: a persistent
+					trigger per section, a chevron drawn from the label's own ink,
+					and a panel of links with a description under each - a table of
+					contents, which is what a nav panel is. The panel, its light
+					dismiss and its focus return are the dropdown's, so the only
+					new machinery is the BAR: while a panel is open, Left/Right
+					walk the words and the neighbouring panel opens in the same
+					press. The indicator under the bar is measured from the page,
+					never authored - the runtime reads the section each link points
+					at and moves the mark to the one the reader has reached, and
+					sets <code>aria-current</code> on that trigger and no other. A
+					trigger with no <code>href</code> opens a panel and is never
+					the current section, which is why <code>product</code> below
+					carries no mark.
+				</SectionHead>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">runtime</span>
+						<span class="cm-spec__val">init measures; scroll and resize re-measure</span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">bar</span>
+						<span class="cm-spec__val">left/right while open; the next panel opens in the same press</span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">current</span>
+						<span class="cm-spec__val">measured from the section, then written as aria-current</span>
+					</div>
+				</div>
+				<div class="cm-card">
+					<div class="cm-navmenu" data-cm-navmenu role="navigation" aria-label="demo navigation menu">
+						<a class="cm-navmenu__trigger" href="#layout">
+							layout <span class="cm-navmenu__chev" aria-hidden="true"></span>
+						</a>
+						<div class="cm-navmenu__item">
+							<button type="button" class="cm-navmenu__trigger" popovertarget="nav-product" aria-haspopup="true" aria-expanded="false">
+								product <span class="cm-navmenu__chev" aria-hidden="true"></span>
+							</button>
+							<div class="cm-dropdown__menu cm-navmenu__panel" id="nav-product" popover role="menu" aria-label="product">
+								<a class="cm-navmenu__link" href="#foundation" role="menuitem">
+									<span class="cm-navmenu__col">
+										<span class="cm-navmenu__label">foundations</span>
+										<span class="cm-navmenu__desc">the tokens, and the scale every rule quotes</span>
+									</span>
+								</a>
+								<a class="cm-navmenu__link" href="#utilities" role="menuitem">
+									<span class="cm-navmenu__col">
+										<span class="cm-navmenu__label">utilities</span>
+										<span class="cm-navmenu__desc">scroll fade and shimmer, as masks and sweeps</span>
+									</span>
+								</a>
+								<a class="cm-navmenu__link" href="#chat" role="menuitem">
+									<span class="cm-navmenu__col">
+										<span class="cm-navmenu__label">conversation</span>
+										<span class="cm-navmenu__desc">bubble, message, attachment, questionnaire</span>
+									</span>
+								</a>
+							</div>
+						</div>
+						<div class="cm-navmenu__item">
+							<button type="button" class="cm-navmenu__trigger" popovertarget="nav-ref" aria-haspopup="true" aria-expanded="false">
+								reference <span class="cm-navmenu__chev" aria-hidden="true"></span>
+							</button>
+							<div class="cm-dropdown__menu cm-navmenu__panel" id="nav-ref" popover role="menu" aria-label="reference">
+								<a class="cm-navmenu__link" href="#table" role="menuitem">
+									<span class="cm-navmenu__col">
+										<span class="cm-navmenu__label">tables</span>
+										<span class="cm-navmenu__desc">sortable headers and sticky chrome</span>
+									</span>
+								</a>
+								<a class="cm-navmenu__link" href="#forms" role="menuitem">
+									<span class="cm-navmenu__col">
+										<span class="cm-navmenu__label">forms</span>
+										<span class="cm-navmenu__desc">labels, help, errors and live validation</span>
+									</span>
+								</a>
+							</div>
+						</div>
+						<a class="cm-navmenu__trigger" href="#readme">
+							readme <span class="cm-navmenu__chev" aria-hidden="true"></span>
+						</a>
+						<span class="cm-navmenu__indicator" aria-hidden="true"></span>
+					</div>
+				</div>
+
 			</section>
 
 			<section id="scroller" class="cm-section cm-section--pad">

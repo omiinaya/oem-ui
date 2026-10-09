@@ -13543,3 +13543,165 @@ check('the data table specimen: registered, opted in, every control present, far
 	assert(/@media \(max-width: 760px\) \{\s*\n\t\.cm-table__far \{ display: none; \}/.test(css),
 		'.cm-table__far must be hidden at phone width');
 });
+
+/* --- shadcn parity: navigation menu ---
+   The nav that opens PANELS. Where the dropdown contract checks the item
+   kinds, this one checks the three things a nav menu has and a dropdown
+   does not: a persistent trigger with a drawn chevron, links with a
+   description under each, and a bar-level indicator measured from the page
+   rather than authored. */
+check('shadcn-parity: the navigation menu carries its own anatomy', () => {
+	const html = read('dist/index.html');
+	const css = read('src/styles/components.css');
+	const js = read('src/js/cli-mono.js');
+	for (const c of ['cm-navmenu', 'cm-navmenu__trigger', 'cm-navmenu__panel',
+		'cm-navmenu__link', 'cm-navmenu__label', 'cm-navmenu__desc',
+		'cm-navmenu__chev', 'cm-navmenu__col', 'cm-navmenu__item',
+		'cm-navmenu__indicator']) {
+		assert(html.includes(c), 'navmenu part unrendered: ' + c);
+		assert(css.includes('.' + c), 'navmenu part unstyled: ' + c);
+	}
+	// The bar is a landmark, not a div: a nav without a role and a name is
+	// a pile of links to a screen reader.
+	assert(/class="cm-navmenu" data-cm-navmenu role="navigation" aria-label=/.test(html),
+		'the bar must be a labelled navigation landmark');
+	// ...and the data hook is the SAME HOOK init() binds to. Without it the
+	// bar renders and does nothing, and a mutation that deletes it survived
+	// a whole harness run: every navmenu check reads the bar by CLASS, so a
+	// bar with no runtime is indistinguishable from a working one.
+	assert(/cmInitNavmenu\(root\)/.test(js) &&
+		js.includes("root.querySelectorAll('[data-cm-navmenu]')"),
+		'init() must bind the hook the markup declares');
+	// The panel is the dropdown element plus the panel class, so it inherits
+	// light dismiss, Escape and focus return from the platform.
+	// Count AND attributes. Counting alone passed a mutant that dropped
+	// `popover` from a panel: the class list still matched, and a panel that
+	// is not a popover has no light dismiss, no Escape and no focus return -
+	// it is a div that happens to be positioned.
+	const panels = html.match(/class="cm-dropdown__menu cm-navmenu__panel"[^>]*>/g) || [];
+	assert(panels.length >= 2, 'every panel must be the shared popover element');
+	for (const tag of panels) {
+		assert(/ popover[\s>]/.test(tag), 'a navmenu panel must BE a popover: ' + tag);
+	}
+	// The mark is decorative: it duplicates a state already announced by
+	// aria-current on the trigger, so a screen reader must not hear it
+	// twice. A mutant that drops aria-hidden survived a whole suite because
+	// nothing asserted the attribute.
+	assert((html.match(/class="cm-navmenu__indicator" aria-hidden="true"/g) || []).length === 1,
+		'the indicator duplicates aria-current and must stay out of the tree');
+	// The chevron must be DRAWN, not a glyph: a rotated border pair in
+	// currentColor cannot drift from the label's colour and needs no icon
+	// font. A text arrow here would render at a different weight on every
+	// platform.
+	assert(/\.cm-navmenu__chev \{[\s\S]*?border-right: 1\.5px solid currentColor;/.test(css),
+		'the chevron is drawn from the element ink, not a glyph');
+	assert(/\.cm-navmenu__chev \{[\s\S]*?transform: rotate\(45deg\);/.test(css),
+		'the chevron must start pointing down');
+	// The rotation is driven by aria-expanded, which onPopoverToggle already
+	// keeps honest for any trigger carrying aria-haspopup - the open state is
+	// stated once, not twice.
+	assert(/\.cm-navmenu__trigger\[aria-expanded='true'\] \.cm-navmenu__chev/.test(css),
+		'the chevron must rotate off the state the platform keeps');
+	// The panel opens from the trigger's LEFT edge, beside every other
+	// left-anchored surface. Miss this and the panel hangs off its own
+	// trigger's right edge, which is a 12rem panel shifted half a bar right.
+	// Scoped to the START expression itself. A bare grep for the class name
+	// is satisfied by a mutation that keeps the name and appends `|| false`
+	// - the panel then aligns to its trigger's RIGHT edge again and the
+	// assertion still passes. Pin the disjunction, not the string.
+	const start = js.match(/var start = menu\.classList && \(([^;]*?)\);/);
+	assert(start, 'anchorPopover must decide its start edge from one expression');
+	assert(start[1].includes("menu.classList.contains('cm-navmenu__panel')"),
+		'a navmenu panel must be in the left-align set anchorPopover owns');
+	assert(!/\|\|\s*false/.test(start[1]),
+		'the left-align set must not be short-circuited');
+});
+
+check('shadcn-parity: the navmenu indicator is measured, not authored', () => {
+	const html = read('dist/index.html');
+	const css = read('src/styles/components.css');
+	const js = read('src/js/cli-mono.js');
+	// One indicator per bar, and the bar we can reach from a link: a bar
+	// with two marks has no single current section.
+	assert((html.match(/class="cm-navmenu__indicator"/g) || []).length === 1,
+		'a bar carries exactly one indicator');
+	// The mark is a pseudo-element driven by two custom properties. Both are
+	// component-scoped, so both are written with a fallback - an
+	// unresolvable var() is a declaration that dies silently at
+	// computed-value time, and the mark would then be a zero-width nothing
+	// on every bar in every consumer.
+	assert(/\.cm-navmenu__indicator::after \{[\s\S]*?width: var\(--cm-navmenu-w, 0\);/.test(css),
+		'the mark width needs a fallback');
+	assert(/\.cm-navmenu__indicator::after \{[\s\S]*?transform: translateX\(var\(--cm-navmenu-x, 0px\)\);/.test(css),
+		'the mark offset needs a fallback');
+	// The runtime writes BOTH, and the state attribute that says it ran.
+	assert(js.includes("ind.setAttribute('data-active', 'true');"),
+		'the mark must report that it was measured');
+	assert(js.includes("ind.style.setProperty('--cm-navmenu-w'"),
+		'the runtime must write the measured width');
+	assert(js.includes("ind.style.setProperty('--cm-navmenu-x'"),
+		'the runtime must write the measured offset');
+	// A trigger with no href is never the current section: a panel opener
+	// points at nothing, and marking it would tell a reader they are in a
+	// section that does not exist.
+	assert(/if \(!href \|\| href\.charAt\(0\) !== '#' \|\| href\.length < 2\) return null;/.test(js),
+		'only a same-page fragment can be the current section');
+	// The spy is bound to the element that actually scrolls, found rather
+	// than assumed, and it is latched against re-entry: it runs on every
+	// scroll event and measures a rect per link.
+	assert(/function navScrollport\(el\)/.test(js),
+		'the scrollport must be found, not assumed to be the page');
+	assert(/if \(bar\.__cmNavBusy\) return null;/.test(js),
+		'the spy needs a re-entrancy latch');
+	assert(/cmInitNavmenu\(root\);/.test(js), 'init() never binds the navmenu');
+	// The late-markup observer arms on this list. A SPA commits its tree
+	// after this module evaluates, so a hook missing here is a navmenu that
+	// never binds in a consumer - and the page still looks right.
+	assert(js.includes("'[data-cm-navmenu], .cm-prose-table'"),
+		'the navmenu hook must arm the late-markup observer');
+	// One re-measure after load: the first pass runs before webfonts swap,
+	// and the sections this bar points at sit below 20,000px of specimens.
+	assert(/window\.addEventListener\('load', function \(\) \{\n\t\t\t\tnavSpies\.forEach/.test(js),
+		'the bar must re-measure once the page has settled');
+	// The chevron's rotation is a TRANSITION, so `animation: none` in the
+	// reduced-motion block does not touch it - the same trap the burger and
+	// the progress fill are already listed for.
+	assert(/\.cm-navmenu__chev \{ transition: none; \}/.test(css),
+		'the chevron transition must join the reduced-motion guard');
+});
+
+check('shadcn-parity: the navmenu bar walks and the panel swaps', () => {
+	const js = read('src/js/cli-mono.js');
+	// Left/Right walk the WORDS and the neighbouring panel opens in the same
+	// press - the behaviour that makes this a bar and not four dropdowns in
+	// a row. It is gated on a panel already being open, read from the one
+	// place that knows.
+	assert(/function onNavmenuKey\(e\)/.test(js), 'the bar walk must exist');
+	assert(/document\.addEventListener\('keydown', onNavmenuKey\)/.test(js),
+		'the walk is delegated: one listener at the root');
+	assert(/var wasOpen = bar\.querySelector\('\.cm-navmenu__trigger\[aria-expanded="true"\]'\);/.test(js),
+		'the walk must gate on a panel being open');
+	// The gate is stated as the BEHAVIOUR, not as a code shape. An earlier
+	// cut of this assertion pinned `if (wasOpen) {` - so rewriting the same
+	// gate as an early return (which is what makes the idle bar leave focus
+	// alone rather than walking and putting it back) failed a test that was
+	// supposed to be about a panel being open at all.
+	assert(/if \(!wasOpen\) return;/.test(js),
+		'the walk must refuse to touch focus while no panel is open');
+	// Scoped to THIS handler's body: `e.preventDefault()` appears a dozen
+	// times in this runtime, so an unscoped indexOf compares positions in
+	// other functions and the assertion cannot fail for its own reason.
+	const walk = js.slice(js.indexOf('function onNavmenuKey'),
+		js.indexOf("document.addEventListener('keydown', onNavmenuKey)"));
+	assert(walk.length > 0, 'the walk handler body must be findable');
+	assert(walk.indexOf('if (!wasOpen) return;') < walk.indexOf('e.preventDefault();'),
+		'the gate is decided BEFORE the key is taken from the page');
+	// Scoped to its OWN bar: a page with two navmenus must not have the
+	// arrow keys jump between them.
+	assert(/trigger\.closest\('\[data-cm-navmenu\]'\)/.test(js),
+		'the walk must be scoped to its own bar');
+	// The walk wraps at both ends, like every native menu bar.
+	assert(/triggers\[\(i \+ 1\) % triggers\.length\]/.test(js) &&
+		/triggers\[\(i - 1 \+ triggers\.length\) % triggers\.length\]/.test(js),
+		'the walk must wrap');
+});

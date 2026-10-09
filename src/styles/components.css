@@ -6593,6 +6593,138 @@ input.cm-slider:disabled {
 }
 
 
+/* ---------- navigation menu ----------
+   The nav that opens PANELS, not the bar that opens lists. It composes the
+   same native [popover] machinery the dropdown uses, so light dismiss,
+   Escape and focus return stay the platform's; what is new is the SHAPE: a
+   persistent trigger with a drawn chevron, links in the panel instead of
+   menu rows, and an indicator that registers the bar.
+
+   The trigger is a LINK when it navigates somewhere and a BUTTON when it
+   does not. A <button> would be announced as "button" for a control whose
+   job is to send you to a URL, which is what shadcn's
+   `navigationMenuTriggerStyle` exists to avoid. The chevron is drawn from
+   the element's own ink and rotates off `aria-expanded`, which
+   onPopoverToggle already keeps honest for any trigger carrying
+   aria-haspopup - so the open state is stated once, not twice. */
+.cm-navmenu {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-1);
+}
+.cm-navmenu__item { position: relative; }
+.cm-navmenu__trigger {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: var(--space-1) var(--space-2);
+	border: 0;
+	border-radius: var(--radius-sm);
+	background: transparent;
+	color: var(--ink-dim);
+	font: inherit;
+	font-size: var(--text-sm);
+	text-decoration: none;
+	white-space: nowrap;
+	cursor: pointer;
+}
+.cm-navmenu__trigger:hover,
+.cm-navmenu__trigger:focus-visible,
+.cm-navmenu__trigger[aria-expanded='true'] {
+	background: var(--bg-3);
+	color: var(--ink);
+}
+/* A border pair rotated 45deg IS the mark: no icon font, no inline SVG, and
+   nothing that can drift from the label's colour, because it is drawn in
+   `currentColor`. The transition is listed in the reduced-motion block at
+   the end of this layer, where every other transition in the system is. */
+.cm-navmenu__chev {
+	display: inline-block;
+	width: 0.4em;
+	height: 0.4em;
+	border-right: 1.5px solid currentColor;
+	border-bottom: 1.5px solid currentColor;
+	transform: rotate(45deg);
+	transition: transform var(--cm-t) var(--cm-ease);
+}
+.cm-navmenu__trigger[aria-expanded='true'] .cm-navmenu__chev {
+	transform: rotate(-135deg);
+}
+/* The panel is the dropdown's element with a different interior: a width so
+   two panels of different content read as one surface, and a column of
+   links rather than a list of rows. `[popover]` is the top layer, so the
+   frame before the runtime anchors it is a fixed box at the origin - never
+   the base menu's corner offset. */
+.cm-navmenu__panel {
+	position: fixed;
+	inset: auto;
+	width: min(20rem, calc(100vw - (2 * var(--gutter))));
+	padding: var(--space-2);
+}
+.cm-navmenu__link {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--space-3);
+	padding: var(--space-2) var(--space-3);
+	border-radius: var(--radius-sm);
+	color: var(--ink-dim);
+	text-decoration: none;
+}
+.cm-navmenu__link:hover,
+.cm-navmenu__link:focus-visible {
+	background: var(--bg-3);
+	color: var(--ink);
+}
+/* The copy column stacks because a panel is a table of contents: the label
+   is what the reader scans and the description is what tells them which of
+   two same-named links to take. Both are children, so a caller can ship the
+   label alone without the description's row collapsing. */
+.cm-navmenu__col {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-0);
+}
+.cm-navmenu__label {
+	color: var(--ink);
+	font-size: var(--text-sm);
+	font-weight: 600;
+}
+.cm-navmenu__desc {
+	color: var(--ink-faint);
+	font-size: var(--text-xs);
+}
+/* The indicator is a row of its own under the bar: the bar keeps its bottom
+   border, so a page whose runtime never runs is unchanged, and the mark
+   inside reads as "this bar has a current section" without pretending to
+   animate between items. It sits directly beneath the border rather than
+   nudged onto it - a -1px overlap is exactly the kind of alignment value
+   the spacing scale cannot express, and the layer's raw-value check
+   refuses it for that reason. Both knobs are component-scoped, so they are
+   written with a fallback: an unresolvable var() is a declaration that dies
+   silently at computed-value time. `width` is not transitioned, because a
+   width transition repaints layout on every scroll. */
+.cm-navmenu__indicator {
+	position: relative;
+	height: 2px;
+	overflow: hidden;
+}
+.cm-navmenu__indicator::after {
+	content: '';
+	display: block;
+	height: 100%;
+	width: var(--cm-navmenu-w, 0);
+	transform: translateX(var(--cm-navmenu-x, 0px));
+	background: var(--ink-dim);
+}
+/* A trigger that opens a panel is a control, and on a phone the chevron is
+   a small target for a thumb. The tap floor is the house floor (see --tap);
+   it is claimed on coarse pointers only, because at a desk the bar's
+   density is the point. Same pattern as .cm-copy and .cm-btn--sm. */
+@media (pointer: coarse) {
+	.cm-navmenu__trigger { min-height: var(--tap); }
+}
+
 /* ---------- tree ----------
    Expansion is the PLATFORM's: a <details> branch opens, closes and toggles
    on Enter/Space with no JavaScript, a summary is already focusable, and
@@ -7646,6 +7778,10 @@ input.cm-slider:disabled {
 	/* A progress fill sliding to its new value is motion too: under
 	   reduced motion the bar JUMPS to the value it is told. */
 	.cm-progress__fill { transition: none; }
+	/* The navmenu chevron rotates when its panel opens. The rotation is
+	   the ONLY signal that it is open to a pointer user, so it must still
+	   happen - instantly, not suppressed. */
+	.cm-navmenu__chev { transition: none; }
 	.cm-js .cm-nav-scrim { transition: none; }
 	.cm-js .cm-header__links { animation: none; }
 }

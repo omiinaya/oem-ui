@@ -2223,8 +2223,9 @@ Carousel, Checkbox, Collapsible, Combobox, Command (palette), Context
 Menu, Data Table (filter, pagination, column visibility, row selection), Date Picker, Dialog, Drawer, Dropdown
 Menu, Empty, Field (label/help/error wiring), Hover Card, Input, Input
 Group, Input OTP, Item, Kbd, Label, Marker, Message, Message Scroller, Menubar, Native Select (a styled
-`<select>`), Navigation Menu (as the rail + sticky header - see
-*The two nav states*), Pagination, Popover, Progress, Questionnaire, Radio Group,
+`<select>`), Navigation Menu (a real one - see *Navigation menu* below; the
+rail + sticky header remain the house pattern for this site's own pages),
+Pagination, Popover, Progress, Questionnaire, Radio Group,
 Resizable, Scroll Area, Select, Separator, Sheet, Sidebar, Skeleton,
 Slider, Spinner, Switch, Table, Tabs, Textarea, Toast, Toggle, Toggle
 Group, Tooltip, Typography.
@@ -2236,12 +2237,82 @@ Group, Tooltip, Typography.
 - **Direction** - an RTL/i18n direction helper; this system is LTR and
   owns no locale state.
 
-Navigation Menu is the one *substitution* rather than a port: shadcn's
-top dropdown nav was deliberately replaced here by the desktop rail and
-the sticky header, which is the house pattern for this site. Every
+Navigation Menu was once listed here as a *substitution*: this site's own
+pages use the desktop rail and the sticky header, which remains the house
+pattern for them. That left the COMPONENT unbuilt, so a consumer needing a
+desktop nav had nothing to use - a substitution is not an implementation.
+`.cm-navmenu` now exists as a real component with its own showcase section,
+a WebKit harness and a mutation runner. Every
 portable component above is proven by a WebKit harness plus a mutation
 runner per batch; the `shadcn-parity: *` blocks in `tests/run.mjs` pin
 the contracts.
+
+
+## Navigation menu
+
+The nav that opens **panels**, not lists - the desktop bar shape. It is not
+`.cm-menubar`: the difference is a measured behaviour pair.
+
+```html
+<nav class="cm-navmenu" data-cm-navmenu role="navigation" aria-label="documentation">
+  <a class="cm-navmenu__trigger" href="#install">
+    install <span class="cm-navmenu__chev" aria-hidden="true"></span>
+  </a>
+  <div class="cm-navmenu__item">
+    <button type="button" class="cm-navmenu__trigger" popovertarget="nav-api"
+            aria-haspopup="true" aria-expanded="false">
+      api <span class="cm-navmenu__chev" aria-hidden="true"></span>
+    </button>
+    <div class="cm-dropdown__menu cm-navmenu__panel" id="nav-api" popover
+         role="menu" aria-label="api">
+      <a class="cm-navmenu__link" href="#props" role="menuitem">
+        <span class="cm-navmenu__col">
+          <span class="cm-navmenu__label">props</span>
+          <span class="cm-navmenu__desc">every option, with its default</span>
+        </span>
+      </a>
+    </div>
+  </div>
+  <span class="cm-navmenu__indicator" aria-hidden="true"></span>
+</nav>
+```
+
+A **word is a link** when it navigates and a **button** when it only opens a
+panel: a `<button>` is announced as "button" for a control whose job is to
+send you to a URL. The panel is the dropdown's own `[popover]` element, so
+light dismiss, Escape and focus return stay the platform's.
+
+**The two behaviours that separate this from a menubar.** A `.cm-menubar`
+is a *focused menu*; a `.cm-navmenu` sits in a page the reader is scrolling,
+and the difference has to be in the code:
+
+- **An idle bar does not take the arrow keys.** The walk runs only while
+  one of the bar's own panels is open, and the decision is made *before*
+  focus moves - an idle bar is untouched, not walked and then put back.
+- **An opening panel does not pull focus into itself.** That is inherited
+  menu-button behaviour and it is right for a dropdown, but a reader walking
+  a nav *bar* has their focus on the bar. MEASURED in WebKit: Right moved
+  focus to the next word and the panel then took it to the first link, so
+  the bar was unreachable in one press. `.cm-navmenu__panel` is exempt from
+  the auto-focus; its links are one Tab away, in document order.
+
+**The indicator is measured, never authored.** The runtime reads the section
+each word points at, moves the mark to the one the reader has reached, and
+sets `aria-current` on that trigger and no other. A word with no `href`
+opens a panel and points at nothing, so it is never a candidate. Two
+measured details are load-bearing: the scrollport is resolved by *walking up
+for an overflow ancestor* rather than by asking which element "is" the
+scroller (`document.scrollingElement` is not reliably the page in WebKit,
+and a listener on a box that never scrolls is a mark that never moves), and
+the section's position is `rect.top + the scroll of the box that moved it` -
+adding an offset to a client rect is off by **5px** on this page, which
+selects the wrong section at a boundary. At the end of a page the last
+tracked section wins, because a short final section never crosses the scroll
+line (measured: 250px below it at maximum scroll).
+
+The trigger takes the `--tap` floor on a coarse pointer only - 44px for a
+thumb, 32px at a desk.
+
 
 
 ## State chips

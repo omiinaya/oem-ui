@@ -1,5 +1,73 @@
 # Changelog
 
+## Unreleased — the navigation menu: the nav that opens PANELS
+
+- **`.cm-navmenu` ships, the last real gap in the shadcn catalog.** The
+  library had `.cm-menubar` (a row of words opening *lists*) and the mobile
+  drawer, but nothing between them: the desktop nav whose triggers open
+  *panels* of links. Four new classes, all composing the same native
+  `[popover]` machinery the dropdown uses, so light dismiss, Escape and
+  focus return stay the platform's:
+  `.cm-navmenu` (the bar), `__trigger` (a word, a link when it navigates and
+  a button when it does not), `__chev` (the open state drawn from two borders
+  in `currentColor` and rotated on `aria-expanded`, so the state is declared
+  once), `__panel` (the dropdown panel with a width and a column of links),
+  `__link` / `__col` / `__label` / `__desc` (a link is a label over a
+  description), and `__indicator` (the bar's own current-section mark).
+
+- **The indicator is MEASURED, never authored.** `cmInitNavmenu` reads the
+  section each word points at, moves the mark to the one the reader has
+  reached, and sets `aria-current` on that trigger and no other. Two rules
+  the first cut got wrong and WebKit caught:
+  - **The scroll listener was bound to a box that never scrolls.** It used
+    `document.scrollingElement`, which in WebKit can be `body` for a
+    document whose scroller is the root, so the mark sat wherever the first
+    pass put it and looked healthy until you scrolled. The scrollport is now
+    an element or `null` (null means the page), resolved by walking up for an
+    overflow ancestor rather than by asking which element "is" the scroller.
+  - **`rect.top + scrollY` was used as a document offset.** Measured on this
+    page the error is **5px** against the true offset, which is enough to
+    select the wrong section at a boundary. The honest position is the rect
+    plus the scroll of the box that actually moved it.
+
+- **A nav bar is not a menu bar, and the difference is a measured behaviour
+  pair:**
+  - **An idle bar must not steal the arrow keys.** A nav sits in a page a
+    reader scrolls; a menubar is a focused menu. The walk now runs only
+    while one of the bar's own panels is open (`aria-expanded="true"`), and
+    it decides *before* touching focus, so an idle bar is untouched rather
+    than walked and then put back.
+  - **An opening panel must not pull focus into itself.** This is inherited
+    menu-button behaviour and it is correct for a dropdown - but a reader
+    walking a nav *bar* has their focus on the bar. MEASURED in WebKit: Right
+    moved focus to `reference` and the panel then took it to `#table`, so the
+    bar was unreachable in one press. `cm-navmenu__panel` is now exempt from
+    the auto-focus; its links are still one Tab away, in document order.
+
+- **The panel swap is deferred, and the reason is the same one the submenu
+  learned.** `showPopover()` fires `toggle` as a task, and `onPopoverToggle`
+  is what writes `aria-expanded` and what anchors the panel - so a
+  synchronous open left the new panel with neither until that task ran
+  (measured: `refOpen: false, refExpanded: 'false'` on a bar that had just
+  walked to it). The swap now happens in that task, and the callback is
+  belt-and-braces for a consumer's own element with no bound handler.
+
+- At the end of a page the last tracked section wins. A short final section
+  never crosses the scroll line - measured **250px below it** at maximum
+  scroll on this showcase - so without that rule the bar kept pointing at the
+  section before it for the whole of the page bottom.
+
+- The trigger takes the `--tap` floor on a coarse pointer only, the same
+  pattern `.cm-copy` and `.cm-btn--sm` already use: 44px for a thumb, 32px
+  at a desk, measured in both.
+
+Proven: suite **565/0** (3 new contracts: anatomy + shown-vs-not, the
+measured indicator, the bar walk and panel swap). `tests/verify-navmenu.py`
+measures **18 claims in WebKit** at 402x874 / 320x667 / coarse+fine, 0
+failures - including the exact intermediate failure above, reproduced and
+then fixed. Mutator `tests/mutate-navmenu.py`: 23 seeded faults, pattern
+pre-flight `23/23`.
+
 ## Unreleased — the fleet checker can see a scoped entry
 
 - **`check-design-sync.sh` now grades GENERATED scoped entries.** `MAP` and

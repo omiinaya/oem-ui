@@ -1151,7 +1151,8 @@
 		// trigger; a card of prose and the panel under a menubar WORD both
 		// open from the LEFT edge they belong to.
 		var start = menu.classList && (menu.classList.contains('cm-popover') ||
-				menu.classList.contains('cm-menubar__menu'));
+				menu.classList.contains('cm-menubar__menu') ||
+				menu.classList.contains('cm-navmenu__panel'));
 		var x = start ? t.left : t.right - w;
 		if (x < pad) x = pad;
 		else if (x + w > window.innerWidth - pad) x = window.innerWidth - w - pad;
@@ -1264,9 +1265,20 @@
 			// The menu-button pattern: opening moves focus INTO the menu, so
 			// the arrow keys have somewhere to start. Closing returns focus to
 			// the trigger - the popover API already does that half.
-			var first = menuItems(menu)[0] ||
-				menu.querySelector('button, a[href], input, [tabindex]:not([tabindex="-1"])');
-			if (first && typeof first.focus === 'function') first.focus();
+			//
+			// A NAVMENU panel is the exception, and it is the difference
+			// between the two components: a reader walking a nav BAR has
+			// their focus on the bar, and a panel that pulls focus into its
+			// first link turns "walk to the next word" into "walk into the
+			// panel" - measured in WebKit: Right moved focus to `reference`
+			// and the panel then took it to `#table`, so the bar was
+			// unreachable in one press. The panel's own links are still a
+			// Tab away, in document order.
+			if (!(menu.classList && menu.classList.contains('cm-navmenu__panel'))) {
+				var first = menuItems(menu)[0] ||
+					menu.querySelector('button, a[href], input, [tabindex]:not([tabindex="-1"])');
+				if (first && typeof first.focus === 'function') first.focus();
+			}
 		} else {
 			if (menu.__cmCtx && ctxMenu === menu) {
 				var back = menu.__cmReturn;
@@ -1473,6 +1485,245 @@
 		e.preventDefault();
 		next.focus();
 	}
+
+	/* ---------- navigation menu ----------
+	   Panels, links, a drawn chevron and a bar-level indicator. The panel,
+	   its dismissal and its focus return are the dropdown's - the SAME
+	   [popover] element and the same anchorPopover - so this module owns
+	   exactly two things the platform does not have: walking the BAR with
+	   the arrows while a panel is open, and knowing which section the
+	   reader is in.
+
+	   The current trigger is derived from the page, never authored: the
+	   runtime reads the section each link points AT and picks the one whose
+	   top has passed --head-top - the same rule initScrollSpy uses on the
+	   rail, applied to the bar that has no room for a rail. A consumer that
+	   hard-codes `aria-current` on a nav link would then be describing a
+	   position the page disagrees with. */
+	function navTriggers(bar) {
+		return Array.prototype.filter.call(
+			bar.querySelectorAll('.cm-navmenu__trigger'),
+			function (b) { return b.getClientRects().length > 0; }
+		);
+	}
+	// The section a trigger points at. A popover trigger points at nothing
+	// (it opens a panel); a plain nav link points at a URL, and `#id` is the
+	// only form this bar can track.
+	function navTriggerTarget(trigger) {
+		var href = trigger.getAttribute && trigger.getAttribute('href');
+		// A popover trigger has no href at all; anything that is not a
+		// same-page fragment points at another document, which this bar
+		// cannot measure and must not pretend to.
+		if (!href || href.charAt(0) !== '#' || href.length < 2) return null;
+		return document.getElementById(href.slice(1));
+	}
+	/* The measurement the indicator paints with. Written as custom
+	   properties on the indicator, not as a width on the bar: the bar is a
+	   flex row whose children are triggers, and absolutely positioning a
+	   mark inside it would need every trigger to be its own containing
+	   block - which is also what `.cm-navmenu__item { position: relative }`
+	   exists for. One element, two numbers. */
+	function navPaintIndicator(bar, trigger) {
+		var ind = bar.querySelector('.cm-navmenu__indicator');
+		if (!ind) return;
+		if (!trigger) {
+			ind.setAttribute('data-active', 'false');
+			ind.style.removeProperty('--cm-navmenu-w');
+			ind.style.removeProperty('--cm-navmenu-x');
+			return;
+		}
+		// `data-active` is the FINGERPRINT of the measurement, in the same
+		// state-attribute form the rest of the system uses (data-active on
+		// the scroller, data-checked on the menu glyph). A mark whose custom
+		// properties are right but whose state never lands is a mark nobody
+		// can find by state, and a check that only asserts the numbers
+		// passes on a bar that paints nothing.
+		ind.setAttribute('data-active', 'true');
+		var r = trigger.getBoundingClientRect();
+		var b = bar.getBoundingClientRect();
+		// Rounded: the knobs are read back by the harness and by any
+		// consumer that measures, and a fractional transform reports a
+		// position the eye cannot see but a comparison can.
+		ind.style.setProperty('--cm-navmenu-w', Math.round(r.width) + 'px');
+		ind.style.setProperty('--cm-navmenu-x', Math.round(r.left - b.left) + 'px');
+	}
+	/* The scrollport is returned as an ELEMENT or as NULL, and null means
+	   "the page". That distinction matters in WebKit: `document.scrollingElement`
+	   can be `body` for a document whose scroller is the root, and binding
+	   `scroll` to a body that never scrolls is a listener that never fires -
+	   the mark then sits wherever the first pass put it, forever, which
+	   looks exactly like a working bar until you scroll. One representation
+	   for "the page" removes the guess. */
+	function navScrollport(el) {
+		var node = el.parentNode;
+		while (node && node.nodeType === 1 && node !== document.body) {
+			var oy = getComputedStyle(node).overflowY;
+			if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight) {
+				return node;
+			}
+			node = node.parentNode;
+		}
+		return null;
+	}
+	function navScrollTop(root) {
+		if (root) return root.scrollTop;
+		if (typeof window !== 'undefined') {
+			return window.pageYOffset || window.scrollY || 0;
+		}
+		return (document.scrollingElement || document.documentElement).scrollTop;
+	}
+	function navViewport(root) {
+		if (root) return root.clientHeight;
+		if (typeof window !== 'undefined' && window.innerHeight) return window.innerHeight;
+		return document.documentElement.clientHeight;
+	}
+	function navSpy(bar) {
+		// Re-entrancy guard. This runs on every scroll event across a
+		// 50,000px showcase, and it measures a rect per link: without a
+		// latch, one smooth scroll rewrites every trigger's aria-current
+		// hundreds of times for the same answer. The latch is cleared
+		// whether or not the pass throws, so a measurement error cannot
+		// wedge the bar permanently.
+		if (bar.__cmNavBusy) return null;
+		bar.__cmNavBusy = true;
+		try {
+			return navSpyRun(bar);
+		} finally {
+			bar.__cmNavBusy = false;
+		}
+	}
+	function navSpyRun(bar) {
+		var triggers = navTriggers(bar);
+		if (!triggers.length) return null;
+		var links = triggers.filter(function (t) { return navTriggerTarget(t); });
+		// A bar of pure panel triggers has no sections to track; leaving the
+		// indicator cleared is the honest reading, not a mark on item one.
+		if (!links.length) {
+			navPaintIndicator(bar, null);
+			return null;
+		}
+		var root = navScrollport(bar);
+		var pad = 0;
+		var head = document.querySelector('[data-cm-header]');
+		if (head) pad = head.getBoundingClientRect().height;
+		var line = navScrollTop(root) + pad;
+		var current = null;
+		links.forEach(function (t) {
+			var section = navTriggerTarget(t);
+			if (!section) return;
+			// An offset added to a client rect is NOT the section's document
+			// position: padding, borders and margins above it all contribute.
+			// Measured in WebKit on this page, the two differ by 5px, which
+			// is enough to select the wrong section at a boundary. The honest
+			// position is the rect plus the scroll of the box that moved it.
+			var top = section.getBoundingClientRect().top + navScrollTop(root);
+			if (top <= line + 16) current = t;
+		});
+		if (!current) current = links[0];
+		// At the very end of the page, the last tracked section wins. A
+		// short final section never crosses the scroll line, so without
+		// this rule the bar keeps pointing at the section before it for
+		// the whole of the page bottom - measured: at max scroll the last
+		// section's top sits 250px BELOW the line. The height test is
+		// cheap and only true when there are no pixels left to cross.
+		if (navScrollTop(root) + navViewport(root) >=
+			document.documentElement.scrollHeight - 2) {
+			current = links[links.length - 1];
+		}
+		links.forEach(function (t) {
+			if (t === current) t.setAttribute('aria-current', 'true');
+			else t.removeAttribute('aria-current');
+		});
+		navPaintIndicator(bar, current);
+		return { bar: bar, fn: function () { navSpy(bar); } };
+	}
+	/* Every bar, at init: the trigger set and the section offsets are known
+	   then. Re-measured on scroll and resize through ONE listener per bar
+	   on the element that actually scrolls, so a consumer that re-renders
+	   its nav keeps the same handler and a page with no navmenu pays
+	   nothing. */
+	var navSpies = [];
+	function cmInitNavmenu(root) {
+		navSpies = [];
+		Array.prototype.forEach.call(root.querySelectorAll('[data-cm-navmenu]'), function (bar) {
+			var spy = navSpy(bar);
+			if (!spy) return;
+			var owner = navScrollport(bar);
+			var view = (typeof window !== 'undefined') ? window : null;
+			var target = (owner || view);
+			if (target) target.addEventListener('scroll', spy.fn, { passive: true });
+			if (view) view.addEventListener('resize', spy.fn);
+			navSpies.push(spy);
+		});
+	}
+	// The bar walks with the arrows while a panel is OPEN, and only then:
+	// Left/Right moves between WORDS, and lands on the neighbouring word
+	// with its panel open - the behaviour that makes this a bar rather than
+	// four dropdowns in a row. Down/Up stay the item walk inside the panel.
+	// Guarded on document like every other binding in this file: the module
+	// is evaluated in a sandbox with no DOM at all.
+	function onNavmenuKey(e) {
+		var t = e.target;
+		if (!t || typeof t.closest !== 'function') return;
+		var trigger = t.closest('.cm-navmenu__trigger');
+		if (!trigger) return;
+		var bar = trigger.closest('[data-cm-navmenu]');
+		if (!bar) return;
+		var triggers = navTriggers(bar);
+		if (!triggers.length) return;
+		var i = triggers.indexOf(trigger);
+		var next = null;
+		if (e.key === 'ArrowRight') next = triggers[(i + 1) % triggers.length];
+		else if (e.key === 'ArrowLeft') next = triggers[(i - 1 + triggers.length) % triggers.length];
+		else if (e.key === 'Home') next = triggers[0];
+		else if (e.key === 'End') next = triggers[triggers.length - 1];
+		next = next;
+		if (!next) return;
+		// `aria-expanded` is the honest test for "a panel is open": the
+		// platform does not manage it in either direction, and
+		// onPopoverToggle keeps it in step with :popover-open for any
+		// trigger carrying aria-haspopup - so this reads the ONE place that
+		// already knows. A plain nav link never carries it, and a link with
+		// aria-expanded="false" is correctly read as closed.
+		var wasOpen = bar.querySelector('.cm-navmenu__trigger[aria-expanded="true"]');
+		// A nav is NOT a menu bar. With no panel open the arrows belong to
+		// the PAGE - a reader scrolling, a caret in a field, a range input -
+		// and walking words on an idle bar would hijack keys this component
+		// has no business owning. That is the whole difference between
+		// .cm-navmenu and .cm-menubar, and it is why the decision is made
+		// before focus moves: an idle bar must be untouched, not walked and
+		// then apologised for.
+		if (!wasOpen) return;
+		e.preventDefault();
+		// Focus moves to the next WORD, so a reader walking the bar while a
+		// panel is open never loses the bar.
+		next.focus();
+		var id = next.getAttribute && next.getAttribute('popovertarget');
+		if (!id) return;
+		// The swap is DEFERRED, and that is not a flourish. `showPopover()`
+		// fires `toggle` as a task, and onPopoverToggle is what writes
+		// aria-expanded and what anchors the panel - so a synchronous open
+		// here leaves the new panel with NO aria-expanded and NO placement
+		// until that task runs, which is a WebKit read caught: after Right,
+		// `refOpen: false, refExpanded: 'false'` on the word the bar had
+		// just walked to. Deferring one task lets the toggle path do both.
+		//
+		// There is deliberately NO `anchorPopover(menu)` here. It was
+		// written as belt-and-braces for a consumer element with no bound
+		// handler, and MEASURED against a mutant that removed it, the swap
+		// still landed 4px under its trigger with the left edge resolved -
+		// the toggle path was sufficient on its own. Unproven redundancy is
+		// what the scroll-pin's requestAnimationFrame was, and it was
+		// deleted for the same reason: it is untestable, so nothing can tell
+		// you the day it starts doing damage.
+		if (typeof setTimeout !== 'function') return;
+		setTimeout(function () {
+			var menu = document.getElementById(id);
+			if (!menu || typeof menu.showPopover !== 'function') return;
+			if (!menu.matches(':popover-open')) menu.showPopover();
+		}, 0);
+	}
+	if (typeof document !== 'undefined') document.addEventListener('keydown', onNavmenuKey);
 
 	/* ---------- context menu ----------
 	   One listener at the root, like the toggle handler above: a consumer
@@ -3185,6 +3436,7 @@
 		cmInitSteppers(root);
 		cmInitOtp(root);
 		cmInitCommand(root);
+		cmInitNavmenu(root);
 		if (!root || root === document) initExternalLinks();
 	}
 
@@ -3237,7 +3489,7 @@
 		return !!document.querySelector(
 			'[data-cm-header], [data-cm-nav-toggle], [data-cm-copy], ' +
 			'[data-cm-tabs], [data-cm-toast], [data-cm-quiz], [data-cm-scroller], ' +
-			'.cm-prose-table'
+			'[data-cm-navmenu], .cm-prose-table'
 		);
 	}
 
@@ -3535,6 +3787,21 @@
 		document.addEventListener('astro:page-load', function () {
 			init(document);
 		});
+		// One re-measure after the page has finished loading. The first pass
+		// runs on DOMContentLoaded, which is BEFORE web fonts swap and
+		// before every image has a box - both of which move every section
+		// down, so the indicator would otherwise stay where the fallback
+		// metrics put it. Measured on this showcase: the sections a navmenu
+		// points at are below 20,000px of specimens.
+		// Guarded on `window` as well as `document`: the suite evaluates
+		// this module in a context that has a document stub and no window
+		// at all, and an unguarded reference here is a load-time throw in
+		// every one of those sandboxes.
+		if (typeof window !== 'undefined') {
+			window.addEventListener('load', function () {
+				navSpies.forEach(function (s) { s.fn(); });
+			});
+		}
 		// Capture, at the root, registered once: see onPopoverToggle.
 		document.addEventListener('toggle', onPopoverToggle, true);
 		// Delegated at the root for the same reason: re-rendered markup
