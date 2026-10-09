@@ -1330,7 +1330,11 @@ check('wrapped text hangs under the text, not under the marker', () => {
 	// single non-global regex matched the first and never saw the second.
 	const rules = [...comp.matchAll(/\.cm-status__value\s*\{([^}]*)\}/g)].map(m => m[1]);
 	assert(rules.length > 0, '.cm-status__value rule missing');
-	const hanging = rules.some(r => /padding-left:[^;]*em/.test(r) && /text-indent:\s*-[^;]*em/.test(r));
+	// The pair is one unit since the Direction baseline: `text-indent`
+	// is already direction-aware, and the gutter that balances it is
+	// spelled `padding-inline-start`. Both must move together or the
+	// hang breaks, so both are asserted here, by their logical names.
+	const hanging = rules.some(r => /padding-inline-start:[^;]*em/.test(r) && /text-indent:\s*-[^;]*em/.test(r));
 	assert(hanging,
 		'status value has no hanging indent — a wrapped line runs back under the bullet');
 });
@@ -9684,7 +9688,7 @@ check('the title row action is pushed to the end of the row', () => {
 	const comp = read('src/styles/components.css');
 	const rule = [...comp.matchAll(/([^{}\n]*\.cm-head-row__action\s*\{[^}]*\})/g)][0];
 	assert(rule, '.cm-head-row__action must have its own rule body');
-	assert(/margin-left:\s*auto/.test(rule[1]),
+	assert(/margin-inline-start:\s*auto/.test(rule[1]),
 		'the action is not walked to the far end of the row, so it sits ' +
 		'beside the title however long the title grows');
 });
@@ -9782,7 +9786,7 @@ check('SectionHead: the action slot renders the control, and the title keeps its
 	// itself: the action is pushed to the far end with margin-left:auto.
 	const rule = /^\.cm-head-row__action\s*\{([^}]*)\}/m.exec(compSrc);
 	assert(rule, '.cm-head-row__action is not defined');
-	assert(/margin-left:\s*auto/.test(rule[1]),
+	assert(/margin-inline-start:\s*auto/.test(rule[1]),
 		'.cm-head-row__action does not push to the far end, so a title and its button share a line instead of opposing');
 });
 
