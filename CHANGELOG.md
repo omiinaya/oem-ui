@@ -2085,6 +2085,56 @@ button-qualified page selector and dies on select-all holding.
   pins every group label as ROUTED (counted, not sampled), and offcanvas is
   asserted parked out of the flow. Re-run: 44/44 killed.
 
+
+### Batch 21: select / tabs / accordion depth
+
+- **The three components got their missing FEATURES, not new skins.**
+  shadcn's documented surface, feature by feature, composed onto what
+  batch 18 already had:
+  - **SelectValue** - `setRadio`, the one function both activation
+    doors already called, now mirrors the picked label into the
+    trigger, retires the placeholder, and marks the wrap
+    `data-cm-picked`. The opt-in is structural: only a trigger
+    carrying the value/placeholder pair is written, so the toolbar's
+    density menu and every other radio menu are untouched.
+    (`data-cm-select` belongs to the table's row checkbox.)
+  - **`alignItemWithTrigger`** - a post-step inside `anchorPopover`,
+    the single placer, gated on `data-cm-align-item`: the CHECKED row
+    opens over the trigger instead of row one. Measured from the box,
+    so scroll re-pins stay idempotent; the viewport clamp always wins
+    when alignment cannot fit, and both clamps have their own proof.
+  - **A scrollable list** - `max-height: 60vh`, `overflow-y: auto`,
+    `overscroll-behavior: contain` on `.cm-dropdown__menu`: 40 rows on
+    a phone scroll inside the panel and the page behind it stays put.
+  - **A radio pick retires the menu** (native/radix semantics),
+    placed before the detail-0 guard so pointer and Enter make one
+    decision; arrow arrival calls `setRadio` directly and keeps the
+    menu open - the APG browse pattern, now checked live.
+  - **The placer's bottom clamp** - when neither side fits (a capped
+    list against a trigger near the phone's bottom edge) the panel
+    pins to the viewport floor instead of hanging off it.
+  - **Tabs `orientation="vertical"`** - `data-orientation` read once:
+    Up/Down move, Left/Right keep working, CSS flips the list at any
+    width. The marker is a shared transparent 2px left border, so
+    selecting shifts nothing and the colour comes through a token.
+  - **Disabled tabs** - skipped by every door (wrap-around, Home/End,
+    click) with the walk bounded by the row; `selectTab` refuses a
+    disabled target as the shared invariant; bind-time normalisation
+    prefers the selected ENABLED tab over the author's claim.
+  - **Disabled accordion item** - `<details>` has no disabled
+    attribute, so the toggle is VETOED at the summary by one
+    capture-phase listener (`preventDefault` kills pointer and the
+    click that keyboard users fire). No second toggler.
+- Proof: suite **583/0** (13 new checks, incl. synthetic-keyboard
+  tabs where focus - not attributes - is the witness, because a
+  correct refusal leaves every attribute untouched);
+  `tests/verify-select-tabs.py` **40/40** (WebKit 1280 + 402) -
+  one cold-start 35/36 on its first run, not reproduced in the six
+  after; `tests/mutate-select-tabs.py` **45/45 killed, 0 survived**
+  (all 45 patterns pre-flighted with `--scan`, a build in every
+  mutant window, restore verified byte-for-byte, final rebuild
+  inside the mutator).
+
 ## Fixed
 
 - Two stacking checks demanded a literal `z-index: <number>`, which fails on

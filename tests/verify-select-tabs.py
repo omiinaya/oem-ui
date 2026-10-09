@@ -65,9 +65,13 @@ with sync_playwright() as pw:
     # scrollable: 14 rows vs 60vh cap
     sc = menu.evaluate(
         'el => ({sh: el.scrollHeight, ch: el.clientHeight, '
-        'mh: parseFloat(getComputedStyle(el).maxHeight)})')
+        'mh: parseFloat(getComputedStyle(el).maxHeight), '
+        'os: getComputedStyle(el).overscrollBehavior})')
     ok('menu is capped and scrolls', sc['sh'] > sc['ch'], str(sc))
     ok('cap is 60vh-ish', 0.5 < sc['mh'] / 900 < 0.61, str(sc))
+    # a finger that reaches the end of the list must scroll the LIST,
+    # not chain to the page behind it.
+    ok('the menu contains its own overscroll', sc['os'] == 'contain', str(sc))
 
     # first open: nothing checked -> the placer's own job: fit the
     # viewport by below / flip / bottom-pin (a long list near the
@@ -93,7 +97,9 @@ with sync_playwright() as pw:
               picked: w.getAttribute('data-cm-picked'),
               open: document.getElementById('select-demo').matches(':popover-open')};
     }''')
-    ok('trigger mirrors the pick', picked['text'] == 'america/sao_paulo', str(picked))
+    ok('trigger mirrors the pick',
+       picked['text'] == 'america/sao_paulo' and picked['picked'] == 'true',
+       str(picked))
     ok('placeholder retired, value shown',
        picked['phHidden'] and not picked['vHidden'], str(picked))
     ok('menu closes on pick', not picked['open'], str(picked))
@@ -143,6 +149,23 @@ with sync_playwright() as pw:
     page.keyboard.press('Escape')
     page.wait_for_timeout(200)
 
+    # align's OWN clamp: chicago (checked by the browse) sits only ~75px
+    # into the list, so alignment wants the panel pushed DOWN past the
+    # viewport floor. Containment wins - the panel lands pinned inside,
+    # not hanging out of the bottom.
+    trig.click()
+    page.wait_for_timeout(250)
+    center(page, '[popovertarget="select-demo"]')
+    page.wait_for_timeout(300)
+    clamp = page.evaluate('''() => {
+      const m = document.getElementById('select-demo').getBoundingClientRect();
+      return {top: m.top, bot: m.bottom, vh: window.innerHeight};
+    }''')
+    ok('align clamps to the viewport instead of hanging out',
+       clamp['top'] >= -1 and clamp['bot'] <= clamp['vh'] + 1, str(clamp))
+    page.keyboard.press('Escape')
+    page.wait_for_timeout(200)
+
     # plain menu is NOT aligned: top must stay trigger.bottom + 4
     page.keyboard.press('Escape')   # the select is open; let it go first
     page.wait_for_timeout(200)
@@ -174,7 +197,8 @@ with sync_playwright() as pw:
     t2 = page.evaluate('''() => ({
         sel: document.querySelector('.cm-tabs:not([data-orientation]) [aria-selected="true"]').id,
         focus: document.activeElement.id})''')
-    ok('End lands on the last ENABLED tab', t2['sel'] == 'tab-components', str(t2))
+    ok('End lands on the last ENABLED tab',
+       t2['sel'] == 'tab-components' and t2['focus'] == 'tab-components', str(t2))
 
     # click a disabled tab: nothing happens
     page.locator('#tab-status').click(force=True)
@@ -207,9 +231,24 @@ with sync_playwright() as pw:
     page.wait_for_timeout(300)
     geo_v = vt.evaluate('''el => {
       const tabs = [...el.querySelectorAll('[role="tab"]')].map(t => t.getBoundingClientRect().top);
-      return {stacked: tabs[1] > tabs[0] + 5, col: getComputedStyle(el.querySelector('.cm-tabs__list')).flexDirection};
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--ink)';
+      document.documentElement.appendChild(probe);
+      const ink = getComputedStyle(probe).color;
+      probe.remove();
+      return {stacked: tabs[1] > tabs[0] + 5,
+              col: getComputedStyle(el.querySelector('.cm-tabs__list')).flexDirection,
+              mk: getComputedStyle(el.querySelector('.cm-tabs__tab')).borderLeftWidth,
+              mkOn: getComputedStyle(el.querySelector('.cm-tabs__tab[aria-selected="true"]')).borderLeftColor,
+              ink: ink};
     }''')
     ok('vertical list is a column', geo_v['stacked'] and geo_v['col'] == 'column', str(geo_v))
+    # every row pays the same 2px left edge (transparent unless selected),
+    # so the marker is a border that shifts nothing, drawn from a token.
+    ok('the vertical marker is a 2px left border on every row',
+       geo_v['mk'] == '2px', str(geo_v))
+    ok('the selected row lights its marker from the ink token',
+       geo_v['mkOn'] == geo_v['ink'], str(geo_v))
 
     page.locator('#vtab-tokens').focus()
     page.keyboard.press('ArrowDown')
@@ -264,8 +303,11 @@ with sync_playwright() as pw:
     frozen.hover()
     page.wait_for_timeout(250)
     dis = frozen.evaluate('''el => { const s = getComputedStyle(el);
-        return {color: s.color, bg: s.backgroundColor, cursor: s.cursor}; }''')
-    ok('frozen summary is dim', dis['cursor'] == 'not-allowed', str(dis))
+        const r = getComputedStyle(document.querySelector('#tab-status'));
+        return {color: s.color, bg: s.backgroundColor, cursor: s.cursor,
+                ref: r.color}; }''')
+    ok('frozen summary is dim',
+       dis['cursor'] == 'not-allowed' and dis['color'] == dis['ref'], str(dis))
     ok('frozen summary does not light on hover',
        dis['bg'] in ('rgba(0, 0, 0, 0)', 'transparent'), str(dis))
     page.close()
@@ -296,3 +338,8 @@ fails = [x for x in P if not x[1]]
 for name, good, extra in P:
     print(('ok   ' if good else 'FAIL ') + name + (' :: ' + extra if not good else ''))
 print(f'\npassed {len(P) - len(fails)}/{len(P)}')
+# The exit code is the ORACLE the mutator reads: a harness that always
+# exits 0 makes every harness-owned mutation survive. Sidebar has
+# raised SystemExit(1) since batch 20; this one must too.
+if fails:
+    raise SystemExit(1)

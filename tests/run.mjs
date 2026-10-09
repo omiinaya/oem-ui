@@ -13930,8 +13930,19 @@ check('batch 21 select: the placer aligns the checked row and can never lose the
 		'the align no longer moves the BOX by what the ROW needs');
 	// Neither side fits: below-impossible, flip-impossible - the panel
 	// still pins its bottom edge inside the viewport.
-	assert(anchor[0].includes('window.innerHeight - h - pad'),
+	// The flip (this branch only) plus a COUNT: the clamp line also
+	// exists in the submenu branch, so presence proves nothing - a main
+	// branch that stops clamping drops the total and is caught.
+	assert(anchor[0].includes('if (y + h > window.innerHeight - pad && t.top - h - 4 >= pad) y = t.top - h - 4;'),
+		'the placer no longer flips when the panel fits above');
+	const pins = (anchor[0].match(/if \(y \+ h > window\.innerHeight - pad\) y = window\.innerHeight - h - pad;/g) || []).length;
+	assert(pins >= 2,
 		'the placer has no bottom pin for a panel that fits neither side');
+	// ...and the align never climbs above the top pad either.
+	assert(anchor[0].includes('if (ay < pad) ay = pad;'),
+		'the align has no top pin');
+	assert(anchor[0].includes('if (ay + h > window.innerHeight - pad) {'),
+		'the align has no bottom pin');
 });
 
 check('batch 21 select: the specimen is a real select, not a menu with a label', () => {
@@ -13973,7 +13984,7 @@ check('batch 21 tabs: a disabled tab is unreachable through every door', () => {
 	// Driven: ArrowRight steps OVER the disabled middle tab.
 	const group = tabGroup();
 	group.kids[0].kids[1].setAttribute('aria-disabled', 'true');
-	const { api, doc } = runOn([group]);
+	const { api, doc, focusNode } = runOn([group]);
 	api.init(doc);
 	const tabs = group.kids[0].kids;
 	tabs[0].focus();
@@ -13986,9 +13997,34 @@ check('batch 21 tabs: a disabled tab is unreachable through every door', () => {
 	group.fire('keydown', { key: 'End' });
 	assert(tabs[2].getAttribute('aria-selected') === 'true',
 		'End landed on the disabled tab');
+	assert(focusNode() === tabs[2],
+		'End FOCUSED the disabled tab (refusal is not a landing)');
 	assert(tabs.filter((t) => t.getAttribute('aria-disabled') === 'true'
 		&& t.getAttribute('aria-selected') === 'true').length === 0,
 		'a disabled tab is selected');
+});
+
+check('batch 21 tabs: a frozen FIRST row is skipped, and a frozen tab the author chose is overruled', () => {
+	// Home walks DOWN from index 0 - with a disabled first row, landing
+	// on it would select the tab the keyboard was told never to pick.
+	// And aria-selected on a disabled tab is the same author lie the
+	// normalise exists for: two claims, the reachable one wins.
+	const group = tabGroup();
+	const tabs0 = group.kids[0].kids;
+	tabs0[0].setAttribute('aria-disabled', 'true');
+	tabs0[0].setAttribute('aria-selected', 'true');
+	const { api, doc, focusNode } = runOn([group]);
+	api.init(doc);
+	const tabs = group.kids[0].kids;
+	assert(tabs[1].getAttribute('aria-selected') === 'true' &&
+		tabs[0].getAttribute('aria-selected') === 'false',
+		'the runtime trusted aria-selected on a disabled tab');
+	tabs[2].focus();
+	group.fire('keydown', { key: 'Home' });
+	assert(tabs[1].getAttribute('aria-selected') === 'true',
+		'Home landed on the frozen first row');
+	assert(focusNode() === tabs[1],
+		'Home FOCUSED the frozen first row (refusal is not a landing)');
 });
 
 check('batch 21 tabs: Up/Down move only when the group says vertical', () => {
