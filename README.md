@@ -2356,6 +2356,37 @@ global count passes on a bar with two marks as long as another has
 none, and the wrap oracle scopes its walk to the bar it means
 rather than collecting every bar's words).
 
+### Navigation menu submenu
+
+A bar that opens panels could not nest. Radix's `NavigationMenu.Sub` lives inside Content and its docs say what it does — "Supports submenus" — and shadcn links Radix as its variant, with `delayDuration 200` and `skipDelayDuration 300`, which are the constants this bar already runs. A sub root is not a second component: it is a root nested in the parent's Content, with its own list, its own viewport and its own indicator, and the bar machinery is unchanged.
+
+Markup is the same three parts, with `data-cm-navmenu-sub` marking the nested one:
+
+```html
+<div class="cm-navmenu cm-navmenu--sub" data-cm-navmenu data-cm-navmenu-sub
+     data-cm-navmenu-viewport="nav-sub-viewport" data-orientation="vertical">
+  <button class="cm-navmenu__trigger" popovertarget="nav-sub-viewport"
+          data-cm-navmenu-content="#nav-sub-tpl-depth" aria-haspopup="true">
+    deep dive <span class="cm-navmenu__chev" aria-hidden="true"></span>
+  </button>
+  <div class="cm-dropdown__menu cm-navmenu__panel cm-navmenu__subpanel"
+       id="nav-sub-viewport" popover data-cm-viewport data-state="closed"></div>
+  <template id="nav-sub-tpl-depth">…</template>
+</div>
+```
+
+Three things follow from a bar being able to nest, and all three are load-bearing:
+
+**Every own-element read is scoped.** A bar that contains another bar cannot ask `bar.querySelector('.cm-navmenu__trigger')` and get its own rows — it gets the nested ones too, and the walk, the spy, the idle gate and the indicator all read the wrong bar's state. `navOwn(bar, selector)` filters to `el.closest('[data-cm-navmenu]') === bar`, and every trigger and mark read goes through it.
+
+**Placement asks the submenu's owner for its own word.** A panel opened from a top-level trigger is anchored under the bar; a nested one is anchored to the word that opened it, beside it where there is room and below it on a phone. Asking `aria-controls` alone leaves the owner `null` and the panel hangs off the parent's top-left corner — measured at 402px, a word at y=488 with its submenu at y=196, straight over the parent's own links. The sub panel is also narrower than the panel it hangs off (16rem against 20rem): a second full-width wall stacked on the first buries the page it sits over.
+
+**A hover record cannot decide a hover.** `__cmNavHoverLast` remembers the last hovered word and is cleared only by a `pointerout` whose target is itself a trigger — a pointer that leaves for the bar's own padding, or for the sticky header, or leaves the window, never produces one. Measured in WebKit: a word whose panel a click had closed was then dead to the pointer for the rest of the session, because a second guard answered the same keypress with the bare record and every later hover returned before the 200ms timer could re-arm. The arrival is answered once, about what the hover **did** — a timer pending, or this word's panel open — and the one thing that legitimately holds a word is a click, scoped to while that click's own panel is open.
+
+**Keyboard.** ArrowRight on an open nested word steps into the submenu's first row; on an outer word it still roves sections, because a key has one meaning per bar. ArrowLeft is the dropdown's: from inside a submenu it closes it and returns to the row that owns it, and a second press steps out to the parent word — one level per press.
+
+**Proof:** suite 587/0 · navmenu 52/52 stable 3/3 · mutation 11/11 killed, one pattern cut as a mutation-proved equivalent and documented in `tests/mutate-navmenu-sub.py` · select-tabs 40/40 · sidebar 34/34. The mutator's first run is what found the hover bug above — it was shipped code, not a test weakness.
+
 ## shadcn/ui parity status
 
 The standing goal is component parity with

@@ -2348,6 +2348,31 @@ per-trigger, shared viewport, vertical).
   longer exercise both halves it reports FIXTURE BROKEN and exits rather
   than reporting meaningless kills.
 
+### Batch 24: navigation menu submenu
+
+**The gap.** A bar that opens panels could not nest. Radix's `NavigationMenu.Sub` lives inside Content and its docs say what it does — "Supports submenus" — and shadcn links Radix as its variant, with `delayDuration 200` and `skipDelayDuration 300`, which are the constants this bar already ran. shadcn's own doc points at Base UI, which has no `sub` in its API at all; the documented behaviour lives in the linked Radix variant, so the gap is real and it is Batch 24's.
+
+**What shipped.** A sub root is not a second component: it is a root nested in the parent's Content, with its own list, its own viewport and its own indicator. Nested inside `#nav-product`'s panel (`nav-sub-viewport`, `nav-sub-tpl-guides`, `nav-sub-tpl-depth`), with the bar machinery unchanged.
+
+Three consequences, all load-bearing:
+
+- **Own-bar scoping.** Once a bar can nest, a descendant-wide `.cm-navmenu__trigger` query answers with the nested bar's rows — the walk, the spy, the idle gate and the indicator all read the wrong bar's state. `navOwn(bar, selector)` filters on `el.closest('[data-cm-navmenu]') === bar`.
+- **Placement.** A nested panel is anchored to the word that opened it, beside it where there is room and below it on a phone. Asking `aria-controls` alone leaves the owner `null` and the panel hangs off the parent's top-left corner. The sub panel is also narrower (16rem against 20rem): a second full-width wall buries the page.
+- **The hover record is not a decision.** `__cmNavHoverLast` is cleared only by a `pointerout` whose target is a trigger, so a pointer leaving for the bar's padding or the sticky header leaves it stale. Measured in WebKit, a word whose panel a click had closed was dead to the pointer for the rest of the session.
+
+**Two real defects found, both by looking rather than by reading.** The nested panel first rendered at y=196 over the parent's own links (word at y=488) — `overlaps: 1` from a geometry probe, and the cause was the owner lookup, not the animation or the clamp. And the hover record was permanent, because a second guard answered the same keypress with the bare record after the careful one had already asked the right question; the fix moved click-ownership into its own panel-scoped fact (`__cmNavClickOwned`) rather than reusing the hover record.
+
+**The mutator earned its place.** `tests/mutate-navmenu-sub.py`, 11 patterns, byte-exact and `--scan` pre-checked. Its first run killed 7 and survived 5, and the survivors were the useful part:
+
+- three named `navSubOut` — **dead code**. Disabling it changed nothing a reader could see, because the dropdown's own `closeSubmenu` already closes an open submenu and returns focus to the owning row. Deleted, not documented; ArrowLeft-out is now asserted as the dropdown's behaviour the harness reads back.
+- the idle gate's own-bar filter survived because it is not observable through the keyboard at all — the dropdown's capture-phase handler closes the parent panel first. Cut as undriven, with the reason in the mutator.
+- the panel-width mutant survived on a closed-popover measurement (a closed panel is `display:none` and reads zero). The assertion now opens both panels and reads them.
+- the hover-record survivor was **shipped code**, and fixing it produced the two new patterns that close that door.
+
+Two patterns were cut as mutation-proved equivalents rather than claimed: `width:auto` under `align-items: stretch` (batch 23) and `navSubIn`'s `aria-expanded` guard, which the `:popover-open` check below it already answers — both builds measured, focus in exactly the same place.
+
+**Gates:** suite 587/0 · navmenu 52/52 stable 3/3 · select-tabs 40/40 · sidebar 34/34 · mutation 11/11 killed, 0 survived.
+
 ### Added
 
 - **`.cm-row--on`** - the list-row form of the selected treatment, the same inset rule `cm-section--on` uses. A tinted row is the one signal that disappears in greyscale print, and a selected row is information the reader has to see.
