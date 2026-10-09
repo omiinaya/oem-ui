@@ -4102,7 +4102,14 @@ Two helpers shadcn ships under utils, in house CSS. <code>scroll-fade</code>
 					sets <code>aria-current</code> on that trigger and no other. A
 					trigger with no <code>href</code> opens a panel and is never
 					the current section, which is why <code>product</code> below
-					carries no mark.
+					carries no mark. On a desk pointer the bar also opens on
+					<b>hover, after 200ms</b> - the delay is what keeps a pointer
+					crossing the bar from opening every panel it passes - and a
+					hover-opened panel closes 300ms after the pointer leaves the
+					bar; a clicked one stays. The second bar is ONE panel whose
+					CONTENT swaps between words (<code>data-state</code> carries
+					the open/closed fingerprint), and the third runs down the
+					page with <code>data-orientation="vertical"</code>.
 				</SectionHead>
 				<div class="cm-spec">
 					<div class="cm-spec__row">
@@ -4170,6 +4177,58 @@ Two helpers shadcn ships under utils, in house CSS. <code>scroll-fade</code>
 						<a class="cm-navmenu__trigger" href="#readme">
 							readme <span class="cm-navmenu__chev" aria-hidden="true"></span>
 						</a>
+						<span class="cm-navmenu__indicator" aria-hidden="true"></span>
+					</div>
+				</div>
+
+				<div class="cm-card">
+					<div class="cm-navmenu" data-cm-navmenu data-cm-navmenu-viewport="nav-viewport" role="navigation" aria-label="shared viewport navigation menu">
+						<button type="button" class="cm-navmenu__trigger" popovertarget="nav-viewport" data-cm-navmenu-content="#nav-tpl-product" aria-haspopup="true" aria-expanded="false">
+							product <span class="cm-navmenu__chev" aria-hidden="true"></span>
+						</button>
+						<button type="button" class="cm-navmenu__trigger" popovertarget="nav-viewport" data-cm-navmenu-content="#nav-tpl-reference" aria-haspopup="true" aria-expanded="false">
+							reference <span class="cm-navmenu__chev" aria-hidden="true"></span>
+						</button>
+						<span class="cm-navmenu__indicator" aria-hidden="true"></span>
+						<div class="cm-dropdown__menu cm-navmenu__panel" id="nav-viewport" popover data-cm-viewport data-state="closed" role="menu" aria-label="shared viewport"></div>
+						<template id="nav-tpl-product">
+							<a class="cm-navmenu__link" href="#buttons" role="menuitem">
+								<span class="cm-navmenu__col">
+									<span class="cm-navmenu__label">buttons</span>
+									<span class="cm-navmenu__desc">every variant, every state, sharp corners</span>
+								</span>
+							</a>
+							<a class="cm-navmenu__link" href="#sidebar" role="menuitem">
+								<span class="cm-navmenu__col">
+									<span class="cm-navmenu__label">sidebar</span>
+									<span class="cm-navmenu__desc">shadcn's layout, attributes all the way down</span>
+								</span>
+							</a>
+						</template>
+						<template id="nav-tpl-reference">
+							<a class="cm-navmenu__link" href="#scroller" role="menuitem">
+								<span class="cm-navmenu__col">
+									<span class="cm-navmenu__label">scroller</span>
+									<span class="cm-navmenu__desc">the transcript frame, edge-pinned</span>
+								</span>
+							</a>
+							<a class="cm-navmenu__link" href="#readme" role="menuitem">
+								<span class="cm-navmenu__col">
+									<span class="cm-navmenu__label">readme</span>
+									<span class="cm-navmenu__desc">the parity table and the proof</span>
+								</span>
+							</a>
+						</template>
+					</div>
+				</div>
+
+				<div class="cm-card">
+					<div class="cm-navmenu" data-cm-navmenu data-orientation="vertical" role="navigation" aria-label="vertical navigation menu">
+						<a class="cm-navmenu__trigger" href="#navmenu">navigation menu</a>
+						<a class="cm-navmenu__trigger" href="#forms">forms</a>
+						<a class="cm-navmenu__trigger" href="#data-table">data table</a>
+						<a class="cm-navmenu__trigger" href="#sidebar">sidebar</a>
+						<a class="cm-navmenu__trigger" href="#readme">readme</a>
 						<span class="cm-navmenu__indicator" aria-hidden="true"></span>
 					</div>
 				</div>

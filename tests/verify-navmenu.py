@@ -223,8 +223,15 @@ with sync_playwright() as pw:
     # layout / product / reference / readme, so Right from `reference` goes
     # to `readme` and the NEXT Right wraps to the first word. Neither step
     # crosses a panel boundary, so nothing here depends on toggle timing.
+    # Scoped to THE bar under test (the first one): document-wide would
+    # collect every trigger of every bar now that the specimen ships the
+    # shared-viewport and vertical bars, and then "the last word" is some
+    # other bar's - an oracle that drifts to a sibling, which is exactly
+    # what this suite's rename-proofing exists for.
     wrapped = page.evaluate("""() => {
-        const nav = () => [...document.querySelectorAll('.cm-navmenu__trigger')]
+        const home = document.querySelector('.cm-navmenu__trigger[popovertarget=\"nav-product\"]');
+        const ownBar = home.closest('[data-cm-navmenu]');
+        const nav = () => [...ownBar.querySelectorAll('.cm-navmenu__trigger')]
             .filter(t => t.getClientRects().length > 0);
         nav()[nav().length - 2].focus();
         nav()[nav().length - 2].dispatchEvent(
@@ -463,6 +470,200 @@ with sync_playwright() as pw:
     # everywhere is not a coarse-pointer rule, it is density lost at a desk.
     check('on a fine pointer the same trigger stays dense',
           floor['h'] != fine['h'], {'coarse': floor, 'fine': fine})
+
+    # ---- batch 23: the three depth behaviours - delayed hover, the
+    # shared viewport, the vertical bar. All on the FINE main page (the
+    # media gate is read at event time; the coarse negative lives as a
+    # source pin in the suite, because Playwright cannot flip
+    # (hover: none) on a desktop WebKit).
+    VPROD = '[data-cm-navmenu-viewport] .cm-navmenu__trigger[data-cm-navmenu-content="#nav-tpl-product"]'
+    VREF = '[data-cm-navmenu-viewport] .cm-navmenu__trigger[data-cm-navmenu-content="#nav-tpl-reference"]'
+    VBAR = '[data-cm-navmenu-viewport]'
+
+    page.evaluate("""() => {
+        document.querySelectorAll('[popover]').forEach((p) => {
+            if (p.matches(':popover-open')) p.hidePopover();
+        });
+        window.scrollTo(0, 0);
+    }""")
+    page.wait_for_timeout(300)
+    page.evaluate("() => document.querySelector('%s').scrollIntoView({block:'center'})" % PRODUCT)
+    page.wait_for_timeout(600)
+
+    # (a) the delay is REAL: hover must not open in the first 200ms.
+    # The read at +90ms is what separates a delay from an instant open;
+    # the read after 440ms total separates a delay from a broken gate.
+    box = page.locator(PRODUCT).bounding_box()
+    page.mouse.move(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+    page.wait_for_timeout(90)
+    early = page.evaluate("() => document.getElementById('nav-product').matches(':popover-open')")
+    check('hover for less than 200ms opens nothing', not early, {'openAt90ms': early})
+    page.wait_for_timeout(380)
+    later = page.evaluate("""() => {
+        const p = document.getElementById('nav-product');
+        const t = document.querySelector('.cm-navmenu__trigger[popovertarget="nav-product"]');
+        return { open: p.matches(':popover-open'), exp: t.getAttribute('aria-expanded') };
+    }""")
+    check('hovering past the 200ms delay opens the panel',
+          later['open'] and later['exp'] == 'true', later)
+
+    # (b) leaving the bar: the grace keeps the panel up while the pointer
+    # is still crossing, then the HOVER-opened panel closes. Two reads,
+    # because a close-at-0ms and a never-close both fail one of them.
+    page.mouse.move(8, 8)
+    page.wait_for_timeout(150)
+    grace = page.evaluate("() => document.getElementById('nav-product').matches(':popover-open')")
+    check('the hover panel survives the first 150ms after the pointer leaves',
+          grace, {'openAt150ms': grace})
+    page.wait_for_timeout(400)
+    gone = page.evaluate("() => document.getElementById('nav-product').matches(':popover-open')")
+    check('and closes once the 300ms grace has run', not gone, {'openAt550ms': gone})
+
+    # (c) a CLICK-opened panel is sticky: the click door turns hover
+    # ownership OFF (and the 200ms timer must not steal it back - the
+    # timer fires AFTER the click on this very trigger).
+    page.click(PRODUCT)
+    page.wait_for_timeout(300)          # past the timer this click armed
+    page.mouse.move(8, 8)
+    page.wait_for_timeout(500)          # past every grace window
+    sticky = page.evaluate("() => document.getElementById('nav-product').matches(':popover-open')")
+    check('a click-opened panel stays when the pointer leaves', sticky, {'stayed': sticky})
+    page.keyboard.press('Escape')
+    page.wait_for_timeout(250)
+
+    # (d) inside an OPEN bar the move to the next word is immediate: no
+    # second 200ms. Read at +90ms - under the delay, so a re-delayed
+    # swap would fail it.
+    box = page.locator(PRODUCT).bounding_box()
+    page.mouse.move(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+    page.wait_for_timeout(380)
+    rbox = page.locator(REF).bounding_box()
+    page.mouse.move(rbox['x'] + rbox['width'] / 2, rbox['y'] + rbox['height'] / 2)
+    page.wait_for_timeout(90)
+    swapped = page.evaluate("""() => ({
+        prod: document.getElementById('nav-product').matches(':popover-open'),
+        ref: document.getElementById('nav-ref').matches(':popover-open'),
+        refExp: document.querySelector('.cm-navmenu__trigger[popovertarget="nav-ref"]')
+                  .getAttribute('aria-expanded') })""")
+    check('inside an open bar the next word swaps with no second delay',
+          (not swapped['prod']) and swapped['ref'] and swapped['refExp'] == 'true', swapped)
+    page.mouse.move(8, 8)
+    page.wait_for_timeout(500)
+
+    # (e) the SHARED VIEWPORT: one panel, the list swaps under it.
+    page.evaluate("() => document.querySelector('%s').scrollIntoView({block:'center'})" % VBAR)
+    page.wait_for_timeout(600)
+    # open door 1 (synthetic click: no pointer travel, so the hover
+    # timer never enters this sequence)
+    page.evaluate("() => document.querySelector('%s').click()" % VPROD)
+    page.wait_for_timeout(300)
+    vp1 = page.evaluate("""() => {
+        const vp = document.getElementById('nav-viewport');
+        const p = document.querySelector('[data-cm-navmenu-viewport] '
+            + '.cm-navmenu__trigger[data-cm-navmenu-content="#nav-tpl-product"]');
+        const r = document.querySelector('[data-cm-navmenu-viewport] '
+            + '.cm-navmenu__trigger[data-cm-navmenu-content="#nav-tpl-reference"]');
+        return { open: vp.matches(':popover-open'),
+                 state: vp.getAttribute('data-state'),
+                 hasButtons: !!vp.querySelector('a[href="#buttons"]'),
+                 kids: vp.children.length,
+                 pExp: p.getAttribute('aria-expanded'),
+                 rExp: r.getAttribute('aria-expanded') };
+    }""")
+    check('the shared viewport opens carrying the first word\'s list',
+          vp1['open'] and vp1['state'] == 'open' and vp1['hasButtons']
+          and vp1['kids'] > 0 and vp1['pExp'] == 'true' and vp1['rExp'] == 'false', vp1)
+    # the CLICK door on a different word must SWAP, not toggle closed -
+    # two triggers, one popovertarget, and the platform only knows
+    # "toggle". Synthetic click: the pointer is nowhere near the bar, so
+    # this is the click branch alone.
+    page.evaluate("() => document.querySelector('%s').click()" % VREF)
+    page.wait_for_timeout(300)
+    vp2 = page.evaluate("""() => {
+        const vp = document.getElementById('nav-viewport');
+        const p = document.querySelector('[data-cm-navmenu-viewport] '
+            + '.cm-navmenu__trigger[data-cm-navmenu-content="#nav-tpl-product"]');
+        const r = document.querySelector('[data-cm-navmenu-viewport] '
+            + '.cm-navmenu__trigger[data-cm-navmenu-content="#nav-tpl-reference"]');
+        return { open: vp.matches(':popover-open'),
+                 state: vp.getAttribute('data-state'),
+                 hasButtons: !!vp.querySelector('a[href="#buttons"]'),
+                 hasScroller: !!vp.querySelector('a[href="#scroller"]'),
+                 pExp: p.getAttribute('aria-expanded'),
+                 rExp: r.getAttribute('aria-expanded') };
+    }""")
+    check('clicking the next word swaps the list in the same open panel',
+          vp2['open'] and vp2['hasScroller'] and not vp2['hasButtons']
+          and vp2['pExp'] == 'false' and vp2['rExp'] == 'true', vp2)
+    # ...and the arrow walk takes the same path: content swaps, panel
+    # stays open, focus lands on the new word, panel re-anchored to IT.
+    page.evaluate("""() => {
+        const t = document.querySelector('[data-cm-navmenu-viewport] '
+            + '.cm-navmenu__trigger[data-cm-navmenu-content="#nav-tpl-product"]');
+        t.focus();
+        t.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowRight', bubbles: true}));
+    }""")
+    page.wait_for_timeout(350)
+    vp3 = page.evaluate("""() => {
+        const vp = document.getElementById('nav-viewport');
+        const r = document.querySelector('[data-cm-navmenu-viewport] '
+            + '.cm-navmenu__trigger[data-cm-navmenu-content="#nav-tpl-reference"]');
+        const pr = vp.getBoundingClientRect(), rr = r.getBoundingClientRect();
+        return { open: vp.matches(':popover-open'),
+                 focusIsR: document.activeElement === r,
+                 hasScroller: !!vp.querySelector('a[href="#scroller"]'),
+                 dl: Math.round(pr.left - rr.left),
+                 below: Math.round(pr.top - rr.bottom),
+                 vw: document.documentElement.clientWidth,
+                 left: Math.round(pr.left),
+                 rExp: r.getAttribute('aria-expanded') };
+    }""")
+    check('the arrow walk swaps the viewport in place, anchored to the new word',
+          vp3['open'] and vp3['focusIsR'] and vp3['hasScroller']
+          and vp3['rExp'] == 'true'
+          and (abs(vp3['dl']) <= 1 or vp3['left'] >= 7), vp3)
+    # close on the CURRENT word: data-state closed, every word false.
+    page.evaluate("() => document.querySelector('%s').click()" % VREF)
+    page.wait_for_timeout(300)
+    vp4 = page.evaluate("""() => {
+        const vp = document.getElementById('nav-viewport');
+        const exps = [...document.querySelectorAll('[data-cm-navmenu-viewport] .cm-navmenu__trigger')]
+            .map(t => t.getAttribute('aria-expanded'));
+        return { open: vp.matches(':popover-open'),
+                 state: vp.getAttribute('data-state'),
+                 exps: exps };
+    }""")
+    check('the current word\'s click closes it and stamps data-state closed',
+          (not vp4['open']) and vp4['state'] == 'closed'
+          and all(e == 'false' for e in vp4['exps']), vp4)
+
+    # (f) the vertical bar: the declaration is the attribute, the list
+    # stacks, and the indicator rides the SECOND pair of knobs (height
+    # and top) instead of width and left.
+    page.evaluate("""() => document.querySelector(
+        '[data-cm-navmenu][data-orientation="vertical"]') .scrollIntoView({block:'center'})""")
+    page.wait_for_timeout(700)
+    vert = page.evaluate("""() => {
+        const bar = document.querySelector('[data-cm-navmenu][data-orientation="vertical"]');
+        const kids = [...bar.querySelectorAll('.cm-navmenu__trigger')].map((k) => {
+            const r = k.getBoundingClientRect();
+            return { t: Math.round(r.top), b: Math.round(r.bottom), l: Math.round(r.left) };
+        });
+        const ind = bar.querySelector('.cm-navmenu__indicator');
+        const after = getComputedStyle(ind, '::after');
+        return { dir: getComputedStyle(bar).flexDirection,
+                 stacked: kids.every((k, i) => i === 0 || k.t >= kids[i - 1].b - 1),
+                 sameLeft: kids.length > 1 && kids.every((k) => k.l === kids[0].l),
+                 active: ind.getAttribute('data-active'),
+                 h: ind.style.getPropertyValue('--cm-navmenu-h'),
+                 y: ind.style.getPropertyValue('--cm-navmenu-y'),
+                 paintedH: after.height };
+    }""")
+    check('the vertical bar stacks its words in one column',
+          vert['dir'] == 'column' and vert['stacked'] and vert['sameLeft'], vert)
+    check('and its mark is painted on the height axis, not the row\'s',
+          vert['active'] == 'true' and vert['h'] not in ('', '0px')
+          and vert['y'] not in ('',) and vert['paintedH'] not in ('0px', 'auto', ''), vert)
 
     check('the page threw nothing', not errors, errors)
     browser.close()

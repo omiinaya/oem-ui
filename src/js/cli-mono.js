@@ -1339,6 +1339,16 @@
 			trig.setAttribute('aria-expanded', menu.matches(':popover-open') ? 'true' : 'false');
 		}
 		if (menu.matches(':popover-open')) {
+			// The shared viewport fills HERE: click (recorded by
+			// onNavmenuClick), hover and the arrow walk all set
+			// __cmNavTrigger first, and this is the one task they all
+			// pass through. data-state is the fingerprint the panel
+			// carries for anything reading the swap (and for the CSS
+			// that paints the incoming list).
+			if (menu.hasAttribute && menu.hasAttribute('data-cm-viewport')) {
+				navViewportFill(menu);
+				menu.setAttribute('data-state', 'open');
+			}
 			if (menu.__cmCtx) {
 				ctxMenu = menu;
 				// A manual popover gets no focus return of its own, so keep
@@ -1379,6 +1389,14 @@
 				if (first && typeof first.focus === 'function') first.focus();
 			}
 		} else {
+			if (menu.hasAttribute && menu.hasAttribute('data-cm-viewport')) {
+				menu.setAttribute('data-state', 'closed');
+				// The generic aria write above ran popTrigger(), which
+				// for two triggers sharing one target can only see the
+				// FIRST - so a close after opening the second would
+				// leave that one reading expanded. Close the bar.
+				navViewportExpand(menu, null);
+			}
 			if (menu.__cmCtx && ctxMenu === menu) {
 				var back = menu.__cmReturn;
 				var inside = document.activeElement &&
@@ -1615,6 +1633,40 @@
 	   rail, applied to the bar that has no room for a rail. A consumer that
 	   hard-codes `aria-current` on a nav link would then be describing a
 	   position the page disagrees with. */
+	/* The SHARED VIEWPORT model: every trigger of the bar points at ONE
+	   panel and names the list it wants inside it (data-cm-navmenu-content
+	   -> a <template>). The swap happens in onPopoverToggle - the single
+	   task every door runs through - so content lands in the same task the
+	   panel opens in, before paint, and there is no second code path that
+	   can open the panel empty. aria-expanded is written across the whole
+	   bar here rather than left to popTrigger(): both triggers carry the
+	   same popovertarget, and popTrigger() can only ever find the first. */
+	function navViewportBar(viewport) {
+		var bars = document.querySelectorAll('[data-cm-navmenu-viewport]');
+		for (var i = 0; i < bars.length; i++) {
+			if (bars[i].getAttribute('data-cm-navmenu-viewport') === viewport.id) return bars[i];
+		}
+		return null;
+	}
+	function navViewportExpand(viewport, trigger) {
+		var bar = navViewportBar(viewport);
+		if (!bar) return;
+		Array.prototype.forEach.call(bar.querySelectorAll('.cm-navmenu__trigger'), function (t) {
+			t.setAttribute('aria-expanded', t === trigger ? 'true' : 'false');
+		});
+	}
+	function navViewportFill(viewport) {
+		var trigger = viewport.__cmNavTrigger || popTrigger(viewport);
+		if (!trigger) return;
+		viewport.__cmNavTrigger = trigger;
+		var srcId = trigger.getAttribute && trigger.getAttribute('data-cm-navmenu-content');
+		var src = srcId && document.querySelector(srcId);
+		if (src && src.content) {
+			while (viewport.firstChild) viewport.removeChild(viewport.firstChild);
+			viewport.appendChild(src.content.cloneNode(true));
+		}
+		navViewportExpand(viewport, trigger);
+	}
 	function navTriggers(bar) {
 		return Array.prototype.filter.call(
 			bar.querySelectorAll('.cm-navmenu__trigger'),
@@ -1645,6 +1697,8 @@
 			ind.setAttribute('data-active', 'false');
 			ind.style.removeProperty('--cm-navmenu-w');
 			ind.style.removeProperty('--cm-navmenu-x');
+			ind.style.removeProperty('--cm-navmenu-h');
+			ind.style.removeProperty('--cm-navmenu-y');
 			return;
 		}
 		// `data-active` is the FINGERPRINT of the measurement, in the same
@@ -1661,6 +1715,12 @@
 		// position the eye cannot see but a comparison can.
 		ind.style.setProperty('--cm-navmenu-w', Math.round(r.width) + 'px');
 		ind.style.setProperty('--cm-navmenu-x', Math.round(r.left - b.left) + 'px');
+		// The SECOND axis, for the bar declared vertical: height and top
+		// off the same two rects. One painter, one measurement, both
+		// orientations - a second painter for the vertical case is how
+		// the two would start disagreeing about where the word is.
+		ind.style.setProperty('--cm-navmenu-h', Math.round(r.height) + 'px');
+		ind.style.setProperty('--cm-navmenu-y', Math.round(r.top - b.top) + 'px');
 	}
 	/* The scrollport is returned as an ELEMENT or as NULL, and null means
 	   "the page". That distinction matters in WebKit: `document.scrollingElement`
@@ -1831,6 +1891,18 @@
 		// what the scroll-pin's requestAnimationFrame was, and it was
 		// deleted for the same reason: it is untestable, so nothing can tell
 		// you the day it starts doing damage.
+		// A SHARED VIEWPORT bar swaps CONTENT and keeps the panel: no
+		// toggle event will fire, so the fill, the aria move and the
+		// re-anchor all happen right here. Synchronously, because an
+		// unanchored swap is a panel sitting at the last trigger's
+		// coordinates - the one thing this file never does.
+		var shared = document.getElementById(id);
+		if (shared && shared.hasAttribute('data-cm-viewport')) {
+			shared.__cmNavTrigger = next;
+			navViewportFill(shared);
+			anchorPopover(shared);
+			return;
+		}
 		if (typeof setTimeout !== 'function') return;
 		setTimeout(function () {
 			var menu = document.getElementById(id);
@@ -1839,6 +1911,174 @@
 		}, 0);
 	}
 	if (typeof document !== 'undefined') document.addEventListener('keydown', onNavmenuKey);
+
+	/* ---------- navigation menu: delayed hover ----------
+	   The bar the pointer can DRIVE: hover for 200ms and the panel opens;
+	   inside an open bar the move to the next word is immediate (the delay
+	   is for GETTING in, not for walking); leaving the bar gives the
+	   reader 300ms of grace and then closes a panel the HOVER opened -
+	   a panel opened by click or Enter is sticky and stays, which is the
+	   difference between a hover affordance and a light-dismiss one.
+
+	   The gate is read at EVENT time, never bound at init: a media query
+	   is state (an OS setting, an emulation, a rotated device), and a
+	   gate captured at bind time is a lie the first time that state
+	   changes. Touch never enters this module - navFine() is false. */
+	var NAV_HOVER_OPEN_MS = 200;
+	var NAV_HOVER_LEAVE_MS = 300;
+	function navFine() {
+		return typeof window !== 'undefined' && typeof window.matchMedia === 'function' &&
+			window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+	}
+	function navHoverPanel(bar, trigger) {
+		var id = trigger.getAttribute && trigger.getAttribute('popovertarget');
+		return id ? document.getElementById(id) : null;
+	}
+	function navHoverOpen(bar, trigger) {
+		var menu = navHoverPanel(bar, trigger);
+		if (!menu || typeof menu.showPopover !== 'function') return;
+		// Guarded: showPopover() on an open popover THROWS, and the
+		// 200ms timer can outlive a click that opened the same panel.
+		// Ownership is claimed INSIDE the branch: the hover may only
+		// close what the hover opened. A panel another door already had
+		// open keeps ITS owner - the reader clicked it, so it sticks
+		// until they dismiss it, however far the pointer then wanders.
+		if (menu.matches(':popover-open')) return;
+		if (menu.hasAttribute('data-cm-viewport')) menu.__cmNavTrigger = trigger;
+		// Owned by the HOVER: this is the panel the leave-grace may
+		// close (onNavmenuClick turns the owner off for a click).
+		bar.__cmNavHoverOwned = 1;
+		menu.showPopover();
+	}
+	function navHoverSwap(bar, trigger) {
+		var menu = navHoverPanel(bar, trigger);
+		if (!menu) return;
+		if (menu.hasAttribute('data-cm-viewport')) {
+			if (!menu.matches(':popover-open')) { navHoverOpen(bar, trigger); return; }
+			// Same panel, next word: fill + re-anchor in place. This is
+			// the immediate branch - no second delay inside an open bar.
+			menu.__cmNavTrigger = trigger;
+			navViewportFill(menu);
+			anchorPopover(menu);
+			return;
+		}
+		// Per-trigger model: opening the next panel closes the old one
+		// (both are popover=auto, so the platform does the closing).
+		if (!menu.matches(':popover-open') && typeof menu.showPopover === 'function') {
+			menu.showPopover();
+		}
+	}
+	function navHoverClose(bar) {
+		Array.prototype.forEach.call(
+			bar.querySelectorAll('.cm-navmenu__trigger'),
+			function (t) {
+				var m = navHoverPanel(bar, t);
+				if (m && m.matches(':popover-open') && typeof m.hidePopover === 'function') {
+					m.hidePopover();
+				}
+			}
+		);
+	}
+	function onNavmenuOver(e) {
+		if (!navFine()) return;
+		var t = e.target;
+		if (!t || typeof t.closest !== 'function') return;
+		var trigger = t.closest('.cm-navmenu__trigger');
+		if (!trigger) return;
+		var bar = trigger.closest('[data-cm-navmenu]');
+		if (!bar) return;
+		if (e.relatedTarget && typeof e.relatedTarget.closest === 'function' &&
+			trigger.contains(e.relatedTarget)) return;
+		// Entering the bar cancels the leave grace - that is what the
+		// grace is for: the 4px between trigger and panel is a gap the
+		// pointer has to cross without the panel vanishing under it.
+		if (bar.__cmNavLeaveT) {
+			clearTimeout(bar.__cmNavLeaveT);
+			bar.__cmNavLeaveT = 0;
+		}
+		if (bar.__cmNavHoverLast === trigger) return;
+		bar.__cmNavHoverLast = trigger;
+		if (bar.__cmNavHoverT) {
+			clearTimeout(bar.__cmNavHoverT);
+			bar.__cmNavHoverT = 0;
+		}
+		var anyOpen = bar.querySelector('.cm-navmenu__trigger[aria-expanded="true"]');
+		if (anyOpen) { navHoverSwap(bar, trigger); return; }
+		if (typeof setTimeout !== 'function') return;
+		bar.__cmNavHoverT = setTimeout(function () {
+			bar.__cmNavHoverT = 0;
+			// The pointer may have moved on during the delay; the LAST
+			// hovered word must still be this one, and still fine.
+			if (bar.__cmNavHoverLast !== trigger || !navFine()) return;
+			navHoverOpen(bar, trigger);
+		}, NAV_HOVER_OPEN_MS);
+	}
+	function onNavmenuOut(e) {
+		if (!navFine()) return;
+		var t = e.target;
+		if (!t || typeof t.closest !== 'function') return;
+		var trigger = t.closest('.cm-navmenu__trigger');
+		if (!trigger) return;
+		var bar = trigger.closest('[data-cm-navmenu]');
+		if (!bar) return;
+		var to = e.relatedTarget;
+		if (to && typeof to.closest === 'function' && to.closest('[data-cm-navmenu]') === bar) return;
+		// Out of the bar entirely: a pending open dies now (the pointer
+		// did not stay for the 200), and a hover-owned panel gets the
+		// grace window before it closes.
+		if (bar.__cmNavHoverT) {
+			clearTimeout(bar.__cmNavHoverT);
+			bar.__cmNavHoverT = 0;
+		}
+		bar.__cmNavHoverLast = null;
+		if (!bar.__cmNavHoverOwned || typeof setTimeout !== 'function') return;
+		if (bar.__cmNavLeaveT) clearTimeout(bar.__cmNavLeaveT);
+		bar.__cmNavLeaveT = setTimeout(function () {
+			bar.__cmNavLeaveT = 0;
+			if (!navFine()) return;
+			if (bar.__cmNavHoverOwned) navHoverClose(bar);
+			bar.__cmNavHoverOwned = 0;
+		}, NAV_HOVER_LEAVE_MS);
+	}
+	/* The click door records WHICH word opened the shared viewport
+	   before the platform's default action runs - both triggers carry
+	   the same popovertarget, so without this the fill can only ever
+	   guess the first. A click also STICKS the panel: hover-owned goes
+	   off, because the reader asked for it to stay. */
+	function onNavmenuClick(e) {
+		var t = e.target;
+		if (!t || typeof t.closest !== 'function') return;
+		var trigger = t.closest('.cm-navmenu__trigger');
+		if (!trigger) return;
+		var bar = trigger.closest('[data-cm-navmenu]');
+		if (!bar) return;
+		bar.__cmNavHoverOwned = 0;
+		var vid = bar.getAttribute('data-cm-navmenu-viewport');
+		if (!vid) return;
+		var viewport = document.getElementById(vid);
+		if (!viewport) return;
+		// Two triggers, ONE popovertarget: the platform's own invocation
+		// is a TOGGLE, so while the viewport is open, clicking the next
+		// word would close the whole thing - every native shared menu
+		// swaps instead. The click listener runs before the activation
+		// behavior, so preventDefault() cancels the platform's toggle and
+		// this branch does the swap synchronously: fill, aria, re-anchor,
+		// same task, same panel. Clicking the CURRENT word still toggles
+		// closed - that is the reader asking for it to go.
+		if (viewport.matches(':popover-open') && viewport.__cmNavTrigger !== trigger) {
+			e.preventDefault();
+			viewport.__cmNavTrigger = trigger;
+			navViewportFill(viewport);
+			anchorPopover(viewport);
+			return;
+		}
+		viewport.__cmNavTrigger = trigger;
+	}
+	if (typeof document !== 'undefined') {
+		document.addEventListener('pointerover', onNavmenuOver);
+		document.addEventListener('pointerout', onNavmenuOut);
+		document.addEventListener('click', onNavmenuClick);
+	}
 
 	/* ---------- context menu ----------
 	   One listener at the root, like the toggle handler above: a consumer

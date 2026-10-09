@@ -13691,9 +13691,14 @@ check('shadcn-parity: the navigation menu carries its own anatomy', () => {
 	// The mark is decorative: it duplicates a state already announced by
 	// aria-current on the trigger, so a screen reader must not hear it
 	// twice. A mutant that drops aria-hidden survived a whole suite because
-	// nothing asserted the attribute.
-	assert((html.match(/class="cm-navmenu__indicator" aria-hidden="true"/g) || []).length === 1,
-		'the indicator duplicates aria-current and must stay out of the tree');
+	// nothing asserted the attribute. Counted PER BAR (the specimen now
+	// ships three: per-trigger, shared viewport, vertical) - a global
+	// count would pass on a bar with two marks as long as another had
+	// none, which is the drift this check exists to stop.
+	for (const seg of html.split('data-cm-navmenu ').slice(1)) {
+		assert((seg.match(/class="cm-navmenu__indicator" aria-hidden="true"/g) || []).length === 1,
+			'the indicator duplicates aria-current and must stay out of the tree');
+	}
 	// The chevron must be DRAWN, not a glyph: a rotated border pair in
 	// currentColor cannot drift from the label's colour and needs no icon
 	// font. A text arrow here would render at a different weight on every
@@ -13727,9 +13732,16 @@ check('shadcn-parity: the navmenu indicator is measured, not authored', () => {
 	const css = read('src/styles/components.css');
 	const js = read('src/js/cli-mono.js');
 	// One indicator per bar, and the bar we can reach from a link: a bar
-	// with two marks has no single current section.
-	assert((html.match(/class="cm-navmenu__indicator"/g) || []).length === 1,
-		'a bar carries exactly one indicator');
+	// with two marks has no single current section. Per-bar again, plus
+	// the total: every bar counted must OWN exactly one mark, so a mark
+	// that disappears from one bar cannot hide behind its neighbour's.
+	const barSegs = html.split('data-cm-navmenu ');
+	assert(barSegs.length - 1 === (html.match(/class="cm-navmenu__indicator"/g) || []).length,
+		'every bar must carry an indicator and nothing else may');
+	for (const seg of barSegs.slice(1)) {
+		assert((seg.match(/class="cm-navmenu__indicator"/g) || []).length === 1,
+			'a bar carries exactly one indicator');
+	}
 	// The mark is a pseudo-element driven by two custom properties. Both are
 	// component-scoped, so both are written with a fallback - an
 	// unresolvable var() is a declaration that dies silently at
@@ -14202,4 +14214,128 @@ check('batch 21 accordion: the specimen freezes exactly one summary, and says so
 		'the frozen summary does not read as frozen');
 	assert(/\.cm-disclosure__summary\[aria-disabled='true'\]:hover\s*\{\s*background:\s*transparent/.test(compSrc),
 		'hover lights a frozen summary - it promises a state the veto refuses');
+});
+
+/* ---------- shadcn-parity: batch 23 - navigation menu depth ----------
+   The three documented behaviours the shipped bar did not have: a
+   DELAYED hover open (200ms in, 300ms grace out, desk pointers only),
+   ONE shared viewport whose content swaps between words with
+   data-state as the fingerprint, and a declarative vertical bar whose
+   indicator rides height/top instead of width/left. */
+check('batch 23 nav: hover is delayed, gated at event time, and the hover owns its close', () => {
+	const js = read('src/js/cli-mono.js');
+	assert(js.includes('var NAV_HOVER_OPEN_MS = 200;'),
+		'the open delay must be a named 200ms');
+	assert(js.includes('var NAV_HOVER_LEAVE_MS = 300;'),
+		'the leave grace must be a named 300ms');
+	// The gate is read per event, not captured at bind: a media query
+	// is state, and a bind-time capture is a lie the first time the
+	// state changes. Pin the matchMedia call INSIDE navFine.
+	const fine = js.slice(js.indexOf('function navFine()'),
+		js.indexOf('function navHoverPanel'));
+	assert(fine.includes("window.matchMedia('(hover: hover) and (pointer: fine)').matches"),
+		'navFine must read the media query itself, not a cached boolean');
+	assert(!/var\s+\w+\s*=\s*window\.matchMedia/.test(js.slice(
+		js.indexOf('navigation menu: delayed hover'), js.indexOf('function onNavmenuClick'))),
+		'must not bind the gate once and reuse it');
+	// Ownership: the claim sits AFTER the already-open guard, so a
+	// click-opened panel can never be stolen by the hover's own timer
+	// (the timer fires 200ms after the pointer arrived - after the
+	// click). Measured on this batch: a claim-before-guard wording
+	// closed a click-opened panel from under its reader.
+	const open = js.slice(js.indexOf('function navHoverOpen'),
+		js.indexOf('function navHoverSwap'));
+	const guard = open.indexOf("if (menu.matches(':popover-open')) return;");
+	const claim = open.indexOf('bar.__cmNavHoverOwned = 1;');
+	assert(guard !== -1 && claim !== -1 && guard < claim,
+		'ownership may only be claimed after the already-open guard');
+	assert(open.slice(claim, claim + 120).includes('menu.showPopover();'),
+		'the claim must sit on the branch that actually opens');
+	// The click door turns ownership OFF - that is what "sticky" means.
+	const click = js.slice(js.indexOf('function onNavmenuClick'),
+		js.indexOf("document.addEventListener('click', onNavmenuClick)"));
+	assert(click.includes('bar.__cmNavHoverOwned = 0;'),
+		'a click must release hover ownership');
+	// Leaving the bar starts the grace; entering cancels it.
+	assert(js.includes('bar.__cmNavLeaveT = setTimeout(function () {'),
+		'the leave must be a grace window, not an instant close');
+	assert(js.includes('clearTimeout(bar.__cmNavLeaveT);'),
+		'entering the bar must be able to cancel the grace');
+});
+
+check('batch 23 nav: the shared viewport fills in the toggle task and stamps data-state', () => {
+	const js = read('src/js/cli-mono.js');
+	const html = read('dist/index.html');
+	// One fill point: onPopoverToggle, the task every door runs through.
+	assert(js.includes('navViewportFill(menu);'),
+		'the viewport must fill inside the toggle handler');
+	assert(js.includes("menu.setAttribute('data-state', 'open');"),
+		'open must stamp data-state');
+	assert(js.includes("menu.setAttribute('data-state', 'closed');"),
+		'closed must stamp data-state');
+	// A close after opening the SECOND word must land every word false:
+	// popTrigger() can only ever find the first trigger sharing the id.
+	assert(js.includes('navViewportExpand(menu, null);'),
+		'a close must close the BAR, not the first trigger it can find');
+	// The click door: two triggers, one popovertarget, and a click on a
+	// DIFFERENT word must swap rather than let the platform toggle shut.
+	assert(js.includes('e.preventDefault();\n\t\t\tviewport.__cmNavTrigger = trigger;'),
+		'the click on a non-current word must cancel the platform toggle');
+	// The walk: content swaps synchronously with a re-anchor - an
+	// unanchored swap is a panel at the last word's coordinates.
+	const key = js.slice(js.indexOf('A SHARED VIEWPORT bar swaps CONTENT'),
+		js.indexOf("if (typeof setTimeout !== 'function') return;", js.indexOf('A SHARED VIEWPORT bar swaps CONTENT')));
+	assert(key.includes('shared.__cmNavTrigger = next;') && key.includes('navViewportFill(shared);')
+		&& key.includes('anchorPopover(shared);'),
+		'the walk must fill, aria-move and re-anchor in the same task');
+	// The specimen ships both models: per-trigger panels AND the shared
+	// viewport with its two templates.
+	assert((html.match(/data-cm-navmenu-viewport="/g) || []).length === 1,
+		'exactly one bar opts into the shared viewport');
+	assert(html.includes('id="nav-viewport" popover data-cm-viewport data-state="closed"'),
+		'the shared panel carries the state fingerprint from rest');
+	assert((html.match(/data-cm-navmenu-content="#nav-tpl-/g) || []).length === 2,
+		'both words must name their list');
+	assert((html.match(/<template id="nav-tpl-/g) || []).length === 2,
+		'the lists live in templates, not in the closed panel');
+	assert(html.includes('data-cm-navmenu-viewport="nav-viewport"'),
+		'the bar must name the panel it shares');
+});
+
+check('batch 23 nav: the vertical bar declares itself and paints on the height axis', () => {
+	const css = read('src/styles/components.css');
+	const js = read('src/js/cli-mono.js');
+	const html = read('dist/index.html');
+	// The painter writes BOTH pairs of knobs; the axis choice is CSS's.
+	assert(js.includes("ind.style.setProperty('--cm-navmenu-h'"),
+		'the painter must write the measured height');
+	assert(js.includes("ind.style.setProperty('--cm-navmenu-y'"),
+		'the painter must write the measured top');
+	// The list flips from the ATTRIBUTE, and the declaration is the same
+	// attribute the painter reads - neither derives the orientation.
+	assert(/\.cm-navmenu\[data-orientation='vertical'\] \{\s*position: relative;\s*flex-direction: column;/.test(css),
+		'the vertical bar must stack from its own attribute');
+	assert(/\.cm-navmenu\[data-orientation='vertical'\] \.cm-navmenu__indicator::after \{\s*width: 100%;\s*height: var\(--cm-navmenu-h, 0\);\s*transform: translateY\(var\(--cm-navmenu-y, 0px\)\);/.test(css),
+		'the vertical mark must ride height/top with fallbacks');
+	assert(html.includes('data-cm-navmenu data-orientation="vertical"'),
+		'the specimen must ship a vertical bar');
+	// Hover CSS agrees with hover JS: the recolor lives under the same
+	// media query the runtime gates its timers on, so touch never keeps
+	// a sticky hover paint on a row the reader already left.
+	assert(/@media \(hover: hover\) and \(pointer: fine\) \{\s*\.cm-navmenu__trigger:hover/.test(css),
+		'the hover recolor must be desk-pointer only');
+	// The swap paint is listed in the house reduced-motion block, like
+	// every other animation in the system.
+	const rm = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+	assert(rm.includes(".cm-navmenu__panel[data-state='open'] > *"),
+		'the viewport swap animation must be listed for reduced motion');
+	// The harness itself owns the behaviour reads.
+	const h = read('tests/verify-navmenu.py');
+	for (const pin of [
+		'hover for less than 200ms opens nothing',
+		'a click-opened panel stays when the pointer leaves',
+		"clicking the next word swaps the list in the same open panel",
+		'the vertical bar stacks its words in one column']) {
+		assert(h.includes(pin), 'the harness lost a batch-23 check: ' + pin);
+	}
 });

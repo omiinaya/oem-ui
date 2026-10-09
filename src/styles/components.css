@@ -6677,11 +6677,21 @@ input.cm-slider:disabled {
 	white-space: nowrap;
 	cursor: pointer;
 }
-.cm-navmenu__trigger:hover,
 .cm-navmenu__trigger:focus-visible,
 .cm-navmenu__trigger[aria-expanded='true'] {
 	background: var(--bg-3);
 	color: var(--ink);
+}
+/* Hover is a POINTER affordance, and a pointer that cannot hover must not
+   be given one: on touch, :hover STICKS to the last tapped row and paints
+   a word the reader already left. Desk pointers only - the same media
+   query the runtime gates its delayed hover on, so the paint and the
+   behaviour agree about what a pointer is. */
+@media (hover: hover) and (pointer: fine) {
+	.cm-navmenu__trigger:hover {
+		background: var(--bg-3);
+		color: var(--ink);
+	}
 }
 /* A border pair rotated 45deg IS the mark: no icon font, no inline SVG, and
    nothing that can drift from the label's colour, because it is drawn in
@@ -6709,6 +6719,18 @@ input.cm-slider:disabled {
 	inset: auto;
 	width: min(20rem, calc(100vw - (2 * var(--gutter))));
 	padding: var(--space-2);
+}
+/* The shared viewport's swap, painted: data-state is the same
+   state-attribute fingerprint the rest of the system uses (data-active on
+   the scroller, data-checked on the glyph), and `open` is where the
+   incoming list announces itself. One frame of -2px, not a layout
+   animation - width and height would repaint the panel's box on every
+   word the bar walks. */
+.cm-navmenu__panel[data-state='open'] > * {
+	animation: cm-navmenu-swap 120ms var(--cm-ease) both;
+}
+@keyframes cm-navmenu-swap {
+	from { opacity: 0; transform: translateY(-2px); }
 }
 .cm-navmenu__link {
 	display: flex;
@@ -6756,6 +6778,34 @@ input.cm-slider:disabled {
 	position: relative;
 	height: 2px;
 	overflow: hidden;
+}
+/* A vertical bar is the same bar down the page. The declaration is the
+   ATTRIBUTE (data-orientation), read by the painter for the marker's
+   axis and by this rule for the list's - the two can never disagree
+   about which orientation they are in, because neither derives it from
+   anything else. The indicator leaves the flex column (absolute, on the
+   left edge) so it takes no row slot, and its ::after rides the SECOND
+   pair of knobs the painter writes: height and top. */
+.cm-navmenu[data-orientation='vertical'] {
+	position: relative;
+	flex-direction: column;
+	align-items: stretch;
+}
+.cm-navmenu[data-orientation='vertical'] .cm-navmenu__trigger {
+	width: 100%;
+	justify-content: flex-start;
+}
+.cm-navmenu[data-orientation='vertical'] .cm-navmenu__indicator {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 2px;
+	height: 100%;
+}
+.cm-navmenu[data-orientation='vertical'] .cm-navmenu__indicator::after {
+	width: 100%;
+	height: var(--cm-navmenu-h, 0);
+	transform: translateY(var(--cm-navmenu-y, 0px));
 }
 .cm-navmenu__indicator::after {
 	content: '';
@@ -8151,6 +8201,7 @@ input.cm-slider:disabled {
 	.cm-toast,
 	.cm-alert--loading .cm-alert__mark::before,
 	.cm-alert--loading .cm-toast__mark::before,
+	.cm-navmenu__panel[data-state='open'] > *,
 	.cm-toast--loading .cm-toast__mark::before { animation: none; }
 	/* With no pulse, a skeleton must still read as a placeholder, and a
 	   blinking caret must still read as a caret. */
