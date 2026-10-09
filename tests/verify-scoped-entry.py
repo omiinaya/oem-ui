@@ -22,10 +22,38 @@ The invariant under test, in the order it is asserted:
     back to `auto` silently, so the token alone proves nothing);
   - the sharp-corner radius from e79e3d5 is carried.
 """
-import asyncio, functools, http.server, pathlib, socketserver, sys, threading
+import asyncio, functools, http.server, pathlib, shutil, socketserver, sys
+import tempfile, threading
 from playwright.async_api import async_playwright
 
-DOM = pathlib.Path("/root/.hermes/cache/scratch/scopedom")
+DOM = pathlib.Path(tempfile.mkdtemp(prefix="cm-scoped-dom-"))
+# The fixture is BUILT here, not read from a scratch dir: an earlier draft
+# pointed at /root/.hermes/cache/scratch/scopedom, and when that got pruned
+# the harness failed with `getComputedStyle(null)` - a broken harness
+# reporting as a broken library. It assembles the two worlds from the two
+# real consumer files plus the vendored components.css.
+KANBAN = pathlib.Path("/root/projects/spacetime-kanban/web/src")
+PRISTINE = pathlib.Path(__file__).resolve().parent / "fixtures/scoped-entry-stale.css"
+_components = (KANBAN / "styles/cli-mono/components.css").read_text()
+(DOM / "components.css").write_text(_components)
+for name, src in (("stale", PRISTINE), ("fresh", KANBAN / "cm-scoped.css")):
+    css = src.read_text().replace('@import "styles/cli-mono/components.css";',
+                                  '@import "components.css";')
+    (DOM / f"{name}.css").write_text(css)
+    (DOM / f"{name}.html").write_text(f"""<!doctype html>
+<html lang="en" data-cm-theme="dark">
+<head><meta charset="utf-8"><title>{name}</title>
+<link rel="stylesheet" href="{name}.css"></head>
+<body>
+  <div id="world" data-cm-theme="dark">
+    <div class="cm-header" id="h"></div>
+    <div class="cm-toolbar" id="t"></div>
+    <div class="cm-toast-region" id="tr"></div>
+    <div class="cm-nav-scrim" id="sc"></div>
+  </div>
+</body>
+</html>
+""")
 
 READ = """() => {
   const root = document.getElementById('world');
@@ -85,6 +113,7 @@ async def main():
             await b.close()
     finally:
         httpd.shutdown()
+        shutil.rmtree(DOM, ignore_errors=True)
 
     print("BEFORE (entry generated before the --z-* scale existed):")
     for k, v in before.items():
