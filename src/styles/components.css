@@ -8104,6 +8104,268 @@ input.cm-slider:disabled {
 	}
 }
 
+/* ============ charts ==============================================
+   Six hand-rolled SVG types, a container, a grid, axes, a tooltip
+   layer, a legend and a visually hidden table of the same numbers.
+   No charting dependency: the tick math, the path strings, the pie
+   arcs, the radar polygon, the radial bands and the pointer hit test
+   are all in the runtime.
+
+   COLOUR. There is no hue anywhere in this system, so the series
+   scale is five GREY steps - --chart-c1..c5, declared per theme in
+   tokens.css. shadcn's Chart ships the same five token NAMES and
+   fills them with chroma, which this palette cannot express; what is
+   kept is the mechanism, which is the part that matters: a series
+   colour resolves through a custom property, so a consumer re-ranks
+   a series by setting --chart-c3 and the line, the bar, the slice,
+   the gradient stop, the legend dot and the tooltip dot all follow.
+   The runtime emits one custom property per series from those five
+   tokens, and every paint below reads that property - so the light
+   theme is not a second dark chart, and nothing here names a colour
+   that is not a token.
+
+   Every component-scoped knob is written var(--x, default): a
+   consumer sets it and the default is the sane answer when they do
+   not, and an undefined var() invalidates its whole declaration.
+
+   SHARP. Nothing here rounds a corner - a bar is a <rect>, a slice
+   is an arc between two radii. The radius exceptions in this library
+   are the radio, the spinner and the terminal dot, and a chart does
+   not join that list: a rounded bar is the one mark whose shape
+   carries no data, so rounding it would cost meaning and buy
+   nothing. */
+.cm-chart {
+	--cm-chart-h: 15rem;
+	--cm-chart-tip-x: 50%;
+	position: relative;
+	display: block;
+	min-width: 0;
+	border: 1px solid var(--line);
+	background: var(--panel);
+	padding: var(--space-3);
+	margin-block: 0 var(--space-6);
+}
+/* A circular chart draws its marks against the NESTED surface step, so
+   the thin ring lines have something to sit on that is not the panel
+   the grid uses. */
+.cm-chart--bar,
+.cm-chart--pie,
+.cm-chart--radial,
+.cm-chart--radar {
+	background: var(--panel-nested);
+}
+.cm-chart__plot {
+	position: relative;
+	min-width: 0;
+}
+.cm-chart__svg {
+	display: block;
+	width: 100%;
+	height: auto;
+	max-width: 100%;
+	overflow: visible;
+}
+/* The SVG is the interactive element, so it takes a focus ring like
+   any other control. tabindex is on the markup, not added here. */
+.cm-chart__svg:focus-visible {
+	outline: 1px solid var(--focus);
+	outline-offset: 2px;
+}
+.cm-chart__grid {
+	fill: none;
+	stroke: var(--line-soft);
+	stroke-width: 1;
+	shape-rendering: crispEdges;
+}
+.cm-chart__grid--vertical { stroke: var(--line-soft); }
+.cm-chart__spoke {
+	stroke: var(--line-soft);
+	stroke-width: 1;
+}
+.cm-chart__tick {
+	stroke: var(--line);
+	stroke-width: 1;
+	shape-rendering: crispEdges;
+}
+.cm-chart__tick-label {
+	fill: var(--ink-faint);
+	font-family: var(--font-mono);
+	font-size: var(--min-font);
+	letter-spacing: 0.04em;
+}
+/* 2px is a hairline at every zoom and every DPR, and the line and the
+   legend dot are the same weight so a key and a curve agree. */
+.cm-chart__line {
+	fill: none;
+	stroke-width: 2;
+	stroke-linejoin: miter;
+	stroke-linecap: butt;
+}
+.cm-chart__area { stroke: none; }
+/* The stop colours arrive from the per-series property the runtime
+   writes; this is only what a hand-written chart without that block
+   paints, and it is a token like every other colour here. */
+.cm-chart__stop { stop-color: var(--ink-dim); }
+.cm-chart__bar {
+	stroke: none;
+	transition: opacity var(--cm-t) var(--cm-ease);
+}
+/* A 1px surface-coloured seam is what tells two stacked bars apart.
+   It is not a border and it is not a radius. */
+.cm-chart__bar--stacked { stroke: var(--panel); stroke-width: 1; }
+.cm-chart__slice {
+	stroke: var(--panel);
+	stroke-width: 1;
+	transition: opacity var(--cm-t) var(--cm-ease);
+}
+.cm-chart__ring {
+	fill: var(--line-soft);
+	stroke: none;
+}
+.cm-chart__radar {
+	stroke-width: 1.5;
+	stroke-linejoin: miter;
+}
+/* The hover affordance for a slice is OPACITY, never a radius and
+   never a growth: a slice that swells on hover is the one mark in
+   this library whose geometry would stop describing its value. */
+.cm-chart__slice--active { opacity: 1; }
+.cm-chart[data-cm-chart-type='pie'] .cm-chart__slice,
+.cm-chart[data-cm-chart-type='radial'] .cm-chart__slice { opacity: 0.55; }
+.cm-chart[data-cm-chart-state='active'] .cm-chart__slice--active { opacity: 1; }
+.cm-chart__marker {
+	fill: var(--panel);
+	stroke-width: 2;
+	opacity: 0;
+	pointer-events: none;
+}
+.cm-chart[data-cm-chart-state='active'] .cm-chart__marker { opacity: 1; }
+/* The cursor is a 1px rule in --accent-dim: one marker per series is
+   enough, and a wide band would cover the bars it points at. */
+.cm-chart__cursor {
+	stroke: var(--accent-dim);
+	stroke-width: 1;
+	opacity: 0;
+	pointer-events: none;
+	shape-rendering: crispEdges;
+}
+.cm-chart[data-cm-chart-state='active'] .cm-chart__cursor { opacity: 1; }
+/* The hit layer sits ABOVE the drawing and paints nothing: a pointer
+   target that filled would cover the bars it exists to point at. */
+.cm-chart__hit {
+	fill: transparent;
+	stroke: none;
+	cursor: crosshair;
+	pointer-events: all;
+}
+
+/* ---- the tooltip layer ---- */
+.cm-chart__tooltip {
+	position: absolute;
+	top: var(--space-2);
+	left: var(--cm-chart-tip-x, 50%);
+	transform: translateX(-50%);
+	z-index: var(--z-raised);
+	min-width: 8rem;
+	max-width: min(14rem, 100%);
+	padding: var(--space-2) var(--space-3);
+	border: 1px solid var(--line);
+	background: var(--bg-2);
+	box-shadow: var(--shadow-card);
+	pointer-events: none;
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity var(--cm-t) var(--cm-ease);
+}
+.cm-chart[data-cm-chart-state='active'] .cm-chart__tooltip {
+	opacity: 1;
+	visibility: visible;
+}
+.cm-chart__tip-title {
+	margin: 0 0 var(--space-1);
+	color: var(--ink-dim);
+	font-size: max(var(--min-font), var(--text-micro));
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+}
+.cm-chart__tip-row {
+	display: flex;
+	align-items: baseline;
+	gap: var(--space-2);
+	font-size: max(var(--min-font), var(--text-micro));
+}
+.cm-chart__tip-dot {
+	flex: 0 0 auto;
+	width: 0.5rem;
+	height: 0.5rem;
+	background: var(--ink-dim);
+}
+.cm-chart__tip-name {
+	flex: 1 1 auto;
+	min-width: 0;
+	color: var(--ink-dim);
+}
+.cm-chart__tip-val {
+	flex: 0 0 auto;
+	color: var(--ink);
+	font-variant-numeric: tabular-nums;
+}
+
+/* ---- the legend ---- */
+.cm-chart__legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2) var(--space-4);
+	margin: var(--space-3) 0 0;
+	padding: 0;
+	list-style: none;
+	color: var(--ink-dim);
+	font-size: max(var(--min-font), var(--text-micro));
+}
+.cm-chart__legend-item {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+.cm-chart__legend-dot {
+	flex: 0 0 auto;
+	width: 0.5rem;
+	height: 0.5rem;
+	background: var(--ink-dim);
+}
+.cm-chart__legend-label { min-width: 0; }
+
+/* The <style> pass-through is a real element and gets display:block, or
+   the inline box it defaults to adds a line of height under the chart
+   on every engine that does not hide it. */
+.cm-chart__style { display: block; }
+
+/* The table is the chart's TEXT ALTERNATIVE, not a debug view, and it
+   is the runtime's data source: the geometry is rebuilt from these
+   cells at the measured width, so the numbers a screen reader reads
+   are the numbers that were drawn and the two cannot drift. It sits in
+   .cm-sr-only and is never laid out, so this rule exists only so the
+   table is a table to anything that does parse it - it carries a
+   caption and a scope on every header. */
+.cm-chart__table {
+	border-collapse: collapse;
+	color: var(--ink);
+}
+
+/* A tap is the only hover a finger has, so the tooltip is left to
+   the touch layer rather than given a touch-only fallback rule that
+   would disagree with it. */
+@media (pointer: coarse) {
+	.cm-chart__tip-val { font-size: max(var(--min-font), var(--text-sm)); }
+}
+@media (max-width: 26rem) {
+	/* At 320 the gutter and the type are the two things that cost the
+	   chart its width; the runtime drops every Nth x label from the
+	   MEASURED plot width, which is the rest of it. */
+	.cm-chart { padding: var(--space-2); }
+	.cm-chart__legend { gap: var(--space-1) var(--space-3); }
+}
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;
@@ -8239,6 +8501,13 @@ input.cm-slider:disabled {
 	.cm-navmenu__chev { transition: none; }
 	.cm-js .cm-nav-scrim { transition: none; }
 	.cm-js .cm-header__links { animation: none; }
+	/* A chart's hover state is a fade, and a fade is motion. The state
+	   itself must still read - `transition: none` makes the bar, the
+	   slice and the tip APPEAR at their hovered opacity instantly, which
+	   is the same answer the burger bars get. */
+	.cm-chart__bar,
+	.cm-chart__slice,
+	.cm-chart__tooltip { transition: none; }
 }
 /* ============ stack ownership (LAST, on purpose) ============
    These two rules must beat every component's own block margin. They are

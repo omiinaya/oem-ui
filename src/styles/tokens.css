@@ -349,6 +349,12 @@
 	--header-bg: #0a0a0a;
 	--footer-bg: #080808;
 
+	--chart-c1: #e8e8e8;
+	--chart-c2: #b4b4b4;
+	--chart-c3: #8a8a8a;
+	--chart-c4: #6b6b6b;
+	--chart-c5: #525252;
+
 	/* shadow */
 	--shadow-1: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
 	--shadow-card: 0 20px 50px -24px rgba(0, 0, 0, 0.8);
@@ -441,6 +447,18 @@
 	--vignette: radial-gradient(120% 90% at 50% 0%, transparent 62%, rgba(0, 0, 0, 0.06));
 
 	scrollbar-color: #b8b8b8 #f0f0f0;
+
+	/* The same five steps, inverted for a light surface: c1 is the
+	   darkest ink, and the steps DESCEND from it. The light scale is
+	   not the dark one re-used - measured, c2 at #b4b4b4 is 2.1:1 on
+	   --panel-nested here and c5 at #525252 is 1.1:1, so reusing the
+	   dark values painted three of five series as near-invisible
+	   rules on a white card. */
+	--chart-c1: #111111;
+	--chart-c2: #3f3f3f;
+	--chart-c3: #5f5f5f;
+	--chart-c4: #7d7d7d;
+	--chart-c5: #999999;
 }
 
 /* ============================================================
@@ -505,6 +523,25 @@
 	--selection-color: #ffffff;
 	--vignette: radial-gradient(120% 90% at 50% 0%, transparent 62%, rgba(0, 0, 0, 0.5));
 	scrollbar-color: #3a3a3a #0a0a0a;
+
+	/* ---- the chart series scale (five steps, no chroma) --------
+	   shadcn's ChartConfig colours a series through --chart-1..5 and
+	   that is the one part of its mechanism worth keeping: a series
+	   colour that resolves through a custom property, so a consumer
+	   re-ranks a series by setting a property instead of editing a
+	   rule. The VALUES are this system's, because this system has no
+	   hue at all - five greys from --ink down to a floor that still
+	   clears 3:1 on --panel and --panel-nested, which is the WCAG
+	   figure for a non-text mark. The runtime emits one
+	   --cm-chart-cN per series from these, so the line, the bar, the
+	   slice, the gradient stop, the legend dot and the tooltip dot
+	   cannot disagree, and the light theme is its own five steps
+	   rather than a second dark chart. */
+	--chart-c1: #e8e8e8;
+	--chart-c2: #b4b4b4;
+	--chart-c3: #8a8a8a;
+	--chart-c4: #6b6b6b;
+	--chart-c5: #525252;
 }
 
 [data-cm-theme='light'],
@@ -554,4 +591,13 @@
 	--selection-color: #000000;
 	--vignette: radial-gradient(120% 90% at 50% 0%, transparent 62%, rgba(0, 0, 0, 0.06));
 	scrollbar-color: #b8b8b8 #f0f0f0;
+
+	/* The same five steps as the document light block above, because
+	   a scoped subtree is the same palette at a different root. */
+	--chart-c1: #111111;
+	--chart-c2: #3f3f3f;
+	--chart-c3: #5f5f5f;
+	--chart-c4: #7d7d7d;
+	--chart-c5: #999999;
+
 }

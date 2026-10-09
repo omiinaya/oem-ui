@@ -4024,6 +4024,7 @@
 		cmInitOtp(root);
 		cmInitCommand(root);
 		cmInitNavmenu(root);
+		cmInitCharts(root);
 		if (!root || root === document) initExternalLinks();
 	}
 
@@ -4531,6 +4532,673 @@
 		cmColvisApply(item);
 	}
 
+	/* ============================================================
+	   charts - hand-rolled SVG, zero dependencies.
+
+	   shadcn's Chart is a thin wrapper over Recharts, so "parity"
+	   here means its DOCUMENTED BEHAVIOUR and VISUAL FEATURES and
+	   not its prop names: six types, a container that owns the
+	   layout, a cartesian grid, axes, a tooltip layer, a legend,
+	   per-series colour resolved through CSS custom properties, and
+	   a text alternative for every chart. Recharts' own API -
+	   composed elements, animation toggles, ResponsiveContainer,
+	   syncId - is deliberately NOT reproduced. Matching THAT is not
+	   a feature, it is a dependency, and this library has none.
+
+	   The geometry is written here rather than delegated: the tick
+	   math, the path strings, the pie arcs, the radar polygon, the
+	   radial arcs and the pointer hit test are all arithmetic, and
+	   every colour they paint resolves through a token, so a
+	   light-theme chart is not a second dark chart.
+
+	   Two decisions decide the rest:
+
+	   1. SHARP. A bar is a <rect>, a slice is an arc between two
+	      radii, and nothing here rounds a corner - a rounded bar
+	      would be the first thing in this library to invent a radius
+	      the tokens do not sanction.
+	   2. THE TABLE IS THE DATA. Every chart ships a visually
+	      hidden <table> of its own numbers, and the runtime reads
+	      THAT to rebuild the geometry at the measured width and to
+	      fill the tooltip. One source of truth, so the accessible
+	      fallback cannot drift from the drawing - it is the
+	      drawing's input.
+
+	   The axis arithmetic is the part worth stating: a y scale is
+	   0 to `nice(max / ticks)`, where nice() snaps the raw step to
+	   1, 2, 2.5 or 5 times a power of ten, so the top gridline is
+	   always a round number and never the tallest column.
+	   ============================================================ */
+
+	/* Five tones, because --chart-c1..5 are five: a sixth series wraps
+	   to c1, and a legend that shows c1 twice is honest about it. A
+	   sixth grey would not be - it could not clear 3:1 on the surface
+	   it is drawn on, which is the WCAG figure for a non-text mark. */
+	var CHART_TONES = 5;
+
+	function chEsc(s) {
+		return String(s == null ? '' : s)
+			.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+	}
+	function chNum(v) {
+		var n = typeof v === 'number' ? v : parseFloat(v);
+		return isFinite(n) ? n : 0;
+	}
+	function chText(el) {
+		return el ? String(el.textContent || '').trim() : '';
+	}
+	/* Thousands get a k, everything else stays exact. A chart that
+	   rounds 1,860 to "2k" is a chart that misreads its own axis. */
+	function chFmt(v) {
+		var n = chNum(v), a = n < 0 ? -n : n;
+		if (a >= 1000) {
+			var k = Math.round(n / 100) / 10;
+			return (k % 1 === 0 ? k : k.toFixed(1)) + 'k';
+		}
+		return String(Math.round(n * 100) / 100);
+	}
+	/* The nice-number ladder. 2.5 is in there because a step of 2.5
+	   gives four gridlines over 0-10 where a step of 2 gives five -
+	   and five labels on a phone chart is four too many. */
+	function chNice(max, count) {
+		count = count || 4;
+		if (!(max > 0)) return { max: 1, step: 1 };
+		var raw = max / count;
+		var mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
+		var n = raw / mag;
+		var step = (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * mag;
+		return { max: Math.ceil(max / step) * step, step: step };
+	}
+	function chIdent(s) {
+		return String(s || 'k').toLowerCase().replace(/[^a-z0-9_-]/g, '') || 'k';
+	}
+	function chSeries(cfg) {
+		return (cfg.series || []).map(function (s, i) {
+			var tone = Math.round(chNum(s.tone) || i + 1);
+			return {
+				key: s.key,
+				label: s.label == null ? s.key : s.label,
+				tone: ((tone - 1) % CHART_TONES + CHART_TONES) % CHART_TONES + 1
+			};
+		});
+	}
+	/* The ChartStyle pass-through, in the house idiom. shadcn emits a
+	   <style> block of custom properties so a series colour reaches the
+	   SVG through CSS - presentation ATTRIBUTES cannot take a var(), so
+	   the only honest way to let a token paint a <stop> or a <path> is a
+	   rule that names it. Here the block also rewrites each fill to
+	   url(#uid-g-key), which is the gradient-id mechanism the gradient
+	   needs and the reason two charts on one page cannot collide. */
+	function chStyle(uid, ser) {
+		var out = [];
+		var decls = ser.map(function (s) {
+			return '--cm-chart-' + chIdent(s.key) + ':var(--chart-c' + s.tone + ')';
+		}).join(';');
+		out.push('#' + uid + '{' + decls + '}');
+		ser.forEach(function (s) {
+			var k = chIdent(s.key), v = 'var(--cm-chart-' + k + ')';
+			var sel = '[data-cm-k="' + s.key + '"]';
+			out.push('#' + uid + ' .cm-chart__line' + sel + '{stroke:' + v + '}');
+			out.push('#' + uid + ' .cm-chart__area' + sel + '{fill:url(#' + uid + '-g-' + k + ')}');
+			out.push('#' + uid + ' .cm-chart__stop' + sel + '[data-cm-stop="top"]{stop-color:' + v + ';stop-opacity:.42}');
+			out.push('#' + uid + ' .cm-chart__stop' + sel + '[data-cm-stop="base"]{stop-color:' + v + ';stop-opacity:.06}');
+			out.push('#' + uid + ' .cm-chart__bar' + sel + '{fill:' + v + '}');
+			out.push('#' + uid + ' .cm-chart__slice' + sel + '{fill:' + v + '}');
+			out.push('#' + uid + ' .cm-chart__radar' + sel + '{fill:color-mix(in srgb,' + v + ' 16%,transparent);stroke:' + v + '}');
+			out.push('#' + uid + ' .cm-chart__marker' + sel + '{stroke:' + v + '}');
+			out.push('#' + uid + ' .cm-chart__tip-dot' + sel + ',#' + uid + ' .cm-chart__legend-dot' + sel + '{background:' + v + '}');
+		});
+		return out.join('\n');
+	}
+
+	function chTipMarkup(cfg, ser) {
+		var rows = ser.map(function (s) {
+			return '<div class="cm-chart__tip-row">' +
+				'<span class="cm-chart__tip-dot" data-cm-k="' + chEsc(s.key) + '"></span>' +
+				'<span class="cm-chart__tip-name">' + chEsc(s.label) + '</span>' +
+				'<span class="cm-chart__tip-val">0</span></div>';
+		}).join('');
+		return '<div class="cm-chart__tooltip" data-cm-chart-tip role="status" aria-live="polite">' +
+			'<p class="cm-chart__tip-title"></p>' + rows + '</div>';
+	}
+	function chHead(uid, cfg) {
+		return '<title id="' + uid + '-title">' + chEsc(cfg.title || 'chart') + '</title>' +
+			'<desc id="' + uid + '-desc">' + chEsc(cfg.description || cfg.title || 'chart') + '</desc>';
+	}
+
+	/* ---------------- cartesian: line, area, bar ---------------- */
+
+	function chCart(cfg, w, h, uid) {
+		var rows = cfg.data || [], ser = chSeries(cfg);
+		var stacked = !!cfg.stacked, n = rows.length;
+		var peak = 0;
+		rows.forEach(function (r) {
+			var sum = 0, top = 0;
+			ser.forEach(function (s) {
+				var v = chNum(r[s.key]);
+				sum += v;
+				if (v > top) top = v;
+			});
+			var used = stacked ? sum : top;
+			if (used > peak) peak = used;
+		});
+		/* The 1.02 is the headroom: without it the tallest column
+		   touches the top gridline and the top tick label has nowhere
+		   to sit. */
+		var nice = chNice(peak * 1.02, cfg.ticks || 4);
+		var ticks = [];
+		for (var t = 0; t <= nice.max + nice.step / 1000; t += nice.step) ticks.push(Math.round(t * 1e6) / 1e6);
+		var widest = 0;
+		ticks.forEach(function (t) { widest = Math.max(widest, chFmt(t).length); });
+
+		var pad = { l: Math.max(18, widest * 7.2 + 10), r: 10, t: 10, b: 26 };
+		var pw = Math.max(1, w - pad.l - pad.r), ph = Math.max(1, h - pad.t - pad.b);
+		var band = pw / Math.max(1, n);
+		var isBar = cfg.type === 'bar';
+		var base = pad.t + ph;
+		var xAt = function (i) {
+			return isBar ? pad.l + band * (i + 0.5)
+				: pad.l + (n > 1 ? (pw * i) / (n - 1) : pw / 2);
+		};
+		var yAt = function (v) { return base - (ph * v) / nice.max; };
+
+		var s = '';
+		var gi = '';
+		ticks.forEach(function (t) {
+			var y = Math.round(yAt(t) * 100) / 100;
+			gi += '<line class="cm-chart__grid" x1="' + pad.l + '" y1="' + y + '" x2="' + (w - pad.r) + '" y2="' + y + '"/>';
+		});
+		if (cfg.grid === 'vertical') {
+			for (var g = 0; g < n; g++) {
+				var gx = Math.round(xAt(g) * 100) / 100;
+				gi += '<line class="cm-chart__grid cm-chart__grid--vertical" x1="' + gx + '" y1="' + pad.t + '" x2="' + gx + '" y2="' + base + '"/>';
+			}
+		}
+		s += '<g>' + gi + '</g>';
+
+		s += '<g>';
+		ticks.forEach(function (t) {
+			var y = Math.round(yAt(t) * 100) / 100;
+			s += '<line class="cm-chart__tick" x1="' + (pad.l - 4) + '" y1="' + y + '" x2="' + pad.l + '" y2="' + y + '"/>' +
+				'<text class="cm-chart__tick-label" x="' + (pad.l - 8) + '" y="' + y +
+				'" text-anchor="end" dominant-baseline="middle">' + chEsc(chFmt(t)) + '</text>';
+		});
+		s += '</g>';
+
+		/* A label per x, or every Nth one when they would collide.
+		   Twelve month names at 320px is twelve overlapping strings,
+		   and an unreadable axis is a wrong axis. */
+		var xkey = cfg.x || 'x';
+		var longest = 1;
+		rows.forEach(function (r) { longest = Math.max(longest, String(r[xkey]).length); });
+		var every = Math.max(1, Math.ceil((longest * 7.2 * n) / pw));
+		s += '<g>';
+		rows.forEach(function (r, i) {
+			var x = Math.round(xAt(i) * 100) / 100;
+			s += '<line class="cm-chart__tick" x1="' + x + '" y1="' + base + '" x2="' + x + '" y2="' + (base + 4) + '"/>';
+			if (i % every && i !== n - 1) return;
+			s += '<text class="cm-chart__tick-label" x="' + x + '" y="' + (base + 16) +
+				'" text-anchor="middle">' + chEsc(r[xkey]) + '</text>';
+		});
+		s += '</g>';
+
+		var body = '';
+		var bw = Math.max(2, Math.min(band * 0.62, 26));
+		ser.forEach(function (sp) {
+			var k = chIdent(sp.key);
+			var vals = rows.map(function (r) { return chNum(r[sp.key]); });
+			var floor = 0, d = '';
+			if (isBar) {
+				vals.forEach(function (v, i) {
+					var y0 = yAt(floor), y1 = yAt(floor + v);
+					var top = Math.min(y0, y1), hgt = Math.max(1, Math.abs(y1 - y0));
+					body += '<rect class="cm-chart__bar' + (stacked ? ' cm-chart__bar--stacked' : '') +
+						'" data-cm-k="' + chEsc(sp.key) + '" data-cm-band="' + i + '"' +
+						'" x="' + Math.round((xAt(i) - bw / 2) * 100) / 100 + '" y="' + Math.round(top * 100) / 100 +
+						'" width="' + Math.round(bw * 100) / 100 + '" height="' + Math.round(hgt * 100) / 100 + '"/>';
+					floor += v;
+				});
+				return;
+			}
+			vals.forEach(function (v, i) {
+				if (i === 0) floor = 0;
+				var y = yAt(stacked ? floor + v : v);
+				d += (i ? 'L' : 'M') + Math.round(xAt(i) * 100) / 100 + ' ' + Math.round(y * 100) / 100;
+				
+				if (stacked) floor += v;
+			});
+			if (cfg.type === 'area') {
+				body += '<defs><linearGradient id="' + uid + '-g-' + k + '" x1="0" y1="0" x2="0" y2="1">' +
+					'<stop class="cm-chart__stop" data-cm-k="' + chEsc(sp.key) + '" data-cm-stop="top" offset="0"/>' +
+					'<stop class="cm-chart__stop" data-cm-k="' + chEsc(sp.key) + '" data-cm-stop="base" offset="1"/>' +
+					'</linearGradient></defs>';
+				body += '<path class="cm-chart__area" data-cm-k="' + chEsc(sp.key) + '" d="' + d +
+					'L' + Math.round(xAt(n - 1) * 100) / 100 + ' ' + Math.round(base * 100) / 100 +
+					'L' + Math.round(xAt(0) * 100) / 100 + ' ' + Math.round(base * 100) / 100 + 'Z"/>';
+			}
+			body += '<path class="cm-chart__line" data-cm-k="' + chEsc(sp.key) + '" d="' + d + '"/>';
+			
+		});
+		s += '<g>' + body + '</g>';
+
+		/* The pointer layer: one full-height band per x. It is drawn
+		   LAST and carries fill:transparent, so a hit rect over the
+		   bars cannot hide them. */
+		var hits = '';
+		for (var i2 = 0; i2 < n; i2++) {
+			hits += '<rect class="cm-chart__hit" data-cm-band="' + i2 + '" x="' +
+				Math.round((pad.l + band * i2) * 100) / 100 + '" y="' + pad.t + '" width="' +
+				Math.round(band * 100) / 100 + '" height="' + ph + '"/>';
+		}
+		s += '<g>' + hits + '</g>';
+		s += '<line class="cm-chart__cursor" y1="' + pad.t + '" y2="' + base + '" x1="' + pad.l + '" x2="' + pad.l + '"/>';
+		var marks = '';
+		ser.forEach(function (sp) {
+			marks += '<circle class="cm-chart__marker" data-cm-k="' + chEsc(sp.key) + '" cx="' + pad.l +
+				'" cy="' + base + '" r="3"/>';
+		});
+		s += '<g>' + marks + '</g>';
+		return s;
+	}
+
+	/* ---------------- pie (and donut, same arc) ---------------- */
+
+	function chArc(cx, cy, r0, r1, a0, a1) {
+		var pt = function (r, a) {
+			return [Math.round((cx + r * Math.cos(a)) * 100) / 100, Math.round((cy + r * Math.sin(a)) * 100) / 100];
+		};
+		var sweep = a1 - a0;
+		if (sweep >= Math.PI * 2 - 1e-6) {
+			/* A full circle cannot be one arc: the start and the end
+			   points coincide and the renderer draws nothing. Two
+			   half-turns is the whole circle. */
+			var m = pt(r1, a0), q = pt(r1, a0 + Math.PI);
+			var im = pt(r0, a0 + Math.PI), j = pt(r0, a0);
+			var half = r0 > 0
+				? 'M' + m + 'A' + r1 + ' ' + r1 + ' 0 1 1 ' + q +
+					'A' + r1 + ' ' + r1 + ' 0 1 1 ' + m + 'L' + j + 'A' + r0 + ' ' + r0 + ' 0 1 0 ' + im + 'A' + r0 + ' ' + r0 + ' 0 1 0 ' + j + 'Z'
+				: 'M' + m + 'A' + r1 + ' ' + r1 + ' 0 1 1 ' + q + 'A' + r1 + ' ' + r1 + ' 0 1 1 ' + m + 'Z';
+			return half;
+		}
+		var o0 = pt(r1, a0), o1 = pt(r1, a1);
+		var large = sweep > Math.PI ? 1 : 0;
+		var d = 'M' + o0 + 'A' + r1 + ' ' + r1 + ' 0 ' + large + ' 1 ' + o1;
+		if (r0 > 0) {
+			var i1 = pt(r0, a1), i0 = pt(r0, a0);
+			d += 'L' + i1 + 'A' + r0 + ' ' + r0 + ' 0 ' + large + ' 0 ' + i0 + 'Z';
+		} else {
+			d += 'Z';
+		}
+		return d;
+	}
+
+	function chPie(cfg, w, h, uid) {
+		var rows = cfg.data || [], ser = chSeries(cfg);
+		var sp = ser[0];
+		if (!sp) return '';
+		var cx = w / 2, cy = h / 2;
+		var r = Math.max(4, Math.min(w, h) / 2 - 18);
+		var inner = Math.max(0, Math.min(r - 4, chNum(cfg.innerRadius)));
+		var total = 0;
+		rows.forEach(function (row) { total += chNum(row[sp.key]); });
+		if (!(total > 0)) return '';
+		var a = -Math.PI / 2, s = '';
+		rows.forEach(function (row, i) {
+			var sweep = (chNum(row[sp.key]) / total) * Math.PI * 2;
+			var active = cfg.active === i;
+			s += '<path class="cm-chart__slice' + (active ? ' cm-chart__slice--active' : '') +
+				'" data-cm-k="' + chEsc(sp.key) + '" data-cm-slice="' + i + '" d="' +
+				chArc(cx, cy, inner, r, a, a + sweep) + '"/>';
+			a += sweep;
+		});
+		void uid;
+		return s;
+	}
+
+	/* ---------------- radial: one ring band per row ---------------- */
+
+	function chRadial(cfg, w, h) {
+		var rows = cfg.data || [], ser = chSeries(cfg);
+		var sp = ser[0];
+		if (!sp || !rows.length) return '';
+		var cx = w / 2, cy = h / 2;
+		var r = Math.max(4, Math.min(w, h) / 2 - 18);
+		var peak = 0;
+		rows.forEach(function (row) { peak = Math.max(peak, chNum(row[sp.key])); });
+		if (!(peak > 0)) return '';
+		var n = rows.length;
+		var thick = (r * 2) / n;
+		var slot = (Math.PI * 2) / n;
+		var s = '<g>';
+		for (var i = 0; i < n; i++) {
+			var r0 = thick * i, r1 = r0 + thick;
+			var c0 = -Math.PI / 2 - slot / 2 + slot * 0.12;
+			var c1 = -Math.PI / 2 + slot / 2 - slot * 0.12;
+			s += '<path class="cm-chart__ring" d="' + chArc(cx, cy, r0, r1, c0, c1) + '"/>';
+			var len = (thick * 0.86 * chNum(rows[i][sp.key])) / peak;
+			s += '<path class="cm-chart__slice" data-cm-k="' + chEsc(sp.key) + '" data-cm-slice="' + i +
+				'" d="' + chArc(cx, cy, r0 + thick * 0.07, r0 + thick * 0.07 + Math.max(1, len), c0, c1) + '"/>';
+		}
+		return s + '</g>';
+	}
+
+	/* ---------------- radar ---------------- */
+
+	function chRadar(cfg, w, h) {
+		var rows = cfg.data || [], ser = chSeries(cfg);
+		var n = rows.length;
+		if (!n) return '';
+		var peak = 0;
+		rows.forEach(function (row) {
+			ser.forEach(function (sp) { peak = Math.max(peak, chNum(row[sp.key])); });
+		});
+		var nice = chNice(peak * 1.02, 4);
+		var cx = w / 2, cy = h / 2;
+		var r = Math.max(4, Math.min(w, h) / 2 - 30);
+		var at = function (i, frac) {
+			var a = -Math.PI / 2 + (Math.PI * 2 * i) / n;
+			return [cx + r * frac * Math.cos(a), cy + r * frac * Math.sin(a)];
+		};
+		var s = '<g>';
+		for (var ring = 1; ring <= 4; ring++) {
+			var pts = [];
+			for (var i = 0; i < n; i++) pts.push(at(i, ring / 4).map(function (v) { return Math.round(v * 100) / 100; }).join(','));
+			s += '<polygon class="cm-chart__grid" points="' + pts.join(' ') + '"/>';
+		}
+		rows.forEach(function (row, i) {
+			var p = at(i, 1);
+			s += '<line class="cm-chart__spoke" x1="' + cx + '" y1="' + cy + '" x2="' +
+				Math.round(p[0] * 100) / 100 + '" y2="' + Math.round(p[1] * 100) / 100 + '"/>' +
+				'<text class="cm-chart__tick-label" x="' + Math.round(p[0] * 100) / 100 + '" y="' +
+				Math.round((p[1] + (p[1] < cy ? 12 : -6)) * 100) / 100 + '" text-anchor="middle">' +
+				chEsc(row[cfg.x || 'x']) + '</text>';
+		});
+		s += '</g><g>';
+		ser.forEach(function (sp) {
+			var pts = [];
+			rows.forEach(function (row, i) {
+				pts.push(at(i, Math.min(1, chNum(row[sp.key]) / nice.max))
+					.map(function (v) { return Math.round(v * 100) / 100; }).join(','));
+			});
+			s += '<polygon class="cm-chart__radar" data-cm-k="' + chEsc(sp.key) + '" points="' + pts.join(' ') + '"/>';
+		});
+		return s + '</g>';
+	}
+
+	/* ---------------- the plot, at a measured width ---------------- */
+
+	function chartPlot(cfg) {
+		var uid = cfg.uid || 'cmc';
+		var w = Math.max(160, Math.round(chNum(cfg.w) || 640));
+		var h = Math.max(140, Math.round(chNum(cfg.h) || 240));
+		var ser = chSeries(cfg);
+		var inner = cfg.type === 'radar' ? chRadar(cfg, w, h)
+			: cfg.type === 'radial' ? chRadial(cfg, w, h)
+			: cfg.type === 'pie' ? chPie(cfg, w, h, uid)
+			: chCart(cfg, w, h, uid);
+		return '<svg class="cm-chart__svg" viewBox="0 0 ' + w + ' ' + h + '" width="' + w + '" height="' + h +
+			'" role="img" aria-labelledby="' + uid + '-title ' + uid + '-desc" aria-describedby="' + uid +
+			'-data" tabindex="0" data-cm-chart-svg>' + chHead(uid, cfg) + inner + '</svg>' + chTipMarkup(cfg, ser);
+	}
+	/* The public entry: the container, its style block, the legend and
+	   the table. A build step and the runtime both call this with the
+	   same config, so the served HTML and the live chart cannot be
+	   written by two different hands. */
+	function chartMarkup(cfg) {
+		cfg = cfg || {};
+		var uid = cfg.uid || 'cmc';
+		var ser = chSeries(cfg);
+		var xkey = cfg.x || 'x';
+		var legend = ser.map(function (s) {
+			return '<li class="cm-chart__legend-item"><span class="cm-chart__legend-dot" data-cm-k="' +
+				chEsc(s.key) + '"></span><span class="cm-chart__legend-label">' + chEsc(s.label) + '</span></li>';
+		}).join('');
+		var head = '<tr><th scope="col" data-cm-x="' + chEsc(xkey) + '">' + chEsc(xkey) + '</th>' +
+			ser.map(function (s) {
+				return '<th scope="col" data-cm-k="' + chEsc(s.key) + '" data-cm-label="' + chEsc(s.label) +
+					'" data-cm-tone="' + s.tone + '">' + chEsc(s.label) + '</th>';
+			}).join('') + '</tr>';
+		var body = (cfg.data || []).map(function (row) {
+			return '<tr><th scope="row">' + chEsc(row[xkey]) + '</th>' +
+				ser.map(function (s) { return '<td>' + chEsc(chNum(row[s.key])) + '</td>'; }).join('') + '</tr>';
+		}).join('');
+		/* The modifier is only emitted for the types that HAVE one: it
+		   exists to move a circular or bar plot onto the nested
+		   surface step, and inventing `.cm-chart--line` would be a
+		   class the library defines and styles to nothing. */
+		var NESTED = { bar: 1, pie: 1, radial: 1, radar: 1 };
+		return '<div class="cm-chart' + (NESTED[cfg.type] ? ' cm-chart--' + cfg.type : '') + '" id="' + uid +
+			'" data-cm-chart data-cm-chart-type="' + chEsc(cfg.type || 'line') + '"' +
+			(cfg.stacked ? ' data-cm-chart-stacked="true"' : '') +
+			(cfg.grid === 'vertical' ? ' data-cm-chart-grid="vertical"' : '') +
+			(cfg.innerRadius ? ' data-cm-chart-inner="' + Math.round(chNum(cfg.innerRadius)) + '"' : '') +
+			(cfg.active != null ? ' data-cm-chart-active="' + cfg.active + '"' : '') +
+			' data-cm-chart-h="' + Math.round(chNum(cfg.h) || 240) + '"' +
+			' data-cm-chart-title="' + chEsc(cfg.title || 'chart') + '"' +
+			' data-cm-chart-desc="' + chEsc(cfg.description || cfg.title || 'chart') + '"' +
+			' data-cm-chart-state="idle">' +
+			'<style class="cm-chart__style">' + chStyle(uid, ser) + '</style>' +
+			'<div class="cm-chart__plot">' + chartPlot(cfg) + '</div>' +
+			(legend ? '<ul class="cm-chart__legend" role="list">' + legend + '</ul>' : '') +
+			'<div class="cm-sr-only" id="' + uid + '-data"><table class="cm-chart__table"><caption>' +
+			chEsc(cfg.title || 'chart') + '</caption><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
+			'</div>';
+	}
+
+	/* ---------------- the runtime half ---------------- */
+
+	/* The table is the data, so the runtime reads the table. That is
+	   why the geometry below cannot disagree with the numbers a screen
+	   reader reads: there is only one set of them. */
+	function chData(box) {
+		var table = box.querySelector('.cm-chart__table');
+		if (!table) return null;
+		var ths = table.querySelectorAll('thead th');
+		if (!ths.length) return null;
+		var xkey = ths[0].getAttribute('data-cm-x') || 'x';
+		var ser = [];
+		for (var i = 1; i < ths.length; i++) {
+			var th = ths[i];
+			ser.push({
+				key: th.getAttribute('data-cm-k') || chText(th),
+				label: th.getAttribute('data-cm-label') || chText(th),
+				tone: Math.round(chNum(th.getAttribute('data-cm-tone')) || i)
+			});
+		}
+		var rows = [];
+		table.querySelectorAll('tbody tr').forEach(function (tr) {
+			var cells = tr.children, row = {};
+			row[xkey] = chText(cells[0]);
+			for (var j = 1; j < cells.length; j++) row[ser[j - 1].key] = chNum(chText(cells[j]));
+			rows.push(row);
+		});
+		if (!rows.length) return null;
+		return { x: xkey, series: ser, data: rows };
+	}
+	function chConfig(box, w) {
+		var d = chData(box);
+		if (!d) return null;
+		return {
+			uid: box.id,
+			type: box.getAttribute('data-cm-chart-type') || 'line',
+			x: d.x,
+			series: d.series,
+			data: d.data,
+			stacked: box.getAttribute('data-cm-chart-stacked') === 'true',
+			grid: box.getAttribute('data-cm-chart-grid') || 'horizontal',
+			innerRadius: chNum(box.getAttribute('data-cm-chart-inner')),
+			active: box.hasAttribute('data-cm-chart-active')
+				? Math.round(chNum(box.getAttribute('data-cm-chart-active'))) : null,
+			ticks: 4,
+			w: w,
+			h: Math.round(chNum(box.getAttribute('data-cm-chart-h')) || 240),
+			title: box.getAttribute('data-cm-chart-title') || 'chart',
+			description: box.getAttribute('data-cm-chart-desc') || 'chart'
+		};
+	}
+	function chRender(box, w) {
+		var plot = box.querySelector('.cm-chart__plot');
+		var cfg = chConfig(box, w);
+		if (!plot || !cfg) return false;
+		var hadFocus = plot.contains(document.activeElement);
+		plot.innerHTML = chartPlot(cfg);
+		if (hadFocus) {
+			var svg = plot.querySelector('.cm-chart__svg');
+			if (svg) svg.focus();
+		}
+		return true;
+	}
+
+	function chShow(box, i) {
+		var d = chData(box);
+		var plot = box.querySelector('.cm-chart__plot');
+		if (!d || !plot) return;
+		var svg = plot.querySelector('.cm-chart__svg');
+		var tip = plot.querySelector('.cm-chart__tooltip');
+		if (!svg || !tip) return;
+		if (i == null || i < 0 || i >= d.data.length) {
+			box.setAttribute('data-cm-chart-state', 'idle');
+			return;
+		}
+		var row = d.data[i];
+		var title = tip.querySelector('.cm-chart__tip-title');
+		if (title) title.textContent = String(row[d.x]);
+		var marks = svg.querySelectorAll('.cm-chart__marker');
+		var rows = tip.querySelectorAll('.cm-chart__tip-row');
+		d.series.forEach(function (sp, k) {
+			var v = chNum(row[sp.key]);
+			var val = rows[k] && rows[k].querySelector('.cm-chart__tip-val');
+			if (val) val.textContent = chFmt(v);
+			if (!marks[k]) return;
+			var band = svg.querySelector('.cm-chart__hit[data-cm-band="' + i + '"]');
+			var src = svg.querySelector('.cm-chart__bar[data-cm-k="' + sp.key + '"][data-cm-band="' + i + '"]');
+			if (src) {
+				marks[k].setAttribute('cx', String(chNum(src.getAttribute('x')) + chNum(src.getAttribute('width')) / 2));
+				marks[k].setAttribute('cy', String(chNum(src.getAttribute('y'))));
+			} else if (band) {
+				var b = band.getBBox ? band.getBBox() : { x: chNum(band.getAttribute('x')), width: chNum(band.getAttribute('width')) };
+				marks[k].setAttribute('cx', String(b.x + b.width / 2));
+				marks[k].setAttribute('cy', chNum(svg.getAttribute('height')) - 26);
+			}
+		});
+		var cur = svg.querySelector('.cm-chart__cursor');
+		var band2 = svg.querySelector('.cm-chart__hit[data-cm-band="' + i + '"]');
+		if (cur && band2) {
+			var r = band2.getBBox ? band2.getBBox() : { x: chNum(band2.getAttribute('x')), width: chNum(band2.getAttribute('width')) };
+			var cx = Math.round((r.x + r.width / 2) * 100) / 100;
+			cur.setAttribute('x1', String(cx));
+			cur.setAttribute('x2', String(cx));
+		}
+		if (band2) {
+			var rb = band2.getBBox ? band2.getBBox() : { x: chNum(band2.getAttribute('x')), width: chNum(band2.getAttribute('width')) };
+			var tw = tip.getBoundingClientRect().width;
+			var pw = plot.getBoundingClientRect().width;
+			/* The tip is centred on the band and then clamped, because
+			   a band at the right edge with a 160px tip centred on it
+			   is a tip half off the chart. */
+			var x = rb.x + rb.width / 2;
+			if (tw) x = Math.min(Math.max(x, tw / 2), Math.max(tw / 2, pw - tw / 2));
+			tip.style.setProperty('--cm-chart-tip-x', Math.round(x) + 'px');
+		}
+		box.setAttribute('data-cm-chart-state', 'active');
+	}
+
+	function cmInitCharts(root) {
+		Array.prototype.forEach.call(
+			(root || document).querySelectorAll('[data-cm-chart]'),
+			function (box) {
+				if (box.getAttribute('data-cm-chart-bound')) return;
+				box.setAttribute('data-cm-chart-bound', '1');
+				chBind(box);
+			}
+		);
+	}
+
+	function chBind(box) {
+		var plot = box.querySelector('.cm-chart__plot');
+		if (!plot) return;
+		var width = 0;
+		var paint = function () {
+			var w = Math.round(plot.getBoundingClientRect().width);
+			if (!(w > 0) || w === width) return;
+			width = w;
+			chRender(box, w);
+		};
+		paint();
+		if (typeof ResizeObserver === 'function') {
+			/* Width only. Re-rendering changes the plot's HEIGHT, so an
+			   observer that re-rendered on any resize would write the
+			   markup it is being measured against and loop forever. */
+			new ResizeObserver(function () { paint(); }).observe(plot);
+		} else if (typeof window !== 'undefined') {
+			window.addEventListener('resize', paint);
+		}
+
+		var active = -1;
+		var move = function (i) {
+			active = i;
+			chShow(box, i);
+		};
+		plot.addEventListener('pointermove', function (e) {
+			var hit = e.target.closest ? e.target.closest('[data-cm-band],[data-cm-slice]') : null;
+			if (!hit) { move(-1); return; }
+			if (hit.hasAttribute('data-cm-band')) {
+				move(Math.round(chNum(hit.getAttribute('data-cm-band'))));
+			} else {
+				var i = Math.round(chNum(hit.getAttribute('data-cm-slice')));
+				active = i;
+				var svg = plot.querySelector('.cm-chart__svg');
+				var slice = svg && svg.querySelector('.cm-chart__slice[data-cm-slice="' + i + '"]');
+				if (slice) slice.classList.add('cm-chart__slice--active');
+				chShow(box, i);
+				if (slice) {
+					var box2 = slice.getBoundingClientRect();
+					var tip = plot.querySelector('.cm-chart__tooltip');
+					if (tip) {
+						var tw = tip.getBoundingClientRect().width;
+						var pw = plot.getBoundingClientRect().width;
+						var x = Math.min(Math.max(box2.left - plot.getBoundingClientRect().left + box2.width / 2, tw / 2),
+							Math.max(tw / 2, pw - tw / 2));
+						tip.style.setProperty('--cm-chart-tip-x', Math.round(x) + 'px');
+					}
+				}
+			}
+		});
+		plot.addEventListener('pointerleave', function () {
+			if (plot.contains(document.activeElement)) return;
+			active = -1;
+			chShow(box, -1);
+			Array.prototype.forEach.call(plot.querySelectorAll('.cm-chart__slice--active'), function (s) {
+				if (!s.hasAttribute('data-cm-slice')) return;
+			});
+		});
+		var svg0 = plot.querySelector('.cm-chart__svg');
+		if (!svg0) return;
+		svg0.addEventListener('keydown', function (e) {
+			var d = chData(box);
+			if (!d) return;
+			var last = d.data.length - 1;
+			var step = 0;
+			if (e.key === 'ArrowRight' || e.key === 'ArrowDown') step = 1;
+			else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') step = -1;
+			else if (e.key === 'Home') step = -last;
+			else if (e.key === 'End') step = last;
+			else if (e.key === 'Escape') { move(-1); e.preventDefault(); return; }
+			else return;
+			e.preventDefault();
+			var at = active < 0 ? (step > 0 ? -1 : last) : active;
+			move(Math.min(last, Math.max(0, at + step)));
+		});
+		svg0.addEventListener('focus', function () {
+			var d = chData(box);
+			if (d && active < 0) move(0);
+		});
+		svg0.addEventListener('blur', function () {
+			if (active >= 0) { active = -1; chShow(box, -1); }
+		});
+	}
+
 	var api = {
 		init: init,
 		applyTheme: applyTheme,
@@ -4543,7 +5211,8 @@
 		},
 		copyText: copyText,
 		toast: toast,
-		dismissToast: dismiss
+		dismissToast: dismiss,
+		chartMarkup: chartMarkup
 	};
 
 	// Global handle for any project, plus module export for bundlers.
