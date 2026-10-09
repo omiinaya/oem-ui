@@ -14311,12 +14311,25 @@ check('batch 23 nav: the vertical bar declares itself and paints on the height a
 		'the painter must write the measured height');
 	assert(js.includes("ind.style.setProperty('--cm-navmenu-y'"),
 		'the painter must write the measured top');
+	// ...and a cleared mark must DROP them: a stale height on a bar
+	// whose trigger has no section paints a rail where nothing is.
+	assert(js.includes("ind.style.removeProperty('--cm-navmenu-h');")
+		&& js.includes("ind.style.removeProperty('--cm-navmenu-y');"),
+		'the painter must clear both knobs when there is no section');
 	// The list flips from the ATTRIBUTE, and the declaration is the same
 	// attribute the painter reads - neither derives the orientation.
 	assert(/\.cm-navmenu\[data-orientation='vertical'\] \{\s*position: relative;\s*flex-direction: column;/.test(css),
 		'the vertical bar must stack from its own attribute');
 	assert(/\.cm-navmenu\[data-orientation='vertical'\] \.cm-navmenu__indicator::after \{\s*width: 100%;\s*height: var\(--cm-navmenu-h, 0\);\s*transform: translateY\(var\(--cm-navmenu-y, 0px\)\);/.test(css),
 		'the vertical mark must ride height/top with fallbacks');
+	// ...and the box LEAVES the flex column: a static box in a column
+	// bar is a row of the list, not a rail beside it.
+	assert(/\.cm-navmenu\[data-orientation='vertical'\] \.cm-navmenu__indicator\s*\{\s*position: absolute;/.test(css),
+		'the vertical mark must leave the flow to become a rail');
+	// The paint itself: a rule that exists but animates nothing still
+	// passes every style read.
+	assert(css.includes('animation: cm-navmenu-swap 120ms var(--cm-ease) both;'),
+		'the incoming list must actually paint with the swap animation');
 	assert(html.includes('data-cm-navmenu data-orientation="vertical"'),
 		'the specimen must ship a vertical bar');
 	// Hover CSS agrees with hover JS: the recolor lives under the same

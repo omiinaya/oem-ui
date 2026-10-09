@@ -647,23 +647,34 @@ with sync_playwright() as pw:
         const bar = document.querySelector('[data-cm-navmenu][data-orientation="vertical"]');
         const kids = [...bar.querySelectorAll('.cm-navmenu__trigger')].map((k) => {
             const r = k.getBoundingClientRect();
-            return { t: Math.round(r.top), b: Math.round(r.bottom), l: Math.round(r.left) };
+            return { t: Math.round(r.top), b: Math.round(r.bottom),
+                     l: Math.round(r.left), w: Math.round(r.width) };
         });
         const ind = bar.querySelector('.cm-navmenu__indicator');
         const after = getComputedStyle(ind, '::after');
+        const widths = kids.map((k) => k.w);
         return { dir: getComputedStyle(bar).flexDirection,
                  stacked: kids.every((k, i) => i === 0 || k.t >= kids[i - 1].b - 1),
                  sameLeft: kids.length > 1 && kids.every((k) => k.l === kids[0].l),
+                 sameW: kids.length > 1
+                        && Math.max(...widths) - Math.min(...widths) <= 2,
                  active: ind.getAttribute('data-active'),
                  h: ind.style.getPropertyValue('--cm-navmenu-h'),
                  y: ind.style.getPropertyValue('--cm-navmenu-y'),
                  paintedH: after.height };
     }""")
+    # sameW: width:100% is the difference between a LIST and a pile of
+    # shrink-wrapped chips - shrink-to-fit stacks cleanly too, so the
+    # left edge alone cannot see it.
     check('the vertical bar stacks its words in one column',
-          vert['dir'] == 'column' and vert['stacked'] and vert['sameLeft'], vert)
+          vert['dir'] == 'column' and vert['stacked'] and vert['sameLeft']
+          and vert['sameW'], vert)
+    # paintedH must BE the h knob: an axis swap that paints the w value
+    # still yields a non-empty height (vertical triggers are wide), so
+    # "not empty" cannot see the wrong axis.
     check('and its mark is painted on the height axis, not the row\'s',
           vert['active'] == 'true' and vert['h'] not in ('', '0px')
-          and vert['y'] not in ('',) and vert['paintedH'] not in ('0px', 'auto', ''), vert)
+          and vert['y'] not in ('',) and vert['paintedH'] == vert['h'], vert)
 
     check('the page threw nothing', not errors, errors)
     browser.close()

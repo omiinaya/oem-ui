@@ -2302,6 +2302,60 @@ recorded as a survivor. The run was aborted, the half-eaten tree
 restored from git, the exit path added, and the proof re-run from a
 clean build.
 
+
+### Navigation menu depth
+
+The bar shipped in the navigation-menu batch with panels, a drawn
+chevron and a measured indicator; this batch is the behavior shadcn
+documents on top of it.
+
+**Delayed hover.** Hover a word for **200ms** and its panel opens;
+inside an open bar the move to the next word is immediate, because the
+delay is for *getting in*, not for walking. Leaving the bar starts a
+**300ms grace** — the panel is a jump away, and a panel that vanishes
+under the pointer mid-cross is a panel nobody can use — and then
+closes **only what the hover opened**: `onNavmenuClick` releases
+ownership, so a clicked panel is sticky until its reader dismisses it,
+and the hover's own 200ms timer claims nothing on a panel that is
+already open (the first wording did, and the harness caught it closing
+a click-opened panel from under its reader). The gate is
+`(hover: hover) and (pointer: fine)` read **at event time** — a media
+query is state, and a bind-time capture is a lie the first time the
+state changes — and the trigger's hover recolor moved under the same
+media query in CSS, so the paint and the behaviour agree about what a
+pointer is. Touch never enters the module.
+
+**One shared viewport.** Both words point at ONE panel
+(`data-cm-navmenu-viewport` on the bar, `data-cm-navmenu-content` on
+each word naming a `<template>`), and the fill lives inside
+`onPopoverToggle` — the single task every door runs through — so the
+list lands in the same task the panel opens in, before paint.
+`data-state="open"/"closed"` is the fingerprint (the house form:
+`data-active` on the scroller, `data-checked` on the glyph), and a
+close stamps **every** word false, because `popTrigger()` can only
+ever find the first of two triggers sharing an id. The platform's
+`popovertarget` invocation is a *toggle*, so a click on a different
+word cancels it and swaps synchronously while the current word's click
+still closes; the arrow walk fills, aria-moves and re-anchors in one
+task — an unanchored swap is a panel sitting at the last word's
+coordinates. The per-trigger panels still ship and still work; the
+specimen carries both models.
+
+**`data-orientation="vertical"`.** The list stacks from the
+attribute — the same attribute the painter reads, so neither derives
+the orientation from anywhere else — and `navPaintIndicator` now
+writes both knob pairs (`--cm-navmenu-w/x` and `--cm-navmenu-h/y`);
+the vertical indicator leaves the flex column and rides height/top.
+One painter, two axes, no second mechanism.
+
+Proof: suite 587/0 · `tests/verify-navmenu.py` 35/35 ·
+`tests/mutate-navmenu-depth.py` 31 patterns, killed=31 survived=0
+(the 23 batch-20 checks held; two were re-read when the specimen
+grew to three bars — indicator counts are now per bar, because a
+global count passes on a bar with two marks as long as another has
+none, and the wrap oracle scopes its walk to the bar it means
+rather than collecting every bar's words).
+
 ## shadcn/ui parity status
 
 The standing goal is component parity with

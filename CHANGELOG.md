@@ -2181,6 +2181,68 @@ button-qualified page selector and dies on select-all holding.
 - The dev-blog half of this (re-vendor, wrapper, test re-derivations,
   12/12 mutations, 129/129 WebKit checks) ships in oem-log, commit
   `c524a49` - it is the consumer's change, not the library's.
+### Batch 23: navigation menu depth
+
+- **Delayed hover, the door the bar did not have.** Hovering a word opens
+  its panel after **200ms**; moving inside an open bar swaps on arrival
+  (the delay is for GETTING in, not for walking); leaving the bar gives
+  **300ms of grace** — the panel is a jump away and must not vanish
+  under the pointer crossing to it — and then closes *only a panel the
+  hover opened*. A click releases ownership, so a clicked panel is
+  sticky until the reader dismisses it. The gate is
+  `(hover: hover) and (pointer: fine)` **read at event time** (a media
+  query is state; a bind-time capture is a lie the first time it
+  changes), and the trigger's hover recolor moved under the SAME
+  media query in CSS, so paint and behaviour agree about what a
+  pointer is. Touch never enters the module.
+- **One shared viewport, content swaps.** The shadcn model: both words
+  point at ONE panel (`data-cm-navmenu-viewport` names it; each word
+  names its list with `data-cm-navmenu-content` → a `<template>`), and
+  the fill happens inside `onPopoverToggle` — the single task every
+  door runs through — so content lands before paint and the panel never
+  shows an empty frame. `data-state="open"/"closed"` carries the
+  fingerprint (house form, like `data-active` on the scroller), and
+  closing stamps **every** word false (popTrigger can only ever find
+  the first trigger sharing an id — measured, not assumed). Two doors
+  needed real decisions: the platform's popovertarget invocation is a
+  TOGGLE, so a click on a *different* word now cancels it
+  (`preventDefault`) and swaps synchronously, while the current word's
+  click still closes; the arrow walk fills, aria-moves and re-anchors
+  in the same task, because an unanchored swap is a panel sitting at
+  the last word's coordinates.
+- **`data-orientation="vertical"`.** The list stacks from the
+  attribute — the same attribute the painter reads, so neither derives
+  the orientation from anything else — and `navPaintIndicator` now
+  writes **both** knob pairs (`--cm-navmenu-w/x` *and*
+  `--cm-navmenu-h/y`); the vertical bar's indicator leaves the flex
+  column (absolute, left edge) and rides height/top. One function,
+  two axes, no second painter.
+- **The swap paints.** `data-state='open'` animates the incoming list
+  120ms from -2px — one frame of announcement, not a layout
+  animation — and the keyframe is listed in the house
+  reduced-motion block like every other animation in the system.
+
+The bar keeps its per-trigger panels too: both models ship in the
+specimen and both are driven by the harness (shipped 3 bars:
+per-trigger, shared viewport, vertical).
+
+- Proof: suite 587/0 · `tests/verify-navmenu.py` 35/35 (23 batch-20
+  checks held — two of them needed a re-read when the specimen grew:
+  the indicator counts are now per BAR, because a global count passes
+  on a bar with two marks as long as another has none, and the wrap
+  oracle now scopes its trigger walk to the bar it means instead of
+  collecting every bar's words) · `tests/mutate-navmenu-depth.py` 31
+  patterns, killed=31 survived=0. The first proof run came back 29/32:
+  a missing suite pin on the cleared-mark `removeProperty`, a
+  `width: 100%` mutant that is EQUIVALENT under `align-items: stretch`
+  (cut and documented, not claimed), and a pattern mutating the
+  template's LABEL where the oracle reads its HREF. All three fixed
+  and re-run from a restored tree.
+- Fixes: the hover's 200ms timer fires *after* a click on the same
+  word; the first wording claimed ownership unconditionally, so a
+  click-opened panel was closed from under its reader by its own
+  grace window (found by the harness, ownership claimed only on the
+  branch that actually opens).
 
 ## Fixed
 
