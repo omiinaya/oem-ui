@@ -6237,11 +6237,11 @@ input.cm-slider:disabled {
    loses the cascade silently. The addon is ours, so the collapse lives
    there - and the same rule, reversed, covers an addon on the right. */
 .cm-input-group > .cm-input-group__addon {
-	border-right-width: 0;
+	border-inline-end-width: 0;
 }
 .cm-input-group > .cm-input-group__addon:last-child {
-	border-right-width: 1px;
-	border-left-width: 0;
+	border-inline-end-width: 1px;
+	border-inline-start-width: 0;
 }
 .cm-input-group__addon {
 	display: inline-flex;
@@ -6553,8 +6553,8 @@ input.cm-slider:disabled {
 	position: absolute;
 	z-index: var(--z-popover);
 	top: calc(100% + 4px);
-	left: 0;
-	right: 0;
+	inset-inline-start: 0;
+	inset-inline-end: 0;
 	display: block;
 	margin: 0;
 	padding: var(--space-1);
@@ -6625,7 +6625,7 @@ input.cm-slider:disabled {
 	margin: 0;
 	padding: var(--space-2) var(--space-3);
 	border: 0;
-	border-right: 1px solid var(--line);
+	border-inline-end: 1px solid var(--line);
 	border-radius: var(--radius-sm);
 	background: transparent;
 	color: var(--ink-dim);
@@ -6812,7 +6812,7 @@ input.cm-slider:disabled {
 .cm-navmenu[data-orientation='vertical'] .cm-navmenu__indicator {
 	position: absolute;
 	top: 0;
-	left: 0;
+	inset-inline-start: 0;
 	width: 2px;
 	height: 100%;
 }
@@ -6868,7 +6868,7 @@ input.cm-slider:disabled {
 	padding: 0 0 0 var(--space-4);
 	list-style: none;
 }
-.cm-tree--root { padding-left: 0; }
+.cm-tree--root { padding-inline-start: 0; }
 .cm-tree > li { margin: 0; }
 /* ONE row treatment for both shapes. A branch summary and a leaf link that
    measure differently make the tree stop reading as a single list. */
@@ -6925,8 +6925,8 @@ input.cm-slider:disabled {
 	width: 9px;
 	margin: 0 -1px;
 	border: 0;
-	border-left: 1px solid var(--line);
-	border-right: 1px solid var(--line);
+	border-inline-start: 1px solid var(--line);
+	border-inline-end: 1px solid var(--line);
 	background: var(--bg-3);
 	cursor: col-resize;
 	touch-action: none;
@@ -6938,12 +6938,12 @@ input.cm-slider:disabled {
 	content: '';
 	position: absolute;
 	top: 50%;
-	left: 50%;
+	inset-inline-start: 50%;
 	width: 3px;
 	height: 18px;
 	transform: translate(-50%, -50%);
-	border-left: 1px solid var(--ink-faint);
-	border-right: 1px solid var(--ink-faint);
+	border-inline-start: 1px solid var(--ink-faint);
+	border-inline-end: 1px solid var(--ink-faint);
 }
 @media (max-width: 640px) {
 	/* Two panes side by side on a phone are two unusable panes: stack, and
@@ -6954,8 +6954,8 @@ input.cm-slider:disabled {
 		width: auto;
 		height: 9px;
 		margin: -1px 0;
-		border-left: 0;
-		border-right: 0;
+		border-inline-start: 0;
+		border-inline-end: 0;
 		border-top: 1px solid var(--line);
 		border-bottom: 1px solid var(--line);
 		cursor: row-resize;
@@ -6963,8 +6963,8 @@ input.cm-slider:disabled {
 	.cm-resize__handle::after {
 		width: 18px;
 		height: 3px;
-		border-left: 0;
-		border-right: 0;
+		border-inline-start: 0;
+		border-inline-end: 0;
 		border-top: 1px solid var(--ink-faint);
 		border-bottom: 1px solid var(--ink-faint);
 	}
@@ -6999,7 +6999,7 @@ input.cm-slider:disabled {
 	/* pinned: when the grid scrolls sideways inside the card, the
 	   month and its arrows stay put. */
 	position: sticky;
-	left: 0;
+	inset-inline-start: 0;
 	display: flex;
 	background: var(--panel);
 	align-items: center;
@@ -7738,7 +7738,7 @@ input.cm-slider:disabled {
 .cm-dropdown__icon[data-checked='true']::before { content: "\2713"; }
 .cm-dropdown__shortcut {
 	flex: none;
-	margin-left: auto;
+	margin-inline-start: auto;
 	color: var(--ink-faint);
 	font-size: var(--text-micro);
 }
@@ -7747,7 +7747,7 @@ input.cm-slider:disabled {
 .cm-dropdown__shortcut { -webkit-user-select: none; user-select: none; }
 .cm-dropdown__item[aria-haspopup='menu'] > .cm-dropdown__caret {
 	flex: none;
-	margin-left: auto;
+	margin-inline-start: auto;
 	color: var(--ink-faint);
 }
 .cm-dropdown__label-text {
@@ -8148,7 +8148,7 @@ input.cm-slider:disabled {
 	height: 1.15em;
 	flex: 0 0 auto;
 	vertical-align: -0.18em;
-	margin-right: 0.35em;
+	margin-inline-end: 0.35em;
 }
 /* The card carries the padding, so the head and the body must BOTH give
    it up. Zeroing only the head left the title 16px left of the first

@@ -12838,7 +12838,7 @@ check("the hover card is visibility-gated, not merely faded", () => {
 check("the input group collapses to one hairline", () => {
 	const css = read("src/styles/components.css");
 	const page = read("src/pages/index.astro");
-	assert(/\.cm-input-group__addon \{[^}]*border-right-width: 0;/s.test(css),
+	assert(/\.cm-input-group__addon \{[^}]*border-inline-end-width: 0;/s.test(css),
 		"the addon gives up its right border so the field's own border is the only seam");
 	assert(!/\.cm-input-group[^{]*\{[^}]*margin-left: -/.test(css) &&
 		!/\.cm-input-group > \* \+ \* \{[^}]*margin/s.test(css),
@@ -13112,7 +13112,7 @@ check("the input group collapses to one hairline", () => {
 		const trg = css.match(/\.cm-menubar__trigger \{([^}]*)\}/);
 		assert(trg, '.cm-menubar__trigger is not defined');
 		assert(/border-radius:\s*var\(--radius-sm\)/.test(trg[1]), 'the cell takes the sharp radius token');
-		assert(/border-right:\s*1px solid var\(--line\)/.test(trg[1]),
+		assert(/border-inline-end:\s*1px solid var\(--line\)/.test(trg[1]),
 			'cells are divided by a hairline - a menu bar without rules reads as one blob');
 		const panel = css.match(/\.cm-menubar__menu \{([^}]*)\}/);
 		assert(panel && /position:\s*fixed/.test(panel[1]),
@@ -13160,7 +13160,7 @@ check("the input group collapses to one hairline", () => {
 		const tree = css.match(/\.cm-tree \{([^}]*)\}/);
 		assert(tree && /padding: 0 0 0 var\(--space-4\)/.test(tree[1]),
 			'each level must pad its own children: a depth typed into a style is a lie');
-		assert(/\.cm-tree--root \{ padding-left: 0; \}/.test(css), 'the root must not be indented twice');
+		assert(/\.cm-tree--root \{ padding-inline-start: 0; \}/.test(css), 'the root must not be indented twice');
 		const leaves = (page.match(/<a class="cm-tree__row"/g) || []).length;
 		assert(leaves >= 3, `leaves must be real links, found ${leaves}`);
 		assert(/cm-disclosure__summary cm-tree__row/.test(page),
