@@ -1013,9 +1013,27 @@ check('the element default and the class agree, or a full and a scoped adoption 
 	// asserted below, because the class now restates the element defaults
 	// for the SCOPED case and a divergence would mean a consumer's select
 	// changes appearance depending on how it installed the library.
+	// The Direction baseline spells this clearance logically, and the two
+	// adoptions must keep agreeing. `padding-inline-end` and
+	// `padding-right` are one property in an LTR document, so the
+	// comparison resolves either spelling to the AXIS and compares the
+	// VALUE; a check that hard-coded `padding-right` by name went red the
+	// moment base.css converted and would have pinned the two adoptions
+	// to opposite spellings forever. Which spelling is legal is policed
+	// repo-wide by the logical-baseline check at the end of this file.
+	const AXIS = { 'padding-left': 'padding-inline-start', 'padding-right': 'padding-inline-end' };
 	for (const prop of ['background-image', 'background-position', 'background-size',
 		'background-repeat', 'padding-right']) {
-		const of = (b) => (b.match(new RegExp(prop + ':\\s*([^;]+);')) || [, ''])[1].replace(/\s+/g, '');
+		const canon = AXIS[prop] || prop;
+		const spellings = Object.keys(AXIS).filter((k) => AXIS[k] === canon)
+			.concat([canon]);
+		const of = (b) => {
+			for (const name of spellings) {
+				const m = b.match(new RegExp(`(?:^|[;\\s{])${name}:\\s*([^;]+);`));
+				if (m) return m[1].replace(/\s+/g, '');
+			}
+			return '';
+		};
 		assert(of(bare) && of(bare) === of(cls),
 			`${prop} differs between the bare select and .cm-select — a full and a scoped adoption would paint different arrows`);
 	}
