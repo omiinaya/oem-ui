@@ -2364,6 +2364,74 @@ button.cm-row:hover { background: var(--bg-2); }
 	.cm-table th:first-child, .cm-table td:first-child { white-space: normal; }
 }
 
+/* ---------- data table: toolbar, footer, pagination ----------
+   The documented controls composed onto this table: a filter box, a
+   column toggle (the dropdown's own checkbox items - no second control
+   style), and a footer that reads selection, size and page position in
+   one line of type. Nothing here needs its own button skin: the page
+   controls ARE `.cm-btn--sm`, so a disabled page button looks disabled
+   for the same reason every other button does. */
+.cm-table__bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-2);
+	margin-bottom: var(--space-3);
+}
+.cm-table__bar .cm-input {
+	flex: 1 1 12rem;
+	max-width: 20rem;
+}
+/* The checkbox column claims only what it needs (`width: 1%` on a table
+   cell means "as narrow as the content allows"), so the data columns
+   keep the rhythm they had before selection existed. */
+.cm-table__check {
+	width: 1%;
+	text-align: center;
+}
+.cm-table__foot {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+	margin-top: var(--space-3);
+	font-size: var(--min-font);
+	color: var(--ink-dim);
+}
+.cm-table__footgroup {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-3);
+}
+/* The rows-per-page label: quiet text that OWNS its select, so the
+   pair wraps together instead of a bare word splitting from its control. */
+.cm-table__label {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2);
+	white-space: nowrap;
+}
+.cm-table__pages {
+	display: flex;
+	gap: var(--space-1);
+}
+/* First/last carry no state the page line does not already say, so they
+   are the first controls to go when width runs out - the same call
+   shadcn makes below lg. */
+@media (max-width: 760px) {
+	.cm-table__far { display: none; }
+}
+/* The "no results" row is a STATE, not a missing row: centred, and tall
+   enough that an empty table still reads as a table with something to
+   say. */
+.cm-table [data-cm-empty] td {
+	text-align: center;
+	color: var(--ink-dim);
+	padding-top: var(--space-6);
+	padding-bottom: var(--space-6);
+}
 /* ---------- tag / chip ---------- */
 .cm-tag {
 	display: inline-flex; align-items: center; gap: var(--space-1);

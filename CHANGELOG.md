@@ -1945,6 +1945,45 @@ by the happy path:
   scroll behaviour are asserted now (beside-the-panel, top-aligned,
   in-viewport at 402 and 320, menu-on-trigger after scroll).
 
+### Batch 19: data table depth
+
+- **Filtering, pagination, column visibility and row selection** join the
+  showcase's data table - the four controls that make a grid a tool.
+  Filtering is delegated (`input` on `data-cm-filter`, bare = global,
+  column id = scoped, every active filter must hold), pagination disables
+  both ends from the same page math the footer reads and hides first/last
+  below 760px the way shadcn does, column visibility flips
+  `menuitemcheckbox` rows via `aria-checked` and hides cells matched by
+  `getAttribute` (quote-proof), and selection writes `aria-selected` onto
+  the row with the header box covering the PAGE and the count line reading
+  selected-*among*-FILTERED. Every state change ends in ONE refresh of the
+  scope: rows, page slice and footer re-derived together, because four
+  handlers each redrawing their own half is how the halves disagree.
+
+- **The select-all killer.** The refresh writes the page index back as
+  `data-cm-page` on the table, so the page handler's bare
+  `closest('[data-cm-page]')` matched the table itself from every click
+  inside it: a stray refresh fired between a checkbox's native toggle and
+  its change event and unchecked the box again. Filtering, paging and
+  sorting all worked while "select all" silently did nothing. The control
+  selectors are now `button[data-cm-page]` in both sites (handler and the
+  disabled-state loop), pinned as contracts, and the harness clicks the
+  box and asserts the state HOLDS.
+
+- **Delegation all the way down:** listeners on `document`, state in the
+  DOM. A filter input appended at runtime, a tbody replaced wholesale, and
+  a restored tbody with its old rows all keep working - proven, not
+  promised. A column-scoped filter searching only its column (`by=omar`
+  matches 7, `live` in `by` matches 0 while 12 rows carry it as status)
+  is what keeps the scoping honest.
+
+Proven: suite 564/0 (2 new contracts);
+`tests/verify-data-table.py` in WebKit at 402x667: **36/36**;
+`tests/mutate-data-table.py`: **34/34 killed, 0 survived** (byte-exact,
+--scan 34/34, crash-is-a-kill verdicts) - the headline pattern reverts the
+button-qualified page selector and dies on select-all holding.
+
+
 ## Fixed
 
 - Two stacking checks demanded a literal `z-index: <number>`, which fails on

@@ -13417,3 +13417,129 @@ check('the scoped-entry generator emits EVERY z token, not a sample', () => {
 	}
 	rmSync(dir, { recursive: true, force: true });
 });
+
+
+/* --- batch 19: data table depth -------------------------------------- */
+/*
+ * Filter, page, columns, selection. The bug this block exists for: the
+ * refresh writes the page INDEX back as `data-cm-page` on the TABLE, so
+ * a bare closest('[data-cm-page]') matched the table itself from every
+ * click inside it - a stray refresh fired between a checkbox's native
+ * toggle and its change event and unchecked the box again, and
+ * "select all" silently did nothing while every other feature worked.
+ * The selectors below are element-qualified for load-bearing reasons.
+ */
+
+check('the data table: delegation, one refresh, and the controls that must not match the table', () => {
+	const js = read('src/js/cli-mono.js');
+
+	// Scope: one opt-in ancestor; every handler resolves through it, so
+	// a second table on the page can never be driven by this one's controls.
+	assert(js.includes("el.closest('[data-cm-datatable]')"),
+		'cmTableScope must resolve through the section opt-in');
+
+	// Delegation: listeners live on DOCUMENT, so a tbody a framework
+	// rewrites every few seconds keeps every control working. Pin the
+	// event, not just the handler name - a `change` binding where the
+	// feature fires on `input` still "binds" the handler.
+	for (const binding of [
+		"document.addEventListener('input', onTableFilter)",
+		"document.addEventListener('click', onTableSort)",
+		"document.addEventListener('click', onTablePageClick)",
+		"document.addEventListener('click', onColvisClick)",
+		"document.addEventListener('change', onTableSelectChange)",
+		"document.addEventListener('change', onTableSizeChange)",
+	]) {
+		assert(js.includes(binding), `missing delegation binding: ${binding}`);
+	}
+
+	// ONE refresh per scope: every state change re-derives rows, page
+	// slice and footer from the same pass. Four handlers each redrawing
+	// their own half is how the halves start disagreeing.
+	assert(js.includes('cmTableRefresh(cmTableScope(t));'),
+		'filter must refresh through the shared pass');
+	assert(js.includes("row.style.display = inPage.indexOf(row) >= 0 ? '' : 'none'"),
+		'rows have exactly one visibility writer, in the shared pass');
+
+	// THE regression: page controls are BUTTONS. The table stores the
+	// page index under the same attribute name, so the qualified
+	// selector is what keeps a click on any checkbox from re-entering
+	// the page handler. Both sites, or neither works.
+	assert(js.includes("t.closest('button[data-cm-page]')"),
+		'onTablePageClick must match the page BUTTON, not the table that stores data-cm-page');
+	assert(js.includes("querySelectorAll('button[data-cm-page]')"),
+		'the disabled-state loop must not write .disabled onto the table');
+	assert(js.includes("table.setAttribute('data-cm-page', String(page))"),
+		'the page index lives on the table as state');
+
+	// Selection: the header box covers the PAGE, the count line counts
+	// the selected rows among the FILTERED - the two models shadcn prints.
+	assert(js.includes('inPage.length > 0 && onPageSelected.length === inPage.length'),
+		'select-all must cover the current page, not every row');
+	assert(js.includes('allBox.indeterminate = onPageSelected.length > 0 && !all'),
+		'a partially selected page reads indeterminate');
+	assert(js.includes("count.textContent = selFiltered + ' of ' + matched.length"),
+		'the count line is selected INTERSECT filtered');
+	assert(js.includes("row.setAttribute('aria-selected', t.checked ? 'true' : 'false');"),
+		'selection state must be written onto the row');
+	assert(js.includes("return row.getAttribute('aria-selected') === 'true';"),
+		'selection must be READ from the row, not from a shadow map');
+
+	// Filter: substring, case-insensitive - filterFn_includesString's model.
+	assert(js.includes('text.indexOf(q) >= 0'),
+		'filter is a substring match over cell text');
+	assert(js.includes("col: input.getAttribute('data-cm-filter') || ''"),
+		'a bare data-cm-filter is the global search; a value scopes it');
+
+	// Pagination: clamped to a REAL page (never the empty tail of the
+	// old one), and both ends disable honestly.
+	assert(js.includes('if (page > pages - 1) page = pages - 1;'),
+		'a filter that shrinks results must land on a real page');
+	assert(js.includes("btn.disabled = kind === 'first' || kind === 'prev'"),
+		'page ends must disable from the same page math');
+
+	// The no-results row renders where shadcn renders its empty TableRow.
+	assert(js.includes("table.querySelector('[data-cm-empty]')") &&
+		js.includes("empty.style.display = matched.length ? 'none' : '';"),
+		'the empty row shows exactly when nothing matched');
+
+	// Sort: numeric cells compare NUMERICALLY (a lexical sort would put
+	// 1180 before 120), and only the clicked header carries direction.
+	assert(js.includes('return sign * cmSortCompare(x.key, y.key);'),
+		'sort compares through the comparator, per tbody');
+	assert(js.includes('if (!/^[+-]?[\\d\\u00a0,\\s]+%?$/.test(v)) return null;'),
+		'cmSortNumber must accept one whole quantity and nothing else');
+	assert(js.includes("other.setAttribute('aria-sort', other === th ? dir : 'none');"),
+		'aria-sort marks the clicked header and resets the rest');
+
+	// Column visibility: cells matched by getAttribute (a column id with
+	// a quote must not break the query), shown/hidden via aria-checked.
+	assert(js.includes("cell.getAttribute('data-col') !== col") &&
+		js.includes("cell.style.display = show ? '' : 'none';"),
+		'colvis hides by attribute match, via style.display');
+	assert(js.includes("var show = item.getAttribute('aria-checked') === 'true';"),
+		'colvis reads its state from aria-checked');
+});
+
+check('the data table specimen: registered, opted in, every control present, far buttons hide', () => {
+	const html = read('src/pages/index.astro');
+	const css = read('src/styles/components.css');
+
+	assert(html.includes("'data-table'"), 'SECTION_ORDER must list the specimen');
+	assert(html.includes('id="data-table"') && html.includes('data-cm-datatable'),
+		'the section exists and opts in');
+	for (const attr of ['data-cm-selectall', 'data-cm-selcount', 'data-cm-pageinfo',
+		'data-cm-empty', 'data-cm-pagesize', 'data-cm-filter', 'data-cm-sort',
+		'aria-selected', 'data-cm-size']) {
+		assert(html.includes(attr), `specimen is missing ${attr}`);
+	}
+	assert((html.match(/data-cm-col=/g) || []).length >= 4,
+		'four toggleable columns must be declared');
+	assert((html.match(/data-cm-page="/g) || []).length >= 4,
+		'all four page buttons (first/prev/next/last) must be declared');
+
+	// First/last are the first controls to go when width runs out - the
+	// same call shadcn makes below lg, pinned as text.
+	assert(/@media \(max-width: 760px\) \{\s*\n\t\.cm-table__far \{ display: none; \}/.test(css),
+		'.cm-table__far must be hidden at phone width');
+});

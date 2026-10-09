@@ -1456,9 +1456,15 @@
 			return;
 		}
 		// Space/Enter flip a checkbox row. Enter already activates the button;
-		// Space does not, so both routes are spelled out here.
+		// Space does not, so both routes are spelled out here. The click that
+		// Enter ALSO generates must not flip it back, so the flip is recorded
+		// for onMenuCheckClick; and because preventDefault may suppress that
+		// click entirely, a column-visibility item applies itself right here.
 		if ((e.key === ' ' || e.key === 'Enter') && toggleCheckable(t)) {
 			e.preventDefault();
+			cmKeyFlipItem = t;
+			cmKeyFlipAt = Date.now();
+			cmColvisApply(t);
 			return;
 		}
 		if (!next) return;
@@ -2137,6 +2143,9 @@
 		if (!th || !table) return;
 		var next = th.getAttribute('aria-sort') === 'ascending' ? 'descending' : 'ascending';
 		cmApplySort(table, th, next);
+		// Rows moved, so the page slice and the count line are stale by
+		// definition: one refresh keeps every readout on the same truth.
+		cmTableRefresh(cmTableScope(btn));
 	}
 
 	/* A column the markup DECLARES sorted must already be in that order:
@@ -3168,6 +3177,7 @@
 		cmInitScroller(root);
 		cmInitDatepickers(root);
 		cmInitSort(root);
+		cmInitTables(root);
 		cmInitShortcuts();
 		cmInitSliders(root);
 		cmInitComboboxes(root);
@@ -3231,6 +3241,266 @@
 		);
 	}
 
+	/* ---------- data table: filter, paginate, columns, selection ----------
+	   Every feature is OPT-IN and every listener is DELEGATED - the four
+	   documented shadcn behaviors composed onto the table we already ship,
+	   not a second table implementation.
+
+	   The scope is `[data-cm-datatable]`: a wrapper around toolbar + table
+	   + footer, so a page can hold several tables and each control finds
+	   its own. WHY ONE REFRESH: filter, page, sort and selection all
+	   decide the same two things - which rows show, what the footer says.
+	   Four handlers each redrawing their own half is how the halves start
+	   disagreeing (a count line claiming "5 of 23" while page 3 shows rows
+	   the filter removed). cmTableRefresh owns the whole answer, and every
+	   path ends there.
+
+	   State lives in the DOM, never in a map: the filter IS the input's
+	   value, the page and size ARE attributes on the table, selection IS
+	   `aria-selected` on the row. A consumer whose framework re-renders
+	   tbody keeps nothing stale, because nothing was mirrored. */
+
+	function cmTableScope(el) {
+		return el && el.closest ? el.closest('[data-cm-datatable]') : null;
+	}
+
+	function cmTableRows(table) {
+		var rows = [];
+		Array.prototype.forEach.call(table.tBodies, function (body) {
+			Array.prototype.forEach.call(body.rows, function (row) {
+				if (row.hasAttribute('data-cm-empty')) return;
+				rows.push(row);
+			});
+		});
+		return rows;
+	}
+
+	function cmCellMatch(row, q, col) {
+		var cells = row.cells;
+		var i, text;
+		// A column filter names its column via `data-col`; the global
+		// filter searches every cell. Substring, case-insensitive, which
+		// is what `filterFn_includesString` does on the other side.
+		if (col) {
+			for (i = 0; i < cells.length; i++) {
+				if (cells[i].getAttribute('data-col') === col) {
+					text = (cells[i].textContent || '').toLowerCase();
+					return text.indexOf(q) >= 0;
+				}
+			}
+			return false;
+		}
+		for (i = 0; i < cells.length; i++) {
+			text = (cells[i].textContent || '').toLowerCase();
+			if (text.indexOf(q) >= 0) return true;
+		}
+		return false;
+	}
+
+	function cmRowSelected(row) {
+		return row.getAttribute('aria-selected') === 'true';
+	}
+
+	function cmTableRefresh(scope, op) {
+		if (!scope) return;
+		var table = scope.querySelector('table');
+		if (!table) return;
+		var rows = cmTableRows(table);
+
+		// -- filter: a row must satisfy EVERY active filter in the scope.
+		// `data-cm-filter` with no value is the global search box; with a
+		// column id it filters that column only.
+		var filters = [];
+		Array.prototype.forEach.call(
+			scope.querySelectorAll('[data-cm-filter]'),
+			function (input) {
+				var q = (input.value || '').trim().toLowerCase();
+				if (!q) return;
+				filters.push({ q: q, col: input.getAttribute('data-cm-filter') || '' });
+			}
+		);
+		var matched = rows.filter(function (row) {
+			for (var i = 0; i < filters.length; i++) {
+				if (!cmCellMatch(row, filters[i].q, filters[i].col)) return false;
+			}
+			return true;
+		});
+
+		// -- pagination, clamped: a filter that shrinks the result must
+		// land on a REAL page, never on the empty tail of the old one.
+		var size = parseInt(table.getAttribute('data-cm-size') || '', 10);
+		if (!(size > 0)) size = 10;
+		var pages = Math.max(1, Math.ceil(matched.length / size));
+		var page = parseInt(table.getAttribute('data-cm-page') || '', 10);
+		if (!(page >= 0)) page = 0;
+		if (page > pages - 1) page = pages - 1;
+		if (op === 'first') page = 0;
+		else if (op === 'prev') page = Math.max(0, page - 1);
+		else if (op === 'next') page = Math.min(pages - 1, page + 1);
+		else if (op === 'last') page = pages - 1;
+		table.setAttribute('data-cm-page', String(page));
+
+		var inPage = matched.slice(page * size, page * size + size);
+
+		// -- visibility: INLINE display, because `hidden` loses to any
+		// author rule that sets `display` on a row, and a consumer's
+		// stylesheet is not ours to outrank by specificity.
+		rows.forEach(function (row) {
+			row.style.display = inPage.indexOf(row) >= 0 ? '' : 'none';
+		});
+
+		// -- the "no results" row, full width, exactly where shadcn
+		// renders its empty TableRow.
+		var empty = table.querySelector('[data-cm-empty]');
+		if (empty) empty.style.display = matched.length ? 'none' : '';
+
+		// -- page controls: disabled at both ends, honestly.
+		Array.prototype.forEach.call(
+			scope.querySelectorAll('button[data-cm-page]'),
+			function (btn) {
+				var kind = btn.getAttribute('data-cm-page');
+				btn.disabled = kind === 'first' || kind === 'prev'
+					? page === 0
+					: page >= pages - 1;
+			}
+		);
+		var info = scope.querySelector('[data-cm-pageinfo]');
+		if (info) info.textContent = 'page ' + (page + 1) + ' of ' + pages;
+
+		// -- selection. The header box covers the PAGE rows
+		// (getIsAllPageRowsSelected); the count line counts the
+		// SELECTED rows among the FILTERED ones - the same two models
+		// shadcn prints.
+		var selected = rows.filter(cmRowSelected);
+		var onPageSelected = inPage.filter(cmRowSelected);
+		var allBox = scope.querySelector('[data-cm-selectall]');
+		if (allBox) {
+			var all = inPage.length > 0 && onPageSelected.length === inPage.length;
+			allBox.checked = all;
+			allBox.indeterminate = onPageSelected.length > 0 && !all;
+		}
+		var count = scope.querySelector('[data-cm-selcount]');
+		if (count) {
+			var selFiltered = selected.filter(function (row) {
+				return matched.indexOf(row) >= 0;
+			}).length;
+			count.textContent = selFiltered + ' of ' + matched.length
+				+ ' rows selected';
+		}
+	}
+
+	function cmInitTables(root) {
+		(root || document)
+			.querySelectorAll('[data-cm-datatable]')
+			.forEach(function (scope) { cmTableRefresh(scope); });
+	}
+
+	function onTableFilter(e) {
+		var t = e.target;
+		if (!t || !t.matches || !t.matches('[data-cm-filter]')) return;
+		// Live, no debounce: the controlled input on the other side of this
+		// parity is live too, and a stale frame between keystroke and row
+		// is a lie the count line would repeat.
+		cmTableRefresh(cmTableScope(t));
+	}
+
+	function onTablePageClick(e) {
+		var t = e.target;
+		if (!t || typeof t.closest !== 'function') return;
+		// `button` is LOAD-BEARING: the refresh writes the page INDEX back
+		// as `data-cm-page` on the TABLE, so a bare closest() matched the
+		// table from every click inside it - a stray refresh fired between
+		// a checkbox's native toggle and its change event and unchecked it
+		// again, which is why "select all" appeared to do nothing.
+		var btn = t.closest('button[data-cm-page]');
+		if (!btn) return;
+		cmTableRefresh(cmTableScope(btn), btn.getAttribute('data-cm-page'));
+	}
+
+	function onTableSizeChange(e) {
+		var t = e.target;
+		if (!t || !t.matches || !t.matches('[data-cm-pagesize]')) return;
+		var scope = cmTableScope(t);
+		var table = scope && scope.querySelector('table');
+		if (!table) return;
+		table.setAttribute('data-cm-size', t.value);
+		// Page position is KEPT, then clamped by the refresh: a bigger page
+		// must not throw the reader back to page one under them.
+		cmTableRefresh(scope);
+	}
+
+	function onTableSelectChange(e) {
+		var t = e.target;
+		if (!t || !t.matches) return;
+		if (!t.matches('[data-cm-select]') && !t.matches('[data-cm-selectall]')) return;
+		var scope = cmTableScope(t);
+		if (!scope) return;
+		var table = scope.querySelector('table');
+		if (!table) return;
+		if (t.matches('[data-cm-selectall]')) {
+			// Page rows are the rows that SHOW: after the last refresh the
+			// slice is exactly the non-inline-hidden set.
+			cmTableRows(table).forEach(function (row) {
+				if (row.style.display === 'none') return;
+				row.setAttribute('aria-selected', t.checked ? 'true' : 'false');
+				var box = row.querySelector('[data-cm-select]');
+				if (box) box.checked = t.checked;
+			});
+		} else {
+			var row = t.closest('tr');
+			if (row) row.setAttribute('aria-selected', t.checked ? 'true' : 'false');
+		}
+		cmTableRefresh(scope);
+	}
+
+	/* Column visibility: the menu item's aria-checked is the STATE, and
+	   this function only ever READS it - never toggles. That is what makes
+	   it safe to call from both arrival paths: the mouse click (after
+	   onMenuCheckClick flipped it) and the keyboard flip inside onMenuKey,
+	   where preventDefault may have suppressed the click that would have
+	   applied it. Applying twice changes nothing; toggling twice undoes it. */
+	function cmColvisApply(item) {
+		if (!item || !item.getAttribute) return;
+		var col = item.getAttribute('data-cm-col');
+		if (!col) return;
+		var scope = cmTableScope(item);
+		if (!scope) return;
+		var show = item.getAttribute('aria-checked') === 'true';
+		// Filtered by getAttribute, not by a selector built from the value:
+		// a column id with a quote in it must not break the query.
+		Array.prototype.forEach.call(scope.querySelectorAll('[data-col]'), function (cell) {
+			if (cell.getAttribute('data-col') !== col) return;
+			cell.style.display = show ? '' : 'none';
+		});
+	}
+
+	function onColvisClick(e) {
+		var t = e.target;
+		if (!t || typeof t.closest !== 'function') return;
+		var item = t.closest('[data-cm-col]');
+		if (!item) return;
+		cmColvisApply(item);
+	}
+
+	var cmKeyFlipItem = null;
+	var cmKeyFlipAt = 0;
+
+	function onMenuCheckClick(e) {
+		var t = e.target;
+		if (!t || typeof t.closest !== 'function') return;
+		var item = t.closest('[role="menuitemcheckbox"], [role="menuitemradio"]');
+		if (!item) return;
+		// The keydown handler already flipped it and Enter's native click
+		// arrives with detail 0; flipping again puts the state back where
+		// it started - the double-flip that reads as "keyboard does
+		// nothing". detail 0 + same item + just now = that click.
+		if (e.detail === 0 && item === cmKeyFlipItem
+			&& Date.now() - cmKeyFlipAt < 1000) return;
+		if (item.getAttribute('role') === 'menuitemcheckbox') toggleCheckable(item);
+		else setRadio(item);
+		cmColvisApply(item);
+	}
+
 	var api = {
 		init: init,
 		applyTheme: applyTheme,
@@ -3292,5 +3562,13 @@
 		document.addEventListener('click', onSearchClear);
 		document.addEventListener('click', onTableSort);
 		document.addEventListener('input', onSliderInput);
+		// Data table: the flip must register BEFORE colvis reads the state -
+		// same target, so dispatch order is registration order.
+		document.addEventListener('click', onMenuCheckClick);
+		document.addEventListener('click', onColvisClick);
+		document.addEventListener('click', onTablePageClick);
+		document.addEventListener('change', onTableSizeChange);
+		document.addEventListener('change', onTableSelectChange);
+		document.addEventListener('input', onTableFilter);
 	}
 })();

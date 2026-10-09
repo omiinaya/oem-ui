@@ -2164,6 +2164,49 @@ missing in a refactor, and nothing noticed.
 No runtime was added for any of it: the handlers are delegated from the
 document, so a menu re-rendered by a consumer keeps working.
 
+### Data table depth
+
+`Table + sort` was a grid; this is the tool around it. The same section
+now carries the four controls shadcn's DataTable is built from.
+**Filtering** is a delegated `input` on `data-cm-filter` - bare is the
+global search, a column id scopes it to that column - live with no
+debounce, because a stale frame between keystroke and row is a lie the
+count line would repeat. **Pagination** disables both ends from the same
+page math the footer prints, keeps the reader's position when the page
+size changes (kept, then clamped: page 3 at size 10 becomes 2 of 2 at
+size 20, never a kick back to page one under them), and hides
+first/last below 760px - the same call shadcn makes - while next/prev
+stay. **Column visibility** is a menu of `menuitemcheckbox` rows that
+stays open for multi-toggle and flips on Space as well as click; cells
+are matched by `getAttribute`, so a column id with a quote in it cannot
+break a selector. **Selection** writes `aria-selected` onto the row -
+state in the DOM, so a tbody a framework rewrites wholesale keeps every
+row's state - and the count line reads selected-*among*-filtered while
+the header box covers the current page: the two models shadcn prints.
+
+**One refresh per scope:** filter, sort, page, size and selection all
+decide the same two things - which rows show, what the footer says - so
+every handler ends in the same pass instead of redrawing its own half.
+The bug this needed the hard way: that pass writes the page index back
+as `data-cm-page` on the *table*, and the page handler looked for
+`closest('[data-cm-page]')` - which matched the table from every click
+inside it. A stray refresh ran between select-all's native toggle and
+its change event and unchecked the box again, so filtering, paging and
+sorting all worked while "select all" silently did nothing. The control
+selectors are `button[data-cm-page]`, element-qualified, in both sites,
+and the harness clicks the box for real and asserts the checked state
+HOLDS.
+
+No runtime per control: every listener is on `document`, so a filter
+input a consumer appends at runtime and a tbody replaced wholesale both
+keep working - the harness proves both, and the class-coverage audits
+caught the rows-per-page label rendering unstyled on first pass.
+
+**Proof:** suite 564/0 (2 new contracts);
+`tests/verify-data-table.py` drives it all in WebKit at 402x667: 36/36;
+`tests/mutate-data-table.py`: 34/34 killed, 0 survived - including the
+select-all killer reverted as pattern 1.
+
 ## shadcn/ui parity status
 
 The standing goal is component parity with
@@ -2177,7 +2220,7 @@ Dialog), Aspect Ratio, Attachment, Avatar, Badge, Bubble,
 Breadcrumb, Button (including
 destructive, outline and joined), Button Group, Calendar, Card,
 Carousel, Checkbox, Collapsible, Combobox, Command (palette), Context
-Menu, Data Table (Table + sort), Date Picker, Dialog, Drawer, Dropdown
+Menu, Data Table (filter, pagination, column visibility, row selection), Date Picker, Dialog, Drawer, Dropdown
 Menu, Empty, Field (label/help/error wiring), Hover Card, Input, Input
 Group, Input OTP, Item, Kbd, Label, Marker, Message, Message Scroller, Menubar, Native Select (a styled
 `<select>`), Navigation Menu (as the rail + sticky header - see

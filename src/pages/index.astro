@@ -38,7 +38,7 @@ import SectionHead from '../astro/SectionHead.astro';
  */
 const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'crumbs', 'lists', 'states', 'surface',
-  'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'drawer', 'choice', 'keys-pages-people',
+  'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'data-table', 'json', 'rowon', 'switch', 'sheet', 'drawer', 'choice', 'keys-pages-people',
 	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'proselists', 'proselists-order', 'prosetap', 'prosetable', 'tablelabels', 'layout', 'surface-paint',
 	'forms', 'datepicker', 'scrollarea', 'utilities', 'chat', 'dropdown-depth', 'scroller', 'attachment', 'quiz', 'search', 'auth', 'readme',
 ] as const;
@@ -64,6 +64,37 @@ const LOG_ROWS = [
 	{ t: '1m ago',  m: 'GET',  host: 'plex.mrx.sh',      path: '/library/tokens',                       k: 'ok',   g: '✓', s: '200', d: '9.8ms',  ip: '10.0.0.9' },
 ] as const;
 const LOG = Array.from({ length: 12 }, (_, i) => LOG_ROWS[i % LOG_ROWS.length]);
+
+/* The data-table specimen: 23 rows so pagination has somewhere to GO
+   (three pages of ten), four statuses so filtering has something to
+   separate, sizes as bare numbers so the numeric sort path is the one
+   exercised - a `4.2 MB` cell reads as text to the sort comparator, by
+   design, and would not prove it. */
+const DEPLOY_ROWS = [
+	['live', 'oem-ui', 'omar', 412],
+	['live', 'hermes-proxy', 'ci', 1180],
+	['failed', 'spacetime-rpm', 'ci', 940],
+	['queued', 'nodeterm', 'omar', 120],
+	['live', 'dev-blog', 'ci', 268],
+	['live', 'links', 'sullen', 96],
+	['rolling', 'oem-cdn', 'ci', 2044],
+	['failed', 'chappy', 'omar', 552],
+	['live', 'browser-hub', 'ci', 733],
+	['queued', 'code-spaces', 'sullen', 640],
+	['live', 'spacetime-kanban', 'ci', 876],
+	['live', 'hermes-articles', 'omar', 310],
+	['failed', 'oem-portfolio', 'ci', 487],
+	['live', 'spacetime-ab', 'ci', 1024],
+	['queued', 'spacetime-memory', 'sullen', 655],
+	['live', 'sullen.sh', 'omar', 148],
+	['live', 'mrx-thunder', 'ci', 2310],
+	['failed', 'oem-ngo-brand', 'omar', 77],
+	['rolling', 'spacetime-llm', 'ci', 1602],
+	['live', 'gantree', 'sullen', 205],
+	['queued', 'hermes-hearth', 'ci', 993],
+	['live', 'oem-ui-site', 'omar', 521],
+	['live', 'fcm-relay', 'ci', 389],
+] as const;
 
 import { SITE } from '../astro/config';
 ---
@@ -1455,6 +1486,118 @@ For records a person scans <em>across</em> rather than one at a time - a log is 
 									</tbody>
 								</table>
 							</div>
+						</section>
+						<section id="data-table" class="cm-section cm-section--pad" data-cm-datatable>
+							<SectionHead title="data table depth">
+							filter, page, columns, selection - the four things that turn a
+							grid into a tool. Every control is delegated, so a consumer
+							whose framework rewrites <code>tbody</code> every few seconds
+							keeps all of them, and there is exactly ONE refresh per scope:
+							filter, sort and page all decide the same two things - which
+							rows show, what the footer says - and four handlers each
+							redrawing their own half is how the halves start disagreeing.
+							State lives in the DOM, never in a map: the filter is the
+							input's value, page and size are attributes on the table,
+							selection is <code>aria-selected</code> on the row. The header
+							box covers the PAGE while the count line counts the selected
+							rows among the FILTERED - the same two models shadcn prints.
+							select and actions cannot be hidden, which is what
+							<code>enableHiding: false</code> is for.
+					</SectionHead>
+							<div class="cm-table__bar">
+							<input class="cm-input" type="search" data-cm-filter
+								placeholder="filter rows..." aria-label="filter rows">
+							<button type="button" class="cm-btn cm-btn--sm"
+								popovertarget="dt-cols" aria-haspopup="menu">columns</button>
+							<div class="cm-dropdown__menu" id="dt-cols" popover role="menu"
+								aria-label="toggle columns">
+								<div class="cm-dropdown__label">toggle columns</div>
+								<hr class="cm-dropdown__sep">
+								<button type="button" class="cm-dropdown__item" role="menuitemcheckbox"
+									aria-checked="true" data-cm-col="status">status</button>
+								<button type="button" class="cm-dropdown__item" role="menuitemcheckbox"
+									aria-checked="true" data-cm-col="project">project</button>
+								<button type="button" class="cm-dropdown__item" role="menuitemcheckbox"
+									aria-checked="true" data-cm-col="by">by</button>
+								<button type="button" class="cm-dropdown__item" role="menuitemcheckbox"
+									aria-checked="true" data-cm-col="size">size</button>
+							</div>
+						</div>
+							<div class="cm-scroll-fade-x cm-table-wrap">
+							<table class="cm-table" data-cm-sort data-cm-size="10">
+								<thead>
+									<tr>
+										<th class="cm-table__check" scope="col">
+											<input type="checkbox" data-cm-selectall aria-label="select all rows on this page">
+										</th>
+										<th scope="col" data-col="status">status</th>
+										<th scope="col" data-col="project" class="cm-table__sortcol" aria-sort="none">
+											<button type="button" class="cm-table__sort">project</button>
+										</th>
+										<th scope="col" data-col="by">by</th>
+										<th scope="col" data-col="size" class="cm-table__sortcol cm-table__num" aria-sort="none">
+											<button type="button" class="cm-table__sort">size kb</button>
+										</th>
+										<th scope="col"><span class="cm-sr-only">actions</span></th>
+									</tr>
+								</thead>
+								<tbody>
+									{DEPLOY_ROWS.map(([status, project, by, size], i) => (
+										<tr aria-selected="false">
+											<td class="cm-table__check">
+												<input type="checkbox" data-cm-select aria-label={`select ${project}`}>
+											</td>
+											<td data-col="status">{status}</td>
+											<td data-col="project">{project}</td>
+											<td data-col="by">{by}</td>
+											<td class="cm-table__num" data-col="size">{size}</td>
+											<td>
+												<button type="button" class="cm-table__action"
+													popovertarget={`dt-act-${i}`} aria-haspopup="menu"
+													aria-label={`${project} actions`}>actions<span class="cm-sr-only"> for {project}</span></button>
+												<div class="cm-dropdown__menu" id={`dt-act-${i}`} popover
+													role="menu" aria-label={`${project} actions`}>
+													<div class="cm-dropdown__label">{project}</div>
+													<hr class="cm-dropdown__sep">
+													<button type="button" class="cm-dropdown__item" role="menuitem">copy id</button>
+													<button type="button" class="cm-dropdown__item" role="menuitem">view logs</button>
+													<button type="button" class="cm-dropdown__item cm-dropdown__item--danger" role="menuitem">delete</button>
+												</div>
+											</td>
+										</tr>
+									))}
+									<tr data-cm-empty hidden>
+										<td colspan="6">no results.</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+							<div class="cm-table__foot">
+							<span data-cm-selcount aria-live="polite">0 of 23 rows selected</span>
+							<div class="cm-table__footgroup">
+								<label class="cm-table__label">rows per page
+									<select data-cm-pagesize class="cm-select" aria-label="rows per page">
+										<option>10</option>
+										<option>20</option>
+										<option>25</option>
+										<option>30</option>
+										<option>40</option>
+										<option>50</option>
+									</select>
+								</label>
+								<span data-cm-pageinfo>page 1 of 3</span>
+								<div class="cm-table__pages">
+									<button type="button" class="cm-btn cm-btn--sm cm-table__far"
+										data-cm-page="first" aria-label="first page">&#171;</button>
+									<button type="button" class="cm-btn cm-btn--sm"
+										data-cm-page="prev" aria-label="previous page">&#8249;</button>
+									<button type="button" class="cm-btn cm-btn--sm"
+										data-cm-page="next" aria-label="next page">&#8250;</button>
+									<button type="button" class="cm-btn cm-btn--sm cm-table__far"
+										data-cm-page="last" aria-label="last page">&#187;</button>
+								</div>
+							</div>
+						</div>
 						</section>
 						<section id="json" class="cm-section cm-section--pad">
 							<SectionHead title="code: json">
