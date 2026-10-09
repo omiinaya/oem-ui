@@ -12,7 +12,9 @@ getBoundingClientRect / getComputedStyle.
 import sys
 from playwright.sync_api import sync_playwright
 
-URL = 'http://192.168.1.68:4462/'
+# House convention: the LAN preview, overridable so a mutation sweep or a
+# worktree can point at whichever port it actually serves on.
+URL = sys.argv[1] if len(sys.argv) > 1 else 'http://192.168.1.68:4321/'
 BAR = '[data-cm-navmenu]'
 PRODUCT = '.cm-navmenu__trigger[popovertarget="nav-product"]'
 REF = '.cm-navmenu__trigger[popovertarget="nav-ref"]'

@@ -18,7 +18,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BUILD = ['npm', 'run', 'build']
 SUITE = ['node', 'tests/run.mjs']
-HARNESS = ['/root/.venvs/mau/bin/python', 'tests/verify-navmenu.py']
+URL = 'http://192.168.1.68:4462/'
+HARNESS = ['/root/.venvs/mau/bin/python', 'tests/verify-navmenu.py', URL]
 
 PATTERNS = [
     # ---- the runtime paths the harness owns
