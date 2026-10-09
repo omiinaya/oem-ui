@@ -2166,6 +2166,18 @@ button-qualified page selector and dies on select-all holding.
   other consumer with `src/astro/` costs nothing.
 - `install.sh`'s header is corrected to describe the unconditional
   pass instead of a flag that never existed.
+- **The pass has its own contract in the suite** - `the drift checker
+  grades src/astro/, and only the part it owns` - because a fleet
+  check with no test is decoration: 583/0 stayed 583/0 with the whole
+  block deleted. The fixture is a wired synthetic consumer built by
+  `install.sh --astro`, and it pins all four halves: STALE for a
+  drifted component, MISSING for one never installed (the exact
+  dev-blog defect), ORPHAN for a file the library no longer ships,
+  and `in sync` for an EDITED config.ts. The last half is the one a
+  positives-only test would miss - a checker that compared config.ts
+  too would break every consumer that has an identity, on its first
+  run. Mutation: deleting the block fails the check at
+  `a stale src/astro component must fail, got 0`.
 - The dev-blog half of this (re-vendor, wrapper, test re-derivations,
   12/12 mutations, 129/129 WebKit checks) ships in oem-log, commit
   `c524a49` - it is the consumer's change, not the library's.

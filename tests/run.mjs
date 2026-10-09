@@ -3613,6 +3613,111 @@ check('a trailing slash on the target does not invent drift', () => {
 	}
 });
 
+check('the drift checker grades src/astro/, and only the part it owns', () => {
+	// The gap this closes, measured on dev-blog 2026-10-09: its
+	// src/astro/Header.astro and HeaderLink.astro were stale and
+	// src/astro/current.ts - the module both import - was missing
+	// outright, and every fleet check reported the consumer IN SYNC.
+	// MAP and ALT name the CSS layers and the two runtime files; no
+	// path named src/astro/, so a consumer could fork the library's
+	// flagship component and pass.
+	//
+	// install.sh's own header already promised this script "names any
+	// consumer whose copy of a library component has drifted" and
+	// described a `--astro` flag that does not exist - the checker
+	// takes no argument. The pass runs unconditionally, and this check
+	// pins the four things it has to get right, each of which has its
+	// own way of being wrong:
+	//
+	//   1. a stale component is STALE (the pass fires at all),
+	//   2. a missing one is MISSING (not silently skipped),
+	//   3. a file the library no longer ships is ORPHAN (the reverse
+	//      direction, which is where a fork hides),
+	//   4. config.ts is NOT compared (install.sh refuses to overwrite
+	//      it because the consumer owns its identity - a checker that
+	//      failed every correct consumer for having a title would be
+	//      cry-wolf and would be switched off on the first run).
+	//
+	// 1-3 are the pass firing; 4 is the pass NOT firing. Asserting only
+	// the positives would pass an implementation that compared every
+	// file including config.ts, which is the one that breaks the fleet.
+	const dir = mkdtempSync(join(tmpdir(), 'cm-astro-drift-'));
+	try {
+		const inst = spawnSync('bash', [join(root, 'scripts/install.sh'), dir, '--astro'],
+			{ encoding: 'utf8' });
+		assert(inst.status === 0, `installer --astro exited ${inst.status}: ${inst.stderr}`);
+		assert(existsSync(join(dir, 'src/astro/current.ts')),
+			'install.sh --astro did not install src/astro/current.ts; the fixture is not the real shape');
+
+		// Wire it like a real consumer, or the checker grades the WIRING
+		// instead of the astro pass: an installed-but-unimported layer
+		// reports UNREACHABLE and the baseline is red for a reason that
+		// has nothing to do with src/astro/. install.sh creates the
+		// vendored directories only, so the page tree is ours to make.
+		mkdirSync(join(dir, 'src/pages'), { recursive: true });
+		writeFileSync(join(dir, 'src/styles/site.css'),
+			"@import './cli-mono/tokens.css';\n@import './cli-mono/base.css';\n" +
+			"@import './cli-mono/components.css';\n");
+		writeFileSync(join(dir, 'src/pages/index.astro'), '<html></html>\n');
+
+		const run = () => spawnSync('bash', [join(root, 'scripts/check-design-sync.sh'), dir],
+			{ encoding: 'utf8', env: { ...process.env, OEM_UI_SRC: root } });
+
+		const clean = run();
+		assert(clean.status === 0,
+			`a freshly installed consumer must be clean, got ${clean.status}: ${clean.stdout.trim()}`);
+
+		// 1. a stale component.
+		const hdr = join(dir, 'src/astro/Header.astro');
+		const good = readFileSync(hdr, 'utf8');
+		writeFileSync(hdr, good + '\n<!-- drift -->\n');
+		const stale = run();
+		assert(stale.status === 1, `a stale src/astro component must fail, got ${stale.status}`);
+		assert(/STALE\s+src\/astro\/Header\.astro/.test(stale.stdout),
+			`expected STALE src/astro/Header.astro, got: ${stale.stdout.trim()}`);
+
+		// 3. ...and the reverse direction, on a file the library does
+		// NOT ship. Doing this while Header is still drifted would make
+		// the ORPHAN assertion satisfiable by the STALE line, so restore
+		// first: each half has to be witnessed on its own.
+		writeFileSync(hdr, good);
+		writeFileSync(join(dir, 'src/astro/Leftover.astro'), '<div></div>\n');
+		const orphan = run();
+		assert(orphan.status === 1, `an orphaned component must fail, got ${orphan.status}`);
+		assert(/ORPHAN\s+src\/astro\/Leftover\.astro/.test(orphan.stdout),
+			`expected ORPHAN src/astro/Leftover.astro, got: ${orphan.stdout.trim()}`);
+		rmSync(join(dir, 'src/astro/Leftover.astro'), { force: true });
+
+		// 2. a missing one - the exact defect dev-blog shipped, where
+		// both components were installed WITHOUT the module they import.
+		rmSync(join(dir, 'src/astro/current.ts'), { force: true });
+		const missing = run();
+		assert(missing.status === 1, `a missing library component must fail, got ${missing.status}`);
+		assert(/MISSING\s+src\/astro\/current\.ts/.test(missing.stdout),
+			`expected MISSING src/astro/current.ts, got: ${missing.stdout.trim()}`);
+
+		// 4. the deliberate exclusion. config.ts is the one file the
+		// consumer owns, so a consumer that EDITED it - which is the
+		// documented first step of adopting the components - must still
+		// read `in sync`.
+		spawnSync('bash', [join(root, 'scripts/install.sh'), dir, '--astro'], { encoding: 'utf8' });
+		writeFileSync(join(dir, 'src/astro/config.ts'),
+			"export const SITE = { title: 'oem/log', description: 'x', author: '@a',\n" +
+			"\temail: 'a@b.c', github: 'https://example.com/a', url: 'https://c.example' } as const;\n");
+		const owned = run();
+		assert(owned.status === 0,
+			`config.ts is the consumer's own file and must not be compared: ` +
+			`${owned.status} ${owned.stdout.trim()}`);
+		assert(/in sync/.test(owned.stdout),
+			`a consumer with its own identity must still read in sync, got: ${owned.stdout.trim()}`);
+		assert(!/config\.ts/.test(owned.stdout),
+			`the checker named src/astro/config.ts, which install.sh deliberately never overwrites: ` +
+			`${owned.stdout.trim()}`);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
 check('the drift checker fails on a stale consumer', async () => {
 	// Prove the check CAN fail. A sync check that never fails is decoration:
 	// silent drift is how 177 lines stayed stale while the site kept building
