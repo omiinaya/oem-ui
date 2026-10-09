@@ -7388,6 +7388,68 @@ input.cm-slider:disabled {
 }
 .cm-scroller__link[aria-current="true"]::after { content: "\25b6"; }
 
+
+/* ---------- dropdown depth ----------
+   shadcn's DropdownMenu documents more item kinds than a plain row:
+   submenus, checkbox/radio items, shortcut hints and leading icons. All four
+   compose from the SAME row - a flex line with a fixed icon slot, the label
+   taking the slack, and the shortcut pinned right - so a menu that mixes
+   them keeps one text column. */
+.cm-dropdown__item > .cm-dropdown__label { flex: 1 1 auto; min-width: 0; }
+.cm-dropdown__icon {
+	flex: none;
+	display: inline-grid;
+	place-items: center;
+	width: var(--space-4);
+	color: var(--ink-faint);
+}
+.cm-dropdown__item[aria-checked='true'] .cm-dropdown__icon { color: var(--ink); }
+/* The check and the dot ARE the checked state, so the glyph slot is never
+   empty and the column never jumps when an item toggles. */
+.cm-dropdown__icon[data-checked='true']::before { content: "\2713"; }
+.cm-dropdown__shortcut {
+	flex: none;
+	margin-left: auto;
+	color: var(--ink-faint);
+	font-size: var(--text-micro);
+}
+/* Read as part of the row's name, "rename Ctrl R" is noise; the glyph is the
+   affordance and the keyboard still works. */
+.cm-dropdown__shortcut { -webkit-user-select: none; user-select: none; }
+.cm-dropdown__item[aria-haspopup='menu'] > .cm-dropdown__caret {
+	flex: none;
+	margin-left: auto;
+	color: var(--ink-faint);
+}
+.cm-dropdown__label-text {
+	display: flex;
+	flex: 1 1 auto;
+	align-items: center;
+	gap: var(--space-2);
+	min-width: 0;
+}
+.cm-dropdown__group-label {
+	padding: var(--space-2) var(--space-3) var(--space-1);
+	color: var(--ink-faint);
+	font-size: var(--text-micro);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+.cm-dropdown__item--danger { color: var(--ink); text-decoration: underline; }
+.cm-dropdown__item--danger .cm-dropdown__icon { color: var(--ink); }
+/* A submenu is a menu inside a menu: it opens BESIDE its host panel, never
+   under it. anchorPopover()'s submenu branch places it (fixed, viewport
+   coordinates - the SAME mechanism as every other panel, pin included);
+   this rule is the base state it starts from, and it is content-sized: the
+   inherited 12rem min-width is what made a 104px panel claim 192px and
+   then not fit beside its parent. */
+.cm-dropdown__menu .cm-dropdown__menu {
+	position: fixed;
+	inset: auto;
+	min-width: 0;
+	z-index: calc(var(--z-popover) + 1);
+}
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;

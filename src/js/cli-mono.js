@@ -1069,7 +1069,7 @@
 	     with them. `toggle` does not bubble but it DOES pass through the
 	     capture phase, so one listener on `document` outlives every node. */
 	var POP_SEL = '.cm-dropdown__menu[popover], .cm-popover[popover]';
-	var popPin = null;
+	var popPins = [];
 	/* The open POINTER menu, if any. `popover="manual"` was the only way to
 	   keep it open: the platform's light dismiss treats the interaction the
 	   menu was born in as an outside one, so the mouseup of the right-click
@@ -1100,13 +1100,39 @@
 		// above and a right-click menu opened against a corner it was
 		// never opened from.
 		var at = menu.__cmCtx;
-		if (!trigger && !at) return;
+		// A submenu has no [popovertarget] - it opens from an owner ROW
+		// named by aria-controls, which the platform never sees - and it
+		// opens beside its HOST PANEL rather than under a chevron.
+		var host = menu.parentNode &&
+			typeof menu.parentNode.closest === 'function'
+				? menu.parentNode.closest('.cm-dropdown__menu') : null;
+		if (!trigger && !at && !host) return;
 		var t = trigger ? trigger.getBoundingClientRect() : null;
 		menu.style.position = 'fixed';
 		menu.style.inset = 'auto';
 		var w = menu.offsetWidth;
 		var h = menu.offsetHeight;
 		var pad = 8;
+		if (host) {
+			var hr = host.getBoundingClientRect();
+			var owner = id ? document.querySelector('[aria-controls="' + id + '"]')
+				: null;
+			var ow = owner ? owner.getBoundingClientRect() : null;
+			// Right of the panel when that fits, left of it when THAT
+			// fits, otherwise flush inside the right edge: a 320px
+			// viewport cannot hold panel and submenu side by side, and
+			// running off-screen reads as broken, not as overlap.
+			var x = hr.right;
+			if (x + w > window.innerWidth - pad) x = hr.left - w;
+			if (x < pad) x = Math.max(pad, window.innerWidth - w - pad);
+			var y = ow ? ow.top : hr.top;
+			if (y + h > window.innerHeight - pad) y = window.innerHeight - h - pad;
+			if (y < pad) y = pad;
+			var sl = Math.round(x) + 'px', st = Math.round(y) + 'px';
+			if (menu.style.left !== sl) menu.style.left = sl;
+			if (menu.style.top !== st) menu.style.top = st;
+			return;
+		}
 		if (at) {
 			// The point is where the finger was: move the PANEL to stay
 			// inside the viewport, never move the point itself, so the
@@ -1143,12 +1169,19 @@
 	/* Fixed positioning does not follow the page, so while a menu is open
 	   the trigger moves under it on every scroll. Pin, then unpin on close
 	   - one pair of listeners, not one per menu. */
-	function unpinPopover() {
-		if (!popPin) return;
-		window.removeEventListener('scroll', popPin);
-		window.removeEventListener('scrollend', popPin);
-		window.removeEventListener('resize', popPin);
-		popPin = null;
+	function unpinPopover(menu) {
+		// Two popovers can be open at once - a menu and its submenu - and
+		// the old single slot meant opening the submenu EVICTED its own
+		// parent's pin: the parent then sat still while the page scrolled
+		// under it. Unpin one by naming it, everything by naming nothing.
+		for (var i = popPins.length - 1; i >= 0; i--) {
+			var p = popPins[i];
+			if (menu && p.menu !== menu) continue;
+			window.removeEventListener('scroll', p.fn);
+			window.removeEventListener('scrollend', p.fn);
+			window.removeEventListener('resize', p.fn);
+			popPins.splice(i, 1);
+		}
 	}
 
 	/* Anchoring on the scroll event itself measures MID-jump. A programmatic
@@ -1159,15 +1192,12 @@
 	   and `scrollend` covers engines that coalesce the whole jump into one
 	   event. */
 	function pinPopover(menu) {
-		unpinPopover();
-		// The event path anchors immediately; the frame loop below is what
-		// guarantees the FINAL position. They must not share popRaf - the
-		// old debounced handler cancelled the loop's pending frame and then
-		// never rescheduled it, so the first scroll event killed the loop.
-		popPin = function () { anchorPopover(menu); };
-		window.addEventListener('scroll', popPin, { passive: true });
-		window.addEventListener('scrollend', popPin);
-		window.addEventListener('resize', popPin);
+		unpinPopover(menu);
+		var fn = function () { anchorPopover(menu); };
+		window.addEventListener('scroll', fn, { passive: true });
+		window.addEventListener('scrollend', fn);
+		window.addEventListener('resize', fn);
+		popPins.push({ menu: menu, fn: fn });
 		// Anchoring happens ON the event, never in a deferred callback: an
 		// earlier version debounced through requestAnimationFrame, and the
 		// callback that finally ran had the page's old position in it, so
@@ -1185,9 +1215,14 @@
 	   in the DOM (so a reader hears them) but the arrow keys step over them. */
 	function menuItems(menu) {
 		return Array.prototype.filter.call(
-			menu.querySelectorAll('[role="menuitem"], .cm-dropdown__item'),
+			menu.querySelectorAll('[role^="menuitem"], .cm-dropdown__item'),
 			function (el) {
-				return el.getAttribute('aria-disabled') !== 'true' && !el.disabled;
+				// A row inside a NESTED panel belongs to that panel: including
+				// it here would make the parent's arrow keys walk down into
+				// the submenu and never come back. One menu, one list.
+				var owner = el.closest(POP_SEL);
+				return owner === menu &&
+					el.getAttribute('aria-disabled') !== 'true' && !el.disabled;
 			}
 		);
 	}
@@ -1216,9 +1251,12 @@
 				// to re-follow - so it closes rather than drifting to a
 				// place nobody clicked.
 				unpinPopover();
-				popPin = function () { if (typeof menu.hidePopover === 'function') menu.hidePopover(); };
-				window.addEventListener('scroll', popPin, { passive: true });
-				window.addEventListener('resize', popPin);
+				var closeOn = function () {
+					if (typeof menu.hidePopover === 'function') menu.hidePopover();
+				};
+				window.addEventListener('scroll', closeOn, { passive: true });
+				window.addEventListener('resize', closeOn);
+				popPins.push({ menu: menu, fn: closeOn });
 				// ...and it still has to be PUT there: pinPopover() is what
 				// anchored every other panel, and this branch replaces it.
 				anchorPopover(menu);
@@ -1239,12 +1277,155 @@
 				menu.__cmReturn = null;
 				ctxMenu = null;
 			}
-			unpinPopover();
+			unpinPopover(menu);
 		}
 	}
+	/* ---------- dropdown depth ----------
+	   The item kinds shadcn documents on DropdownMenu and this menu did not
+	   have. Each rule below is its own owner; none of it re-implements the
+	   platform, it only fills in what [popover] leaves out. */
+
+	/* A submenu is a popover owned by a menuitem. Right opens it (Enter does
+	   too, the other half of "the row is a button"), Left closes it and puts
+	   focus back on the parent row - the reader's way back is the parent, not
+	   Escape guessing where they were. */
+	function submenuOf(item) {
+		var id = item && item.getAttribute && item.getAttribute('aria-controls');
+		return id ? document.getElementById(id) : null;
+	}
+	function openSubmenu(item) {
+		var sub = submenuOf(item);
+		if (!sub || typeof sub.showPopover !== 'function') return false;
+		if (!sub.matches(':popover-open')) sub.showPopover();
+		// focus first (it can scroll), then anchor SYNCHRONOUSLY: the
+		// toggle event that would anchor it runs as a later task, and
+		// anything that paints in between shows the panel at its base
+		// position (measured: subLeft 5, subTop 708, before the task).
+		// One owner of placement either way - anchorPopover's submenu
+		// branch, exactly what the toggle handler calls again on arrival.
+		var first = menuItems(sub)[0];
+		if (first && typeof first.focus === 'function') first.focus();
+		anchorPopover(sub);
+		return true;
+	}
+	function closeSubmenu(menu) {
+		if (!menu) return false;
+		// One level per press, wherever focus sits. Focus is often INSIDE
+		// the submenu, but a mouse can leave it on a parent row with the
+		// panel still open - so the DEEPEST open descendant closes first
+		// (a role=group wrapper sits between owner and panel, so this
+		// cannot be a direct-child walk). Only when no child is open does
+		// the menu itself step out.
+		var opens = menu.querySelectorAll('[popover]:popover-open');
+		var open = opens[opens.length - 1];
+		if (open && typeof open.hidePopover === 'function') {
+			var owner = open.id &&
+				document.querySelector('[aria-controls="' + open.id + '"]');
+			open.hidePopover();
+			if (owner && typeof owner.focus === 'function') owner.focus();
+			return true;
+		}
+		if (!menu.matches(':popover-open')) return false;
+		// Stepping out of the menu itself: the owner may be named by
+		// aria-controls or, as the platform does it, by popovertarget
+		// alone - the library must not depend on markup it does not own.
+		var self = (menu.id && document.querySelector('[aria-controls="' + menu.id + '"]')) ||
+			(menu.id && document.querySelector('[popovertarget="' + menu.id + '"]'));
+		if (!self) return false;
+		menu.hidePopover();
+		if (typeof self.focus === 'function') self.focus();
+		return true;
+	}
+
+	/* Checkbox and radio rows live in the SAME list as plain items, so
+	   stepping over them must not flip them. Radio is the exception the APG
+	   makes: moving the selection IS the point, which is why the arrows call
+	   setRadio on arrival. */
+	function toggleCheckable(item) {
+		if (item.getAttribute('role') !== 'menuitemcheckbox') return false;
+		var on = item.getAttribute('aria-checked') !== 'true';
+		item.setAttribute('aria-checked', on ? 'true' : 'false');
+		var glyph = item.querySelector('.cm-dropdown__icon');
+		if (glyph) glyph.setAttribute('data-checked', on ? 'true' : 'false');
+		return true;
+	}
+	/* One radio group at a time: the checked row wins, the others stand
+	   down. Scoped to the enclosing menu, so two menus on a page never fight
+	   over the same group. */
+	function setRadio(item) {
+		var name = item.getAttribute('data-cm-radio');
+		if (!name) return;
+		var scope = item.closest('[role="menu"]') || document;
+		Array.prototype.forEach.call(
+			scope.querySelectorAll('[data-cm-radio="' + name + '"]'),
+			function (row) {
+				row.setAttribute('aria-checked', row === item ? 'true' : 'false');
+			}
+		);
+	}
+
+	/* Typeahead: printable characters walk to the next item whose label
+	   starts with what has been typed, wrapping, like every native menu. The
+	   buffer resets on any other key, so Ctrl then R is not read as a prefix,
+	   and a keypress after a pause starts a fresh search. */
+	var typeBuf = '';
+	var typeAt = 0;
+	function onMenuTypeahead(e) {
+		var t = e.target;
+		if (!t || typeof t.closest !== 'function') return;
+		var menu = t.closest(POP_SEL);
+		if (!menu) return;
+		var k = e.key;
+		if (k.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) {
+			typeBuf = '';
+			return;
+		}
+		var items = menuItems(menu);
+		if (!items.length) return;
+		var now = new Date().getTime();
+		if (now - typeAt > 800) typeBuf = '';
+		typeAt = now;
+		typeBuf += k;
+		var needle = typeBuf.toLowerCase();
+		var i = items.indexOf(t);
+		for (var n = 1; n <= items.length; n++) {
+			var cand = items[(i + n) % items.length];
+			var lab = cand.querySelector('.cm-dropdown__label');
+			var text = (lab ? lab.textContent : cand.textContent) || '';
+			if (text.trim().toLowerCase().indexOf(needle) === 0) {
+				e.preventDefault();
+				cand.focus();
+				return;
+			}
+		}
+	}
+	if (typeof document !== 'undefined') document.addEventListener('keydown', onMenuTypeahead);
+
+	/* Hovering a submenu row opens it, but only while a menu is already open
+	   and the pointer is not merely crossing it on the way to the panel. The
+	   platform gives native <details> this for free; a popover gets nothing,
+	   so it is here. */
+	function onMenuHover(e) {
+		var t = e.target;
+		if (!t || typeof t.closest !== 'function') return;
+		var item = t.closest('[aria-haspopup="menu"]');
+		if (!item || !item.closest(POP_SEL)) return;
+		var sub = submenuOf(item);
+		if (!sub || sub.matches(':popover-open')) return;
+		var focused = document.activeElement;
+		if (focused && focused !== item && typeof focused.closest === 'function' &&
+			focused.closest(POP_SEL)) return;
+		openSubmenu(item);
+	}
+	if (typeof document !== 'undefined') document.addEventListener('pointerover', onMenuHover);
 
 	/* Arrow keys inside an open menu: Down/Up step and wrap, Home/End jump.
 	   Escape is the platform's (light dismiss), so it is not handled here. */
+	// One delegated listener at the document, so a consumer that re-renders its
+	// menu keeps working - the handler finds the menu through the row's own
+	// closest() on every keystroke. Guarded like every other binding: this
+	// module is evaluated in a sandbox with no document at all.
+	if (typeof document !== 'undefined') document.addEventListener('keydown', onMenuKey);
 	function onMenuKey(e) {
 		var t = e.target;
 		if (!t || typeof t.closest !== 'function') return;
@@ -1258,7 +1439,31 @@
 		else if (e.key === 'ArrowUp') next = items[(i - 1 + items.length) % items.length];
 		else if (e.key === 'Home') next = items[0];
 		else if (e.key === 'End') next = items[items.length - 1];
+		// Right opens a submenu row, Enter does too (the row is a button).
+		// Checked FIRST and before the item list matters: a row that owns a
+		// submenu is still a row, and focusing the first item of a panel the
+		// reader never opened is the bug this prevents.
+		if (e.key === 'ArrowRight' ||
+			(e.key === 'Enter' && t.getAttribute('aria-haspopup') === 'menu')) {
+			if (openSubmenu(t)) e.preventDefault();
+			return;
+		}
+		// Left closes the open submenu and puts focus back on its owner row.
+		// It also steps out of a submenu when focus is INSIDE it, which is
+		// the only way back for a reader who walked in.
+		if (e.key === 'ArrowLeft') {
+			if (closeSubmenu(t.closest(POP_SEL))) e.preventDefault();
+			return;
+		}
+		// Space/Enter flip a checkbox row. Enter already activates the button;
+		// Space does not, so both routes are spelled out here.
+		if ((e.key === ' ' || e.key === 'Enter') && toggleCheckable(t)) {
+			e.preventDefault();
+			return;
+		}
 		if (!next) return;
+		// A radio row takes the selection when the arrows MOVE onto it.
+		if (next.getAttribute('role') === 'menuitemradio') setRadio(next);
 		e.preventDefault();
 		next.focus();
 	}
@@ -3064,7 +3269,7 @@
 		document.addEventListener('toggle', onPopoverToggle, true);
 		// Delegated at the root for the same reason: re-rendered markup
 		// keeps working without a re-bind.
-		document.addEventListener('keydown', onMenuKey);
+
 		document.addEventListener('keydown', onMenubarKey);
 		// Capture: the browser's own context menu is suppressed by this
 		// handler, and capture runs before a consumer's row handler.

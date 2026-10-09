@@ -2126,6 +2126,44 @@ control, and a submit that toasts and wipes with a full `form.reset()`.
 Successful navigation focuses the new legend; failed validation keeps
 focus in the field that failed.
 
+### Dropdown depth
+
+The menu already anchors as a `[popover]`, steps with the arrow keys and
+honours `aria-disabled`; this slice adds the item kinds shadcn documents
+alongside it. A **submenu** item owns a nested popover - `aria-haspopup` +
+`aria-controls`, opened by Right or Enter, closed by Left, which returns
+focus to the parent row (the reader's way back is the parent, not Escape
+guessing). Hover opens it too, but only while a menu is already open, so a
+pointer crossing the trigger cannot flicker panels on the way. **Checkbox
+and radio items** (`role=menuitemcheckbox` / `menuitemradio` with
+`aria-checked`) sit in the same arrow-key list as plain items and are
+stepped over without flipping; radio is the APG exception where moving the
+selection is the point. The **icon slot** is fixed width and carries the
+check or dot glyph itself, so a toggle never shifts the label column. The
+**shortcut** hint is right-aligned and `aria-hidden` - "rename Ctrl R"
+read aloud is noise. **Typeahead** walks to the next item starting with
+the typed characters, wrapping, on a buffer that resets on any other key.
+
+**Placement** is the piece CSS cannot express: in the top layer a nested
+panel's insets resolve against the document, so percentage anchoring put
+the submenu at the viewport's left edge, *on top of its own parent* - the
+vision pass caught it after 560 tests had read `openSubmenu` and none of
+them could. The submenu goes through the mechanism every panel already
+uses, `anchorPopover`'s submenu branch: `position: fixed`, right of the
+host panel, level with its owner row, flipped to the other side or
+clamped flush inside the viewport when 320px leaves no room beside it.
+Pins are per-popover - opening a submenu used to evict its own parent's
+scroll pin, leaving the parent still while the page scrolled under it.
+**Left** closes one level per press: deepest open child first, then the
+menu itself, the owner row found through `aria-controls` and falling back
+to `popovertarget`, so the library never depends on markup it does not
+own. Every `onX` handler is asserted to be bound - the Arrow keys were
+dead for one build because a `document.addEventListener` line went
+missing in a refactor, and nothing noticed.
+
+No runtime was added for any of it: the handlers are delegated from the
+document, so a menu re-rendered by a consumer keeps working.
+
 ## shadcn/ui parity status
 
 The standing goal is component parity with

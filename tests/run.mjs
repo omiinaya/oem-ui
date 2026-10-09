@@ -443,9 +443,15 @@ check('a dropdown menu anchors to its trigger, and flips when it will not fit', 
 	assert(toggle, 'the runtime registers no `toggle` listener');
 	assert(toggle.capture, '`toggle` does not bubble: a non-capturing listener at document never fires');
 	const scrollCount = () => winListeners.filter(([t]) => t === 'scroll').length;
+	// One fake per id, MUTATED between open and close: the real menu is a
+	// single element and pins are keyed by element identity (two popovers
+	// may be open at once). A factory returning a fresh object per call
+	// would make the close path unpin NOTHING - failing for a reason that
+	// cannot happen in a browser.
+	const fakes = {};
 	const pin = (id, top, bottom, open) => {
 		triggers[id] = { getBoundingClientRect: () => ({ top, bottom, left: 220, right: 349 }) };
-		return {
+		const fake = fakes[id] || (fakes[id] = {
 			id,
 			style: {},
 			offsetWidth: 192,
@@ -465,8 +471,10 @@ check('a dropdown menu anchors to its trigger, and flips when it will not fit', 
 			matches: (sel) =>
 				(typeof sel === 'string' && sel.split(',').some((s) => s.trim() === '.cm-dropdown__menu[popover]'))
 					? true
-					: open ? sel === ':popover-open' : false,
-		};
+					: fake._open ? sel === ':popover-open' : false,
+		});
+		fake._open = open;
+		return fake;
 	};
 
 	const base = scrollCount();
@@ -509,7 +517,11 @@ check('a dropdown menu anchors to its trigger, and flips when it will not fit', 
 	assert(above.style.left === '157px', `flipping is vertical only; got left ${above.style.left}`);
 
 	toggle.fn({ target: pin('m-above', 700, 744, false) });
-	assert(scrollCount() === base, 'closing the menu must release the scroll pin');
+	// three menus were open (below, card, above): closing above must drop
+	// exactly its own pin. The old single slot released... nothing useful -
+	// it had already been evicted by whoever opened last.
+	assert(scrollCount() === base + 2,
+		'closing one menu must release its own pin and leave the others');
 });
 
 /* ================= astro components ================= */
@@ -12943,13 +12955,14 @@ check("the input group collapses to one hairline", () => {
 		// showPopover() on an open popover THROWS, so the close must come first.
 		assert(body.indexOf('hidePopover') !== -1 && body.indexOf('hidePopover') < body.indexOf('menu.showPopover()'),
 			'a second right-click must close before it reopens, or it throws');
-		assert(/if \(!trigger && !at\) return;/.test(js),
+		assert(/if \(!trigger && !at && !host\) return;/.test(js),
 			'the anchor must accept a pointer-only menu; a bare return strands it at the origin');
 		assert(/if \(at\) \{[\s\S]*?cx \+ w > window\.innerWidth - pad/.test(js),
 			'the panel must be clamped inside the viewport at the point that was clicked');
 		// A context menu belongs to a point: the page moving under it
 		// invalidates the anchor, so it closes rather than drifts.
-		assert(/popPin = function \(\) \{ if \(typeof menu\.hidePopover/.test(js),
+		assert(js.includes('popPins.push({ menu: menu, fn: closeOn })') &&
+			js.includes("window.addEventListener('scroll', closeOn"),
 			'a pointer menu must close when the page moves under it');
 		const rule = css.match(/\.cm-ctx \{([^}]*)\}/);
 		assert(rule, '.cm-ctx is not defined');
@@ -13137,6 +13150,135 @@ check("the input group collapses to one hairline", () => {
 			'below ~350px the grid scrolls inside the card, never the page');
 	});
 }
+
+/* --- shadcn parity: dropdown depth --- */
+check('shadcn-parity: dropdown depth carries the documented item kinds', () => {
+	const html = read('dist/index.html');
+	const css = read('src/styles/components.css');
+	const js = read('src/js/cli-mono.js');
+	for (const c of ['cm-dropdown__shortcut', 'cm-dropdown__icon',
+		'cm-dropdown__caret', 'cm-dropdown__group-label',
+		'cm-dropdown__label-text']) {
+		assert(html.includes(c), 'dropdown part unrendered: ' + c);
+		assert(css.includes(c), 'dropdown part unstyled: ' + c);
+	}
+	// A submenu owner carries the two attributes that make it one, and the
+	// nested panel is a real menu of its own.
+	assert(/role="menuitem" aria-haspopup="menu" aria-controls="sub-depth-1"/.test(html),
+		'a submenu item must announce AND own its panel by id');
+	assert(/id="sub-depth-1" popover role="menu"/.test(html),
+		'the submenu is a menu');
+	// checkbox + radio rows exist in the SAME list as plain items
+	assert(/role="menuitemcheckbox" aria-checked="true"/.test(html),
+		'a checked checkbox item');
+	assert(/role="menuitemradio" aria-checked="false"/.test(html),
+		'an unchecked radio item');
+	// the glyph slot is never empty, so toggling cannot shift the column
+	assert(/cm-dropdown__icon" aria-hidden="true" data-checked="true"/.test(html),
+		'the check glyph rides the slot, not the label');
+	// ...and the CHECK itself is drawn on that slot. Moving it to the row
+	// shifts the label column the moment an item toggles.
+	assert(css.includes(".cm-dropdown__icon[data-checked='true']::before"),
+		'the check glyph is drawn on the icon slot, not the row');
+	// the slot is a fixed width so a toggle cannot resize the row
+	assert(css.includes('.cm-dropdown__icon {\n\tflex: none;'),
+		'the icon slot must be a fixed-width slot');
+	// shortcuts are out of the accessible name
+	// Both hinted rows, not "one of them": a twin-row mutant removes a
+	// single aria-hidden and a single-occurrence regex sails past it.
+	assert((html.match(/cm-dropdown__shortcut" aria-hidden="true"/g) || []).length === 2,
+		'every shortcut hint must be hidden from the name');
+	// the runtime: no per-menu init, one delegated handler.
+	// A plain regex here was /" then a CHARACTER CLASS - it matched any one
+	// of those letters and therefore killed nothing. Literal string only.
+	assert(js.includes('[role^="menuitem"]'),
+		'stepping must find checkbox/radio items too');
+	assert(/function openSubmenu\(/.test(js) && /function closeSubmenu\(/.test(js),
+		'submenu open/close must exist');
+	assert(/function onMenuTypeahead\(/.test(js),
+		'typeahead must exist');
+	assert(/document\.addEventListener\('keydown', onMenuTypeahead\)/.test(js),
+		'typeahead is delegated, one listener at the root');
+	// Hover opens a submenu ONLY inside an already-open menu: without the
+	// guard a pointer crossing the trigger flickers panels on the way.
+	assert(js.includes("if (!item || !item.closest(POP_SEL)) return;"),
+		'hover must only open a submenu inside an open menu');
+	// The trigger must name what it controls (the platform does not set it
+	// for you), and Left must work from popovertarget alone for consumers
+	// whose button carries only that.
+	assert(/popovertarget="menu-depth" aria-controls="menu-depth"/.test(html),
+		'the trigger must announce the panel it controls');
+	assert(js.includes('\'[popovertarget="\' + menu.id + \'"]\''),
+		'stepping out must fall back to popovertarget');
+	// The submenu opens BESIDE its panel through the ONE mechanism every
+	// panel uses: anchorPopover's submenu branch - fixed, viewport
+	// coordinates, clamped, pinned. A second placer is exactly how the
+	// two surfaces drifted apart on scroll.
+	assert(js.includes("menu.parentNode.closest('.cm-dropdown__menu')"),
+		'anchorPopover must recognise a submenu by its host panel');
+	assert(js.includes('anchorPopover(sub);'),
+		'the submenu is anchored synchronously: the toggle task can paint first');
+	assert(!js.includes('function placeSubmenu'),
+		'one owner of placement: no second positioning path');
+	assert(js.includes('popPins.push({ menu: menu, fn: fn })'),
+		'pins are per-popover: a submenu must not evict its parent\'s');
+	assert(js.includes('p.menu !== menu'),
+		'unpin names its popover; closing one must not unpin the other');
+	const nestedIdx = css.indexOf('.cm-dropdown__menu .cm-dropdown__menu {');
+	assert(nestedIdx >= 0, 'a nested menu needs its own positioning rule');
+	const nestedRule = css.slice(nestedIdx, nestedIdx + 240);
+	assert(nestedRule.includes('min-width: 0'),
+		'content-sized: the inherited 12rem cannot fit beside the parent');
+	assert(nestedRule.includes('position: fixed'),
+		'base state matches the fixed-placement mechanism');
+	// One level per press: the DEEPEST open child closes before the menu
+	// itself, so a parent row with a panel open steps back, not out.
+	assert(js.includes("menu.querySelectorAll('[popover]:popover-open')"),
+		'close must consider the open child first');
+	assert(js.includes('opens[opens.length - 1]'),
+		'the deepest open panel is the one that closes');
+	// Right opens the submenu, Left closes it and returns focus
+	assert(/if \(openSubmenu\(t\)\) e\.preventDefault\(\);/.test(js),
+		'Right/Enter must open the submenu');
+	assert(/if \(closeSubmenu\(t\.closest\(POP_SEL\)\)\) e\.preventDefault\(\);/.test(js),
+		'Left must close the panel the reader is actually inside');
+	assert(/if \(owner && typeof owner\.focus === 'function'\) owner\.focus\(\);/.test(js),
+		'Left must return focus to the parent row');
+	assert(/function setRadio\(/.test(js) && /setRadio\(next\)/.test(js),
+		'arriving on a radio row must take the selection');
+	// A submenu's rows belong to the submenu. If the parent's item list
+	// included them, ArrowDown would walk into the panel and the parent's
+	// own rows after it would be unreachable by keyboard.
+	assert(/return owner === menu &&/.test(js),
+		'menuItems must exclude rows owned by a nested panel');
+	// ...and the typeahead/hover handlers must be DOM-guarded: the module is
+	// evaluated in a sandbox with no document at all.
+	assert(/if \(typeof document !== 'undefined'\) document\.addEventListener\('keydown', onMenuTypeahead\);/.test(js),
+		'the typeahead binding must survive a documentless environment');
+	assert(/if \(typeof document !== 'undefined'\) document\.addEventListener\('pointerover', onMenuHover\);/.test(js),
+		'the hover binding must survive a documentless environment');
+
+	// A DEFINED handler that nobody binds is dead code, and the symptom is
+	// the worst kind: the menu opens, every row looks right, and the arrow
+	// keys simply do nothing. This bit for real during batch 18 - pin it.
+	assert(
+		/document\.addEventListener\('keydown', onMenuKey\);/.test(js),
+		'the menu key handler must be registered, not just defined',
+	);
+	// Derive the binding list from the file rather than naming events: any
+	// handler the module DEFINES must be bound to something.
+	const handlers = [...js.matchAll(/function (on[A-Za-z]+)\(e\) \{/g)].map(
+		(m) => m[1],
+	);
+	assert(handlers.length > 0, 'the sweep found no handlers at all');
+	const bound = [...js.matchAll(/addEventListener\(\s*'([a-z]+)'[^)]*,\s*(on[A-Za-z]+)/g)]
+		.map((m) => m[2]);
+	for (const h of handlers) {
+		assert(bound.includes(h), `handler ${h} is defined but never bound`);
+	}
+});
+
+
 /* --- generated scoped entries: the fleet check that can see them ------ */
 /*
  * MAP and ALT name the files a CONSUMER copies. Nothing in the checker

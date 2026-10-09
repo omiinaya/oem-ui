@@ -40,7 +40,7 @@ const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'crumbs', 'lists', 'states', 'surface',
   'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'json', 'rowon', 'switch', 'sheet', 'drawer', 'choice', 'keys-pages-people',
 	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'proselists', 'proselists-order', 'prosetap', 'prosetable', 'tablelabels', 'layout', 'surface-paint',
-	'forms', 'datepicker', 'scrollarea', 'utilities', 'chat', 'scroller', 'attachment', 'quiz', 'search', 'auth', 'readme',
+	'forms', 'datepicker', 'scrollarea', 'utilities', 'chat', 'dropdown-depth', 'scroller', 'attachment', 'quiz', 'search', 'auth', 'readme',
 ] as const;
 
 /* The log specimen. Long enough to actually scroll, because a sticky
@@ -3658,6 +3658,73 @@ Two helpers shadcn ships under utils, in house CSS. <code>scroll-fade</code>
 					</div>
 				</div>
 			</section>
+			<section id="dropdown-depth" class="cm-section cm-section--pad">
+				<SectionHead title="dropdown depth">
+					the documented item kinds, all composing the same row: a
+					submenu item owns a nested popover (Right or Enter opens,
+					Left returns to the parent row), checkbox and radio items
+					toggle in place and stay reachable by arrows, the shortcut
+					hint is right-aligned and out of the accessible name, the
+					leading icon slot is fixed width so labels hold one
+					column, and typing jumps to the next item starting with
+					those characters. group labels are composition only.
+				</SectionHead>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">runtime</span>
+						<span class="cm-spec__val">plain key handler - no per-menu init</span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">items</span>
+						<span class="cm-spec__val">menuitem / menuitemcheckbox / menuitemradio, plus the submenu owner</span>
+					</div>
+				</div>
+				<div class="cm-dropdown">
+					<button type="button" class="cm-btn cm-btn--sm" popovertarget="menu-depth" aria-controls="menu-depth">actions</button>
+					<div class="cm-dropdown__menu" id="menu-depth" popover role="menu" aria-label="file actions">
+						<div class="cm-dropdown__group-label" id="grp-open" role="presentation">open with</div>
+						<div role="group" aria-labelledby="grp-open">
+							<button type="button" class="cm-dropdown__item" role="menuitem" aria-haspopup="menu" aria-controls="sub-depth-1">
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">viewer</span></span>
+								<span class="cm-dropdown__caret" aria-hidden="true">&rsaquo;</span>
+							</button>
+							<div class="cm-dropdown__menu" id="sub-depth-1" popover role="menu" aria-label="viewer options">
+								<button type="button" class="cm-dropdown__item" role="menuitem"><span class="cm-dropdown__label"><span class="cm-dropdown__label-text">read only</span></span></button>
+								<button type="button" class="cm-dropdown__item" role="menuitem"><span class="cm-dropdown__label"><span class="cm-dropdown__label-text">annotate</span></span></button>
+								<button type="button" class="cm-dropdown__item" role="menuitem"><span class="cm-dropdown__label"><span class="cm-dropdown__label-text">present</span></span></button>
+							</div>
+						</div>
+						<hr class="cm-dropdown__sep" />
+						<button type="button" class="cm-dropdown__item" role="menuitemcheckbox" aria-checked="true" data-cm-check>
+							<span class="cm-dropdown__icon" aria-hidden="true" data-checked="true"></span>
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">show invisibles</span></span>
+							<span class="cm-dropdown__shortcut" aria-hidden="true">ctrl i</span>
+						</button>
+						<button type="button" class="cm-dropdown__item" role="menuitemcheckbox" aria-checked="false" data-cm-check>
+							<span class="cm-dropdown__icon" aria-hidden="true" data-checked="false"></span>
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">wrap columns</span></span>
+						</button>
+						<div class="cm-dropdown__group-label" id="grp-dens" role="presentation">density</div>
+						<div role="group" aria-labelledby="grp-dens">
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="true" data-cm-radio="density">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">comfortable</span></span>
+							</button>
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="false" data-cm-radio="density">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">compact</span></span>
+							</button>
+						</div>
+						<hr class="cm-dropdown__sep" />
+						<button type="button" class="cm-dropdown__item cm-dropdown__item--danger" role="menuitem">
+							<span class="cm-dropdown__icon" aria-hidden="true">&times;</span>
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">delete file</span></span>
+							<span class="cm-dropdown__shortcut" aria-hidden="true">shift del</span>
+						</button>
+					</div>
+				</div>
+			</section>
+
 			<section id="scroller" class="cm-section cm-section--pad">
 				<SectionHead title="message scroller">
 					the transcript frame: a labelled, keyboard-focusable scroll

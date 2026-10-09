@@ -20,3 +20,4 @@ __pycache__/
 # mutation-sweep sandboxes (tests/mutate-install-layout.sh)
 tests/.mutinstall.*
 tests/.mutverdict.*
+tests/.pristine-scoped.css

@@ -1,5 +1,45 @@
 # Changelog
 
+## Unreleased — the fleet checker can see a scoped entry
+
+- **`check-design-sync.sh` now grades GENERATED scoped entries.** `MAP` and
+  `ALT` name the files a consumer *copies*; nothing named the file the
+  library *generates for* the consumer. `make-scoped-entry.mjs` writes a
+  `cm-scoped.css` - re-declaring the theme-independent token scale and
+  importing `components.css` - for the consumer whose build inlines Tailwind
+  into `@layer`s and cannot import `base.css` globally. So a scoped adoption
+  could freeze its token set at generation time and report `in sync` forever.
+  The pass is keyed on the file's own **generator header**, not on a
+  filename (hermes-articles calls its entry `cm-prose.css`; the other two
+  call it `cm-scoped.css`), hands the generator the `components.css` the
+  entry **actually imports** (resolved relative to the entry's own
+  directory), and delegates to the generator's own `--check` rather than
+  reimplementing the token list in bash. An `@import` that does not resolve
+  is now a loud finding: PostCSS drops it with no error, so the whole design
+  system can be absent while every other check reports success.
+
+- **All three scoped consumers were carrying a STALE generated entry**, and
+  each was missing the library's entire `--z-*` scale (added after they were
+  generated). `z-index: var(--missing)` is invalid at computed-value time and
+  falls back to `auto` **silently**. MEASURED in WebKit at 390px, before the
+  repair: `.cm-toolbar`, `.cm-header`, `.cm-toast-region` and
+  `.cm-js .cm-nav-scrim` - the four selectors that consume those tokens -
+  all computed `z-index: auto`, so the nav scrim drew under the drawer and a
+  toast under everything, in three live apps. After regenerating, the same
+  four read `10` / `100` / `200` / `98`. They also still carried
+  `--radius: 10px` from before `e79e3d5` took the rounding out; `components.css`
+  consumes `var(--radius)` zero times, so that one has no teeth there and is
+  reported only as the token value it is.
+
+Proven: suite 562/0 (9 new contracts). `tests/verify-scoped-entry.py`
+measures the repair in WebKit (8 reproduced symptoms, 0 failures);
+`tests/verify-showcase-live.py` re-proves the live showcase at 390px against
+the LAN preview. Mutator `tests/mutate-scoped-entry.py`: **8/8 killed, 0
+survived, 0 errors** - one of them a genuine survivor found and fixed this
+cycle (the "delegates to the generator" contract matched `--check` anywhere
+in the script and passed an inline reimplementation, so it now asserts the
+single call site).
+
 ## Unreleased — shadcn-parity primitives
 
 - Added square-cornered kbd, pagination, avatar, native-exclusive accordion,
@@ -1863,6 +1903,48 @@ late-markup watcher only arms on a cold document - so that proof loads
 the library blank and lets the scroller arrive, instead of asserting a
 surface the library deliberately never watches.
 
+### Batch 18: dropdown depth
+
+Submenus, checkbox/radio items, shortcut hints, a fixed icon slot,
+group labels and per-menu typeahead, all composing the one existing row
+instead of a parallel implementation. Delegated from the document, so no
+init path changes.
+
+Second pass, driven by the mutation run and the vision gate rather than
+by the happy path:
+
+- **Left was a dead key.** `closeSubmenu` looked the panel owner up by
+  `aria-controls`, which the trigger never carried (only `popovertarget`),
+  so with focus on a parent row it returned false and did nothing - the
+  key reached the handler, `defaultPrevented` stayed false, and nothing
+  moved. Rewrote it to step one level per press: the deepest open
+  descendant closes first, then the menu itself, with a `popovertarget`
+  fallback so the library never depends on markup it does not own.
+
+- **The submenu rendered on top of its parent** - same left edge, wider
+  box, the parent's border crossing its rows. Two causes: the nested
+  panel inherited the parent's `right: 0`/`top: calc(...)` anchor plus a
+  12rem min-width it did not need (content is 104px), and top-layer
+  insets do not resolve the way the CSS assumed. Placement now lives in
+  `anchorPopover`'s submenu branch - the same fixed, viewport-coordinate,
+  clamped mechanism every other panel uses - and a second placer was
+  deleted rather than patched.
+
+- **The pin was a single global slot.** Opening a submenu evicted its
+  own parent's pin, so the parent sat still while the page scrolled under
+  it (measured: parent fixed at 38 while its trigger walked to 451).
+  Pins are now per-popover; closing one releases exactly one.
+
+- **Anchored in the same task.** The toggle event that used to place the
+  submenu fires as a later task, so anything painting in between saw it at
+  its base position (WebKit measured `subLeft 5, subTop 708` before the
+  task ran). The open path now anchors synchronously - and the check is a
+  same-tick one, because no amount of waiting can see a single frame.
+
+- The vision gate found all of this after 560 green tests: geometry and
+  scroll behaviour are asserted now (beside-the-panel, top-aligned,
+  in-viewport at 402 and 320, menu-on-trigger after scroll).
+
 ## Fixed
 
 - Two stacking checks demanded a literal `z-index: <number>`, which fails on
@@ -3286,43 +3368,3 @@ layers.
 - A frontmatter `import` of `cli-mono.js` in Astro is tree-shaken away and
   the runtime silently does nothing. Use a `<script src>` tag. Documented in
   the README and the test suite.
-
-## Unreleased — the fleet checker can see a scoped entry
-
-- **`check-design-sync.sh` now grades GENERATED scoped entries.** `MAP` and
-  `ALT` name the files a consumer *copies*; nothing named the file the
-  library *generates for* the consumer. `make-scoped-entry.mjs` writes a
-  `cm-scoped.css` - re-declaring the theme-independent token scale and
-  importing `components.css` - for the consumer whose build inlines Tailwind
-  into `@layer`s and cannot import `base.css` globally. So a scoped adoption
-  could freeze its token set at generation time and report `in sync` forever.
-  The pass is keyed on the file's own **generator header**, not on a
-  filename (hermes-articles calls its entry `cm-prose.css`; the other two
-  call it `cm-scoped.css`), hands the generator the `components.css` the
-  entry **actually imports** (resolved relative to the entry's own
-  directory), and delegates to the generator's own `--check` rather than
-  reimplementing the token list in bash. An `@import` that does not resolve
-  is now a loud finding: PostCSS drops it with no error, so the whole design
-  system can be absent while every other check reports success.
-
-- **All three scoped consumers were carrying a STALE generated entry**, and
-  each was missing the library's entire `--z-*` scale (added after they were
-  generated). `z-index: var(--missing)` is invalid at computed-value time and
-  falls back to `auto` **silently**. MEASURED in WebKit at 390px, before the
-  repair: `.cm-toolbar`, `.cm-header`, `.cm-toast-region` and
-  `.cm-js .cm-nav-scrim` - the four selectors that consume those tokens -
-  all computed `z-index: auto`, so the nav scrim drew under the drawer and a
-  toast under everything, in three live apps. After regenerating, the same
-  four read `10` / `100` / `200` / `98`. They also still carried
-  `--radius: 10px` from before `e79e3d5` took the rounding out; `components.css`
-  consumes `var(--radius)` zero times, so that one has no teeth there and is
-  reported only as the token value it is.
-
-Proven: suite 562/0 (9 new contracts). `tests/verify-scoped-entry.py`
-measures the repair in WebKit (8 reproduced symptoms, 0 failures);
-`tests/verify-showcase-live.py` re-proves the live showcase at 390px against
-the LAN preview. Mutator `tests/mutate-scoped-entry.py`: **8/8 killed, 0
-survived, 0 errors** - one of them a genuine survivor found and fixed this
-cycle (the "delegates to the generator" contract matched `--check` anywhere
-in the script and passed an inline reimplementation, so it now asserts the
-single call site).
