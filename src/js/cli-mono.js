@@ -1148,9 +1148,23 @@
 		// A submenu has no [popovertarget] - it opens from an owner ROW
 		// named by aria-controls, which the platform never sees - and it
 		// opens beside its HOST PANEL rather than under a chevron.
+		//
+		// A navmenu submenu is the other shape of the same thing: it DOES
+		// carry a popovertarget (it is its own nested root's shared
+		// viewport), so `trigger` is set and it used to fall through to
+		// the top-level rule below and open UNDER its word - measured at
+		// 402px, its own trigger sat at y=488 and the panel landed at
+		// y=196, straight over the parent panel's links. A nested root's
+		// panel belongs beside the panel that holds it, exactly like a
+		// dropdown submenu's, so the class is what routes it - not
+		// whether the markup happens to name the target.
 		var host = menu.parentNode &&
 			typeof menu.parentNode.closest === 'function'
 				? menu.parentNode.closest('.cm-dropdown__menu') : null;
+		if (!host && menu.classList &&
+			menu.classList.contains('cm-navmenu__subpanel')) {
+			host = menu.closest('.cm-navmenu__panel');
+		}
 		if (!trigger && !at && !host) return;
 		var t = trigger ? trigger.getBoundingClientRect() : null;
 		menu.style.position = 'fixed';
@@ -1162,6 +1176,17 @@
 			var hr = host.getBoundingClientRect();
 			var owner = id ? document.querySelector('[aria-controls="' + id + '"]')
 				: null;
+			// A navmenu submenu's owner is named by the platform's own
+			// popovertarget, not aria-controls - the panel is a shared
+			// viewport, so the nested root's word is what opened it. Asking
+			// for aria-controls alone leaves `owner` null and the submenu
+			// then hangs off the panel's top corner instead of its word.
+			if (!owner && menu.classList &&
+				menu.classList.contains('cm-navmenu__subpanel') &&
+				typeof menu.getAttribute === 'function') {
+				var sid = menu.getAttribute('id');
+				if (sid) owner = document.querySelector('[popovertarget="' + sid + '"]');
+			}
 			var ow = owner ? owner.getBoundingClientRect() : null;
 			// Right of the panel when that fits, left of it when THAT
 			// fits, otherwise flush inside the right edge: a 320px
@@ -1389,6 +1414,31 @@
 				if (first && typeof first.focus === 'function') first.focus();
 			}
 		} else {
+			// A panel that closes takes its SUBMENUS with it. Nothing else
+			// does: a submenu popover's top-layer position survives its
+			// parent's close, and a submenu floating over the page with no
+			// panel holding it is the one state that makes nested
+			// navigation unreadable.
+			if (menu.classList && menu.classList.contains('cm-navmenu__panel')) {
+				var orphaned = 0;
+				Array.prototype.forEach.call(
+					menu.querySelectorAll('[popover]:popover-open'),
+					function (sub) {
+						orphaned = 1;
+						if (typeof sub.hidePopover === 'function') sub.hidePopover();
+					});
+				// The submenu's own focus fixup points at ITS invoker - a
+				// trigger inside this panel, which is closed now. If focus
+				// fell to the page, the way back is the trigger that owned
+				// this panel in the first place. ONLY when a submenu was
+				// actually closed by this: focus() scrolls its target into
+				// view, and a focus fired on every plain close moves the page
+				// under an idle reader (measured: it shifted a scroll's
+				// landing point by pinning scroll-anchoring to the trigger).
+				var ae = document.activeElement;
+				if (orphaned && (!ae || ae === document.body) &&
+					trig && typeof trig.focus === 'function') trig.focus();
+			}
 			if (menu.hasAttribute && menu.hasAttribute('data-cm-viewport')) {
 				menu.setAttribute('data-state', 'closed');
 				// The generic aria write above ran popTrigger(), which
@@ -1651,7 +1701,7 @@
 	function navViewportExpand(viewport, trigger) {
 		var bar = navViewportBar(viewport);
 		if (!bar) return;
-		Array.prototype.forEach.call(bar.querySelectorAll('.cm-navmenu__trigger'), function (t) {
+		Array.prototype.forEach.call(navOwn(bar, '.cm-navmenu__trigger'), function (t) {
 			t.setAttribute('aria-expanded', t === trigger ? 'true' : 'false');
 		});
 	}
@@ -1669,9 +1719,8 @@
 	}
 	function navTriggers(bar) {
 		return Array.prototype.filter.call(
-			bar.querySelectorAll('.cm-navmenu__trigger'),
-			function (b) { return b.getClientRects().length > 0; }
-		);
+			navOwn(bar, '.cm-navmenu__trigger'),
+			function (b) { return b.getClientRects().length > 0; });
 	}
 	// The section a trigger points at. A popover trigger points at nothing
 	// (it opens a panel); a plain nav link points at a URL, and `#id` is the
@@ -1690,8 +1739,22 @@
 	   mark inside it would need every trigger to be its own containing
 	   block - which is also what `.cm-navmenu__item { position: relative }`
 	   exists for. One element, two numbers. */
+	/* The marks/triggers a bar OWNS. A bar may nest inside another bar's
+	   panel, and a descendant-wide query then answers with the INNER
+	   bar's elements: a bar painting the sub's mark, a walk stepping
+	   through the sub's words. Every walk in this file asks that question,
+	   so the rule is stated once, here. */
+	function navOwn(bar, selector) {
+		return Array.prototype.filter.call(
+			bar.querySelectorAll(selector),
+			function (el) { return el.closest('[data-cm-navmenu]') === bar; });
+	}
 	function navPaintIndicator(bar, trigger) {
-		var ind = bar.querySelector('.cm-navmenu__indicator');
+		// Its OWN mark, and the SAME rule navTriggers already applies to
+		// rows: measured in WebKit, `querySelector` handed back the SUB
+		// bar's mark and the outer bar's mark never painted - the harness
+		// caught haveW 100 (the sub's mark) against a wanted 80.
+		var ind = navOwn(bar, '.cm-navmenu__indicator')[0];
 		if (!ind) return;
 		if (!trigger) {
 			ind.setAttribute('data-active', 'false');
@@ -1831,6 +1894,92 @@
 			navSpies.push(spy);
 		});
 	}
+	/* ---------- navigation menu: the submenu path ----------
+	   Radix documents NavigationMenu.Sub as a part - "use it in place of
+	   the root part when nested to create a submenu" - and shadcn links
+	   Radix as its navigation-menu variant, so the nested root and its
+	   keyboard routing are documented surface, not an extra.
+
+	   The routing is two doors and they are not the same door:
+	   - INTO a submenu: the submenu's rows live in a panel that exists
+	     only while its parent word is open, so the parent's word opens
+	     that panel and the existing bar walk lands on the submenu's own
+	     trigger. One walk, one owner - the walk already routes every
+	     trigger, nested or not.
+	   - OUT of a submenu: ArrowLeft on a submenu trigger closes the
+	     submenu and returns focus to the parent word. The reader's way
+	     back is the parent, and ArrowLeft is the key that opened it -
+	     the same pairing every native menu uses.
+
+	   Placement still routes through anchorPopover: a nested panel is a
+	   panel, and "one owner of each mechanism" does not stop at the top
+	   level. */
+	function navSubPanel(bar, trigger) {
+		var id = trigger && trigger.getAttribute &&
+			trigger.getAttribute('popovertarget');
+		return id ? document.getElementById(id) : null;
+	}
+	function navSubOut(trigger) {
+		var bar = trigger.closest('[data-cm-navmenu]');
+		var sub = navSubPanel(bar, trigger);
+		if (!sub || !sub.matches(':popover-open')) return false;
+		// The parent word is the owner: the word whose panel had to be
+		// open for this submenu to be reachable at all. It is NOT
+		// `trigger.closest('.cm-navmenu__panel')` - a submenu panel carries
+		// that class too, so closest() returns the submenu's OWN panel and
+		// the walk back stops one level short of the word the reader came
+		// from. The parent is the panel that CONTAINS the nested bar, which
+		// is the same question asked from the bar rather than the trigger.
+		var nested = trigger.closest('[data-cm-navmenu-sub]');
+		var parent = nested && nested.parentNode &&
+			nested.parentNode.closest
+				? nested.parentNode.closest('.cm-navmenu__panel') : null;
+		if (!parent) parent = trigger.closest('.cm-navmenu__panel');
+		var owner = parent && parent.id &&
+			document.querySelector('[popovertarget="' + parent.id + '"]');
+		sub.hidePopover();
+		var back = owner || parent;
+		if (back && typeof back.focus === 'function') back.focus();
+		return true;
+	}
+	function navSubIn(trigger) {
+		// ArrowRight on a nested word steps INTO its panel - the mirror of
+		// ArrowLeft out. Only on a nested word: on the outer bar, Right is
+		// the rove to the next section and must stay that. Only when the
+		// submenu is already open, for the same reason ArrowDown is gated
+		// on aria-expanded - with nothing open the key belongs to the bar.
+		var nested = trigger.closest('[data-cm-navmenu-sub]');
+		if (!nested) return false;
+		if (trigger.getAttribute('aria-expanded') !== 'true') return false;
+		var panel = navSubPanel(nested, trigger);
+		if (!panel || !panel.matches(':popover-open')) return false;
+		var items = menuItems(panel);
+		if (!items.length) return false;
+		items[0].focus();
+		return true;
+	}
+	function onNavmenuSubKey(e) {
+		var t = e.target;
+		if (!t || typeof t.closest !== 'function') return;
+		var trigger = t.closest('.cm-navmenu__trigger');
+		if (!trigger) return;
+		// Guarded on the submenu actually being OPEN, so ArrowLeft on an
+		// ordinary word still belongs to the horizontal bar walk. The
+		// walk runs on the bubble phase and this on capture, so the
+		// stopPropagation is what keeps a handled key from being walked
+		// a second time by the bar's own handler.
+		if (e.key === 'ArrowLeft' && navSubOut(trigger)) {
+			e.preventDefault();
+			e.stopPropagation();
+		} else if (e.key === 'ArrowRight' && navSubIn(trigger)) {
+			e.preventDefault();
+			e.stopPropagation();
+		}
+	}
+	if (typeof document !== 'undefined') {
+		document.addEventListener('keydown', onNavmenuSubKey, true);
+	}
+
 	// The bar walks with the arrows while a panel is OPEN, and only then:
 	// Left/Right moves between WORDS, and lands on the neighbouring word
 	// with its panel open - the behaviour that makes this a bar rather than
@@ -1848,11 +1997,27 @@
 		if (!triggers.length) return;
 		var i = triggers.indexOf(trigger);
 		var next = null;
-		if (e.key === 'ArrowRight') next = triggers[(i + 1) % triggers.length];
+		var into = null;
+		if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+			// Radix's row: ArrowDown on an OPEN trigger moves focus INTO
+			// its content. Otherwise the vertical keys rove between
+			// triggers - the same set as Left/Right, gated the same way:
+			// with no panel open they stay the page's keys, because an
+			// idle bar is not a menu bar.
+			if (e.key === 'ArrowDown' && trigger.getAttribute('aria-expanded') === 'true') {
+				var ownId = trigger.getAttribute('popovertarget');
+				var ownPanel = ownId ? document.getElementById(ownId) : null;
+				var ownItems = ownPanel ? menuItems(ownPanel) : [];
+				into = ownItems[0] || null;
+			} else if (e.key === 'ArrowDown') {
+				next = triggers[(i + 1) % triggers.length];
+			} else {
+				next = triggers[(i - 1 + triggers.length) % triggers.length];
+			}
+		} else if (e.key === 'ArrowRight') next = triggers[(i + 1) % triggers.length];
 		else if (e.key === 'ArrowLeft') next = triggers[(i - 1 + triggers.length) % triggers.length];
 		else if (e.key === 'Home') next = triggers[0];
 		else if (e.key === 'End') next = triggers[triggers.length - 1];
-		next = next;
 		if (!next) return;
 		// `aria-expanded` is the honest test for "a panel is open": the
 		// platform does not manage it in either direction, and
@@ -1860,7 +2025,12 @@
 		// trigger carrying aria-haspopup - so this reads the ONE place that
 		// already knows. A plain nav link never carries it, and a link with
 		// aria-expanded="false" is correctly read as closed.
-		var wasOpen = bar.querySelector('.cm-navmenu__trigger[aria-expanded="true"]');
+		// OWN bar, own rows: a nested submenu's trigger can read
+		// expanded="true" while this bar's own panels are all closed, and
+		// a descendant-wide query would let that steer the idle gate.
+		var wasOpen = Array.prototype.some.call(
+			bar.querySelectorAll('.cm-navmenu__trigger[aria-expanded="true"]'),
+			function (x) { return !x.closest || x.closest('[data-cm-navmenu]') === bar; });
 		// A nav is NOT a menu bar. With no panel open the arrows belong to
 		// the PAGE - a reader scrolling, a caret in a field, a range input -
 		// and walking words on an idle bar would hijack keys this component
@@ -1869,6 +2039,15 @@
 		// before focus moves: an idle bar must be untouched, not walked and
 		// then apologised for.
 		if (!wasOpen) return;
+		// INTO the content is the first door: the gate above already
+		// proved a panel is open, and this branch only ever set when
+		// THIS trigger is the open one - so the pin ordering holds
+		// (gate, then the key is taken) and Radix's row reads straight.
+		if (into) {
+			e.preventDefault();
+			into.focus();
+			return;
+		}
 		e.preventDefault();
 		// Focus moves to the next WORD, so a reader walking the bar while a
 		// panel is open never loses the bar.
@@ -1970,7 +2149,7 @@
 	}
 	function navHoverClose(bar) {
 		Array.prototype.forEach.call(
-			bar.querySelectorAll('.cm-navmenu__trigger'),
+			navOwn(bar, '.cm-navmenu__trigger'),
 			function (t) {
 				var m = navHoverPanel(bar, t);
 				if (m && m.matches(':popover-open') && typeof m.hidePopover === 'function') {
@@ -1989,6 +2168,34 @@
 		if (!bar) return;
 		if (e.relatedTarget && typeof e.relatedTarget.closest === 'function' &&
 			trigger.contains(e.relatedTarget)) return;
+		// The record is verified against the PLATFORM before it is
+		// trusted, and this is the second place that matters. The early
+		// return below exists to swallow the `pointerover` storm the
+		// engine fires while the pointer crosses one trigger to the
+		// next - but the record is only cleared by a `pointerout` whose
+		// target is ITSELF a trigger, so a pointer that leaves for the
+		// sticky header (or leaves the window, or is teleported by a
+		// harness) leaves the record naming a word nobody is over. The
+		// result is measured in WebKit: hovering that word again does
+		// nothing, forever, until a DIFFERENT word is hovered first.
+		// `:hover` is the platform's own answer to the only question
+		// that matters - is the pointer actually on it right now - so
+		// the memory is trusted only while the platform agrees.
+		// The engine fires a `pointerover` STORM while the pointer crosses
+		// one trigger to the next, so a word already being handled must
+		// not re-arm. "Already handled" is a question about what this
+		// hover has DONE, not about a record: a timer already running, or
+		// this word's panel already open. A record alone is the wrong
+		// test - it is only CLEARED by a `pointerout` whose target is
+		// itself a trigger, and a pointer that leaves for the sticky
+		// header, or leaves the window, or is teleported, never produces
+		// one. Measured in WebKit: with the record alone as the test, a
+		// word whose panel had been closed by click could never be
+		// hovered open again for the rest of the session until some OTHER
+		// word was hovered first.
+		if (bar.__cmNavHoverLast === trigger &&
+			(bar.__cmNavHoverT || navHoverPanel(bar, trigger) &&
+				navHoverPanel(bar, trigger).matches(':popover-open'))) return;
 		// Entering the bar cancels the leave grace - that is what the
 		// grace is for: the 4px between trigger and panel is a gap the
 		// pointer has to cross without the panel vanishing under it.
@@ -2002,14 +2209,28 @@
 			clearTimeout(bar.__cmNavHoverT);
 			bar.__cmNavHoverT = 0;
 		}
-		var anyOpen = bar.querySelector('.cm-navmenu__trigger[aria-expanded="true"]');
+		// Own rows only, same reason as the walk's gate: the sub's state
+		// never decides whether THIS bar swaps immediately.
+		var anyOpen = Array.prototype.some.call(
+			bar.querySelectorAll('.cm-navmenu__trigger[aria-expanded="true"]'),
+			function (x) { return !x.closest || x.closest('[data-cm-navmenu]') === bar; });
 		if (anyOpen) { navHoverSwap(bar, trigger); return; }
 		if (typeof setTimeout !== 'function') return;
 		bar.__cmNavHoverT = setTimeout(function () {
 			bar.__cmNavHoverT = 0;
 			// The pointer may have moved on during the delay; the LAST
-			// hovered word must still be this one, and still fine.
-			if (bar.__cmNavHoverLast !== trigger || !navFine()) return;
+			// hovered word must still be this one, and still fine. `:hover`
+			// rather than the record, because the record is only cleared by
+			// a `pointerout` from a trigger - and a pointer that left for
+			// the sticky header leaves it stale, which made this timer
+			// refuse forever on a word whose panel a reader had closed by
+			// click. The platform's own answer to "is the pointer on it"
+			// is the one that cannot go stale.
+			if (bar.__cmNavHoverLast !== trigger || !navFine() ||
+				!trigger.matches(':hover')) {
+				bar.__cmNavHoverLast = null;
+				return;
+			}
 			navHoverOpen(bar, trigger);
 		}, NAV_HOVER_OPEN_MS);
 	}
@@ -2022,6 +2243,11 @@
 		var bar = trigger.closest('[data-cm-navmenu]');
 		if (!bar) return;
 		var to = e.relatedTarget;
+		// Still inside this bar's TREE? Containment, not identity: a
+		// submenu root nested in this bar's panel is its own
+		// [data-cm-navmenu], so closest() would call the walk into the
+		// submenu "out of the bar" and start the leave grace on a reader
+		// who never left.
 		if (to && typeof to.closest === 'function' && to.closest('[data-cm-navmenu]') === bar) return;
 		// Out of the bar entirely: a pending open dies now (the pointer
 		// did not stay for the 200), and a hover-owned panel gets the

@@ -6822,6 +6822,23 @@ input.cm-slider:disabled {
 @media (pointer: coarse) {
 	.cm-navmenu__trigger { min-height: var(--tap); }
 }
+/* The submenu is a root used NESTED (NavigationMenu.Sub): its list sits
+   inside the parent's content as a column behind a hairline - the same
+   separator every list in this system uses to say "these are a group".
+   It inherits the vertical bar's rules wholesale (same parts, same walk,
+   same hover, same indicator knobs), which is exactly what "in place of
+   the root" means: nothing about the sub is a new mechanism. */
+.cm-navmenu--sub {
+	margin-top: var(--space-3);
+	padding-top: var(--space-3);
+	border-top: 1px solid var(--line);
+}
+/* The sub's panel is a NARROW list behind the parent's wide one: a
+   second 20rem wall stacked on the first buries the page it sits over.
+   16rem keeps two lines of a label and still clamps on a phone. */
+.cm-navmenu__subpanel {
+	width: min(16rem, calc(100vw - (2 * var(--gutter))));
+}
 
 /* ---------- tree ----------
    Expansion is the PLATFORM's: a <details> branch opens, closes and toggles

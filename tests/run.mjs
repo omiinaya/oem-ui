@@ -13655,6 +13655,44 @@ check('the data table specimen: registered, opted in, every control present, far
    does not: a persistent trigger with a drawn chevron, links with a
    description under each, and a bar-level indicator measured from the page
    rather than authored. */
+/* Per-bar ownership of the marks, with NESTING understood: a submenu
+   root inside a bar's panel is itself a bar, and a flat split of the
+   source hands the parent the child's mark (measured: bar one read
+   count=0, the sub's segment count=2). Each bar's span is found by div
+   balance from its own opening tag; a bar's OWN region is that span
+   minus the spans nested inside it - exactly the claim the checks below
+   make: every bar owns one mark, no mark is orphaned. */
+function cmBarOwnRegions(src) {
+	const opens = [];
+	const openRe = /<div\b[^>]*\bdata-cm-navmenu[\s>][^>]*>/g;
+	let m;
+	while ((m = openRe.exec(src))) opens.push(m.index);
+	const spans = opens.map((start) => {
+		let depth = 0;
+		const tag = /<div\b[^>]*>|<\/div>/g;
+		tag.lastIndex = start;
+		let t;
+		while ((t = tag.exec(src))) {
+			depth += t[0].startsWith('</') ? -1 : 1;
+			if (depth === 0) return { start: start, end: tag.lastIndex };
+		}
+		return { start: start, end: src.length };
+	});
+	return spans.map((r, i) => {
+		const parts = [];
+		let cursor = r.start;
+		spans.forEach((n, j) => {
+			if (j === i) return;
+			if (n.start > r.start && n.end <= r.end) {
+				if (n.start > cursor) parts.push(src.slice(cursor, n.start));
+				cursor = Math.max(cursor, n.end);
+			}
+		});
+		if (cursor < r.end) parts.push(src.slice(cursor, r.end));
+		return parts.join('');
+	});
+}
+
 check('shadcn-parity: the navigation menu carries its own anatomy', () => {
 	const html = read('dist/index.html');
 	const css = read('src/styles/components.css');
@@ -13695,8 +13733,10 @@ check('shadcn-parity: the navigation menu carries its own anatomy', () => {
 	// ships three: per-trigger, shared viewport, vertical) - a global
 	// count would pass on a bar with two marks as long as another had
 	// none, which is the drift this check exists to stop.
-	for (const seg of html.split('data-cm-navmenu ').slice(1)) {
-		assert((seg.match(/class="cm-navmenu__indicator" aria-hidden="true"/g) || []).length === 1,
+	// Per-bar regions, nesting understood (cmBarOwnRegions): a nested
+	// submenu root is a bar of its own and owns its own mark.
+	for (const own of cmBarOwnRegions(html)) {
+		assert((own.match(/class="cm-navmenu__indicator" aria-hidden="true"/g) || []).length === 1,
 			'the indicator duplicates aria-current and must stay out of the tree');
 	}
 	// The chevron must be DRAWN, not a glyph: a rotated border pair in
@@ -13735,11 +13775,11 @@ check('shadcn-parity: the navmenu indicator is measured, not authored', () => {
 	// with two marks has no single current section. Per-bar again, plus
 	// the total: every bar counted must OWN exactly one mark, so a mark
 	// that disappears from one bar cannot hide behind its neighbour's.
-	const barSegs = html.split('data-cm-navmenu ');
-	assert(barSegs.length - 1 === (html.match(/class="cm-navmenu__indicator"/g) || []).length,
+	const barSegs = cmBarOwnRegions(html);
+	assert(barSegs.length === (html.match(/class="cm-navmenu__indicator"/g) || []).length,
 		'every bar must carry an indicator and nothing else may');
-	for (const seg of barSegs.slice(1)) {
-		assert((seg.match(/class="cm-navmenu__indicator"/g) || []).length === 1,
+	for (const own of barSegs) {
+		assert((own.match(/class="cm-navmenu__indicator"/g) || []).length === 1,
 			'a bar carries exactly one indicator');
 	}
 	// The mark is a pseudo-element driven by two custom properties. Both are
@@ -13796,8 +13836,10 @@ check('shadcn-parity: the navmenu bar walks and the panel swaps', () => {
 	assert(/function onNavmenuKey\(e\)/.test(js), 'the bar walk must exist');
 	assert(/document\.addEventListener\('keydown', onNavmenuKey\)/.test(js),
 		'the walk is delegated: one listener at the root');
-	assert(/var wasOpen = bar\.querySelector\('\.cm-navmenu__trigger\[aria-expanded="true"\]'\);/.test(js),
-		'the walk must gate on a panel being open');
+	// OWN bar's panels only: a nested submenu's expanded trigger must not
+	// steer the idle gate of the bar holding it.
+	assert(/var wasOpen = Array\.prototype\.some\.call\([\s\S]*?\.cm-navmenu__trigger\[aria-expanded="true"\][\s\S]*?closest\('\[data-cm-navmenu\]'\) === bar; \}\);/.test(js),
+		'the walk must gate on a panel being open, on its own bar');
 	// The gate is stated as the BEHAVIOUR, not as a code shape. An earlier
 	// cut of this assertion pinned `if (wasOpen) {` - so rewriting the same
 	// gate as an early return (which is what makes the idle bar leave focus
@@ -14290,8 +14332,13 @@ check('batch 23 nav: the shared viewport fills in the toggle task and stamps dat
 		'the walk must fill, aria-move and re-anchor in the same task');
 	// The specimen ships both models: per-trigger panels AND the shared
 	// viewport with its two templates.
-	assert((html.match(/data-cm-navmenu-viewport="/g) || []).length === 1,
-		'exactly one bar opts into the shared viewport');
+	// Both bars that SHARE one panel across words: the root viewport bar
+	// and the submenu that reuses the model nested inside a panel - the
+	// sub is a root, so it gets the root's parts, not a second mechanism.
+	assert((html.match(/data-cm-navmenu-viewport="/g) || []).length === 2,
+		'the shared viewport model ships on the root bar AND its submenu');
+	assert(html.includes('data-cm-navmenu-viewport="nav-sub-viewport"'),
+		'the submenu opts into the shared viewport too');
 	assert(html.includes('id="nav-viewport" popover data-cm-viewport data-state="closed"'),
 		'the shared panel carries the state fingerprint from rest');
 	assert((html.match(/data-cm-navmenu-content="#nav-tpl-/g) || []).length === 2,

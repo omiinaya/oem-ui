@@ -4153,6 +4153,48 @@ Two helpers shadcn ships under utils, in house CSS. <code>scroll-fade</code>
 										<span class="cm-navmenu__desc">bubble, message, attachment, questionnaire</span>
 									</span>
 								</a>
+								<!-- NavigationMenu.Sub: the root parts used nested. A
+								     vertical list inside THIS content, one viewport of
+								     its own, the bar machinery unchanged - a sub root is
+								     a root, not a second component. -->
+								<div class="cm-navmenu cm-navmenu--sub" data-cm-navmenu data-cm-navmenu-sub data-cm-navmenu-viewport="nav-sub-viewport" data-orientation="vertical" role="navigation" aria-label="product submenu">
+									<button type="button" class="cm-navmenu__trigger" popovertarget="nav-sub-viewport" data-cm-navmenu-content="#nav-sub-tpl-depth" aria-haspopup="true" aria-expanded="false">
+										deep dive <span class="cm-navmenu__chev" aria-hidden="true"></span>
+									</button>
+									<button type="button" class="cm-navmenu__trigger" popovertarget="nav-sub-viewport" data-cm-navmenu-content="#nav-sub-tpl-guides" aria-haspopup="true" aria-expanded="false">
+										guides <span class="cm-navmenu__chev" aria-hidden="true"></span>
+									</button>
+									<div class="cm-dropdown__menu cm-navmenu__panel cm-navmenu__subpanel" id="nav-sub-viewport" popover data-cm-viewport data-state="closed" role="menu" aria-label="submenu viewport"></div>
+									<template id="nav-sub-tpl-depth">
+										<a class="cm-navmenu__link" href="#foundation" role="menuitem">
+											<span class="cm-navmenu__col">
+												<span class="cm-navmenu__label">primitives</span>
+												<span class="cm-navmenu__desc">tokens, scales and the sharp-corner rules</span>
+											</span>
+										</a>
+										<a class="cm-navmenu__link" href="#buttons" role="menuitem">
+											<span class="cm-navmenu__col">
+												<span class="cm-navmenu__label">components</span>
+												<span class="cm-navmenu__desc">every part, every state, one owner each</span>
+											</span>
+										</a>
+									</template>
+									<template id="nav-sub-tpl-guides">
+										<a class="cm-navmenu__link" href="#layout" role="menuitem">
+											<span class="cm-navmenu__col">
+												<span class="cm-navmenu__label">layout</span>
+												<span class="cm-navmenu__desc">grid, stack, cluster and the inset</span>
+											</span>
+										</a>
+										<a class="cm-navmenu__link" href="#sidebar" role="menuitem">
+											<span class="cm-navmenu__col">
+												<span class="cm-navmenu__label">sidebar</span>
+												<span class="cm-navmenu__desc">the opt-in desktop rail and its sheet</span>
+											</span>
+										</a>
+									</template>
+									<span class="cm-navmenu__indicator" aria-hidden="true"></span>
+								</div>
 							</div>
 						</div>
 						<div class="cm-navmenu__item">

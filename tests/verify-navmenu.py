@@ -34,6 +34,25 @@ def check(name, ok, detail=None):
         print(f'FAIL {name} :: {detail}')
 
 
+
+def click_at(page, selector):
+    """Click an element where it already is.
+
+    Playwright scrolls an element into view before clicking it. With the
+    showcase's sticky chrome that scroll can move the element somewhere the
+    pointer then cannot reach - measured in WebKit: the nested root's word
+    sits at y=708 in an 874px viewport and is reported `not visible` by
+    Playwright's own check. Scrolling the showcase to put the word under the
+    pointer is exactly what a reader does not do, so the harness clicks the
+    measured point instead.
+    """
+    box = page.locator(selector).first.bounding_box()
+    if not box:
+        return False
+    page.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+    return True
+
+
 with sync_playwright() as pw:
     browser = pw.webkit.launch()
     page = browser.new_page(viewport={"width": 402, "height": 874})
@@ -63,7 +82,7 @@ with sync_playwright() as pw:
     page.wait_for_timeout(400)
     state = page.evaluate("""() => {
         const bar = document.querySelector('[data-cm-navmenu]');
-        const ind = bar.querySelector('.cm-navmenu__indicator');
+        const ind = [...bar.querySelectorAll('.cm-navmenu__indicator')].find((i) => i.closest('[data-cm-navmenu]') === bar);
         const cur = bar.querySelectorAll('.cm-navmenu__trigger[aria-current="true"]');
         const after = getComputedStyle(ind, '::after');
         return {
@@ -88,7 +107,7 @@ with sync_playwright() as pw:
     # ---- the mark is ON the current trigger: measured, not assumed
     onctx = page.evaluate("""() => {
         const bar = document.querySelector('[data-cm-navmenu]');
-        const ind = bar.querySelector('.cm-navmenu__indicator');
+        const ind = [...bar.querySelectorAll('.cm-navmenu__indicator')].find((i) => i.closest('[data-cm-navmenu]') === bar);
         const cur = bar.querySelector('.cm-navmenu__trigger[aria-current="true"]');
         const r = cur.getBoundingClientRect();
         const b = bar.getBoundingClientRect();
@@ -306,7 +325,7 @@ with sync_playwright() as pw:
     page.wait_for_timeout(300)
     top = page.evaluate("""() => {
         const bar = document.querySelector('[data-cm-navmenu]');
-        const ind = bar.querySelector('.cm-navmenu__indicator');
+        const ind = [...bar.querySelectorAll('.cm-navmenu__indicator')].find((i) => i.closest('[data-cm-navmenu]') === bar);
         const cur = bar.querySelector('.cm-navmenu__trigger[aria-current="true"]');
         const after = getComputedStyle(ind, '::after');
         return { href: cur && cur.getAttribute('href'),
@@ -376,9 +395,9 @@ with sync_playwright() as pw:
                  atEnd: Math.round(window.scrollY + window.innerHeight
                                    - document.documentElement.scrollHeight),
                  line: Math.round(window.scrollY),
-                 ind: bar.querySelector('.cm-navmenu__indicator').style
+                 ind: [...bar.querySelectorAll('.cm-navmenu__indicator')].find((i) => i.closest('[data-cm-navmenu]') === bar).style
                      .getPropertyValue('--cm-navmenu-x'),
-                 indW: bar.querySelector('.cm-navmenu__indicator').style
+                 indW: [...bar.querySelectorAll('.cm-navmenu__indicator')].find((i) => i.closest('[data-cm-navmenu]') === bar).style
                      .getPropertyValue('--cm-navmenu-w') };
     }""")
     check('past the first tracked section the mark moves to the section the '
@@ -487,8 +506,20 @@ with sync_playwright() as pw:
         window.scrollTo(0, 0);
     }""")
     page.wait_for_timeout(300)
-    page.evaluate("() => document.querySelector('%s').scrollIntoView({block:'center'})" % PRODUCT)
-    page.wait_for_timeout(600)
+    page.evaluate("(sel) => document.querySelector(sel).scrollIntoView({block:'start'})", PRODUCT)
+    page.wait_for_timeout(500)
+    page.evaluate("(sel) => window.scrollBy(0, document.querySelector(sel).getBoundingClientRect().top - 380)", PRODUCT)
+    page.wait_for_timeout(150)
+    inView = page.evaluate("(sel) => { const r = document.querySelector(sel).getBoundingClientRect();"
+                            " return r.top >= 0 && r.bottom <= window.innerHeight; }", PRODUCT)
+    # block:'center' is not enough here: at desktop the header is the fixed
+    # full-viewport rail, so even centered the word can settle below the
+    # fold - measured at y=896 in a 900px viewport, where elementFromPoint
+    # returns null and WebKit delivers no pointer events for a coordinate
+    # outside the page. The check was measuring the browser, not the
+    # component.
+    check('the hovered word is parked inside the viewport', inView, {'inView': inView})
+
 
     # (a) the delay is REAL: hover must not open in the first 200ms.
     # The read at +90ms is what separates a delay from an instant open;
@@ -644,13 +675,13 @@ with sync_playwright() as pw:
         '[data-cm-navmenu][data-orientation="vertical"]') .scrollIntoView({block:'center'})""")
     page.wait_for_timeout(700)
     vert = page.evaluate("""() => {
-        const bar = document.querySelector('[data-cm-navmenu][data-orientation="vertical"]');
+        const bar = document.querySelector('[data-cm-navmenu][data-orientation="vertical"]:not([data-cm-navmenu-sub])');
         const kids = [...bar.querySelectorAll('.cm-navmenu__trigger')].map((k) => {
             const r = k.getBoundingClientRect();
             return { t: Math.round(r.top), b: Math.round(r.bottom),
                      l: Math.round(r.left), w: Math.round(r.width) };
         });
-        const ind = bar.querySelector('.cm-navmenu__indicator');
+        const ind = [...bar.querySelectorAll('.cm-navmenu__indicator')].find((i) => i.closest('[data-cm-navmenu]') === bar);
         const after = getComputedStyle(ind, '::after');
         const widths = kids.map((k) => k.w);
         return { dir: getComputedStyle(bar).flexDirection,
@@ -675,6 +706,176 @@ with sync_playwright() as pw:
     check('and its mark is painted on the height axis, not the row\'s',
           vert['active'] == 'true' and vert['h'] not in ('', '0px')
           and vert['y'] not in ('',) and vert['paintedH'] == vert['h'], vert)
+
+    # ---- batch 24: the submenu path. NavigationMenu.Sub is a nested
+    # ROOT, so it carries its own viewport and its own indicator - and
+    # because it is nested in the product panel, every OWN-element read
+    # above has to pick the mark and rows of the bar it asks about.
+    sub = page.evaluate("""() => {
+        const bar = document.querySelector('[data-cm-navmenu-sub]');
+        const inds = [...bar.querySelectorAll('.cm-navmenu__indicator')];
+        return { label: bar.getAttribute('aria-label'),
+                 vertical: bar.getAttribute('data-orientation'),
+                 insidePanel: !!bar.closest('.cm-navmenu__panel'),
+                 ownMarks: inds.filter((i) => i.closest('[data-cm-navmenu]') === bar).length,
+                 allMarks: inds.length,
+                 words: [...bar.querySelectorAll('.cm-navmenu__trigger')].length,
+                 panelId: bar.getAttribute('data-cm-navmenu-viewport') };
+    }""")
+    check('the nested root is a bar of its own, inside the parent panel',
+          sub['insidePanel'] and sub['vertical'] == 'vertical'
+          and sub['ownMarks'] == 1 and sub['allMarks'] == 1 and sub['words'] >= 2, sub)
+    # It is not rendered until its parent panel is open - a nested root in
+    # the document flow would reflow the page under the reader.
+    hidden = page.evaluate("""() => {
+        const bar = document.querySelector('[data-cm-navmenu-sub]');
+        return { rects: bar.getClientRects().length,
+                 wordRects: document.querySelector('.cm-navmenu__trigger[data-cm-navmenu-content="#nav-sub-tpl-depth"]').getClientRects().length };
+    }""")
+    check('the nested root lays out nothing while its parent panel is closed',
+          hidden['rects'] == 0 and hidden['wordRects'] == 0, hidden)
+
+    # Open the parent word, walk onto the submenu's own word, then step
+    # OUT with ArrowLeft: the panel closes and focus returns to the
+    # parent word, which is the reader's way back.
+    page.evaluate("(sel) => document.querySelector(sel).scrollIntoView({block:'start'})", PRODUCT)
+    page.wait_for_timeout(500)
+    page.evaluate("(sel) => window.scrollBy(0, document.querySelector(sel).getBoundingClientRect().top - 120)", PRODUCT)
+    page.wait_for_timeout(150)
+    page.click(PRODUCT)
+    page.wait_for_timeout(250)
+    opened = page.evaluate("""() => {
+        const p = document.getElementById('nav-product');
+        const bar = document.querySelector('[data-cm-navmenu-sub]');
+        return { open: p.matches(':popover-open'),
+                 subVisible: bar.getClientRects().length > 0 };
+    }""")
+    check('opening the parent word lays the nested root out', opened['open'] and opened['subVisible'], opened)
+    # Focus the submenu's first word the way a reader reaches it: the walk
+    # lands there when the parent panel is open.
+    focus = page.evaluate("""() => {
+        const w = document.querySelector('.cm-navmenu__trigger[data-cm-navmenu-content="#nav-sub-tpl-depth"]');
+        w.focus();
+        return { onWord: document.activeElement === w };
+    }""")
+    check('the nested word takes focus', focus['onWord'], focus)
+    subPanel = page.evaluate("() => document.querySelector('[data-cm-navmenu-sub]').getAttribute('data-cm-navmenu-viewport')")
+    click_at(page, '.cm-navmenu__trigger[data-cm-navmenu-content="#nav-sub-tpl-depth"]')
+    page.wait_for_timeout(250)
+    deep = page.evaluate("""(id) => {
+        const p = document.getElementById(id);
+        return { open: !!(p && p.matches(':popover-open')),
+                 label: p ? p.getAttribute('aria-label') : null };
+    }""", subPanel)
+    check('a nested word opens the submenu panel', deep['open'], deep)
+    # ArrowLeft out: panel closed, focus on the word that owns it.
+
+    # Placement: a nested panel must not bury the panel that holds it.
+    # It may sit beside the parent, or below its own word - the bottom
+    # clamp legitimately pushes it up when the word is near the fold, so
+    # "below its word" is not the invariant. What must never happen is the
+    # panel landing back at the parent's top-left corner, which is what
+    # anchoring it like a top-level panel did: measured at 402px, word
+    # y=488 with the submenu at y=196, straight over the parent's links.
+    geo = page.evaluate("""(id) => {
+        const R = (e) => e.getBoundingClientRect();
+        const parent = document.getElementById('nav-product');
+        const sub = document.getElementById(id);
+        const word = document.querySelector('[data-cm-navmenu-sub] .cm-navmenu__trigger');
+        const pr = R(parent), sr = R(sub), wr = R(word);
+        // The parent's OWN links: `:scope > *` and `.cm-navmenu__link`,
+        // because a nested root's links live in the parent's subtree too
+        // (the submenu fills into it) and a submenu legitimately covers
+        // its own rows.
+        const links = [...parent.children]
+            .filter((n) => n.classList && n.classList.contains('cm-navmenu__link'))
+            .map(R);
+        // A link of the parent panel covered by the submenu is that panel
+        // buried - whatever the reason.
+        const covered = links.filter((l) =>
+            sr.top < l.bottom - 1 && sr.bottom > l.top + 1 &&
+            sr.left < l.right - 1 && sr.right > l.left + 1).length;
+        return { subTop: Math.round(sr.top), subLeft: Math.round(sr.left),
+                 subBottom: Math.round(sr.bottom),
+                 wordTop: Math.round(wr.top), wordLeft: Math.round(wr.left),
+                 parentTop: Math.round(pr.top), parentBottom: Math.round(pr.bottom),
+                 parentRight: Math.round(pr.right), covered, links: links.length,
+                 inViewport: sr.left >= -0.5 && sr.right <= window.innerWidth + 0.5
+                             && sr.top >= -0.5 && sr.bottom <= window.innerHeight + 0.5 };
+    }""", subPanel)
+    # The keyboard path IN: ArrowRight on an open nested word steps focus
+    # into the submenu's first row. Driven on the outer bar too, so the
+    # check also proves ArrowRight still roves sections where there is no
+    # submenu at all - the key has one meaning per bar, not one per page.
+    page.evaluate("""(sel) => {
+        const w = document.querySelector(sel);
+        w.focus();
+    }""", '.cm-navmenu__trigger[data-cm-navmenu-content="#nav-sub-tpl-depth"]')
+    page.wait_for_timeout(120)
+    page.keyboard.press('ArrowRight')
+    page.wait_for_timeout(200)
+    kin = page.evaluate("""(id) => {
+        const panel = document.getElementById(id);
+        const items = panel ? [...panel.querySelectorAll('.cm-navmenu__link')] : [];
+        const a = document.activeElement;
+        return { count: items.length,
+                 focusedInPanel: !!(a && panel && panel.contains(a)),
+                 focusedTag: a ? a.tagName : null,
+                 stillOnWord: !!a && a.classList
+                     && a.classList.contains('cm-navmenu__trigger') };
+    }""", subPanel)
+    check('ArrowRight on an open nested word steps into the submenu',
+          kin['count'] > 0 and kin['focusedInPanel'] and not kin['stillOnWord'], kin)
+
+    # And back OUT, one level per press - Radix's rule, and the house
+    # dropdown's existing rule: ArrowLeft from INSIDE a submenu returns to
+    # the row that owns it. The second press, from that word, is the step
+    # out to the parent word. Asserting only the end state would pass on
+    # a single jump that skipped the level in between.
+    page.keyboard.press('ArrowLeft')
+    page.wait_for_timeout(250)
+    kout1 = page.evaluate("""(id) => {
+        const panel = document.getElementById(id);
+        const a = document.activeElement;
+        return { closed: !(panel && panel.matches(':popover-open')),
+                 onOwnerWord: !!a && a.classList
+                     && a.classList.contains('cm-navmenu__trigger')
+                     && !!a.closest('[data-cm-navmenu-sub]'),
+                 focusedLabel: a ? a.textContent.trim().slice(0, 40) : null };
+    }""", subPanel)
+    check('ArrowLeft from inside the submenu returns to the word that owns it',
+          kout1['closed'] and kout1['onOwnerWord'], kout1)
+
+    page.keyboard.press('ArrowLeft')
+    page.wait_for_timeout(250)
+    kout2 = page.evaluate("""() => {
+        const a = document.activeElement;
+        return { onProductWord: !!a && a.getAttribute
+                    && a.getAttribute('popovertarget') === 'nav-product',
+                 stillInSub: !!a && !!a.closest('[data-cm-navmenu-sub]'),
+                 focusedLabel: a ? a.textContent.trim().slice(0, 40) : null };
+    }""")
+    check('a second ArrowLeft steps out to the parent word',
+          kout2['onProductWord'] and not kout2['stillInSub'], kout2)
+
+    check('the submenu covers none of the parent panel\'s links',
+          geo['covered'] == 0 and geo['links'] > 0, geo)
+    check('the submenu is never parked at the parent panel\'s corner',
+          geo['subTop'] > geo['parentTop'] - 1
+          or geo['subLeft'] >= geo['parentRight'] - 2, geo)
+    check('the submenu stays inside the viewport', geo['inViewport'], geo)
+
+    # The parent closing retires the open submenu: a submenu popover lives
+    # in the top layer and survives its parent's close, which is the one
+    # state that makes nested navigation unreadable.
+    page.click(PRODUCT)
+    page.wait_for_timeout(200)
+    click_at(page, '.cm-navmenu__trigger[data-cm-navmenu-content="#nav-sub-tpl-depth"]')
+    page.wait_for_timeout(250)
+    page.click(PRODUCT)
+    page.wait_for_timeout(300)
+    retired = page.evaluate("(id) => !document.getElementById(id).matches(':popover-open')", subPanel)
+    check('the parent closing retires the open submenu', retired, {'subStillOpen': not retired})
 
     check('the page threw nothing', not errors, errors)
     browser.close()
