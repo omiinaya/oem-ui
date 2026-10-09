@@ -35,6 +35,56 @@
     `height: auto; min-height: 60px` stays inside `max-width: 640px`.
 
 ## Unreleased — the navigation menu: the nav that opens PANELS
+## Unreleased — the Direction baseline: every directional declaration is logical
+
+- **shadcn's Direction, the honest subset.** Direction is documented as
+  part of the catalog and remains DECLINED as a component - it is a `dir`
+  switch plus mirrored components, and this system owns no locale state.
+  The part that needs no locale state is now done: all 135 physical
+  directional declarations in `src/styles/` became their logical twins
+  (`margin-inline-start`, `padding-inline-end`, `border-inline-start`
+  and its `-width`/`-color` longhands, `inset-inline-start` /
+  `inset-inline-end`, `text-align: start` / `end`). In an LTR document
+  each resolves to the same physical property, so this is a pixel-level
+  no-op today and buys RTL for free later - no `dir`, no mirroring, no
+  runtime. Breakdown: `tokens.css` 0 of 0 (its five hits in an earlier
+  count were prose inside comments), `base.css` 6 of 6, `components.css`
+  129 of 131.
+
+- **Two declarations stay physical, and each says so at the rule.**
+  `.cm-hovercard__panel { left: 0 }` is runtime-owned: `cmClampHovercards()`
+  clears `style.left`, re-measures in viewport coordinates and writes a
+  physical `style.left` back on every init and resize, and the CSS rule
+  is the no-JS fallback its arithmetic starts from - converting the CSS
+  while the JS stays physical is how a stylesheet and its runtime drift.
+  `.cm-navmenu__chev { border-right }` is glyph geometry: a border pair
+  rotated 45deg IS the caret, and a logical mirror would flip the border
+  without flipping `rotate()`. Both are on the guard's permit list, and
+  a permit whose declaration has gone is itself a failure.
+
+- **The conversion is proved a no-op, not asserted to be one.**
+  `tests/measure-logical-geometry.py` records every element rect and
+  every converted computed value at 320/390/402/768/1280 before and
+  after each step: **0 deltas** at every step and at the end. The
+  harness was negative-controlled in the same session - flipping one
+  `margin-inline-start` back to `0` produced 12,692 deltas - so a blind
+  harness is not what keeps it green. One keyword is normalised in the
+  diff (`text-align: start` computes differently from `left` while
+  aligning identically in LTR); every RECT is compared to the pixel.
+
+- **The baseline is guarded, and the guard is mutation-proven.** Three
+  appended checks in `tests/run.mjs` scan the source, the permit list
+  and the BUILT stylesheet (the minifier must not rewrite a logical
+  property back). `tests/mutate-logical-props.py` reverts every logical
+  declaration - 135 converted plus the 18 the library already spelled
+  logically, 153 mutants - back to its physical twin one at a time and
+  requires the suite to kill each one, rebuilding `dist` in every
+  mutant window. A reverted conversion is invisible to the geometry,
+  because it IS a no-op in LTR: the guard is the only thing that can
+  catch it, which is exactly why it is proven this way.
+
+- Proven: suite 590/0; verify-navmenu 52/52; verify-select-tabs 40/40;
+  verify-sidebar 34/34; geometry 0 deltas at five viewport widths.
 
 - **`.cm-navmenu` ships, the last real gap in the shadcn catalog.** The
   library had `.cm-menubar` (a row of words opening *lists*) and the mobile

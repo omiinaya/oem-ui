@@ -968,8 +968,8 @@ check('.cm-select draws its arrow from a gradient, so it needs no image or icon 
 	assert(!/#[0-9a-f]{3,8}\b/i.test(body), '.cm-select hardcodes a colour');
 	assert(!/url\(/.test(body), '.cm-select loads an arrow image; currentColor is the point');
 	// the clearance, from the token that owns it
-	assert(/padding-right:\s*var\(--space-7\)/.test(body),
-		'the value runs under the wedges without padding-right clearance');
+	assert(/padding-inline-end:\s*var\(--space-7\)/.test(body),
+		'the value runs under the wedges without padding-inline-end clearance');
 });
 
 check('the element default and the class agree, or a full and a scoped adoption differ', () => {
@@ -1013,9 +1013,27 @@ check('the element default and the class agree, or a full and a scoped adoption 
 	// asserted below, because the class now restates the element defaults
 	// for the SCOPED case and a divergence would mean a consumer's select
 	// changes appearance depending on how it installed the library.
+	// The Direction baseline spells this clearance logically, and the two
+	// adoptions must keep agreeing. `padding-inline-end` and
+	// `padding-right` are one property in an LTR document, so the
+	// comparison resolves either spelling to the AXIS and compares the
+	// VALUE; a check that hard-coded `padding-right` by name went red the
+	// moment base.css converted and would have pinned the two adoptions
+	// to opposite spellings forever. Which spelling is legal is policed
+	// repo-wide by the logical-baseline check at the end of this file.
+	const AXIS = { 'padding-left': 'padding-inline-start', 'padding-right': 'padding-inline-end' };
 	for (const prop of ['background-image', 'background-position', 'background-size',
 		'background-repeat', 'padding-right']) {
-		const of = (b) => (b.match(new RegExp(prop + ':\\s*([^;]+);')) || [, ''])[1].replace(/\s+/g, '');
+		const canon = AXIS[prop] || prop;
+		const spellings = Object.keys(AXIS).filter((k) => AXIS[k] === canon)
+			.concat([canon]);
+		const of = (b) => {
+			for (const name of spellings) {
+				const m = b.match(new RegExp(`(?:^|[;\\s{])${name}:\\s*([^;]+);`));
+				if (m) return m[1].replace(/\s+/g, '');
+			}
+			return '';
+		};
 		assert(of(bare) && of(bare) === of(cls),
 			`${prop} differs between the bare select and .cm-select — a full and a scoped adoption would paint different arrows`);
 	}
@@ -1312,7 +1330,11 @@ check('wrapped text hangs under the text, not under the marker', () => {
 	// single non-global regex matched the first and never saw the second.
 	const rules = [...comp.matchAll(/\.cm-status__value\s*\{([^}]*)\}/g)].map(m => m[1]);
 	assert(rules.length > 0, '.cm-status__value rule missing');
-	const hanging = rules.some(r => /padding-left:[^;]*em/.test(r) && /text-indent:\s*-[^;]*em/.test(r));
+	// The pair is one unit since the Direction baseline: `text-indent`
+	// is already direction-aware, and the gutter that balances it is
+	// spelled `padding-inline-start`. Both must move together or the
+	// hang breaks, so both are asserted here, by their logical names.
+	const hanging = rules.some(r => /padding-inline-start:[^;]*em/.test(r) && /text-indent:\s*-[^;]*em/.test(r));
 	assert(hanging,
 		'status value has no hanging indent — a wrapped line runs back under the bullet');
 });
@@ -3073,7 +3095,7 @@ check('the rail is a bounded column, so a long list scrolls instead of escaping'
 
 check('the rail clears the content, and the measure stays centred beside it', () => {
 	assert(/\.cm-shell--rail/.test(RAIL), 'nothing offsets the content clear of the rail');
-	assert(/padding-left:\s*calc\(var\(--rail-w\)/.test(RAIL),
+	assert(/padding-inline-start:\s*calc\(var\(--rail-w\)/.test(RAIL),
 		'the shell offset is not derived from --rail-w');
 	// `margin: 0 auto` in base.css centres main on the VIEWPORT. Left
 	// alone, the rail overlapped the first section by 58px at 1440.
@@ -5707,12 +5729,14 @@ check('cm-timeline: the dot is centred on the rail by construction', () => {
 	const dot = /^\.cm-timeline__item::after\s*\{([^}]*)\}/m.exec(compSrc);
 	assert(dot, 'no ::after dot on the timeline item');
 	const w = /width:\s*([0-9.]+)rem/.exec(dot[1]);
-	// The offset is read unit-TOLERANT on purpose: `left: 0` is the exact
-	// mutation this check exists to catch, and a rem-only pattern would
-	// fail to match it and report the wrong defect ("no left offset")
-	// instead of the real one (the dot is off the rail).
-	const left = /left:\s*(-?[0-9.]+)(rem)?\s*;/.exec(dot[1]);
-	assert(w && left, 'the dot must declare a rem width and a left offset');
+	// The offset is read unit-TOLERANT on purpose: `inset-inline-start:
+	// 0` is the exact mutation this check exists to catch, and a rem-only
+	// pattern would fail to match it and report the wrong defect ("no
+	// start-edge offset") instead of the real one (the dot is off the
+	// rail). The Direction baseline spells the axis logically; the
+	// mutation runner reverts exactly this declaration.
+	const left = /inset-inline-start:\s*(-?[0-9.]+)(rem)?\s*;/.exec(dot[1]);
+	assert(w && left, 'the dot must declare a rem width and a start-edge offset');
 	const half = parseFloat(w[1]) / 2;
 	const offset = parseFloat(left[1]);
 	assert(Math.abs(offset + half) < 0.001,
@@ -5784,7 +5808,7 @@ check('cm-timeline: the body cannot inherit a bullet or snap under the rail', ()
 	// the body must not inherit the outer list's own padding.
 	const pad = /\.cm-timeline__body ul\s*\{([^}]*)\}/.exec(compSrc);
 	assert(pad, '.cm-timeline__body ul has no rule of its own');
-	assert(/padding-left:\s*1\.2em/.test(pad[1]), 'the inner list must be indented explicitly');
+	assert(/padding-inline-start:\s*1\.2em/.test(pad[1]), 'the inner list must be indented explicitly');
 	assert(/\.cm-timeline__body li::before\s*\{([^}]*)\}/.test(compSrc),
 		'the inner list must cancel the inherited ::before marker');
 });
@@ -7462,7 +7486,7 @@ check('the grouped rail row carries the same declarations as the flat one', () =
 	// the failure says which one went.
 	for (const [prop, why] of [
 		[/min-height:\s*var\(--tap\)/, 'the tap floor'],
-		[/border-left:\s*2px solid transparent/, 'the current-page marker width'],
+		[/border-inline-start:\s*2px solid transparent/, 'the current-page marker width'],
 		[/margin-inline:\s*var\(--space-2\)/, 'the inset that keeps the tick off the rail edge'],
 	]) {
 		assert(prop.test(grouped), `the grouped rail row is missing ${why}`);
@@ -8140,7 +8164,7 @@ check('shadcn-parity: the drawn shortcut, the toast vocabulary, the sticky chrom
 	assert(/\.cm-toast--loading \.cm-toast__mark::before,?[\s\S]{0,200}cm-spin/.test(css),
 		'the loading mark does not spin');
 	const act = /^\.cm-toast__action \{[^}]*\}/m.exec(css);
-	assert(act && act[0].includes('margin-left: auto'), 'the action is not pushed to the far edge');
+	assert(act && act[0].includes('margin-inline-start: auto'), 'the action is not pushed to the far edge');
 });
 
 	/* --- shadcn parity: the utils pair and the validating forms ---
@@ -9605,7 +9629,7 @@ check('a disclosure action is walked to the end of the summary row', () => {
 	const comp = read('src/styles/components.css');
 	const m = /((?:^|[,{}\s])[^{}\n]*\.cm-disclosure__action[^{}\n]*)\{([^}]*)\}/.exec(comp);
 	assert(m, 'the disclosure action slot must have its own rule');
-	assert(/margin-left:\s*auto/.test(m[2]),
+	assert(/margin-inline-start:\s*auto/.test(m[2]),
 		`the action must be walked to the far end of the row, got: ${m[2].trim()}`);
 	// `align-self` only matters once the summary is allowed to wrap, and at
 	// 390px it is: without it the button sits on the first line while the
@@ -9666,7 +9690,7 @@ check('the title row action is pushed to the end of the row', () => {
 	const comp = read('src/styles/components.css');
 	const rule = [...comp.matchAll(/([^{}\n]*\.cm-head-row__action\s*\{[^}]*\})/g)][0];
 	assert(rule, '.cm-head-row__action must have its own rule body');
-	assert(/margin-left:\s*auto/.test(rule[1]),
+	assert(/margin-inline-start:\s*auto/.test(rule[1]),
 		'the action is not walked to the far end of the row, so it sits ' +
 		'beside the title however long the title grows');
 });
@@ -9764,7 +9788,7 @@ check('SectionHead: the action slot renders the control, and the title keeps its
 	// itself: the action is pushed to the far end with margin-left:auto.
 	const rule = /^\.cm-head-row__action\s*\{([^}]*)\}/m.exec(compSrc);
 	assert(rule, '.cm-head-row__action is not defined');
-	assert(/margin-left:\s*auto/.test(rule[1]),
+	assert(/margin-inline-start:\s*auto/.test(rule[1]),
 		'.cm-head-row__action does not push to the far end, so a title and its button share a line instead of opposing');
 });
 
@@ -10014,7 +10038,7 @@ check('a numeric column outranks the cell rule to align on the digit', () => {
 		`the numeric rule is scoped "${sel.trim()}" with no element, so ` +
 		"`.cm-table td` (specificity 0,1,1) beats it and the column is " +
 		'left-aligned with a ragged right edge');
-	assert(/text-align:\s*right/.test(num[1]),
+	assert(/text-align:\s*end/.test(num[1]),
 		'the numeric column does not align right, so durations of different ' +
 		'lengths cannot be compared without reading each one');
 	// The header must match the cells, or the column reads as misaligned
@@ -10151,7 +10175,7 @@ check('the meter note is a fixed-width column, not loose text', () => {
 	assert(/min-width:\s*(?!0)\S/.test(note[1]),
 		'the meter note has no fixed width, so a column of percentages ' +
 		'rags and the reader cannot scan it for the one they want');
-	assert(/text-align:\s*right/.test(note[1]),
+	assert(/text-align:\s*end/.test(note[1]),
 		'the meter note is not right-aligned, so the decimals do not line ' +
 		'up and "96.0%" reads differently from "3.0%"');
 	assert(/font-variant-numeric:\s*tabular-nums/.test(note[1]),
@@ -10546,7 +10570,7 @@ check('the search field keeps the 16px form-text floor the base rule gives up', 
 check('the search gutter is derived from the clear button, not guessed', () => {
 	const inp = declsFor(compSrc, '.cm-search__input');
 	assert(inp, '.cm-search__input has no rule of its own');
-	assert(/padding-right:[^;]*var\(--search-clear\)/.test(inp),
+	assert(/padding-inline-end:[^;]*var\(--search-clear\)/.test(inp),
 		'padding-right is not derived from --search-clear, so the value can '
 		+ 'run under the X as soon as the button changes size');
 	const clr = declsFor(compSrc, '.cm-search__clear');
@@ -10618,8 +10642,8 @@ check('.cm-field__control keeps its affordance on the control, not a new row', (
 		'.cm-field__control is not a positioning context, so its affordance ' +
 		'cannot sit on the control it belongs to');
 	const btn = ruleBodies(compSrc, '.cm-field__control > .cm-icon-btn')[0];
-	assert(btn && /position:\s*absolute/.test(btn) && /right:\s*0/.test(btn),
-		'the affordance is not pinned to the control\'s right edge');
+	assert(btn && /position:\s*absolute/.test(btn) && /inset-inline-end:\s*0/.test(btn),
+		'the affordance is not pinned to the control\'s end edge');
 	assert(btn && /top:\s*50%/.test(btn) && /translateY\(-50%\)/.test(btn),
 		'the affordance is not centred on the control, so it drifts when the ' +
 		'control is taller than one line');
@@ -10676,7 +10700,7 @@ check('.cm-field__control keeps its affordance on the control, not a new row', (
 	// perfectly good declaration and reports a pass.
 	const reserveBody = /\.cm-field__control\.cm-field__control[^\n{]*>\s*input\s*\{([^}]*)\}/.exec(compSrc);
 	const pr = reserveBody
-		&& /padding-right:\s*calc\(var\(--tap\) \+ ([^)]+)\)/.exec(reserveBody[1]);
+		&& /padding-inline-end:\s*calc\(var\(--tap\) \+ ([^)]+)\)/.exec(reserveBody[1]);
 	assert(pr,
 		'the reserve does not leave a gap beside the glyph: it must be the '
 		+ 'overlay width PLUS a gap, read from the reserve rule itself');
@@ -12814,7 +12838,7 @@ check("the hover card is visibility-gated, not merely faded", () => {
 check("the input group collapses to one hairline", () => {
 	const css = read("src/styles/components.css");
 	const page = read("src/pages/index.astro");
-	assert(/\.cm-input-group__addon \{[^}]*border-right-width: 0;/s.test(css),
+	assert(/\.cm-input-group__addon \{[^}]*border-inline-end-width: 0;/s.test(css),
 		"the addon gives up its right border so the field's own border is the only seam");
 	assert(!/\.cm-input-group[^{]*\{[^}]*margin-left: -/.test(css) &&
 		!/\.cm-input-group > \* \+ \* \{[^}]*margin/s.test(css),
@@ -13088,7 +13112,7 @@ check("the input group collapses to one hairline", () => {
 		const trg = css.match(/\.cm-menubar__trigger \{([^}]*)\}/);
 		assert(trg, '.cm-menubar__trigger is not defined');
 		assert(/border-radius:\s*var\(--radius-sm\)/.test(trg[1]), 'the cell takes the sharp radius token');
-		assert(/border-right:\s*1px solid var\(--line\)/.test(trg[1]),
+		assert(/border-inline-end:\s*1px solid var\(--line\)/.test(trg[1]),
 			'cells are divided by a hairline - a menu bar without rules reads as one blob');
 		const panel = css.match(/\.cm-menubar__menu \{([^}]*)\}/);
 		assert(panel && /position:\s*fixed/.test(panel[1]),
@@ -13136,7 +13160,7 @@ check("the input group collapses to one hairline", () => {
 		const tree = css.match(/\.cm-tree \{([^}]*)\}/);
 		assert(tree && /padding: 0 0 0 var\(--space-4\)/.test(tree[1]),
 			'each level must pad its own children: a depth typed into a style is a lie');
-		assert(/\.cm-tree--root \{ padding-left: 0; \}/.test(css), 'the root must not be indented twice');
+		assert(/\.cm-tree--root \{ padding-inline-start: 0; \}/.test(css), 'the root must not be indented twice');
 		const leaves = (page.match(/<a class="cm-tree__row"/g) || []).length;
 		assert(leaves >= 3, `leaves must be real links, found ${leaves}`);
 		assert(/cm-disclosure__summary cm-tree__row/.test(page),
@@ -14123,7 +14147,7 @@ check('batch 21 tabs: vertical is declared once and read once', () => {
 	const col = /\.cm-tabs\[data-orientation='vertical'\]\s*\.cm-tabs__list\s*\{[^}]*flex-direction:\s*column/.test(compSrc);
 	assert(col, 'the vertical group does not flip the list through the SAME attribute');
 	// Every row pays the same marker edge, so selecting shifts nothing.
-	assert(/\.cm-tabs\[data-orientation='vertical'\]\s*\.cm-tabs__tab\s*\{[^}]*border-left:\s*2px solid transparent/.test(compSrc),
+	assert(/\.cm-tabs\[data-orientation='vertical'\]\s*\.cm-tabs__tab\s*\{[^}]*border-inline-start:\s*2px solid transparent/.test(compSrc),
 		'the vertical marker is not a shared, layout-free edge');
 	const src = read('src/js/cli-mono.js');
 	assert(src.includes("getAttribute('data-orientation') === 'vertical'"),
@@ -14515,3 +14539,125 @@ check('the header geometry harness owns the behaviour reads, at five widths', ()
 	assert(h.includes('if target > 0:') && h.includes('got > 0'),
 		'the harness never asserts it actually scrolled');
 });
+/* ================= the Direction baseline: logical properties only =================
+   shadcn documents Direction (RTL support) as part of the catalog, and this
+   library's answer is the honest subset: every directional declaration is
+   spelled LOGICALLY. In an LTR document `margin-inline-start` and
+   `margin-left` resolve to the same physical property, so the conversion is a
+   pixel-level no-op today and buys RTL for free later - no `dir`, no mirroring,
+   no runtime.
+
+   Two declarations stay physical, each documented AT ITS RULE and listed here
+   with the same reason. A third one appearing anywhere is a regression:
+     .cm-hovercard__panel { left: 0 }     the runtime anchor writes a physical
+                                          style.left in viewport coordinates;
+                                          the CSS rule is its no-JS fallback
+     .cm-navmenu__chev { border-right }   glyph geometry: a border pair rotated
+                                          45deg IS the caret; a logical mirror
+                                          flips the border but not rotate()
+
+   The source scan is half the proof; the built stylesheet is the other half.
+   A minifier that rewrote `border-inline-start` back to `border-left` would
+   keep every consumer RTL-blind while the source looked converted, so the dist
+   is scanned with the same walker and the same permit. */
+{
+	const PHYSICAL = new Set([
+		'margin-left', 'margin-right', 'padding-left', 'padding-right',
+		'border-left', 'border-right',
+		'border-left-width', 'border-left-style', 'border-left-color',
+		'border-right-width', 'border-right-style', 'border-right-color',
+		'left', 'right', 'float',
+	]);
+	const ALLOW = [
+		['.cm-hovercard__panel', 'left',
+			'runtime anchor: cmClampHovercards() clears and rewrites a physical style.left on every init and resize'],
+		['.cm-navmenu__chev', 'border-right',
+			'glyph geometry: the rotated caret is drawn from physical borders'],
+	];
+	// A declaration walker: mask comments (newlines survive, so line numbers
+	// stay true), then track braces and read each `prop: value` chunk. The
+	// innermost enclosing selector rides along - the permit is keyed on it,
+	// so a `left: 50%` centring a tick is judged by the rule it sits in.
+	function declsOf(css, withLines) {
+		const masked = css.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
+		const out = [];
+		const stack = [];
+		let pos = 0;
+		for (let i = 0; i < masked.length;) {
+			const c = masked[i];
+			if (c === '{') {
+				stack.push(masked.slice(pos, i).split('}').pop().trim());
+				i++; pos = i;
+			} else if (c === '}') {
+				stack.pop();
+				i++; pos = i;
+			} else if (c === ';') {
+				const m = /^\s*([a-zA-Z-]+)\s*:\s*([^;]*)$/.exec(css.slice(pos, i));
+				if (m) {
+					out.push({
+						sel: stack[stack.length - 1] || '',
+						prop: m[1],
+						value: m[2].trim(),
+						line: withLines ? css.slice(0, pos).split('\n').length : 0,
+					});
+				}
+				i++; pos = i;
+			} else {
+				i++;
+			}
+		}
+		return out;
+	}
+	const isPhysical = (d) => PHYSICAL.has(d.prop)
+		|| (d.prop === 'text-align' && (d.value === 'left' || d.value === 'right'));
+	const permitted = (d) => ALLOW.some(([sel, prop]) => d.prop === prop && d.sel.includes(sel));
+
+	check('the Direction baseline: the stylesheets carry no physical directional declaration', () => {
+		const files = ['src/styles/tokens.css', 'src/styles/base.css', 'src/styles/components.css'];
+		const bad = [];
+		for (const f of files) {
+			for (const d of declsOf(read(f), true)) {
+				if (isPhysical(d) && !permitted(d)) {
+					bad.push(`${f}:${d.line} \`${d.sel}\` { ${d.prop}: ${d.value} }`);
+				}
+			}
+		}
+		assert(bad.length === 0,
+			'physical directional declarations crept back in (convert them to their logical twin, '
+			+ 'or document a runtime/glyph exception at the rule AND in the permit list):\n  '
+			+ bad.join('\n  '));
+	});
+
+	check('the Direction baseline: every permit still documents a real declaration', () => {
+		const all = ['src/styles/tokens.css', 'src/styles/base.css', 'src/styles/components.css']
+			.flatMap((f) => declsOf(read(f), true));
+		for (const [sel, prop, why] of ALLOW) {
+			const live = all.filter((d) => d.prop === prop && d.sel.includes(sel));
+			assert(live.length > 0,
+				`the permit for \`${sel} { ${prop} }\` is stale: ${why}. The declaration it documents `
+				+ 'is gone, so the permit must go too - a widening permit nobody revisits is how '
+				+ 'a baseline erodes');
+		}
+	});
+
+	check('the Direction baseline: the BUILT stylesheet ships logical properties too', () => {
+		const dir = join(root, 'dist', '_astro');
+		assert(existsSync(dir), 'dist/_astro is missing - run `npm run build` before the contract tests');
+		const names = readdirSync(dir).filter((n) => n.endsWith('.css'));
+		assert(names.length > 0, 'no built CSS in dist/_astro');
+		const built = names.map((n) => readFileSync(join(dir, n), 'utf8')).join('');
+		const bad = declsOf(built, false).filter((d) => isPhysical(d) && !permitted(d));
+		assert(bad.length === 0,
+			'the built CSS carries physical directional declarations the source does not - the '
+			+ 'minifier or the build rewrote them back:\n  '
+			+ bad.slice(0, 10).map((d) => `${d.sel} { ${d.prop}: ${d.value} }`).join('\n  '));
+		const logical = built.match(/(?:margin|padding|border|inset)-inline-(?:start|end)/g) || [];
+		// Measured at 109 on the commit that introduced this check. A build
+		// that dropped the logical properties would sail through the physical
+		// scan above (nothing physical left = nothing to flag), so the count
+		// is the half that proves the converted declarations SURVIVED.
+		assert(logical.length >= 100,
+			`the built CSS carries ${logical.length} logical declarations, expected at least 100 - `
+			+ 'the conversion did not survive the build');
+	});
+}

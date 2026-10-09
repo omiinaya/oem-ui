@@ -113,7 +113,7 @@ code {
 pre {
 	background: var(--bg-2);
 	border: 1px solid var(--line);
-	border-left: 2px solid var(--accent-dim);
+	border-inline-start: 2px solid var(--accent-dim);
 	border-radius: var(--radius-sm);
 	padding: 1.3em 1.5em;
 	overflow-x: auto;
@@ -151,7 +151,7 @@ pre > code {
 blockquote {
 	margin: 0 0 1.4em;
 	padding: 0.5em 0 0.5em 1.1em;
-	border-left: 2px solid var(--accent-dim);
+	border-inline-start: 2px solid var(--accent-dim);
 	background: var(--bg-2);
 	border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 	color: var(--ink-dim);
@@ -190,7 +190,7 @@ blockquote {
    `revert` is deliberately NOT used here. It resolves per-property
    against the cascaded origin, so on a reset-based stack it hands the
    bullet back to nothing; a declared value is what survives a reset. */
-ul, ol { padding-left: 1.4em; margin: 0 0 1.2em; list-style-type: disc; }
+ul, ol { padding-inline-start: 1.4em; margin: 0 0 1.2em; list-style-type: disc; }
 ol { list-style-type: decimal; }
 
 /* The `.cm-prose` twin of the rule above, and the reason the two are not
@@ -244,7 +244,7 @@ img { max-width: 100%; height: auto; border-radius: var(--radius); }
 table {
 	width: 100%; border-collapse: collapse; margin: 0 0 1.4em; font-size: 0.9em;
 }
-th, td { padding: 0.6em 0.9em; border: 1px solid var(--line); text-align: left; }
+th, td { padding: 0.6em 0.9em; border: 1px solid var(--line); text-align: start; }
 /* The header cell's weight is DECLARED, for the same reason the list
    marker is: a UA default that any reset can erase, on the one element
    whose entire job is to be distinguishable from the data beneath it.
@@ -442,7 +442,7 @@ select:not(.cm-search__input):not(.cm-inline__input):not([multiple]) {
 	background-position: calc(100% - 1.1rem) 52%, calc(100% - 0.75rem) 52%;
 	background-size: 0.35rem 0.35rem, 0.35rem 0.35rem;
 	background-repeat: no-repeat;
-	padding-right: var(--space-7);
+	padding-inline-end: var(--space-7);
 }
 
 /* The full-width default, at the same weight as the rest of the element
@@ -532,7 +532,7 @@ input[type='radio']:checked {
 input[type='checkbox']:checked::after {
 	content: '';
 	position: absolute;
-	left: 50%;
+	inset-inline-start: 50%;
 	top: 46%;
 	width: 0.32rem;
 	height: 0.6rem;

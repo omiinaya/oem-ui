@@ -2415,7 +2415,19 @@ Group, Tooltip, Typography.
 - **Chart** - a Recharts wrapper, not a design primitive; consumers
   compose their own charts.
 - **Direction** - an RTL/i18n direction helper; this system is LTR and
-  owns no locale state.
+  owns no locale state. Declined as a *component* - but the part that
+  needs no locale state is DONE: every directional declaration in the
+  stylesheets is LOGICAL (`margin-inline-start`, `padding-inline-end`,
+  `border-inline-start` and its longhands, `inset-inline-start` /
+  `inset-inline-end`, `text-align: start` / `end`), so a consumer who
+  flips the document to `dir="rtl"` gets mirrored layout for free. Two
+  declarations stay physical, each commented at its rule: the hover
+  card's runtime-written `left` (`cmClampHovercards()` writes viewport
+  pixels) and the nav-menu chevron's glyph border (a rotated caret is
+  geometry, not an axis). Three checks in `tests/run.mjs` hold the
+  baseline - source scan, permit list, built CSS - and
+  `tests/mutate-logical-props.py` reverts all 153 logical declarations
+  one at a time to prove they are caught.
 
 Navigation Menu was once listed here as a *substitution*: this site's own
 pages use the desktop rail and the sticky header, which remains the house
