@@ -13854,3 +13854,211 @@ check('the sidebar specimen: registered, opted in, every affordance the JS route
 	assert(subs >= 1 && subs === (html.match(/aria-controls="sb-sub-/g) || []).length,
 		'every submenu trigger must carry data-cm-sidebar-sub and own its list');
 });
+
+
+/* ---------- shadcn-parity: batch 21 - select / tabs / accordion depth ----------
+   The gap was "'class exists' without documented behaviour": these checks
+   pin the BEHAVIOUR the docs now promise - one writer for the value
+   mirror, one placer for the align, one veto for the freeze - and the
+   synthetic groups drive the real runtime for the keyboard doors. */
+
+check('batch 21 select: the pick mirrors into the trigger, inside setRadio - one door, not two', () => {
+	// Both activation paths (pointer click, Enter's native click) already
+	// converge on setRadio, so the mirror lives THERE. A second writer is
+	// how the two doors start disagreeing - so assert there is exactly one.
+	const src = read('src/js/cli-mono.js');
+	const body = /function setRadio\([\s\S]*?\n\t\}/.exec(src);
+	assert(body, 'setRadio is not where it was');
+	for (const pin of [
+		".querySelector('.cm-dropdown__value')",
+		"setAttribute('data-cm-picked'",
+		"removeAttribute('hidden')",
+		"querySelector('.cm-dropdown__placeholder')",
+	]) assert(body[0].includes(pin), `setRadio does not carry ${pin}`);
+	const total = src.split('cm-dropdown__value').length - 1;
+	const inside = body[0].split('cm-dropdown__value').length - 1;
+	assert(total === inside && total >= 1,
+		`the value element must be written in exactly one place (${inside}/${total})`);
+});
+
+check('batch 21 select: a radio pick retires the menu, and browse-while-open survives it', () => {
+	const src = read('src/js/cli-mono.js');
+	const body = /function onMenuCheckClick\([\s\S]*?\n\t\}/.exec(src);
+	assert(body, 'onMenuCheckClick is not where it was');
+	const close = body[0].indexOf("role') === 'menuitemradio'");
+	const hide = body[0].indexOf('hidePopover');
+	assert(close !== -1 && hide !== -1 && close < hide,
+		'the radio close must live in the click handler');
+	// The detail-0 guard only skips the FLIP; if the close were after it,
+	// Enter (which arrives as a detail-0 click) would leave the menu open
+	// while the pointer closed it - the two doors disagreeing.
+	const guard = body[0].indexOf('cmKeyFlipItem');
+	assert(guard !== -1 && hide < guard,
+		'the close must run before the double-flip guard so Enter reaches it');
+	// Arrow ARRIVAL calls setRadio directly and must never close: the APG
+	// pattern browses radio rows with the menu still open.
+	const arrival = /setRadio\(next\)/.test(src);
+	assert(arrival, 'the keyboard arrival no longer routes through setRadio');
+});
+
+check('batch 21 select: the menu scrolls inside itself, capped at 60vh', () => {
+	const m = /\.cm-dropdown__menu\s*\{([^}]*)\}/.exec(compSrc);
+	assert(m, '.cm-dropdown__menu is not defined');
+	for (const decl of ['max-height: 60vh', 'overflow-y: auto', 'overscroll-behavior: contain']) {
+		assert(m[1].includes(decl), `.cm-dropdown__menu does not declare ${decl}`);
+	}
+});
+
+check('batch 21 select: the placeholder/value pair IS the opt-in', () => {
+	assert(/\.cm-dropdown__value\[hidden\],\s*\.cm-dropdown__placeholder\[hidden\]/.test(compSrc),
+		'the hidden pair has no shared rule');
+	assert(/\.cm-dropdown__placeholder\s*\{[^}]*var\(--ink-faint\)/.test(compSrc),
+		'the placeholder is not faint - it must read as not-yet-chosen');
+});
+
+check('batch 21 select: the placer aligns the checked row and can never lose the viewport', () => {
+	const src = read('src/js/cli-mono.js');
+	const anchor = /function anchorPopover\([\s\S]*?\n\t\}/.exec(src);
+	assert(anchor, 'anchorPopover is not where it was');
+	assert(anchor[0].includes("closest('[data-cm-align-item]')"),
+		'the align is not opt-in through data-cm-align-item');
+	// The suite drives this path with a menu STUB that has style and
+	// nothing else; an unguarded method turns placement into a TypeError.
+	assert(anchor[0].includes('typeof menu.closest === \'function\''),
+		'the align gate is not stub-guarded');
+	assert(anchor[0].includes('mtop + (t.top - ctop)'),
+		'the align no longer moves the BOX by what the ROW needs');
+	// Neither side fits: below-impossible, flip-impossible - the panel
+	// still pins its bottom edge inside the viewport.
+	assert(anchor[0].includes('window.innerHeight - h - pad'),
+		'the placer has no bottom pin for a panel that fits neither side');
+});
+
+check('batch 21 select: the specimen is a real select, not a menu with a label', () => {
+	assert(/popovertarget="select-demo"/.test(showcase), 'the specimen has no select trigger');
+	assert(/data-cm-align-item/.test(showcase), 'the specimen never opts into align');
+	assert(/class="cm-dropdown__value"/.test(showcase) && /class="cm-dropdown__placeholder"/.test(showcase),
+		'the trigger lacks its value/placeholder pair');
+	const radios = (showcase.match(/data-cm-radio="tz"/g) || []).length;
+	assert(radios >= 13, `a list short enough not to scroll (${radios} rows)`);
+	assert(/role="group" aria-labelledby="tz-group"/.test(showcase),
+		'the rows are not inside a labelled group (SelectLabel)');
+	assert(/role="menuitemradio"[^>]*aria-disabled="true"[^>]*data-cm-radio="tz"/.test(showcase),
+		'the select has no disabled row to step over');
+});
+
+check('batch 21 tabs: vertical is declared once and read once', () => {
+	assert(/<div class="cm-tabs" data-orientation="vertical">/.test(showcase),
+		'the specimen has no declarative vertical group');
+	const col = /\.cm-tabs\[data-orientation='vertical'\]\s*\.cm-tabs__list\s*\{[^}]*flex-direction:\s*column/.test(compSrc);
+	assert(col, 'the vertical group does not flip the list through the SAME attribute');
+	// Every row pays the same marker edge, so selecting shifts nothing.
+	assert(/\.cm-tabs\[data-orientation='vertical'\]\s*\.cm-tabs__tab\s*\{[^}]*border-left:\s*2px solid transparent/.test(compSrc),
+		'the vertical marker is not a shared, layout-free edge');
+	const src = read('src/js/cli-mono.js');
+	assert(src.includes("getAttribute('data-orientation') === 'vertical'"),
+		'the keydown does not read the declaration');
+});
+
+check('batch 21 tabs: a disabled tab is unreachable through every door', () => {
+	const src = read('src/js/cli-mono.js');
+	// selectTab is the shared invariant: every door funnels through it.
+	const sel = /function selectTab\([\s\S]*?\n\t\}/.exec(src);
+	assert(sel && sel[0].includes("getAttribute('aria-disabled') === 'true'"),
+		'selectTab does not refuse a disabled target');
+	assert(/getAttribute\('aria-disabled'\) !== 'true'\)\s*\{\s*selectTab\(tabs, panels, t\)/.test(src),
+		'the click door does not skip a disabled tab');
+	assert(/enabled\[0\]/.test(src), 'bind-time normalisation trusts the author over an enabled tab');
+
+	// Driven: ArrowRight steps OVER the disabled middle tab.
+	const group = tabGroup();
+	group.kids[0].kids[1].setAttribute('aria-disabled', 'true');
+	const { api, doc } = runOn([group]);
+	api.init(doc);
+	const tabs = group.kids[0].kids;
+	tabs[0].focus();
+	group.fire('keydown', { key: 'ArrowRight' });
+	assert(tabs[2].getAttribute('aria-selected') === 'true',
+		`ArrowRight landed on or before the disabled tab: ${tabs.map((t) => t.getAttribute('aria-selected'))}`);
+	assert(tabs[2].getAttribute('tabindex') === '0' && tabs[1].getAttribute('tabindex') === '-1',
+		'the roving stop did not move past the disabled tab');
+	// End skips it too, and a disabled tab can never hold the selection.
+	group.fire('keydown', { key: 'End' });
+	assert(tabs[2].getAttribute('aria-selected') === 'true',
+		'End landed on the disabled tab');
+	assert(tabs.filter((t) => t.getAttribute('aria-disabled') === 'true'
+		&& t.getAttribute('aria-selected') === 'true').length === 0,
+		'a disabled tab is selected');
+});
+
+check('batch 21 tabs: Up/Down move only when the group says vertical', () => {
+	const group = tabGroup();
+	group.setAttribute('data-orientation', 'vertical');
+	const { api, doc } = runOn([group]);
+	api.init(doc);
+	const tabs = group.kids[0].kids;
+	tabs[0].focus();
+	group.fire('keydown', { key: 'ArrowDown' });
+	assert(tabs[1].getAttribute('aria-selected') === 'true',
+		'ArrowDown did not move a vertical group');
+	group.fire('keydown', { key: 'ArrowUp' });
+	assert(tabs[0].getAttribute('aria-selected') === 'true',
+		'ArrowUp did not move a vertical group back');
+	group.fire('keydown', { key: 'ArrowLeft' });
+	assert(tabs[2].getAttribute('aria-selected') === 'true',
+		'a vertical group lost Left/Right, which every orientation keeps');
+
+	// Horizontal: the vertical axis is returned UNPREVENTED and changes nothing.
+	const h = tabGroup();
+	const r2 = runOn([h]);
+	r2.api.init(r2.doc);
+	const ht = h.kids[0].kids;
+	ht[0].focus();
+	h.fire('keydown', { key: 'ArrowDown' });
+	assert(ht[0].getAttribute('aria-selected') === 'true' && ht[1].getAttribute('aria-selected') === 'false',
+		'a horizontal group moved on ArrowDown');
+});
+
+check('batch 21 tabs: disabled reads as disabled and does not light up', () => {
+	assert(/\.cm-tabs__tab\[aria-disabled='true'\]\s*\{[^}]*cursor:\s*not-allowed/.test(compSrc),
+		'the disabled tab does not claim not-allowed');
+	assert(/\.cm-tabs__tab\[aria-disabled='true'\]\s*\{[^}]*var\(--ink-faint\)/.test(compSrc),
+		'the disabled tab is not faint');
+	assert(/\.cm-tabs__tab\[aria-disabled='true'\]:hover\s*\{\s*background:\s*transparent/.test(compSrc),
+		'hover lights a disabled tab - it promises a selection the runtime refuses');
+	// The specimen ships one: a real tab pointing at a real panel.
+	const tab = /<button[^>]*id="tab-status"[^>]*>/.exec(showcase)
+		|| /<button[^>]*aria-controls="panel-status"[^>]*>/.exec(showcase);
+	assert(tab && /aria-disabled="true"/.test(tab[0]), 'the specimen has no disabled tab');
+	assert(/id="panel-status"[^>]*aria-labelledby="tab-status"/.test(showcase),
+		'the disabled tab points at no panel that points back');
+});
+
+check('batch 21 accordion: the freeze is ONE capture-phase veto, not a second toggler', () => {
+	const src = read('src/js/cli-mono.js');
+	const body = /function onDisclosureClick\([\s\S]*?\n\t\}/.exec(src);
+	assert(body, 'onDisclosureClick is not where it was');
+	assert(body[0].includes("classList.contains('cm-disclosure__summary')"),
+		'the veto does not scope itself to our summaries');
+	assert(body[0].includes("getAttribute('aria-disabled') !== 'true'") && body[0].includes('preventDefault'),
+		'the veto does not refuse a frozen summary');
+	const binds = src.split("addEventListener('click', onDisclosureClick, true)").length - 1;
+	assert(binds === 1, `the veto must be registered exactly once (${binds})`);
+	// A toggle listener would fight the platform's name= closing and loop;
+	// the absence of one is the design.
+	assert(!/addEventListener\('toggle',\s*onDisclosureClick/.test(src),
+		'the freeze listens for toggle - that fights the platform and loops');
+});
+
+check('batch 21 accordion: the specimen freezes exactly one summary, and says so', () => {
+	const frozen = (showcase.match(/<summary class="cm-disclosure__summary"[^>]*aria-disabled="true"/g) || []).length;
+	assert(frozen === 1, `exactly one summary may be frozen (${frozen})`);
+	assert(/aria-disabled<\/code> on a summary vetoes/.test(showcase),
+		'the lede does not tell the reader the freeze exists');
+	assert(/drop <code>name<\/code> and several may stand open together/.test(showcase),
+		'the lede no longer documents the multiple-open escape hatch');
+	assert(/\.cm-disclosure__summary\[aria-disabled='true'\]\s*\{[^}]*cursor:\s*not-allowed/.test(compSrc),
+		'the frozen summary does not read as frozen');
+	assert(/\.cm-disclosure__summary\[aria-disabled='true'\]:hover\s*\{\s*background:\s*transparent/.test(compSrc),
+		'hover lights a frozen summary - it promises a state the veto refuses');
+});

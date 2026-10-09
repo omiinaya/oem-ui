@@ -1991,7 +1991,7 @@ A compact set of exclusive choices, and a summary row that reveals a panel. Both
 			</section>
 <section id="keys-pages-people" class="cm-section cm-section--pad">
 				<SectionHead title="keys, pages, people">
-Four small parts a shadcn user reaches for first. <code>.cm-kbd</code> is a key, <code>.cm-pager</code> is real links with <code>aria-current</code>, <code>.cm-avatar</code> is a square tile that falls back to initials, and <code>.cm-accordion</code> is disclosures that close each other through the platform's own <code>name</code> attribute &mdash; no script.
+Four small parts a shadcn user reaches for first. <code>.cm-kbd</code> is a key, <code>.cm-pager</code> is real links with <code>aria-current</code>, <code>.cm-avatar</code> is a square tile that falls back to initials, and <code>.cm-accordion</code> is disclosures that close each other through the platform's own <code>name</code> attribute &mdash; drop <code>name</code> and several may stand open together. Script touches it in exactly one direction: <code>aria-disabled</code> on a summary vetoes the toggle, which <code>&lt;details&gt;</code> has no attribute for.
 				</SectionHead>
 				<div style="display:grid;gap:var(--space-6);max-width:34rem">
 					<p class="cm-row__meta">
@@ -2044,6 +2044,13 @@ Four small parts a shadcn user reaches for first. <code>.cm-kbd</code> is a key,
 								<span class="cm-disclosure__title">Why square?</span>
 							</summary>
 							<div class="cm-disclosure__body"><p class="cm-row__meta">Because the house has no curves.</p></div>
+						</details>
+						<details class="cm-disclosure" name="faq">
+							<summary class="cm-disclosure__summary" aria-disabled="true">
+								<span class="cm-disclosure__mark" aria-hidden="true">&#9656;</span>
+								<span class="cm-disclosure__title">Can one be frozen?</span>
+							</summary>
+							<div class="cm-disclosure__body"><p class="cm-row__meta"><code>aria-disabled</code> on the summary vetoes the platform's own toggle &mdash; the one place script touches this component.</p></div>
 						</details>
 					</div>
 
@@ -2171,6 +2178,16 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 							aria-selected="false"
 							aria-controls="panel-components"
 						>components</button>
+						<button
+							type="button"
+							class="cm-tabs__tab"
+							role="tab"
+							id="tab-status"
+							aria-selected="false"
+							aria-disabled="true"
+							tabindex="-1"
+							aria-controls="panel-status"
+						>status</button>
 					</div>
 					<div class="cm-tabs__panel" role="tabpanel" id="panel-tokens" aria-labelledby="tab-tokens" tabindex="0">
 						Every value, both themes. A hardcoded hex in the layer below is a
@@ -2185,6 +2202,21 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 						The <code>.cm-*</code> classes: the arrangement <em>around</em> an
 						element, which is the part that is actually a design decision.
 					</div>
+					<div class="cm-tabs__panel" role="tabpanel" id="panel-status" aria-labelledby="tab-status" tabindex="0" hidden>
+						Reserved for a state that ships later: a disabled tab is
+						never selectable, so its panel stays hidden.
+					</div>
+				</div>
+
+				<div class="cm-tabs" data-orientation="vertical">
+					<div class="cm-tabs__list" role="tablist" aria-label="ownership, vertical">
+						<button type="button" class="cm-tabs__tab" role="tab" id="vtab-tokens" aria-selected="true" aria-controls="vpanel-tokens">tokens</button>
+						<button type="button" class="cm-tabs__tab" role="tab" id="vtab-base" aria-selected="false" aria-controls="vpanel-base">base</button>
+						<button type="button" class="cm-tabs__tab" role="tab" id="vtab-comp" aria-selected="false" aria-controls="vpanel-comp">components</button>
+					</div>
+					<div class="cm-tabs__panel" role="tabpanel" id="vpanel-tokens" aria-labelledby="vtab-tokens" tabindex="0">Same keys, vertical axis: Up/Down move, Left/Right keep working.</div>
+					<div class="cm-tabs__panel" role="tabpanel" id="vpanel-base" aria-labelledby="vtab-base" tabindex="0" hidden>Base layer.</div>
+					<div class="cm-tabs__panel" role="tabpanel" id="vpanel-comp" aria-labelledby="vtab-comp" tabindex="0" hidden>Components layer.</div>
 				</div>
 
 				<h3 class="cm-kicker">dialog</h3>
@@ -2315,7 +2347,12 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 					The native Popover API. The trigger carries
 					<code>popovertarget</code> and the panel carries <code>popover</code>,
 					so light-dismiss, Escape and focus return are the browser's &mdash;
-					and there is no runtime code for this component at all.
+					the open/close path adds no runtime code at all. The select
+					below is the same panel wearing a value: the pick mirrors
+					into the trigger, the menu scrolls inside itself when the
+					list is long, and <code>data-cm-align-item</code> asks the
+					placer to open the checked row over the button, so you land
+					where you already are.
 				</p>
 				<div class="cm-dropdown">
 					<button type="button" class="cm-btn" popovertarget="menu-demo" aria-haspopup="menu">
@@ -2326,6 +2363,74 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 						<button type="button" class="cm-dropdown__item" role="menuitem">duplicate</button>
 						<hr class="cm-dropdown__sep" />
 						<button type="button" class="cm-dropdown__item" role="menuitem" aria-disabled="true">delete</button>
+					</div>
+				</div>
+
+				<div class="cm-dropdown" data-cm-align-item>
+					<button type="button" class="cm-btn" popovertarget="select-demo" aria-haspopup="menu">
+						<span class="cm-dropdown__placeholder">pick a timezone</span><span class="cm-dropdown__value" hidden></span> <span aria-hidden="true">&#9662;</span>
+					</button>
+					<div class="cm-dropdown__menu" id="select-demo" popover role="menu" aria-label="timezone">
+						<div class="cm-dropdown__group-label" id="tz-group" role="presentation">standard time</div>
+						<div role="group" aria-labelledby="tz-group">
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="false" data-cm-radio="tz">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">america/new_york</span></span>
+							</button>
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="false" data-cm-radio="tz">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">america/chicago</span></span>
+							</button>
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="false" data-cm-radio="tz">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">america/denver</span></span>
+							</button>
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="false" data-cm-radio="tz">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">america/los_angeles</span></span>
+							</button>
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="false" data-cm-radio="tz">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">america/sao_paulo</span></span>
+							</button>
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="false" data-cm-radio="tz">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">europe/london</span></span>
+							</button>
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="false" data-cm-radio="tz">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">europe/berlin</span></span>
+							</button>
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="false" data-cm-radio="tz">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">europe/lisbon</span></span>
+							</button>
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="false" data-cm-radio="tz">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">asia/dubai</span></span>
+							</button>
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="false" data-cm-radio="tz">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">asia/kolkata</span></span>
+							</button>
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="false" data-cm-radio="tz">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">asia/tokyo</span></span>
+							</button>
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="false" data-cm-radio="tz">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">asia/singapore</span></span>
+							</button>
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="false" data-cm-radio="tz">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">australia/sydney</span></span>
+							</button>
+						</div>
+						<hr class="cm-dropdown__sep" />
+						<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="false" aria-disabled="true" data-cm-radio="tz">
+							<span class="cm-dropdown__icon" aria-hidden="true"></span>
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">asia/shanghai (pinned)</span></span>
+						</button>
 					</div>
 				</div>
 

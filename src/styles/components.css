@@ -3302,6 +3302,15 @@ button.cm-row:hover { background: var(--bg-2); }
 	background: var(--panel);
 	box-shadow: inset 0 -2px 0 var(--ink);
 }
+/* A disabled tab reads as disabled, and hover must not promise a
+   selection the runtime will refuse. Same specificity as the :hover
+   rule and later in the file, so a hover on a disabled tab loses. */
+.cm-tabs__tab[aria-disabled='true'] {
+	color: var(--ink-faint);
+	background: transparent;
+	cursor: not-allowed;
+}
+.cm-tabs__tab[aria-disabled='true']:hover { background: transparent; }
 .cm-tabs__panel { padding: var(--space-5); }
 .cm-tabs__panel > :first-child { margin-top: 0; }
 .cm-tabs__panel > :last-child { margin-bottom: 0; }
@@ -3314,6 +3323,23 @@ button.cm-row:hover { background: var(--bg-2); }
 	.cm-tabs__list { flex-direction: column; }
 	.cm-tabs__tab { border-right: 0; border-bottom: 1px solid var(--line); }
 	.cm-tabs__tab[aria-selected='true'] { box-shadow: inset 2px 0 0 var(--ink); }
+}
+/* orientation="vertical" is DECLARATIVE: the same flip as the narrow
+   rule above, but authored at any width - and the keydown reads the
+   same attribute, so axis and layout share one source of truth. */
+.cm-tabs[data-orientation='vertical'] .cm-tabs__list {
+	flex-direction: column;
+}
+.cm-tabs[data-orientation='vertical'] .cm-tabs__tab {
+	border-right: 0;
+	border-bottom: 1px solid var(--line);
+	/* The marker is a border, not an inset shadow: every row pays the
+	   same 2px transparent left edge, so selecting one shifts nothing,
+	   and the colour declaration still passes through a token. */
+	border-left: 2px solid transparent;
+}
+.cm-tabs[data-orientation='vertical'] .cm-tabs__tab[aria-selected='true'] {
+	border-left-color: var(--ink);
 }
 
 /* ---------- dialog ----------
@@ -3546,10 +3572,23 @@ dialog.cm-dialog--spec:not([open]) {
 	font-family: var(--font-mono);
 	font-size: max(var(--min-font), var(--text-xs));
 	box-shadow: var(--shadow-card);
+	/* A 40-row timezone list must scroll INSIDE the panel instead of
+	   running off the phone: 60vh keeps the trigger and the last row
+	   both visible, and `contain` stops a swipe over the list from
+	   scrolling the page behind it. */
+	max-height: 60vh;
+	overflow-y: auto;
+	overscroll-behavior: contain;
 }
 /* The UA sheet hides a closed popover, but this rule declares no display
    and a consumer's does not have to be polite. */
 .cm-dropdown__menu:not(:popover-open) { display: none; }
+/* The trigger's two faces: the placeholder until the first pick, the
+   value after it. [hidden] is set by setRadio, and the pair is the
+   structural opt-in - a wrap with neither mirrors nothing. */
+.cm-dropdown__value[hidden],
+.cm-dropdown__placeholder[hidden] { display: none; }
+.cm-dropdown__placeholder { color: var(--ink-faint); }
 .cm-dropdown__item {
 	display: flex;
 	align-items: center;
@@ -5661,6 +5700,15 @@ button.cm-link:focus-visible {
 /* Remove the marker in the engines that need it asked for. */
 .cm-disclosure__summary::-webkit-details-marker { display: none; }
 .cm-disclosure__summary:hover { background: var(--bg-3); }
+/* A disabled disclosure reads as disabled, and hover must not promise
+   a state the veto refuses. Higher specificity than the :hover rule,
+   so it holds without source-order luck. */
+.cm-disclosure__summary[aria-disabled='true'] {
+	color: var(--ink-faint);
+	background: transparent;
+	cursor: not-allowed;
+}
+.cm-disclosure__summary[aria-disabled='true']:hover { background: transparent; }
 .cm-disclosure__summary:focus-visible { outline-offset: -2px; }
 /* The chevron points at the thing it opens, so it turns with state.
    `--mark` is a token because the rotation is the only thing that

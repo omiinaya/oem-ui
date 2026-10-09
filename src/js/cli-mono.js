@@ -621,6 +621,9 @@
 
 	function selectTab(tabs, panels, next) {
 		if (!next) return;
+		/* A disabled tab is never selectable. The guard lives HERE so
+		   every door - click, arrows, Home/End - shares one invariant. */
+		if (next.getAttribute('aria-disabled') === 'true') return;
 		tabs.forEach(function (t) {
 			var on = t === next;
 			t.setAttribute('aria-selected', on ? 'true' : 'false');
@@ -654,23 +657,62 @@
 				   a markup mismatch (two selected tabs, or a tab pointing
 				   at a panel that does not exist) is a silent ARIA lie,
 				   and fixing it here means the component cannot ship one. */
+				// A tab disabled by the author must not hold the selection
+				// hostage: prefer the selected ENABLED tab, then the first
+				// enabled one, and only fall back to the author's claim
+				// when the whole row is disabled.
+				var enabled = tabs.filter(function (t) {
+					return t.getAttribute('aria-disabled') !== 'true';
+				});
 				var current =
+					enabled.filter(function (t) {
+						return t.getAttribute('aria-selected') === 'true';
+					})[0] || enabled[0] ||
 					tabs.filter(function (t) {
 						return t.getAttribute('aria-selected') === 'true';
 					})[0] || tabs[0];
 				selectTab(tabs, panels, current);
 
 				group.addEventListener('keydown', function (e) {
-					if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft'
-						&& e.key !== 'Home' && e.key !== 'End') return;
+					// Vertical tabs take the vertical axis (Up/Down); every
+					// orientation keeps Left/Right, so a screen-reader user
+					// driving a vertical list with Left still moves. A key
+					// outside the pattern is returned UNPREVENTED - that is
+					// what keeps the page's own scrolling and shortcuts.
+					var vert = group.getAttribute('data-orientation') === 'vertical';
+					var axis = e.key === 'ArrowRight' || e.key === 'ArrowLeft'
+						|| e.key === 'Home' || e.key === 'End'
+						|| (vert && (e.key === 'ArrowUp' || e.key === 'ArrowDown'));
+					if (!axis) return;
 					var i = tabs.indexOf(document.activeElement);
 					if (i === -1) return;
 					e.preventDefault();
-					var next = i;
-					if (e.key === 'ArrowRight') next = (i + 1) % tabs.length;
-					if (e.key === 'ArrowLeft') next = (i - 1 + tabs.length) % tabs.length;
-					if (e.key === 'Home') next = 0;
-					if (e.key === 'End') next = tabs.length - 1;
+					// Disabled tabs are stepped OVER, not onto: the walk is
+					// bounded by tabs.length so an all-disabled row lands
+					// back on i and selectTab refuses the move anyway.
+					var next = -1;
+					var find = function (from, dir) {
+						var j = from;
+						for (var s = 0; s < tabs.length; s++) {
+							j = (j + dir + tabs.length) % tabs.length;
+							if (tabs[j].getAttribute('aria-disabled') !== 'true') return j;
+						}
+						return -1;
+					};
+					if (e.key === 'ArrowRight' || (vert && e.key === 'ArrowDown')) {
+						next = find(i, 1);
+					} else if (e.key === 'ArrowLeft' || (vert && e.key === 'ArrowUp')) {
+						next = find(i, -1);
+					} else if (e.key === 'Home') {
+						for (var a = 0; a < tabs.length; a++) {
+							if (tabs[a].getAttribute('aria-disabled') !== 'true') { next = a; break; }
+						}
+					} else if (e.key === 'End') {
+						for (var b = tabs.length - 1; b >= 0; b--) {
+							if (tabs[b].getAttribute('aria-disabled') !== 'true') { next = b; break; }
+						}
+					}
+					if (next === -1 || next === i) return;
 					selectTab(tabs, panels, tabs[next]);
 					if (typeof tabs[next].focus === 'function') tabs[next].focus();
 				});
@@ -679,7 +721,10 @@
 					var t = e.target && e.target.closest
 						? e.target.closest(TAB_SEL)
 						: null;
-					if (t && tabs.indexOf(t) !== -1) selectTab(tabs, panels, t);
+					if (t && tabs.indexOf(t) !== -1
+						&& t.getAttribute('aria-disabled') !== 'true') {
+						selectTab(tabs, panels, t);
+					}
 				});
 			});
 	}
@@ -1158,11 +1203,49 @@
 		else if (x + w > window.innerWidth - pad) x = window.innerWidth - w - pad;
 		var y = t.bottom + 4;                     // `calc(100% + var(--space-1))`, translated
 		if (y + h > window.innerHeight - pad && t.top - h - 4 >= pad) y = t.top - h - 4;
+		// NEITHER side fits (a capped select list against a trigger
+		// near the bottom of a phone): the flip above gives up, and
+		// without this the panel hangs off-screen - which reads as
+		// broken, not as overlap. Pin the BOTTOM edge instead; the
+		// trigger slides under it, the way every native select does.
+		if (y + h > window.innerHeight - pad) y = window.innerHeight - h - pad;
 		if (y < pad) y = pad;
 		// Written only when they move: the pin re-anchors every frame while
 		// the card is open, and an unconditional style write at 60fps is a
 		// layout invalidation nobody asked for.
-		var left = Math.round(x) + 'px', top = Math.round(y) + 'px';
+		/* alignItemWithTrigger: a select opens so the CHECKED row sits
+		   over the trigger instead of row one. The adjustment lives here,
+		   inside the one placer, because the pin re-runs THIS function on
+		   every scroll - a parallel transform would be a second placer
+		   that outlives it. Measured un-transformed (this function owns
+		   left/top; nothing else shifts the panel), so every re-pin
+		   recomputes from a clean box and lands on the same value.
+		   Opt-in: only a wrap carrying data-cm-align-item asks for it,
+		   so plain menus keep their top-anchored behaviour. */
+		var top = Math.round(y) + 'px';
+		// closest is guarded the way classList is at the top of this
+		// function: the suite drives this path with a menu stub that
+		// carries style and nothing else, and an unguarded method call
+		// would turn a placement check into a TypeError. Real popovers
+		// always have it; only the opt-in branch needs it.
+		if (trigger && typeof menu.closest === 'function'
+			&& menu.closest('[data-cm-align-item]')) {
+			var chk = menu.querySelector('[aria-checked="true"]');
+			if (chk) {
+				var mtop = menu.getBoundingClientRect().top;
+				var ctop = chk.getBoundingClientRect().top;
+				// Move the BOX by what the ROW needs: on the first open
+				// the inline top is not written yet, so the box - not the
+				// just-computed y - is the reference that is always true.
+				var ay = mtop + (t.top - ctop);
+				if (ay < pad) ay = pad;
+				if (ay + h > window.innerHeight - pad) {
+					ay = window.innerHeight - h - pad;
+				}
+				top = Math.round(ay) + 'px';
+			}
+		}
+		var left = Math.round(x) + 'px';
 		if (menu.style.left !== left) menu.style.left = left;
 		if (menu.style.top !== top) menu.style.top = top;
 	}
@@ -1226,6 +1309,22 @@
 					el.getAttribute('aria-disabled') !== 'true' && !el.disabled;
 			}
 		);
+	}
+
+	/* A disabled disclosure must not move. <details> has no disabled
+	   attribute, so the toggle is VETOED at the summary: preventDefault
+	   kills the platform's activation for pointer AND for the click the
+	   engine fires when keyboard users press Space or Enter - one
+	   mechanism, not two. The veto is deliberately not a `toggle`
+	   listener: a disabled item inside a name= group gets closed by the
+	   PLATFORM when a sibling opens, and re-opening it in a toggle
+	   handler would fight the same attribute and loop. */
+	function onDisclosureClick(e) {
+		var s = e.target && typeof e.target.closest === 'function'
+			? e.target.closest('summary') : null;
+		if (!s || !s.classList.contains('cm-disclosure__summary')) return;
+		if (s.getAttribute('aria-disabled') !== 'true') return;
+		e.preventDefault();
 	}
 
 	function onPopoverToggle(e) {
@@ -1374,6 +1473,22 @@
 				row.setAttribute('aria-checked', row === item ? 'true' : 'false');
 			}
 		);
+		/* The trigger SHOWS what was chosen: a select whose trigger never
+		   mirrors the pick is a menu. This runs inside setRadio because
+		   both doors - the click and the keyboard arrival - already
+		   converge here, so a second listener is the thing that would let
+		   them disagree. Structural opt-in: it writes only when the wrap's
+		   trigger carries the value/placeholder pair, so every plain radio
+		   menu (the toolbar's density picker) is untouched. */
+		var wrap = item.closest('.cm-dropdown');
+		if (!wrap) return;
+		var value = wrap.querySelector('.cm-dropdown__value');
+		if (!value) return;
+		value.textContent = (item.textContent || '').replace(/\s+/g, ' ').trim();
+		value.removeAttribute('hidden');
+		wrap.setAttribute('data-cm-picked', 'true');
+		var ph = wrap.querySelector('.cm-dropdown__placeholder');
+		if (ph) ph.setAttribute('hidden', '');
 	}
 
 	/* Typeahead: printable characters walk to the next item whose label
@@ -3921,6 +4036,19 @@
 		if (!t || typeof t.closest !== 'function') return;
 		var item = t.closest('[role="menuitemcheckbox"], [role="menuitemradio"]');
 		if (!item) return;
+		/* A radio row is a one-shot CHOICE: pick it and the menu
+		   retires, the way every native radio menu does - and a select
+		   that stays open is half a select. Both activation doors land
+		   HERE: the pointer click, and the real click the engine fires
+		   on Enter. The detail-0 guard below only skips the FLIP (the
+		   keydown already made it), so the close is placed before it -
+		   one decision for both doors. Arrow ARRIVAL calls setRadio
+		   directly and never reaches this handler, so browsing while
+		   open - the APG pattern - is untouched. */
+		if (item.getAttribute('role') === 'menuitemradio') {
+			var rm = item.closest('[role="menu"]');
+			if (rm && typeof rm.hidePopover === 'function') rm.hidePopover();
+		}
 		// The keydown handler already flipped it and Enter's native click
 		// arrives with detail 0; flipping again puts the state back where
 		// it started - the double-flip that reads as "keyboard does
@@ -3983,6 +4111,7 @@
 		}
 		// Capture, at the root, registered once: see onPopoverToggle.
 		document.addEventListener('toggle', onPopoverToggle, true);
+		document.addEventListener('click', onDisclosureClick, true);
 		// Delegated at the root for the same reason: re-rendered markup
 		// keeps working without a re-bind.
 
