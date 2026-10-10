@@ -8335,10 +8335,12 @@ input.cm-slider:disabled {
 }
 .cm-chart__legend-label { min-width: 0; }
 
-/* The <style> pass-through is a real element and gets display:block, or
-   the inline box it defaults to adds a line of height under the chart
-   on every engine that does not hide it. */
-.cm-chart__style { display: block; }
+/* The scoped <style> pass-through must be EXPLICITLY hidden. It is a real
+   element carrying the chart's scoped CSS, and giving it display:block (the
+   old rule here) rendered all 1,800 chars as visible page text under each of
+   the eleven charts; the UA sheet hides it, and this pins that so nothing can
+   re-introduce it. */
+.cm-chart__style { display: none; }
 
 /* The table is the chart's TEXT ALTERNATIVE, not a debug view, and it
    is the runtime's data source: the geometry is rebuilt from these

@@ -236,7 +236,7 @@ const CHARTS = {
 	}),
 } as const;
 
-const CHART_SNIPPET = `<figure class="cm-chart" data-cm-chart data-cm-chart-type="area"
+const CHART_SNIPPET = `<div class="cm-chart" data-cm-chart data-cm-chart-type="area"
         data-cm-chart-h="240">
   <style class="cm-chart__style">/* one property per series */</style>
   <div class="cm-chart__plot">
@@ -249,11 +249,11 @@ const CHART_SNIPPET = `<figure class="cm-chart" data-cm-chart data-cm-chart-type
   <div class="cm-sr-only" id="reads-data">
     <table class="cm-chart__table">...</table>
   </div>
-</figure>
+</div>
 
 <script type="module">
   import { chartMarkup } from './cli-mono.js';
-  figure.innerHTML = chartMarkup({ type: 'area', data, series });
+  chart.innerHTML = chartMarkup({ type: 'area', data, series });
 </script>`;
 ---
 
@@ -1192,35 +1192,35 @@ Each row is one modifier against its own base, so the difference is the thing be
 						<span class="cm-spec__val"><code>ink</code></span>
 					</div>
 
-\t\t\t\t\t<div class="cm-spec__row">
-\t\t\t\t\t\t<span class="cm-spec__label"><code>--info</code></span>
-\t\t\t\t\t\t<span class="cm-spec__sample" style="width:100%">
-\t\t\t\t\t\t\t<div class="cm-toast cm-toast--info" data-cm-toast>
-\t\t\t\t\t\t\t\t<span class="cm-toast__mark" aria-hidden="true"></span>
-\t\t\t\t\t\t\t\t<div class="cm-toast__body">
-\t\t\t\t\t\t\t\t\t<p class="cm-toast__title">3 hosts re-synced</p>
-\t\t\t\t\t\t\t\t\t<p class="cm-toast__text">dev-blog, links and nodeterm carry the new runtime.</p>
-\t\t\t\t\t\t\t\t</div>
-\t\t\t\t\t\t\t\t<button type="button" class="cm-toast__action cm-btn cm-btn--sm" data-cm-toast-action>undo</button>
-\t\t\t\t\t\t\t\t<button type="button" class="cm-toast__close" data-cm-toast-close aria-label="Dismiss">&times;</button>
-\t\t\t\t\t\t\t</div>
-\t\t\t\t\t\t</span>
-\t\t\t\t\t\t<span class="cm-spec__val"><code>faint + action</code></span>
-\t\t\t\t\t</div>
-\t\t\t\t\t<div class="cm-spec__row">
-\t\t\t\t\t\t<span class="cm-spec__label"><code>--loading</code></span>
-\t\t\t\t\t\t<span class="cm-spec__sample" style="width:100%">
-\t\t\t\t\t\t\t<div class="cm-toast cm-toast--loading" data-cm-toast aria-busy="true">
-\t\t\t\t\t\t\t\t<span class="cm-toast__mark" aria-hidden="true"></span>
-\t\t\t\t\t\t\t\t<div class="cm-toast__body">
-\t\t\t\t\t\t\t\t\t<p class="cm-toast__title">syncing the fleet&hellip;</p>
-\t\t\t\t\t\t\t\t\t<p class="cm-toast__text">A spinning ↻: the only status mark that moves. This specimen never finishes.</p>
-\t\t\t\t\t\t\t\t</div>
-\t\t\t\t\t\t\t\t<button type="button" class="cm-toast__close" data-cm-toast-close aria-label="Dismiss">&times;</button>
-\t\t\t\t\t\t\t</div>
-\t\t\t\t\t\t</span>
-\t\t\t\t\t\t<span class="cm-spec__val"><code>rotating</code></span>
-\t\t\t\t\t</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--info</code></span>
+						<span class="cm-spec__sample" style="width:100%">
+							<div class="cm-toast cm-toast--info" data-cm-toast>
+								<span class="cm-toast__mark" aria-hidden="true"></span>
+								<div class="cm-toast__body">
+									<p class="cm-toast__title">3 hosts re-synced</p>
+									<p class="cm-toast__text">dev-blog, links and nodeterm carry the new runtime.</p>
+								</div>
+								<button type="button" class="cm-toast__action cm-btn cm-btn--sm" data-cm-toast-action>undo</button>
+								<button type="button" class="cm-toast__close" data-cm-toast-close aria-label="Dismiss">&times;</button>
+							</div>
+						</span>
+						<span class="cm-spec__val"><code>faint + action</code></span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label"><code>--loading</code></span>
+						<span class="cm-spec__sample" style="width:100%">
+							<div class="cm-toast cm-toast--loading" data-cm-toast aria-busy="true">
+								<span class="cm-toast__mark" aria-hidden="true"></span>
+								<div class="cm-toast__body">
+									<p class="cm-toast__title">syncing the fleet&hellip;</p>
+									<p class="cm-toast__text">A spinning ↻: the only status mark that moves. This specimen never finishes.</p>
+								</div>
+								<button type="button" class="cm-toast__close" data-cm-toast-close aria-label="Dismiss">&times;</button>
+							</div>
+						</span>
+						<span class="cm-spec__val"><code>rotating</code></span>
+					</div>
 				</div>
 
 				<h3 class="cm-kicker">terminal</h3>
