@@ -2506,6 +2506,14 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 					<div class="cm-dropdown__menu cm-menubar__menu" id="mb-view" popover role="menu" aria-label="view">
 						<button type="button" class="cm-dropdown__item" role="menuitem">zoom in</button>
 						<button type="button" class="cm-dropdown__item" role="menuitem">zoom out</button>
+						<hr class="cm-dropdown__sep" />
+						<!-- A checkbox item in the SAME list as the plain rows: the glyph
+						     slot carries the check, so the column never moves when it
+						     flips. toggleCheckable() is the dropdown's, unchanged. -->
+						<button type="button" class="cm-dropdown__item" role="menuitemcheckbox" aria-checked="true" data-cm-check>
+							<span class="cm-dropdown__icon" aria-hidden="true" data-checked="true"></span>
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">status bar</span></span>
+						</button>
 					</div>
 					<!-- A disabled WORD, not a disabled row: aria-disabled rather than
 					     [disabled] so it stays in the tree (a reader must hear that
