@@ -29,6 +29,96 @@
   back" is a behaviour, not a string shape). The first run's survivors were
   text-grep artifacts retargeted to the actual runtime slices.
 
+## Unreleased - batch 29: the server rail and the message composer
+
+Two components whose shape comes from a client rather than from this
+library. `matrix-arrow-client` renders a Discord-shaped shell and its
+`docs/contract.md` is **binding** on the class names and the markup
+structure; the visual detail — sizes, tokens, hover feel, dividers — is
+this library's call. `.cm-guildrail` and `.cm-composer` are the first two
+of the three it names (`.cm-msglist` is not in this batch).
+
+- **A rail that owns its own scroll has to be BOUNDED to do it.** The
+  contract asks for a flex column that scrolls so a long server list
+  cannot stretch the app grid, and `overflow-y: auto` alone does not
+  give that: without a bound the rail's box IS its content, the grid row
+  stretches with the list, and the `auto` scrolls nothing against a box
+  exactly as tall as what is in it. The block declares `min-block-size: 0`
+  (the flex item may shrink below its content) and `max-block-size: 100%`
+  (there is a box to scroll against), and the showcase specimen is capped
+  at `16rem` for the same reason — a rail that fits has proven nothing.
+- **The tip escapes to the right because of a token, not a coincidence.**
+  A tooltip on a rail has to clear the rail's own scrollport, and the
+  scrollport clips everything painted past its padding box.
+  `overflow-clip-margin` — the one property that widens that box — is not
+  implemented in WebKit at all (`CSS.supports('overflow-clip-margin',
+  '20px')` → `false`), so the padding box is widened by hand instead: the
+  rail states `inline-size: calc(var(--guildrail-w) + var(--guildrail-bleed))`,
+  cancels the width with a matching negative `margin-inline-end` so the
+  grid still sees a `--guildrail-w` margin box, and pads out to
+  `--guildrail-bleed`. That token is ALSO the tip's own cap
+  (`min(18rem, 52vw)`), and the two numbers agreeing is the whole reason
+  the tip survives: measured one pixel past the padding box and the fill
+  is gone. Tying the cap to the token makes it a declaration instead of a
+  coincidence. Two new tokens, both used three times, neither a duplicate.
+- **The trailing hairline is a gradient clipped to the content box, not
+  a border.** A `border` is drawn at the padding box, which here is 18rem
+  to the right of where the edge belongs. So is the tip: the stock
+  `--start`/`--end`/above variants all point back over the rail or above
+  the viewport, so `inset-inline-start: 100%` puts its leading edge
+  exactly where the rail's content ends, and the centring
+  `translateY(-50%)` lives in that rule rather than a `:hover` copy —
+  the base tip settles to `translateY(0)` and would drop the tip half its
+  own height.
+- **`aria-current` is a fill AND the ink AND the pill, never the hue.**
+  This palette has no hue to spend, so the current square is
+  `--surface-raised` under `--ink` with a full-height pill, hover is a
+  short tick, and idle sits on `--ink-faint` — the difference is contrast
+  and shape, so it survives greyscale. Unread is a count
+  (`.cm-guildrail__badge`, width-bounded at `--tap` so a two-digit count
+  cannot break the 44px square) OR a dot (`.cm-guildrail__unread`, square
+  and textless, so a dot carrying a zero is not expressible), never both
+  on one item. Every square is `--tap` on both axes on every pointer with
+  `flex: 0 0 auto`: a control whose size IS the measurement must not be
+  the thing that gives way.
+- **The composer's frame is its focus affordance.** The bar is a hairline
+  on `--panel-nested` that switches to `--focus` on `:focus-within`, and
+  the textarea inside carries no ring, border, padding or background of
+  its own. The field is selected as
+  `.cm-composer__bar > textarea.cm-composer__input` on purpose: `base.css`
+  owns the width at `(0,2,1)` and a two-class rule is `(0,2,0)` and loses
+  it outright, leaving a textarea claiming the whole row instead of the
+  space between the attach button and the tools. Nothing caps its height
+  (`max-block-size: none` is deliberate) — the contract's six-line limit
+  is the consumer's auto-grow, and a cap here would clip line seven and
+  make the library the thing that broke the scroll.
+- **Enter sends, Shift+Enter newlines and auto-grow are the CONSUMER's,
+  and that is tested, not just written down.** The README documents all
+  of it in a table, and a check asserts that no batch-29 class reaches
+  `src/js/` — the contract calls this behaviour the client's, so a
+  partial implementation in the runtime is the defect, not the feature.
+  `data-cm-sending` lives on the **form** and never disables the input
+  (the contract says it stays usable mid-send; the glyph goes
+  `transparent` and a `::before` spinner is stacked over it with
+  `inset: 0`, so the box cannot resize under the pointer mid-send), and
+  `[disabled]` on the textarea dims the whole box through `:has()` — the
+  disabled element is a grandchild, and no sibling combinator can see it.
+- **Two real defects the new checks caught in this batch's own CSS.**
+  The item monogram and the badge were the only two sizes in the block
+  with no `--min-font` floor, which every other component in the library
+  carries; a badge at `0.75rem` is 12px only by accident of the root
+  size, and the floor is the point. Fixed before the suite went green.
+
+Proven by 22 `batch 29:` checks in `tests/run.mjs`, the WebKit harness
+`tests/verify-guildrail-composer.py` (44 checks, desktop 1280×900 and
+402×667) and 74 mutation patterns across `tests/mutate-guildrail.py`
+(31 source + 9 live) and `tests/mutate-composer.py` (28 source + 6
+live). Seven further mutations were measured positively EQUIVALENT to the
+pristine tree and are recorded with their measurements in the two runners
+rather than kept as mutants that nothing can kill.
+
+## Unreleased - batch 28: the menubar carries the depth the panel pattern already had
+
 - **One tab stop, not one per word.** `.cm-menubar` now roves: the bar
   enters the page as a single tab stop and Left/Right/Home/End walk the
   words from there, the same rule `.cm-tabs` already applies. Each

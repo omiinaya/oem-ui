@@ -100,6 +100,26 @@
 	--sidebar-width-mobile: 18rem;
 	--sidebar-icon-width: 3rem;
 
+	/* ---- guildrail (server icon rail) --------------------------
+	   Two widths, and the second one exists because of the first.
+
+	   --guildrail-w is the rail a chat client puts at the far leading
+	   edge: one square per server, so it is icon-width, not
+	   --sidebar-icon-width (a collapsed LABEL sidebar is 3rem; a
+	   monogram in a 44px square wants the 4.5rem the square is
+	   centred in).
+
+	   --guildrail-bleed is how far the rail's clip edge is pushed out
+	   so `.cm-tooltip__tip` can escape the rail's own scrollport. A
+	   scrollport clips everything painted past its padding box, and
+	   `overflow-clip-margin` - the one property that widens that box -
+	   is not implemented in WebKit at all (probe:
+	   CSS.supports('overflow-clip-margin', '20px') -> false), so the
+	   padding box is widened by hand instead. It must be at LEAST the
+	   tip's cap, `min(18rem, 52vw)`, or the tip is cut in half. */
+	--guildrail-w: 4.5rem;
+	--guildrail-bleed: 18rem;
+
 	/* ---- measure (line length) ----------------------------------
 	   A width in `ch` against the monospace font, so a line's character
 	   count is the thing being decided rather than an accident of the
