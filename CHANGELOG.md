@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased - a dialog can be closed from the foot it ships with
+
+- **A `<button>` outside the `<form method="dialog">` closed nothing, and
+  every button in `.cm-dialog__foot` is outside it.** The native close
+  lives in that form; the foot - the region this component styles and
+  documents for actions - is its sibling, so a bare button there submits
+  nothing and closes nothing, silently, on every platform. On a phone
+  there is no `Escape`, so the modal then cannot be dismissed at all and
+  every control behind it stops responding: reported as "none of it
+  works" rather than as one dead button. The runtime now binds
+  `[data-cm-close]` alongside the `[data-cm-open]` it already bound - no
+  id means the button's own `<dialog>` through `closest`, an id means a
+  dialog it is not inside, and `value=` is carried onto `returnValue` so
+  the answer reads as it does from the form path. The same idiom as the
+  toast's `data-cm-toast-close`.
+- The README's own dialog example shipped those dead foot buttons; it
+  carries the attribute now, and `tests/run.mjs` fails if the binding
+  leaves the runtime or the example loses it again.
+
 ## Unreleased — header geometry: 900px at desktop is the rail, not a blown-up bar
 
 - **A height-only probe reports the desktop header as 900px tall and

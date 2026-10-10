@@ -752,6 +752,36 @@
 					else if (typeof dlg.show === 'function') dlg.show();
 				});
 			});
+		/* The other half of the same contract. A <form method="dialog">
+		   closes the dialog and that still works untouched - but the place
+		   this component gives you for actions, .cm-dialog__foot, is OUTSIDE
+		   that form, so a plain <button> in it submits nothing and closes
+		   nothing: dead, with no error, on every platform. On a phone there
+		   is no Escape either, so the modal simply cannot be dismissed and
+		   every control behind it stops responding - which a reader reports
+		   as "none of it works" rather than as one dead button. The toast
+		   already has data-cm-toast-close for exactly this reason; a dialog
+		   needs the symmetric attribute.
+
+		   value= is carried onto returnValue, so a consumer reads the same
+		   answer it would from the form path, and a dialog reached by id
+		   (data-cm-close="id") works from a trigger outside it. */
+		(root || document)
+			.querySelectorAll('[data-cm-close]')
+			.forEach(function (btn) {
+				if (btn.dataset.cmDialogCloseBound) return;
+				btn.dataset.cmDialogCloseBound = '1';
+				btn.addEventListener('click', function () {
+					var id = btn.getAttribute('data-cm-close');
+					var dlg = id
+						? document.getElementById(id)
+						: (btn.closest ? btn.closest('dialog') : null);
+					if (!dlg || typeof dlg.close !== 'function') return;
+					var v = btn.getAttribute('value');
+					if (v !== null && 'returnValue' in dlg) dlg.returnValue = v;
+					if (dlg.open) dlg.close();
+				});
+			});
 	}
 
 	/* ---------- toasts ----------

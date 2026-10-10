@@ -711,7 +711,10 @@ the one part CSS cannot express, which is the keyboard contract.
 **`.cm-dialog`** — a real `<dialog>`, opened with `showModal()`. The
 focus trap, `Escape`, the top layer and the inertness of the page behind
 are the browser's job; a hand-rolled modal gets every one of them
-subtly wrong. Any `<form method="dialog">` inside closes it.
+subtly wrong. Any `<form method="dialog">` inside closes it. A button
+that is **not** inside such a form — which is every button in
+`.cm-dialog__foot`, since the foot is a sibling of the head — closes the
+dialog with `data-cm-close`.
 
 ```html
 <button class="cm-btn" data-cm-open="confirm">open</button>
@@ -723,12 +726,21 @@ subtly wrong. Any `<form method="dialog">` inside closes it.
   </form>
   <div class="cm-dialog__body"><p>…</p></div>
   <div class="cm-dialog__foot">
-    <button class="cm-btn" value="cancel">cancel</button>
-    <button class="cm-btn cm-btn--primary" value="confirm">confirm</button>
+    <button class="cm-btn" value="cancel" data-cm-close>cancel</button>
+    <button class="cm-btn cm-btn--primary" value="confirm" data-cm-close>confirm</button>
   </div>
 </dialog>
 ```
 
+- **A bare `<button>` closes nothing.** Outside a `method="dialog"` form
+  it submits nothing and does nothing, silently, on every platform — and
+  a phone has no `Escape`, so an undismissable modal then blocks every
+  control behind it. `data-cm-close` is the attribute for that button;
+  it takes the closest enclosing `<dialog>`, or a dialog id
+  (`data-cm-close="other"`) when the trigger sits outside. Its `value`
+  becomes `dialog.returnValue`, so the answer reads the same as it would
+  from the form path. This is the same idiom as the toast's
+  `data-cm-toast-close`.
 - `::backdrop` paints `--scrim`, which is a **token with a different
   value per theme**. The same alpha over near-black and over near-white
   does not dim the page by the same amount, so one literal is wrong in

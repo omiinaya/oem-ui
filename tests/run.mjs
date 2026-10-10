@@ -5190,6 +5190,27 @@ check('cm-dialog: the trigger calls showModal, not show', () => {
 	assert(/data-cm-open="dlg-demo"/.test(open), 'no trigger is wired to the demo dialog');
 });
 
+check('cm-dialog: a button outside the head form can close it', () => {
+	// The foot is a SIBLING of the <form method="dialog">, so a bare
+	// <button> in it submits nothing and closes nothing - silently, on
+	// every platform. On a phone there is no Escape either, so a modal
+	// opened that way cannot be dismissed at all and every control
+	// behind it stops responding: the reader reports "none of it works"
+	// rather than one dead button. The trigger needed a binding for the
+	// same reason; the closer does too.
+	assert(/\[data-cm-close\]/.test(rt),
+		'the runtime does not bind [data-cm-close], so the foot is dead');
+	// no id -> the button's own dialog; id -> a dialog it is not inside.
+	assert(/closest\('dialog'\)/.test(rt),
+		'a closer must fall back to its own enclosing <dialog>');
+	assert(/returnValue/.test(rt),
+		'value= must reach dialog.returnValue, as it does on the form path');
+	// The documented example must not ship the dead button it warns about.
+	const readme = read('README.md');
+	assert(/value="cancel"\s+data-cm-close/.test(readme),
+		'the README example has a foot button with no way to close');
+});
+
 check('cm-dialog: the scrim is a token, and the two themes give it different values', () => {
 	// The same alpha over near-black and over near-white hides the page
 	// by very different amounts, so a single literal is wrong in one of
