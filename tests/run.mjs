@@ -13328,6 +13328,87 @@ check("the input group collapses to one hairline", () => {
 		assert(/overflow-x: auto;/.test(css),
 			'below ~350px the grid scrolls inside the card, never the page');
 	});
+
+	// shadcn's Calendar documents four modes (single | multiple | range |
+	// default). `multiple` is the one this library claimed and did not
+	// have: any mode that was not `single` fell through to the RANGE
+	// branch, where `sel` is empty and nothing could ever read as picked.
+	// Proven by tests/verify-calendar-multiple.py (WebKit, 390x844) and
+	// tests/mutate-calendar-multiple.py (10 mutants, killed by this suite
+	// OR that harness).
+	check('shadcn-parity: calendar carries shadcn\'s multiple mode', () => {
+		const js = read('src/js/cli-mono.js');
+		const page = read('src/pages/index.astro');
+		const pick = js.slice(js.indexOf('function calPick'), js.indexOf('function onCalClick'));
+		const render = js.slice(js.indexOf('function calRender'), js.indexOf('function calFocus'));
+		const cells = render.slice(render.indexOf('var cells = []'),
+			render.indexOf('body.innerHTML'));
+
+		// The dispatch must be in the PICKER. A whole-file grep for the
+		// mode string passes on the Escape line alone, so a mutant that
+		// deletes the pick branch survives it - assert on the slice.
+		assert(/calMode\(cal\) === 'multiple'/.test(pick),
+			'multiple must be dispatched on where a pick is handled');
+		// A pick TOGGLES. Growing an array without the removal is the
+		// half-implementation that looks right on the first click.
+		assert(/set\.push\(iso\)/.test(pick) && /set\.splice\(at, 1\)/.test(pick),
+			'a multiple pick must add AND remove - it is a toggle');
+		// The set lives on the ATTRIBUTE, so a month step cannot drop it:
+		// the cells are rebuilt wholesale, the attribute is not.
+		assert(/calSet\(cal, set\.sort\(\)\)/.test(pick),
+			'the set must be written back to the attribute the renderer reads');
+		// The set must be read from the ATTRIBUTE into the cell builder,
+		// and never written onto a cell: the cells are rebuilt every
+		// render, so a cell-borne selection is one month step from gone.
+		assert(/picked\.indexOf\(day\) !== -1/.test(cells),
+			'the cell builder must derive its selection from the attribute');
+		// And the SET it derives from must still be populated: a mutant
+		// that empties `picked` leaves the correct predicate above intact,
+		// reading an array that is always empty.
+		assert(/var picked = mode === 'multiple' \? calList\(cal\) : \[\];/.test(render),
+			'the set must be read into the renderer, not defaulted to empty');
+		assert(!/data-cm-cal-selected/.test(cells),
+			'the renderer must never WRITE the set onto day cells');
+		assert(!/setAttribute\('data-(?!cm-day)/.test(cells),
+			'a cell carries no state of its own beyond its day');
+
+		// The RANGE branch must stay reachable: `mode !== 'single'` as the
+		// range test is exactly the defect, because it swallowed multiple.
+		assert(/mode === 'range'/.test(render),
+			'range must be asked for by name, not as "not single"');
+		assert(!/mode === 'single'\s*\n?\s*\?\s*day === sel/.test(render),
+			'the old not-single-means-range test must be gone');
+		// `sel` is the whole set string in multiple mode, and the roving
+		// tab stop is `active === day` - left alone, every day failed to
+		// match and the grid lost its tab stop.
+		assert(/mode === 'multiple' \? null : cal\.getAttribute\('data-cm-cal-selected'\)/.test(render),
+			'`sel` must be nulled in multiple mode so the tab stop resolves');
+
+		// Escape clears it, the same verb the other two modes answer to.
+		const key = js.slice(js.indexOf('function onCalKey'), js.indexOf('function calClearPreview'));
+		assert(/calMode\(cal\) === 'multiple'\) calSet\(cal, \[\]\)/.test(key),
+			'Escape must clear the whole set in multiple mode');
+
+		// The two questions that used to be asked as "not range" now name
+		// the mode that actually owns the behaviour.
+		assert(/if \(dp && calMode\(cal\) === 'single'\)/.test(js),
+			'only single has one value to write into a datepicker field');
+		assert(js.includes("if (!day || calMode(cal) !== 'range') return;"),
+			'the range hover preview must not run in multiple mode');
+
+		// And it is DEMONSTRATED: a class the showcase never renders is
+		// dead surface the next reader cannot trust.
+		assert(/id="cal-multiple"[^>]*data-cm-cal-mode="multiple"/.test(page),
+			'the showcase must ship a multiple specimen');
+		assert(/data-cm-cal-selected="2026-10-05 2026-10-27"/.test(page),
+			'the specimen must pin a SET on the attribute');
+		const spec = page.slice(page.indexOf('id="cal-multiple"'),
+			page.indexOf('id="cal-range"'));
+		assert((spec.match(/aria-selected="true"/g) || []).length === 2,
+			'exactly the two picked days read as selected');
+		assert((spec.match(/tabindex="0"/g) || []).length === 1,
+			'a set still has ONE tab stop (the roving rule, over three modes)');
+	});
 }
 
 /* --- shadcn parity: dropdown depth --- */

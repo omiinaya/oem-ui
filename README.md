@@ -1781,6 +1781,30 @@ the markup's initial value are one fact stated three ways.
 </div>
 ```
 
+**Three modes, one attribute.** `data-cm-cal-mode` is `single` (the
+default), `range`, or `multiple` — and `data-cm-cal-selected` is "what is
+selected" in every one of them. In `single` it is one day; in `range` it is
+unused (the pair reads `data-cm-cal-start` / `-end`); in `multiple` it is a
+space-separated **set**, and a pick toggles its own day:
+
+```html
+<div class="cm-cal" data-cm-cal data-cm-cal-mode="multiple"
+     data-cm-cal-month="2026-10" data-cm-cal-selected="2026-10-05 2026-10-27">
+```
+
+The set lives on the **attribute**, never on the day cells, and that is
+load-bearing rather than tidiness: `calRender` rebuilds `tbody` wholesale on
+every pick and on every month step, so a selection stamped onto a cell is one
+`PageDown` from gone. The same reason the roving tab stop is re-derived from
+the attribute each render — a set still has exactly ONE tab stop, placed on
+its earliest picked day in the visible month. A multiple pick is a toggle
+(a second press removes the day), asks for no "first then second" gesture,
+and `Escape` clears the whole set the way it clears the single selection.
+
+`range` is asked for **by name** in the renderer, not as "not single": the
+old `mode === 'single' ? … : (range)` test is exactly what made a third mode
+impossible, since it silently sent `multiple` down the range branch.
+
 A month is a **table**: rows and columns are how the eye reads one and how
 a screen reader announces one, and every day is a real `<button>` inside a
 `role="gridcell"`, so focus and activation are the platform's for free.
@@ -2548,7 +2572,8 @@ stated reason.
 **Implemented (57):** Accordion, Alert, Alert Dialog (a confirming
 Dialog), Aspect Ratio, Attachment, Avatar, Badge, Bubble,
 Breadcrumb, Button (including
-destructive, outline and joined), Button Group, Calendar, Card,
+destructive, outline and joined), Button Group, Calendar (single, range and
+multiple in one component), Card,
 Carousel, Chart (six hand-rolled SVG types - see *Charts* above; no
 Recharts, no runtime dependency), Checkbox, Collapsible, Combobox, Command (palette), Context
 Menu, Data Table (filter, pagination, column visibility, row selection), Date Picker, Dialog, Drawer, Dropdown

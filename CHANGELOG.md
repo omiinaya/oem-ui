@@ -1,6 +1,33 @@
 # Changelog
 
-## Unreleased - batch 28: the menubar carries the depth the panel pattern already had
+## Unreleased - batch 29: calendar gains a third mode (multiple), parity-correct
+
+- **Calendar: `mode="multiple"`.** The one missing mode documented by
+  shadcn/rdp is now shipped. Selection is still round-tripped through the
+  single `data-cm-cal-selected` attribute — a space-separated set when in
+  multiple mode — so the truth lives on the attribute, never on the day cells.
+  `calRender` rebuilds the grid wholesale, which is precisely why the set must
+  live there: a selection stamped onto cells would be gone after a month step
+  or a re-render. The set is normalised on read (whitespace, duplicates) and
+  written back sorted. A pick is a toggle (remove on a second press), which
+  is the expected behaviour for an independent set rather than a pair.
+- **Roving keeps exactly one tab stop.** In multiple mode `sel` is nulled and
+  the fallback chain takes `picked[0]` so that `active === day` can still
+  place a tab stop for the earliest picked day in the visible month. Escape
+  clears the whole set, the same verb used by the other modes.
+- **Range is asked for by name.** The renderer, datepicker glue and the range
+  preview all test for `calMode(cal) === 'range'` rather than
+  `!== 'single'` — the latter was the defect that made a third mode
+  impossible, because it silently sent `multiple` down the range branch.
+- **Showcase + documentation + contracts.** Added a `cal-multiple` specimen
+  (two picked days, one tab stop) to the forms section, documented the three
+  modes in README, added the `shadcn-parity: calendar` multiple-mode contract
+  check to `tests/run.mjs`, and wrote `tests/verify-calendar-multiple.py`
+  (a WebKit behavioural proof) and `tests/mutate-calendar-multiple.py` (10
+  mutants, kill criterion is `npm test` AND the WebKit harness - two oracles
+  because the invariant "the attribute set survives a month step away and
+  back" is a behaviour, not a string shape). The first run's survivors were
+  text-grep artifacts retargeted to the actual runtime slices.
 
 - **One tab stop, not one per word.** `.cm-menubar` now roves: the bar
   enters the page as a single tab stop and Left/Right/Home/End walk the

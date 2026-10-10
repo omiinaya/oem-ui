@@ -2640,16 +2640,48 @@
 	}
 	function calMode(cal) { return cal.getAttribute('data-cm-cal-mode') || 'single'; }
 
+	/* Multiple mode's state is a SET, and it is round-tripped through ONE
+	   space-separated attribute. The alternative - a data-cm-cal-selected
+	   stamped on each chosen day - puts the truth in the RENDERED grid,
+	   which calRender rebuilds wholesale on every pick and on every month
+	   step, so paging away and back would silently drop the selection.
+	   The invariant this buys: after calRender the markup and the
+	   attribute agree, the same way single/range already hold theirs.
+	   Normalised on READ (whitespace, duplicates) so a hand-authored
+	   specimen and a runtime write are indistinguishable to the picker. */
+	function calList(cal) {
+		var raw = (cal.getAttribute('data-cm-cal-selected') || '').split(/\s+/).filter(Boolean);
+		var out = [];
+		raw.forEach(function (d) { if (out.indexOf(d) === -1) out.push(d); });
+		return out.sort();
+	}
+	function calSet(cal, list) {
+		if (list.length) cal.setAttribute('data-cm-cal-selected', list.join(' '));
+		else cal.removeAttribute('data-cm-cal-selected');
+	}
+
 	function calRender(cal, focusIso) {
 		var month = cal.getAttribute('data-cm-cal-month');
 		if (!month) return;
 		var mode = calMode(cal);
-		var sel = cal.getAttribute('data-cm-cal-selected');
+		// In multiple mode `sel` would be the WHOLE "2026-10-05 2026-10-27"
+		// string, and the roving tab stop is `active === day` - nothing
+		// would ever match, so the grid would lose its tab stop entirely.
+		// Null it and let picked[0] carry the stop instead.
+		var sel = mode === 'multiple' ? null : cal.getAttribute('data-cm-cal-selected');
 		var start = cal.getAttribute('data-cm-cal-start');
 		var end = cal.getAttribute('data-cm-cal-end');
 		var today = calIso(calToday());
+		// multiple keeps its set on the SAME attribute single uses - as a
+		// space-separated list - so `data-cm-cal-selected` means "what is
+		// selected" in every mode and nothing new has to be documented.
+		var picked = mode === 'multiple' ? calList(cal) : [];
 		var off = calDisabled(cal);
-		var active = focusIso || sel || start || today;
+		// Only ONE of sel/picked is ever populated, so the fallback chain
+		// stays a single expression: the roving tab stop lands on this
+		// month's first picked day when there is one, exactly as it lands
+		// on the single selection or the range start in the other modes.
+		var active = focusIso || sel || picked[0] || start || today;
 		if (active.slice(0, 7) !== month) active = month + '-01';
 		// Cells first, rows second: a </tr> opened inside a running
 		// string and stripped again with a regex is a shape nobody can
@@ -2661,13 +2693,17 @@
 			if (day.slice(0, 7) !== month) attrs += ' data-outside';
 			if (off.indexOf(day) !== -1) attrs += ' aria-disabled="true"';
 			if (day === today) attrs += ' aria-current="date"';
-			var isSel = mode === 'single'
-				? day === sel
-				: (day === start || day === end);
+			// `mode === 'single'` is the wrong question once there are
+			// three modes: it sent multiple down the RANGE branch, where
+			// `sel` is empty and nothing could ever appear selected. Ask
+			// for range instead - the mode that actually reads start/end.
+			var isSel = mode === 'range'
+				? (day === start || day === end)
+				: (mode === 'multiple' ? picked.indexOf(day) !== -1 : day === sel);
 			if (isSel) attrs += ' aria-selected="true"';
 			if (start && end && start < day && day < end) attrs += ' data-in-range="true"';
 			cells.push('<td role="gridcell"><button type="button" class="cm-cal__day"' +
-				attrs + ' tabindex="' + (day === active ? 0 : -1) + '">' +
+				attrs + ' tabindex="' + (active === day ? 0 : -1) + '">' +
 				+day.slice(8) + '</button></td>');
 		});
 		var html = '';
@@ -2698,6 +2734,16 @@
 			} else {
 				cal.setAttribute('data-cm-cal-selected', iso);
 			}
+		} else if (calMode(cal) === 'multiple') {
+			// A TOGGLE, like single: a second press on a chosen day
+			// removes it. rdp's multiple mode is a set of independent
+			// days, not a progression, so there is no "first/second"
+			// gesture to re-anchor the way range has.
+			var set = calList(cal);
+			var at = set.indexOf(iso);
+			if (at === -1) set.push(iso);
+			else set.splice(at, 1);
+			calSet(cal, set.sort());
 		} else {
 			var start = cal.getAttribute('data-cm-cal-start');
 			var end = cal.getAttribute('data-cm-cal-end');
@@ -2726,7 +2772,7 @@
 		// keeps the panel open. Range mode is left alone: it has no single
 		// selected day to write.
 		var dp = cal.closest('.cm-datepicker');
-		if (dp && cal.getAttribute('data-cm-cal-mode') !== 'range') {
+		if (dp && calMode(cal) === 'single') {
 			var dpInput = dp.querySelector('input');
 			if (dpInput) dpInput.value = cal.getAttribute('data-cm-cal-selected') || '';
 			var dpPanel = dp.querySelector('[popover]');
@@ -2772,6 +2818,7 @@
 		else if (e.key === 'Escape') {
 			e.preventDefault();
 			if (calMode(cal) === 'single') cal.removeAttribute('data-cm-cal-selected');
+			else if (calMode(cal) === 'multiple') calSet(cal, []);
 			else {
 				cal.removeAttribute('data-cm-cal-start');
 				cal.removeAttribute('data-cm-cal-end');
@@ -2802,7 +2849,7 @@
 		if (!cal) return;
 		var day = e.target.closest && e.target.closest('.cm-cal__day');
 		calClearPreview(cal);
-		if (!day || calMode(cal) === 'single') return;
+		if (!day || calMode(cal) !== 'range') return;
 		var start = cal.getAttribute('data-cm-cal-start');
 		if (!start || cal.getAttribute('data-cm-cal-end')) return;
 		var iso = day.getAttribute('data-cm-day');
