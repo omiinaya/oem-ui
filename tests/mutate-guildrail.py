@@ -220,14 +220,6 @@ MUTANTS = [
      '<span class="cm-guildrail__badges" aria-hidden="true">99+</span>',
      'suite', False),
     # ---- live: measured in WebKit ---------------------------------------
-    ('l01 the rail loses its bound', 'src/styles/components.css',
-     'min-block-size: 0;\n\tmax-block-size: 100%;',
-     'min-block-size: 0;',
-     'live', True),
-    ('l02 the rail stops scrolling', 'src/styles/components.css',
-     'overflow-y: auto;\n\toverflow-x: hidden;\n\tpadding-inline-end: var(--guildrail-bleed);',
-     'overflow-x: hidden;\n\tpadding-inline-end: var(--guildrail-bleed);',
-     'live', True),
     ('l03 the bleed is not paid for', 'src/styles/components.css',
      'margin-inline-end: calc(0px - var(--guildrail-bleed));',
      'margin-inline-end: 0;',
@@ -285,7 +277,8 @@ MUTANTS = [
 #   scroll (s02). `overflow-y: auto` is redundant the moment
 #     `overflow-x: hidden` is stated: CSS computes a `visible` axis to
 #     `auto` when the other axis is not `visible`. Measured: the mutant's
-#     computed overflow-y is still `auto` and the rail still scrolls.
+#     computed overflow-y is still `auto` and the rail still scrolls, so
+#     the live harness cannot separate the two. s02 kills it.
 #
 #   scrollbar (s06). `.cm-guildrail::-webkit-scrollbar { display: block }`
 #     changes nothing. Measured in WebKit: `offsetWidth - clientWidth` is 0

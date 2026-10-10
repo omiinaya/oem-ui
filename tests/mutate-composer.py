@@ -50,6 +50,8 @@ NEW_LIVE = [
     'composer: focus-within moves the BAR\'s border, not just the field\'s outline',
     'composer: [hidden] really hides the reply strip',
     'composer: un-hiding the strip puts it ABOVE the bar, and the bar moves down',
+    'composer: the reply strip lays its text and cancel in a ROW',
+    'composer: a long reply name ellipsises instead of ejecting the cancel',
     'phone: the composer field is one row grown to at least the floor',
     'phone: prefers-reduced-motion kills the rail\'s and the composer\'s transitions',
 ]
@@ -191,10 +193,6 @@ MUTANTS = [
      'background: transparent;\n\tresize: none;',
      'resize: none;',
      'live', True),
-    ('l05 the field loses its specificity tie', 'src/styles/components.css',
-     '.cm-composer__bar > textarea.cm-composer__input {',
-     '.cm-composer__bar .cm-composer__input {',
-     'live', True),
     ('l06 the reply strip ignores hidden', 'src/styles/components.css',
      '.cm-composer__reply[hidden] { display: none; }',
      '.cm-composer__reply[hidden] { display: flex; }',
@@ -203,11 +201,29 @@ MUTANTS = [
      '.cm-composer__reply {\n\tdisplay: flex;\n\talign-items: center;',
      '.cm-composer__reply {\n\tdisplay: block;',
      'live', True),
-    ('l08 the composer leaves the reduced-motion guard', 'src/styles/components.css',
-     '\t.cm-composer__bar,\n\t.cm-composer__attach,\n\t.cm-composer__send { transition: none; }',
-     '\t.cm-composer__bar { transition: none; }',
-     'live', True),
 ]
+
+# ---- proven-equivalent mutations, deliberately NOT in the list -------------
+#
+# Both were run against the live harness, SURVIVED, and were then MEASURED
+# in WebKit with the mutant applied and the page rebuilt. Neither can alter
+# the rendered box, so no correct assertion could catch them; each is still
+# covered at the source layer by the sNN named.
+#
+#   field specificity tie (s08-adjacent). Rewriting the selector as
+#     `.cm-composer__bar .cm-composer__input` drops it to (0,2,0) and lets
+#     base.css's (0,2,1) width rule through - but the field's own
+#     `flex: 1 1 auto` then resolves its basis from that width and shrinks
+#     it back to the leftover space. Measured: bar 672px, field 530px,
+#     tools 68px, and `inputOverflowsBar` false, IDENTICAL to pristine.
+#     The tie is defensive for a future flex-free consumer; the source
+#     check asserts the selector's exact form.
+#
+#   reduced motion (the guard). Deleting the bar from the library's reduce
+#     guard leaves its transition-duration at 0.00001s anyway: base.css's
+#     `@media (prefers-reduced-motion: reduce) { *, *::before, *::after
+#     { transition-duration: 0.01ms !important } }` owns it outright.
+#     Measured after removing the selector. The source check kills it.
 
 
 def run(cmd, timeout):

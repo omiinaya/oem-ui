@@ -80,10 +80,13 @@ of the three it names (`.cm-msglist` is not in this batch).
   carries; a badge at `0.75rem` is 12px only by accident of the root
   size, and the floor is the point. Fixed before the suite went green.
 
-Proven by 16 `shadcn-parity: guildrail + composer` checks in
-`tests/run.mjs`, the WebKit harness `tests/verify-guildrail-composer.py`
-(41 checks, 402×667 and desktop) and 26 mutation patterns across
-`tests/mutate-guildrail.py` and `tests/mutate-composer.py`.
+Proven by 22 `batch 29:` checks in `tests/run.mjs`, the WebKit harness
+`tests/verify-guildrail-composer.py` (42 checks, desktop 1280×900 and
+402×667) and 67 mutation patterns across `tests/mutate-guildrail.py`
+(31 source + 10 live) and `tests/mutate-composer.py` (28 source + 8
+live). Five further mutations were measured positively EQUIVALENT to the
+pristine tree and are recorded with their measurements in the harness
+rather than kept as mutants that nothing can kill.
 
 ## Unreleased - batch 28: the menubar carries the depth the panel pattern already had
 

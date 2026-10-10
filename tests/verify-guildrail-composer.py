@@ -671,9 +671,18 @@ def main():
                 const barTopAfter = box.getBoundingClientRect().top;
                 const close = strip.querySelector('.cm-composer__replyclose');
                 const cr = close.getBoundingClientRect();
+                const text = strip.querySelector('.cm-composer__replytext');
+                const tr = text.getBoundingClientRect();
+                const cs = getComputedStyle(strip);
                 const out = { hiddenH, shownH, barMoved: barTopAfter - barTopBefore,
                               closeW: cr.width, closeH: cr.height,
-                              display: getComputedStyle(strip).display,
+                              display: cs.display,
+                              flexDirection: cs.flexDirection,
+                              // The strip is a ROW: the close button sits
+                              // BESIDE the text, not under it.
+                              closeRightOfText: cr.left >= tr.right - 1,
+                              sameRow: Math.abs((cr.top + cr.bottom) / 2
+                                                - (tr.top + tr.bottom) / 2) < 2,
                               aboveBar: strip.getBoundingClientRect().bottom
                                         <= box.getBoundingClientRect().top + 1 };
                 strip.hidden = true;
@@ -687,6 +696,58 @@ def main():
                   and reply["barMoved"] > reply["shownH"] - 1,
                   f"strip {reply['shownH']:.0f}px tall and above the bar: {reply['aboveBar']}; "
                   f"the bar started {reply['barMoved']:.0f}px lower")
+            # A strip whose text and close button STACK is taller, still
+            # above the bar, and still moves it - so every assertion above
+            # passes while the strip renders as a column. Measured: with
+            # `flex-direction: column` the button drops below the text and
+            # CONTINUES to satisfy `shownH > 0` and `aboveBar`. The row is
+            # the contract (text left, cancel right), so assert the
+            # geometry of the two children, not just the strip's box.
+            check("composer: the reply strip lays its text and cancel in a ROW",
+                  reply["flexDirection"] == "row" and reply["closeRightOfText"]
+                  and reply["sameRow"],
+                  f"direction={reply['flexDirection']} cancel right of text="
+                  f"{reply['closeRightOfText']} on the same line={reply['sameRow']}")
+            # The row must SURVIVE a long name. Measured: with `display:
+            # block` the short specimen text still lays out on one line, so
+            # the row assertion above passes - but the text span is then
+            # an INLINE box, and `overflow: hidden` does not clip an inline
+            # box, so a long reply name pushes the cancel button out of the
+            # strip instead of ellipsising. The row is therefore only
+            # proven against text long enough to bind.
+            long_name = p.evaluate("""() => {
+                const strip = document.querySelector('#composer .cm-composer__reply');
+                const text = strip.querySelector('.cm-composer__replytext');
+                const close = strip.querySelector('.cm-composer__replyclose');
+                const prev = text.textContent;
+                strip.hidden = false;
+                text.textContent = 'Replying to ' + 'Bartholomew'.repeat(12);
+                const sr = strip.getBoundingClientRect();
+                const cr = close.getBoundingClientRect();
+                const tr = text.getBoundingClientRect();
+                const cs = getComputedStyle(text);
+                const out = {
+                    // The cancel stays INSIDE the strip's own box...
+                    closeInside: cr.right <= sr.right + 1 && cr.left >= sr.left - 1,
+                    // ...on the same line as the text...
+                    sameRow: Math.abs((cr.top + cr.bottom) / 2
+                                      - (tr.top + tr.bottom) / 2) < 2,
+                    // ...and the text is clipped rather than allowed to
+                    // run under it.
+                    textClipped: cs.overflow === 'hidden'
+                                 && tr.right <= cr.left + 1,
+                    stripRows: Math.round(sr.height / Math.max(tr.height, 1)),
+                };
+                text.textContent = prev;
+                strip.hidden = true;
+                return out;
+            }""")
+            print("reply strip (long):", long_name)
+            check("composer: a long reply name ellipsises instead of ejecting the cancel",
+                  long_name["closeInside"] and long_name["sameRow"]
+                  and long_name["textClipped"],
+                  f"cancel inside the strip={long_name['closeInside']} on the same "
+                  f"line={long_name['sameRow']} text clipped={long_name['textClipped']}")
 
             p.evaluate('''() => {
                 const sec = document.querySelector('#composer');
