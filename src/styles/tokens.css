@@ -118,7 +118,23 @@
 	   padding box is widened by hand instead. It must be at LEAST the
 	   tip's cap, `min(18rem, 52vw)`, or the tip is cut in half. */
 	--guildrail-w: 4.5rem;
-	--guildrail-bleed: 18rem;
+	/* The bleed is stated as the tip's cap, `min(18rem, 52vw)`, which
+	   keeps that documented promise - it must be at LEAST the cap or the
+	   tip is cut in half - at every width instead of only wide ones:
+	   18rem on a desktop, where `min` picks it because 52vw is larger,
+	   so nothing changes there.
+
+	   MEASURED, and the reason this is not cosmetic: the rail's box is
+	   `--guildrail-w + --guildrail-bleed`, so a fixed 18rem made that
+	   box 72 + 288 = 360px. At a 320px viewport it ran to x=401, and
+	   `overflow-x: hidden` clips the rail's CONTENT only - a clipping
+	   element's own border box still counts toward the scrollport - so
+	   the page scrolled sideways to 401px on a 320px phone. With the
+	   cap as the bleed the box is 72 + 166 = 238px. Layout is
+	   unchanged: the grid column still measures `--guildrail-w`,
+	   because `margin-inline-end` cancels the bleed exactly as before,
+	   and the padding is what made the content box 4.5rem. */
+	--guildrail-bleed: min(18rem, 52vw);
 
 	/* ---- measure (line length) ----------------------------------
 	   A width in `ch` against the monospace font, so a line's character

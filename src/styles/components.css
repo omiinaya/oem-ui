@@ -2230,6 +2230,23 @@ button.cm-row:hover { background: var(--bg-2); }
    0px). Without it this is a table whose header is never visible. */
 .cm-table-wrap {
 	overflow-x: auto;
+	/* POSITIONING CONTEXT, NOT DECORATION. Without it the wrapper is
+	   `static`, so `.cm-sr-only` inside a wide table - absolute, 1px,
+	   `!important` - takes the ROOT as its containing block and sits at
+	   its static position out at the far edge of the 496px row. The
+	   wrapper's `overflow-x: auto` clips normal content but cannot clip
+	   an absolutely positioned box whose containing block is outside it,
+	   so that 1px landed at x=465 and set
+	   `documentElement.scrollWidth` to 466 at a 320px viewport: the page
+	   scrolled sideways because of a 1px box made for screen readers.
+	   `clip`/`clip-path` on `.cm-sr-only` only affect painting, so
+	   nothing about the label itself could stop this. Measured both ways
+	   - `overflow-x: hidden` and `mask-image: none` changed nothing
+	   (docW stayed 466); `position: relative` dropped it to 401, the
+	   width the page is with the table hidden. Re-anchoring here puts
+	   every abs-pos descendant back inside the clip it was designed to
+	   scroll within. */
+	position: relative;
 	max-height: var(--table-max-h, 30rem);
 	border: 1px solid var(--line);
 	border-radius: var(--radius-sm);
@@ -7896,6 +7913,17 @@ input.cm-slider:disabled {
 	border-bottom: 1px solid var(--line-soft);
 	display: grid;
 	gap: var(--space-2);
+	/* `min-WIDTH`, not `min-inline-size`. A fieldset defaults to
+	   `min-inline-size: min-content` and, in WebKit, `min-inline-size: 0`
+	   does not override that default the way `min-width: 0` does - both
+	   were applied and measured on a 390 -> 320 resize, and only this one
+	   brought the page back to docW 320 (the other left 350). `overflow:
+	   hidden` is the second line of defence: it clips the caption however
+	   the legend chooses to measure it, so a WebKit that re-breaks this
+	   cannot take the whole page sideways again. See the note on
+	   `.cm-quiz__title` for the full measurement. */
+	min-width: 0;
+	overflow: hidden;
 }
 .cm-quiz__item[hidden] { display: none; }
 .cm-quiz__title {
@@ -7903,6 +7931,33 @@ input.cm-slider:disabled {
 	font-size: var(--text-md);
 	font-weight: 600;
 	color: var(--ink);
+	/* A `<legend>` is laid out as a fieldset caption, NOT as an ordinary
+	   block, and WebKit does not re-measure it when the viewport SHRINKS:
+	   load straight at 320px and it is correct (docW 320), but resize
+	   390 -> 320 and it keeps its stale 322px caption, running to x=350
+	   and re-opening the sideways scroll the table and guildrail fixes
+	   had already closed. Every fresh load is fine; only the descending
+	   resize reproduces it, which is why a load-time check would call
+	   this page healthy.
+
+	   Measured across four candidate fixes, applied as real CSS and then
+	   resized 390 -> 320:
+	     min-inline-size: 0 on the fieldset + display: block  -> 350 (still bad)
+	     min-width: 0 on the fieldset + display: block        -> 320 (works)
+	     min-inline-size: 0 + overflow: hidden on the field  -> 320 (works)
+	     the above plus max-width/overflow-wrap on the title -> 320 (works)
+
+	   The property that matters is `min-WIDTH`, not `min-INLINE-SIZE`:
+	   a fieldset defaults to `min-inline-size: min-content`, and
+	   `min-inline-size: 0` does not override that default in WebKit the
+	   way `min-width: 0` does. `overflow: hidden` is kept on the
+	   fieldset as the second line of defence - it clips the caption
+	   whatever the legend decides to measure, so a future WebKit that
+	   re-breaks this cannot take the page sideways again. The explicit
+	   `display: block` on the title matters for the same reason even
+	   though computed style ALREADY reports block: what WebKit reports
+	   and what it lays out with are not the same thing for a legend. */
+	display: block;
 }
 .cm-quiz__desc { margin: 0; font-size: var(--text-sm); color: var(--ink-dim); }
 .cm-quiz__choices { display: grid; gap: var(--space-1); }
