@@ -366,6 +366,86 @@ check('emits a FOUC guard snippet that only applies saved light', () => {
 	assert(attrs.every(([n]) => n === 'data-theme'), 'the guard may only touch data-theme');
 });
 
+check('a chart answers a degenerate config instead of drawing nonsense', () => {
+	// The eleven specimens on the showcase are the EASY case: twelve months,
+	// a max in the thousands, a series for every mark. A consumer's first
+	// chart is often none of those - one row, no series, every value zero,
+	// an axis with nothing above it - and the failure mode there is silent:
+	// the markup still renders and the numbers inside it are the string
+	// "NaN". So every case is rendered through the runtime and the numeric
+	// attributes, polygon points and path commands are parsed back out.
+	const ctx = { module: { exports: {} }, window: {} };
+	vm.runInNewContext(runtimeSrc, ctx);
+	const chartMarkup = ctx.module.exports.chartMarkup;
+	assert(typeof chartMarkup === 'function', 'chartMarkup must be on the exported api');
+	const cases = {
+		'empty data': { type: 'line', series: [{ key: 'a', label: 'A' }], data: [] },
+		'one row': { type: 'line', series: [{ key: 'a', label: 'A' }], data: [{ x: 'jan', a: 5 }] },
+		'no series': { type: 'line', series: [], data: [{ x: 'jan', a: 5 }] },
+		'all zero (line)': { type: 'line', series: [{ key: 'a', label: 'A' }], data: [{ x: 'jan', a: 0 }, { x: 'feb', a: 0 }] },
+		'all zero (pie)': { type: 'pie', series: [{ key: 'a', label: 'A' }], data: [{ x: 'jan', a: 0 }] },
+		'all zero (radar)': { type: 'radar', series: [{ key: 'a', label: 'A' }], data: [{ x: 'd', a: 0 }] },
+		'one dimension (radar)': { type: 'radar', series: [{ key: 'a', label: 'A' }], data: [{ x: 'only', a: 9 }] },
+		'text where a number belongs': { type: 'line', series: [{ key: 'a', label: 'A' }], data: [{ x: 'jan', a: 'abc' }] },
+		'grouped thousands as text': { type: 'line', series: [{ key: 'a', label: 'A' }], data: [{ x: 'jan', a: '1,860' }] },
+		'a seven-figure value': { type: 'bar', series: [{ key: 'a', label: 'A' }], data: [{ x: 'jan', a: 9999999 }] },
+	};
+	for (const [name, cfg] of Object.entries(cases)) {
+		let out;
+		try {
+			out = chartMarkup(cfg, 240);
+		} catch (e) {
+			assert(false, `${name} threw: ${e.message}`);
+		}
+		for (const token of ['NaN', 'Infinity', 'undefined']) {
+			assert(!out.includes(token), `${name} drew the literal string ${token}`);
+		}
+		const points = [...out.matchAll(/points="([^"]*)"/g)]
+			.flatMap((m) => m[1].split(/[\s,]+/).filter(Boolean));
+		assert(points.every((p) => Number.isFinite(Number(p))), `${name} drew a polygon point that is not a number`);
+		const pathNums = [...out.matchAll(/ d="([^"]*)"/g)]
+			.flatMap((m) => m[1].match(/-?\d*\.?\d+(?:e[-+]?\d+)?/g) || []);
+		assert(pathNums.every((p) => Number.isFinite(Number(p))), `${name} drew a path command that is not a number`);
+		// Reachability is a property of the component, not of the data:
+		assert(out.includes('role="img"') && out.includes('<title'), `${name} lost its accessible name`);
+		assert(out.includes('cm-chart__table') && out.includes('tabindex="0"'), `${name} lost its table or its tab stop`);
+	}
+});
+
+check('a chart of millions is labelled as a quantity, not as its own digits', () => {
+	// k stops being a label once the number is long enough to need it twice:
+	// a value of 9999999 printed as "10000000k". The assertion is on the
+	// RENDERED axis, so it fails if the formatter regresses to raw digits.
+	const ctx = { module: { exports: {} }, window: {} };
+	vm.runInNewContext(runtimeSrc, ctx);
+	const out = ctx.module.exports.chartMarkup(
+		{ type: 'bar', title: 'big', series: [{ key: 'a', label: 'A' }], data: [{ x: 'jan', a: 9999999 }] },
+		240,
+	);
+	const labels = [...out.matchAll(/>([^<>]*)<\/text>/g)].map((m) => m[1].trim()).filter(Boolean);
+	assert(labels.length > 0, 'the axis printed no labels at all');
+	const runs = labels.filter((l) => /\d{8,}/.test(l));
+	assert(runs.length === 0, `an axis label is a raw digit run: ${runs.join(', ')}`);
+	assert(labels.some((l) => /M$/.test(l)), `a seven-figure axis printed ${labels.join(', ')} with no million label`);
+});
+
+check('a label cannot break out of the markup it is written into', () => {
+	// Titles, series labels and x values all reach the markup as text, and
+	// the x value lands inside an attribute. A quote that is not escaped
+	// ends the attribute and everything after it becomes markup.
+	const hostile = 'a"b<c>&d';
+	const ctx = { module: { exports: {} }, window: {} };
+	vm.runInNewContext(runtimeSrc, ctx);
+	const out = ctx.module.exports.chartMarkup(
+		{ type: 'line', title: hostile, description: hostile, series: [{ key: 'a', label: hostile }], data: [{ x: hostile, a: 5 }] },
+		240,
+	);
+	assert(!/<c[ >]/.test(out), 'a label carrying a tag created an element');
+	assert(out.includes('&lt;c&gt;'), 'the angle brackets were not escaped');
+	assert(out.includes('&quot;b'), 'the quote was not escaped');
+	assert(out.includes('&amp;d'), 'the ampersand was not escaped');
+});
+
 check('a dropdown menu anchors to its trigger, and flips when it will not fit', () => {
 	// A `[popover]` lives in the TOP LAYER, whose containing block is the
 	// INITIAL CONTAINING BLOCK - never its `.cm-dropdown` parent. So the

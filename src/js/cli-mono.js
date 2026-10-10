@@ -4608,6 +4608,15 @@
 	   rounds 1,860 to "2k" is a chart that misreads its own axis. */
 	function chFmt(v) {
 		var n = chNum(v), a = n < 0 ? -n : n;
+		/* Beyond a million the k suffix stops being a readable label:
+		   a value of 1e21 printed as "1000000000000000000k", which is
+		   the raw number with two characters stapled on. M is the same
+		   ladder one rung up, so the axis keeps reading as a quantity
+		   rather than as its own digits. */
+		if (a >= 1e6) {
+			var m = Math.round(n / 1e5) / 10;
+			return (m % 1 === 0 ? m : m.toFixed(1)) + 'M';
+		}
 		if (a >= 1000) {
 			var k = Math.round(n / 100) / 10;
 			return (k % 1 === 0 ? k : k.toFixed(1)) + 'k';
@@ -4625,7 +4634,12 @@
 	function chExact(v) {
 		var n = chNum(v);
 		var neg = n < 0 ? '-' : '';
-		var s = String(Math.round(Math.abs(n) * 1000) / 1000);
+		var a = Math.abs(n);
+		/* String() hands back exponential notation past 1e21, and
+		   grouping a mantissa is how "1e+21" becomes a table cell
+		   reading "1e,+21". Past that magnitude the exact digits are
+		   not the point, so a fixed expansion keeps the cell a number. */
+		var s = a >= 1e21 ? a.toFixed(0) : String(Math.round(a * 1000) / 1000);
 		var parts = s.split('.');
 		parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 		return neg + parts.join('.');
@@ -4640,7 +4654,14 @@
 		var mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
 		var n = raw / mag;
 		var step = (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * mag;
-		return { max: Math.ceil(max / step) * step, step: step };
+		/* Math.ceil(max / step) * step is exact for a whole-number step
+		   and drifts for a fractional one: a max of 0.5 with a 0.2 step
+		   lands on 0.6000000000000001, and that string is what the axis
+		   max is then measured and printed against. Ceiling to a whole
+		   number of steps first and rounding the product keeps the same
+		   top tick without the float noise. */
+		var steps = Math.ceil(+(max / step).toFixed(6));
+		return { max: +(steps * step).toPrecision(12), step: step };
 	}
 	function chIdent(s) {
 		return String(s || 'k').toLowerCase().replace(/[^a-z0-9_-]/g, '') || 'k';
