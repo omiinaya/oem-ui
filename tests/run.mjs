@@ -15236,8 +15236,22 @@ console.log('\nshadcn-parity: guildrail + composer');
 			assert(/type="button"/.test(tag), `a rail item is not a real button: ${tag}`);
 			assert(/aria-label="[^"]+"/.test(tag), `a rail item has no aria-label: ${tag}`);
 		}
-		assert(/class="cm-guildrail__icon" aria-hidden="true"/.test(showcase),
-			'the monogram is exposed to the accessibility tree');
+		// EVERY monogram, not just the first one: one exposed glyph in a
+		// list of nine is a screen reader reading out a decoration.
+		const icons = [...showcase.matchAll(/<span class="cm-guildrail__icon"[^>]*>/g)].map((m) => m[0]);
+		assert(icons.length >= 4, 'no monograms in the showcase');
+		for (const t of icons) {
+			assert(/aria-hidden="true"/.test(t), `a monogram is exposed to the a11y tree: ${t}`);
+		}
+		// The separator is a hairline the RAIL owns, drawn as a background
+		// rather than a border so the 1px is the whole separator and not
+		// 1px plus the element's own box.
+		const sep = ruleBodies(block, '.cm-guildrail__sep').join('\n');
+		assert(sep, 'the rail never styles its separator');
+		assert(/background:\s*var\(--line\)/.test(sep) && !/border/.test(sep),
+			'the separator is a border, so its 1px is drawn on top of the element block');
+		assert(/block-size:\s*1px/.test(sep) && /inline-size:\s*var\(--tap\)/.test(sep),
+			'the separator is not a short --tap-wide hairline');
 		const tips = [...showcase.matchAll(/<span class="cm-tooltip__tip" role="tooltip">([^<]+)<\/span>/g)];
 		assert(tips.length >= items.length,
 			'not every rail item has a tooltip tip, and the tip copy must repeat the name');
