@@ -4043,7 +4043,7 @@ dialog.cm-dialog--spec:not([open]) {
 	}
 	/* Scroll anchoring: with a fixed rail the in-page anchors must clear it,
 	   and `--header-h` is the token the scroll-padding already reads. */
-	:root:has(.cm-header--rail) { --header-h: 0px; }
+	:root:has(.cm-header--rail) { --header-h: 0px !important; }
 }
 
 /* ============================================================
@@ -8614,7 +8614,7 @@ input.cm-slider:disabled {
 /* The <style> pass-through is a real element and gets display:block, or
    the inline box it defaults to adds a line of height under the chart
    on every engine that does not hide it. */
-.cm-chart__style { display: block; }
+.cm-chart__style { display: none; }
 
 /* The table is the chart's TEXT ALTERNATIVE, not a debug view, and it
    is the runtime's data source: the geometry is rebuilt from these
