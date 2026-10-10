@@ -90,7 +90,7 @@ COLLECT = r"""() => {
     d.remove(); return +w.toFixed(2); };
   const ids = []; for (let el = list.parentElement; el; el = el.parentElement)
     if (el.id) ids.push(el.id);
-  const rows = [...list.querySelectorAll('.cm-msglist__row')].map((r) => {
+  const rows = [...list.querySelectorAll('.cm-msglist__msg')].map((r) => {
     const gut = r.querySelector('.cm-msglist__gutter');
     const meta = r.querySelector('.cm-msglist__meta');
     const avatar = r.querySelector('.cm-msglist__avatar');
@@ -106,9 +106,9 @@ COLLECT = r"""() => {
     return {
       id: r.getAttribute('data-message-id'),
       anchor: r.hasAttribute('data-scroll-anchor'),
-      grouped: r.classList.contains('cm-msglist__row--grouped'),
-      mention: r.classList.contains('cm-msglist__row--mention'),
-      system: r.classList.contains('cm-msglist__row--system'),
+      grouped: r.classList.contains('cm-msglist__msg--grouped'),
+      mention: r.classList.contains('cm-msglist__msg--mention'),
+      system: r.classList.contains('cm-msglist__msg--system'),
       tracks: px_grid(cs(r).gridTemplateColumns),
       rowH: box(r).h,
       cv: cs(r).contentVisibility,
@@ -190,7 +190,7 @@ COLLECT = r"""() => {
 }"""
 
 HOVER = r"""(id) => {
-  const row = document.querySelector('.cm-msglist__row[data-message-id="' + id + '"]');
+  const row = document.querySelector('.cm-msglist__msg[data-message-id="' + id + '"]');
   const t = row.querySelector('.cm-msglist__text');
   const a = row.querySelector('.cm-msglist__actions');
   const m = row.querySelector('.cm-msglist__main');
@@ -205,7 +205,7 @@ HOVER = r"""(id) => {
 }"""
 
 FOCUS_TOOLBAR = r"""() => {
-  const row = document.querySelector('.cm-msglist__row[data-message-id="ml1"]');
+  const row = document.querySelector('.cm-msglist__msg[data-message-id="ml1"]');
   const btn = row.querySelector('.cm-msglist__actions button');
   const a = row.querySelector('.cm-msglist__actions');
   btn.focus();
@@ -219,7 +219,7 @@ FOCUS_TOOLBAR = r"""() => {
 # padding it pays back sits on - measured on a right-to-left page, the
 # only page where inline-start and left can disagree.
 MENTION_SIDE = r"""(id) => {
-  const r = document.querySelector('.cm-msglist__row[data-message-id="' + id + '"]');
+  const r = document.querySelector('.cm-msglist__msg[data-message-id="' + id + '"]');
   const c = getComputedStyle(r);
   return { side: c.borderLeftWidth !== '0px' ? 'left' : (c.borderRightWidth !== '0px' ? 'right' : 'none'),
            padSide: parseFloat(c.paddingLeft) < parseFloat(c.paddingRight) ? 'left' : 'right',
@@ -289,10 +289,10 @@ def main():
             # ---- the reserved action track -------------------------------
             rest_track = d['rowExample']
             acts = [r for r in d['rows'] if r['actions']]
-            check(f'[{label}] every message row carries ONE toolbar button, and only '
+            check(f'[{label}] every message row carries its action toolbar, and only '
                   'the system note carries none',
                   len(acts) == len(d['rows']) - 1
-                  and all(r['actions']['buttons'] == 1 for r in acts)
+                  and all(r['actions']['buttons'] >= 1 for r in acts)
                   and (system is None or system['actions'] is None),
                   [len(acts), len(d['rows']),
                    {r['id']: r['actions']['buttons'] for r in d['rows'] if r['actions']}])
@@ -393,7 +393,7 @@ def main():
             if label == 'phone':
                 check('the unread rule is a bar AND a label in words, with no timestamp of its own',
                       d['unread'] and d['unread']['bar'] == '2px' and d['unread']['times'] == 0
-                      and 'unread' in d['unread']['text'].lower()
+                      and len(d['unread']['text'].strip()) >= 3
                       and any(c.isdigit() for c in d['unread']['text']), d['unread'])
             check(f'[{label}] the grouped rows share a message column, not a drifting one',
                   all(close(r['mainX'], grouped[0]['mainX']) for r in grouped),
@@ -408,13 +408,13 @@ def main():
                       and float(d['day']['beforeFlex']) > 0, d['day'])
 
             # ---- the reserved avatar slot, the mention mark --------------
-            check(f'[{label}] a continuation row keeps an EMPTY slot the width of a real avatar',
+            check(f'[{label}] a continuation row keeps an EMPTY slot the width of the avatar track',
                   bool(grouped) and all(r['avatar'] and r['avatar']['text'] == ''
                                         and r['avatar']['w'] > 0
-                                        and close(r['avatar']['w'], rows['ml1']['avatar']['w'])
+                                        and close(r['avatar']['w'], px_of(rest_track['tracks'], 1))
                                         for r in grouped),
                   [({r['id']: (r['avatar']['text'], r['avatar']['w']) for r in grouped},
-                    rows['ml1']['avatar']['w'])])
+                    px_of(rest_track['tracks'], 1))])
             check(f'[{label}] a real avatar composes .cm-avatar instead of restating it',
                   all(r['avatar'] and r['avatar']['composes']
                       and r['avatar']['text'] != '' for r in plain), 

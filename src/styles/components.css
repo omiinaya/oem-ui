@@ -7468,7 +7468,7 @@ input.cm-slider:disabled {
    action toolbar's, and it exists at rest: revealing a control by
    adding a column is what makes the text jump when the pointer
    arrives. Hiding the toolbar is opacity, never geometry. */
-.cm-msglist__row {
+.cm-msglist__msg {
 	display: grid;
 	grid-template-columns: var(--msglist-gutter) var(--msglist-avatar) minmax(0, 1fr) auto;
 	column-gap: var(--space-2);
@@ -7480,9 +7480,29 @@ input.cm-slider:disabled {
    inside it. --bg-3 is one step off the viewport's --panel in BOTH
    themes: --bg-2 measured 1.008:1 against --panel, which is a hover
    state nobody can see. */
-.cm-msglist__row:hover,
-.cm-msglist__row:focus-within {
+.cm-msglist__msg:hover,
+.cm-msglist__msg:focus-within {
 	background: var(--bg-3);
+}
+/* The gutter's time. The contract splits it in two names because the
+   two rows carry it for different reasons and CSS must be able to
+   address them apart: --stamp is the meta line's copy on a first row,
+   --hoverstamp is the gutter's copy on a continuation row, which the
+   row only reveals when the pointer or the keyboard is on it. Sharing
+   one class would make "never both at once" unenforceable in CSS. */
+.cm-msglist__stamp,
+.cm-msglist__hoverstamp {
+	font-size: var(--text-micro);
+	color: var(--ink-faint);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+.cm-msglist__hoverstamp {
+	opacity: 0;
+}
+.cm-msglist__msg:hover .cm-msglist__hoverstamp,
+.cm-msglist__msg:focus-within .cm-msglist__hoverstamp {
+	opacity: 1;
 }
 /* The stamp column, right-aligned so the time reads as a margin note
    against the avatar it belongs to. */
@@ -7500,7 +7520,7 @@ input.cm-slider:disabled {
    so the column's geometry is identical either way; that is what lets
    a consumer author the gutter on every row and leave the decision
    to this one rule. */
-.cm-msglist__row:not(.cm-msglist__row--grouped) .cm-msglist__gutter {
+.cm-msglist__msg:not(.cm-msglist__msg--grouped) .cm-msglist__gutter {
 	visibility: hidden;
 }
 /* The avatar lands in the fixed second track, top-aligned with the
@@ -7530,12 +7550,6 @@ input.cm-slider:disabled {
 	color: var(--ink);
 	font-weight: 700;
 }
-.cm-msglist__msg {
-	display: flex;
-	flex-direction: column;
-	gap: var(--space-1);
-	min-width: 0;
-}
 .cm-msglist__text {
 	margin: 0;
 	color: var(--ink);
@@ -7553,8 +7567,8 @@ input.cm-slider:disabled {
 	opacity: 0;
 	pointer-events: none;
 }
-.cm-msglist__row:hover .cm-msglist__actions,
-.cm-msglist__row:focus-within .cm-msglist__actions {
+.cm-msglist__msg:hover .cm-msglist__actions,
+.cm-msglist__msg:focus-within .cm-msglist__actions {
 	opacity: 1;
 	pointer-events: auto;
 }
@@ -7610,6 +7624,9 @@ input.cm-slider:disabled {
 	text-transform: uppercase;
 	letter-spacing: 0.08em;
 }
+.cm-msglist__daylabel {
+	font-weight: 700;
+}
 .cm-msglist__day::before,
 .cm-msglist__day::after {
 	content: "";
@@ -7631,32 +7648,35 @@ input.cm-slider:disabled {
 	text-transform: uppercase;
 	letter-spacing: 0.08em;
 }
+.cm-msglist__unreadlabel {
+	letter-spacing: inherit;
+}
 /* A mention is a mark AND a tint, and the mark comes first: a bar on
    the inline-start edge (logical, so RTL is handed the same rule)
    with the width it eats handed back as padding, so the message
    column starts where it does in every other row. */
-.cm-msglist__row--mention {
+.cm-msglist__msg--mention {
 	border-inline-start: 2px solid var(--ink);
 	padding-inline-start: calc(var(--space-2) - 2px);
 	background: var(--panel-nested);
 }
 /* The lift rule above would otherwise repaint a mentioned row back to
    a plain one exactly when the reader is looking at it. */
-.cm-msglist__row--mention:hover,
-.cm-msglist__row--mention:focus-within {
+.cm-msglist__msg--mention:hover,
+.cm-msglist__msg--mention:focus-within {
 	background: var(--panel-nested);
 }
 /* A continuation row: no header, and the block padding tightens from
    --space-2 to --space-0 so the turn reads as one paragraph of the
    log. The empty avatar slot is still there - it is what keeps the
    message column aligned. */
-.cm-msglist__row--grouped {
+.cm-msglist__msg--grouped {
 	padding-block-start: var(--space-0);
 }
 /* A system row gives up the grid: one full-width track, so the
    .cm-marker it carries - bordered, separator or inline - is the only
    thing on the line. */
-.cm-msglist__row--system {
+.cm-msglist__msg--system {
 	grid-template-columns: minmax(0, 1fr);
 	align-items: center;
 	padding-block: var(--space-1);

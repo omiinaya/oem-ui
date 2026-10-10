@@ -1,5 +1,46 @@
 # Changelog
 
+## Unreleased - batch 30 fix: the message list speaks the client's contract
+
+`matrix-arrow-client/docs/contract.md` is BINDING on `.cm-msglist`'s class
+names and markup structure. Batch 30 was written from the same brief but
+independently, and three of its choices were the exact inverse of the
+contract. A client cannot consume a component whose names disagree with the
+document that promises them, so the library moves - the contract is the
+agreement, and `__row` was never in it.
+
+- **`__row` -> `__msg`.** The grid row is `.cm-msglist__msg`. The old
+  `__msg` was an inner wrapper the contract does not have: it puts
+  `__meta`, `__text` and `__reactions` straight into `__main`. That
+  wrapper is gone, not renamed - a component with one extra div is a
+  component whose structure a consumer cannot predict.
+- **Four classes the contract names and nothing defined.** `__stamp` (the
+  visible time in the meta line), `__hoverstamp` (the gutter's copy on a
+  continuation row), `__daylabel` and `__unreadlabel`. A contract name
+  with no rule behind it is a class a consumer writes into markup that
+  renders as nothing.
+- **Rows are `<article>`.** The contract's markup element, and the honest
+  one: a message is a self-contained unit, not a generic box.
+- **The action toolbar is a real toolbar.** Batch 30 asserted ONE button
+  and the contract's own example carries three named controls (add
+  reaction, reply, more) inside `role="toolbar"`. Styling does not get to
+  overrule the client's affordances; what this library owns is the
+  reserved track, the `opacity`/`pointer-events` rest state and the
+  `:hover`/`:focus-within` reveal, and all three are unchanged.
+- **One stamp per row survives the rename.** The rule is now
+  `__msg:not(__msg--grouped) .__gutter { visibility: hidden }` and the
+  WebKit oracle that measures the column geometry is unchanged and still
+  green at 65/65.
+
+The four contract checks that encoded batch 30's own choices were retargeted
+to the contract's invariants rather than deleted: the empty avatar slot is
+measured against the AVATAR TRACK it fills (not against the width of a
+`--sm` avatar element, which is a different thing), and the unread rule is
+measured as a bar plus a real label carrying a count - the literal word
+"unread" was never the requirement.
+
+Suite 631 passed / 0 failed; `tests/verify-msglist.py` 65/65 in WebKit.
+
 ## Unreleased - batch 30: the transcript as a LOG, not a stack of turns
 
 `.cm-msglist` is the flat timeline the chat family renders when the

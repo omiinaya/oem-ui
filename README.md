@@ -2366,18 +2366,18 @@ is why every row also wears `cm-scroller__item` and keeps
 
 ```html
 <div class="cm-msglist">
-  <p class="cm-msglist__day" role="separator"><span>Today</span></p>
-  <div class="cm-scroller__item cm-msglist__row" data-message-id="m1">
+  <div class="cm-msglist__day" role="separator"><span class="cm-msglist__daylabel">Today</span></div>
+  <article class="cm-scroller__item cm-msglist__msg" data-message-id="m1">
     <span class="cm-msglist__gutter"><time datetime="2026-10-10T11:12">11:12</time></span>
     <span class="cm-avatar cm-msglist__avatar" aria-hidden="true">AB</span>
     <div class="cm-msglist__main">
-      <p class="cm-msglist__meta"><b class="cm-msglist__author">alex</b><time datetime="2026-10-10T11:12">11:12</time></p>
-      <div class="cm-msglist__msg">
-        <p class="cm-msglist__text">branch is cut - review the migration step.</p>
+      <header class="cm-msglist__meta"><span class="cm-msglist__author">alex</span>
+        <time class="cm-msglist__stamp" datetime="2026-10-10T11:12">Today at 11:12 AM</time>
+      </header>
+      <div class="cm-msglist__text">branch is cut - review the migration step.</div>
         <div class="cm-msglist__reactions">
           <button class="cm-msglist__reaction" aria-pressed="false">👍 <span class="cm-msglist__count">2</span></button>
           <button class="cm-msglist__reaction cm-msglist__reaction--mine" aria-pressed="true">🚀 <span class="cm-msglist__count">1</span></button>
-        </div>
       </div>
     </div>
     <div class="cm-msglist__actions"><button class="cm-icon-btn" aria-label="Add a reaction">+</button></div>
@@ -2385,14 +2385,17 @@ is why every row also wears `cm-scroller__item` and keeps
 </div>
 ```
 
-A row is `.cm-msglist__row`. Inside it: `.cm-msglist__gutter` (the
+A row is `.cm-msglist__msg`. Inside it: `.cm-msglist__gutter` (the
 timestamp column), `.cm-msglist__avatar` composing `.cm-avatar`, and
 `.cm-msglist__main`, which holds the `.cm-msglist__meta` line - the
-`.cm-msglist__author` beside its stamp - over `.cm-msglist__msg`: the
+`.cm-msglist__author` beside its `.cm-msglist__stamp` - over the
 `.cm-msglist__text` and a `.cm-msglist__reactions` row of
 `.cm-msglist__reaction` chips, each carrying its `.cm-msglist__count`.
-The row's modifiers are `.cm-msglist__row--grouped`,
-`.cm-msglist__row--mention` and `.cm-msglist__row--system`; the
+A continuation row has no header, so its time lives in the gutter as
+`.cm-msglist__hoverstamp`; the day divider labels itself with
+`.cm-msglist__daylabel` and the unread rule with `.cm-msglist__unreadlabel`.
+The row's modifiers are `.cm-msglist__msg--grouped`,
+`.cm-msglist__msg--mention` and `.cm-msglist__msg--system`; the
 reader's own chip is `.cm-msglist__reaction--mine`.
 
 The row grid is `--msglist-gutter` (the timestamp column) ·
@@ -2402,7 +2405,7 @@ track rather than left to auto-flow, so the grid still lines up when a
 row ships fewer children than its neighbour:
 
 ```html
-<div class="cm-scroller__item cm-msglist__row cm-msglist__row--grouped" data-message-id="m2">
+<div class="cm-scroller__item cm-msglist__msg cm-msglist__msg--grouped" data-message-id="m2">
   <span class="cm-msglist__gutter"><time datetime="2026-10-10T11:13">11:13</time></span>
   <span class="cm-msglist__avatar"></span>
   <div class="cm-msglist__main"><div class="cm-msglist__msg">
@@ -2411,16 +2414,16 @@ row ships fewer children than its neighbour:
 </div>
 ```
 
-- **`cm-msglist__row--grouped`** omits the header and tightens the
+- **`cm-msglist__msg--grouped`** omits the header and tightens the
   block padding. The **empty `.cm-msglist__avatar`** is not decoration:
   it is the element that keeps the message column where the row above
   put it, and the row grid would land correctly with it missing only by
   luck of auto-placement. Ship it on every continuation row.
-- **`cm-msglist__row--mention`** carries a mark AND a tint - a 2px
+- **`cm-msglist__msg--mention`** carries a mark AND a tint - a 2px
   `border-inline-start` with the padding it eats handed back, over a
   `--panel-nested` surface. Colour never carries the meaning alone, and
   the border must not slide the message column against its neighbours.
-- **`cm-msglist__row--system`** collapses the row to one full-width
+- **`cm-msglist__msg--system`** collapses the row to one full-width
   track and holds a `.cm-marker` (bordered, separator or inline) -
   compose the marker, do not write a second system-note style.
 - **`cm-msglist__reaction--mine`** is the reader's own reaction: a
@@ -2442,7 +2445,7 @@ row ships fewer children than its neighbour:
   tab order and leave the reveal for a keyboard that can never fire it.
 
 **Grouping is the consumer's job** - CSS styles, the consumer groups.
-A row is `cm-msglist__row--grouped` when it follows a row from the
+A row is `cm-msglist__msg--grouped` when it follows a row from the
 same author within ~5 minutes (the usual window; pick your own and
 stick to it); `.cm-msglist` never inspects an author, a clock or a
 message body, and ships no script that could. The library's whole

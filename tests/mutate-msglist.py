@@ -49,7 +49,7 @@ start rather than from principle:
     avatars leaves three matches and the suite green - a survivor that
     reads like a kill. Same for "a reaction that is not the reader's
     announces itself", where two chips each satisfy the regex.
-  * A mention mutant rewrites the whole `.cm-msglist__row--mention` body
+  * A mention mutant rewrites the whole `.cm-msglist__msg--mention` body
     rather than a fragment inside it: `border-inline-start: 2px` also
     matches the doc comment above the rule, so a fragment pattern would
     have to be mutated in the prose to satisfy a count-1 pre-check. Same
@@ -81,13 +81,13 @@ ADD_REACTION = ('<button type="button" class="cm-icon-btn" '
                 'aria-label="Add a reaction to this message">+</button>')
 BAR = '<div class="cm-msglist__actions">\n' + TAB * 10 + ADD_REACTION + '\n' + TAB * 9 + '</div>'
 
-MENTION_OLD = ('.cm-msglist__row--mention {\n' + TAB + 'border-inline-start: 2px solid var(--ink);\n'
+MENTION_OLD = ('.cm-msglist__msg--mention {\n' + TAB + 'border-inline-start: 2px solid var(--ink);\n'
                + TAB + 'padding-inline-start: calc(var(--space-2) - 2px);\n'
                + TAB + 'background: var(--panel-nested);\n}')
 
 
 def mention(label, new_body, claim):
-    """A mention mutant: the whole `.cm-msglist__row--mention` body is
+    """A mention mutant: the whole `.cm-msglist__msg--mention` body is
     rewritten, so the mutation cannot land in the doc comment above the
     rule - `border-inline-start: 2px` also matches the prose."""
     return [label, CSS, MENTION_OLD, new_body, claim, None, 'one']
@@ -115,17 +115,17 @@ MUTANTS = [
      '\n.cm-msglist__actions {\n' + TAB + 'position: absolute;\n' + TAB + 'grid-column: 4;\n',
      'absolute positioning takes the toolbar out of the grid, so its column is not reserved', None, 'one'],
     ['the reveal stops putting the toolbar back', CSS,
-     '.cm-msglist__row:hover .cm-msglist__actions,\n'
-     '.cm-msglist__row:focus-within .cm-msglist__actions {\n'
+     '.cm-msglist__msg:hover .cm-msglist__actions,\n'
+     '.cm-msglist__msg:focus-within .cm-msglist__actions {\n'
      + TAB + 'opacity: 1;\n' + TAB + 'pointer-events: auto;\n}',
-     '.cm-msglist__row:hover .cm-msglist__actions,\n'
-     '.cm-msglist__row:focus-within .cm-msglist__actions {\n'
+     '.cm-msglist__msg:hover .cm-msglist__actions,\n'
+     '.cm-msglist__msg:focus-within .cm-msglist__actions {\n'
      + TAB + 'opacity: 0.5;\n' + TAB + 'pointer-events: auto;\n}',
      'the reveal does not put the toolbar back', None, 'one'],
     ['the reveal stops answering the keyboard', CSS,
-     '.cm-msglist__row:hover .cm-msglist__actions,\n'
-     '.cm-msglist__row:focus-within .cm-msglist__actions {\n',
-     '.cm-msglist__row:hover .cm-msglist__actions {\n',
+     '.cm-msglist__msg:hover .cm-msglist__actions,\n'
+     '.cm-msglist__msg:focus-within .cm-msglist__actions {\n',
+     '.cm-msglist__msg:hover .cm-msglist__actions {\n',
      'no :hover / :focus-within reveal for the toolbar', None, 'one'],
     ['the reserved action track disappears', CSS,
      'grid-template-columns: var(--msglist-gutter) var(--msglist-avatar) minmax(0, 1fr) auto;\n',
@@ -148,8 +148,8 @@ MUTANTS = [
 
     # --- B: one stamp per row, and the gutter is a stamp too ---
     ['the gutter stops going quiet under a meta stamp', CSS,
-     '.cm-msglist__row:not(.cm-msglist__row--grouped) .cm-msglist__gutter {\n',
-     '.cm-msglist__row:not(.cm-msglist__row--grouped) .cm-msglist__gutter:never {\n',
+     '.cm-msglist__msg:not(.cm-msglist__msg--grouped) .cm-msglist__gutter {\n',
+     '.cm-msglist__msg:not(.cm-msglist__msg--grouped) .cm-msglist__gutter:never {\n',
      'no rule quiets the gutter on a row that already carries a meta stamp', None, 'one'],
     ['the quiet gutter is display:none instead of visibility', CSS,
      TAB + 'visibility: hidden;\n}\n',
@@ -201,34 +201,34 @@ MUTANTS = [
 
     # --- D: a mention is a mark and a tint, never a hue alone ---
     mention('the mention mark loses its width (the hue is left alone)',
-            '.cm-msglist__row--mention {\n' + TAB + 'border-inline-start: 0 solid var(--ink);\n'
+            '.cm-msglist__msg--mention {\n' + TAB + 'border-inline-start: 0 solid var(--ink);\n'
             + TAB + 'padding-inline-start: calc(var(--space-2) - 2px);\n'
             + TAB + 'background: var(--panel-nested);\n}',
             'the mention bar is 0 solid - a hue with no mark, which is what the row must never be'),
     mention('the mention mark goes physical (RTL-blind)',
-            '.cm-msglist__row--mention {\n' + TAB + 'border-left: 2px solid var(--ink);\n'
+            '.cm-msglist__msg--mention {\n' + TAB + 'border-left: 2px solid var(--ink);\n'
             + TAB + 'padding-inline-start: calc(var(--space-2) - 2px);\n'
             + TAB + 'background: var(--panel-nested);\n}',
             'the mention mark must be logical: border-left is the wrong edge under RTL'),
     mention('the mention loses its tint (the bar is left alone)',
-            '.cm-msglist__row--mention {\n' + TAB + 'border-inline-start: 2px solid var(--ink);\n'
+            '.cm-msglist__msg--mention {\n' + TAB + 'border-inline-start: 2px solid var(--ink);\n'
             + TAB + 'padding-inline-start: calc(var(--space-2) - 2px);\n'
             + TAB + 'background: transparent;\n}',
             'the mention also needs a surface step so the row reads as raised before it is read'),
     mention('the mention border stops paying its padding back',
-            '.cm-msglist__row--mention {\n' + TAB + 'border-inline-start: 2px solid var(--ink);\n'
+            '.cm-msglist__msg--mention {\n' + TAB + 'border-inline-start: 2px solid var(--ink);\n'
             + TAB + 'padding-inline-start: var(--space-2);\n'
             + TAB + 'background: var(--panel-nested);\n}',
             'the mention border would shift the message column 2px against every other row'),
     ['the hover band repaints a mention as a plain row', CSS,
-     '.cm-msglist__row--mention:hover,\n.cm-msglist__row--mention:focus-within {\n'
+     '.cm-msglist__msg--mention:hover,\n.cm-msglist__msg--mention:focus-within {\n'
      + TAB + 'background: var(--panel-nested);\n}',
-     '.cm-msglist__row--mention:hover,\n.cm-msglist__row--mention:focus-within {\n'
+     '.cm-msglist__msg--mention:hover,\n.cm-msglist__msg--mention:focus-within {\n'
      + TAB + 'background: var(--bg-3);\n}',
      'the row hover band repaints a mentioned row as a plain one', None, 'one'],
     ['the mention row drops the modifier its rules are written for', ASTRO,
-     'cm-msglist__row cm-msglist__row--mention',
-     'cm-msglist__row',
+     'cm-msglist__msg cm-msglist__msg--mention',
+     'cm-msglist__msg',
      'no mention row in the specimen - the modifier is what the rules are written for',
      None, 'one'],
 
@@ -260,13 +260,13 @@ MUTANTS = [
 
     # --- F: the frame, the system note and the labelled dividers ---
     ['the rows stop being scroller items', ASTRO,
-     '<div class="cm-scroller__item cm-msglist__row" data-message-id="ml4" data-scroll-anchor>',
-     '<div class="cm-msglist__row" data-message-id="ml4" data-scroll-anchor>',
+     '<div class="cm-scroller__item cm-msglist__msg" data-message-id="ml4" data-scroll-anchor>',
+     '<div class="cm-msglist__msg" data-message-id="ml4" data-scroll-anchor>',
      'a row outside cm-scroller__item skips the scroller content-visibility contract', None, 'one'],
     ['the system row stops composing .cm-marker', ASTRO,
-     'cm-msglist__row--system" data-message-id="ml6" data-scroll-anchor>\n' + TAB * 9
+     'cm-msglist__msg--system" data-message-id="ml6" data-scroll-anchor>\n' + TAB * 9
      + '<div class="cm-marker cm-marker--border">',
-     'cm-msglist__row--system" data-message-id="ml6" data-scroll-anchor>\n' + TAB * 9
+     'cm-msglist__msg--system" data-message-id="ml6" data-scroll-anchor>\n' + TAB * 9
      + '<div class="cm-msglist__system-note">',
      'the system row does not compose .cm-marker - it would be a second system-note implementation',
      None, 'one'],
