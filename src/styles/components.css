@@ -9078,6 +9078,46 @@ input.cm-slider:disabled {
 	color: var(--ink);
 	font-weight: 700;
 }
+
+/* ---------- message media: an m.image/m.file row inside the msglist ---------- */
+/* The image sits in the same `main` column as the text -- the grid's third
+   track -- so a message with both body and attachment keeps alignment, and
+   the blocked-in frame matches the chat family: a hairline, no radius. */
+.cm-msglist__media {
+	grid-column: 3;
+	max-width: var(--measure-narrow);
+}
+.cm-msglist__media img {
+	display: block;
+	width: 100%;
+	border: 1px solid var(--line);
+}
+/* An attachment (non-image) row: a chip with a media glyph, a title, a
+   size/kind line, and a copy action. Clicking the chip opens the file. */
+.cm-msglist__file {
+	grid-column: 3;
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	padding: var(--space-2) var(--space-3);
+	max-width: var(--measure-title);
+	border: 1px solid var(--line);
+	background: var(--bg-2);
+}
+.cm-msglist__file:hover { background: var(--bg-3); }
+.cm-msglist__filetitle {
+	color: var(--ink);
+	font-weight: 600;
+	font-size: var(--text-sm);
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+.cm-msglist__filenote {
+	color: var(--ink-faint);
+	font-size: var(--text-micro);
+}
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;

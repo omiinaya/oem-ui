@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased - media rows in the message list
+
+- **`.cm-msglist__media` / `.cm-msglist__file`.** The message list could
+  show text and reactions but not the image/file a chat actually sends.
+  An image is a `<figure>` in the row's `main` column capped to
+  `--measure-narrow`; a file is a chip capped to `--measure-title` with
+  `.cm-msglist__filetitle` and `.cm-msglist__filenote`, and the chip is a
+  real link so tapping it opens the file. Both are hairline-only to match
+  the chat family's sharp corners.
+
 ## Unreleased - sidebar mention badge
 
 - **`.cm-sidebar__badge--mention`.** The mention count a channel carries

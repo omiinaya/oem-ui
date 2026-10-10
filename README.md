@@ -2398,6 +2398,13 @@ The row's modifiers are `.cm-msglist__msg--grouped`,
 `.cm-msglist__msg--mention` and `.cm-msglist__msg--system`; the
 reader's own chip is `.cm-msglist__reaction--mine`.
 
+Media rows sit in the same `main` column as the text: an image is
+`.cm-msglist__media` (a `<figure>` capped to `--measure-narrow`, hairline
+frame, no radius), a file is `.cm-msglist__file` (a chip capped to
+`--measure-title` with `.cm-msglist__filetitle` and
+`.cm-msglist__filenote`). The chip is a real link so a file opens without
+a second reader.
+
 The row grid is `--msglist-gutter` (the timestamp column) ·
 `--msglist-avatar` (the avatar column) · the message · a **reserved**
 `.cm-msglist__actions` track. Every part is placed explicitly on its
