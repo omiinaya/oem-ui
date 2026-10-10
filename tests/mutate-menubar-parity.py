@@ -276,6 +276,11 @@ def main():
             verdict = ('KILL(old): ' + (names[0] if names else (note or f'exit {code}'))
                        + '  <-- not one of the new checks')
         print(f'  {mid:<44} {har:<5} {verdict}', flush=True)
+        if code != 0:
+            for n in names[:6]:
+                print(f'        FAIL {n}', flush=True)
+            if not names:
+                print(f'        ({note or f"exit {code}"} - no FAIL lines)', flush=True)
 
     # --- 4. leave the tree as it was found --------------------------------
     if any(r[5] for r in MUTANTS if picked(r[0], r[4])):

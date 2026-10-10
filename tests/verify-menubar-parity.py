@@ -364,12 +364,28 @@ def main():
                 live = page.evaluate(
                     'getComputedStyle(document.querySelector(\'[popovertarget="mb-file"]\')).color')
                 assert off != live, f'the disabled word renders the same colour as a live one ({off})'
+                # "some other grey" is not the claim - the rule paints it in
+                # the FAINT token. Without this the mutant that recoloured it
+                # to plain ink still differed from the words above and lived.
+                tok = page.evaluate('''() => {
+                    const probe = document.createElement('span');
+                    probe.style.color = 'var(--ink-faint)';
+                    document.body.appendChild(probe);
+                    const want = getComputedStyle(probe).color;
+                    probe.remove();
+                    const help = getComputedStyle(
+                        document.querySelector('[popovertarget="mb-help"]')).color;
+                    return { want, help };
+                }''')
+                assert tok['help'] == tok['want'], (
+                    'the disabled word is not painted in --ink-faint: '
+                    f"{tok['help']} vs the token {tok['want']}")
                 word('help').hover()
                 hover = page.evaluate(
                     'getComputedStyle(document.querySelector(\'[popovertarget="mb-help"]\')).color')
                 assert hover == off, f'hovering re-lit the disabled word: {hover} vs {off}'
 
-            check('the panels compose icons, group labels and hints', composition)
+            check('the panels compose icons, group labels and hints, the disabled word a weight', composition)
 
 
             def layout():

@@ -15005,7 +15005,7 @@ console.log('\nshadcn-parity: menubar');
 			'the checked radio row draws no mark on the icon slot - the selection is invisible');
 	});
 
-	check('shadcn-parity: the bar panels compose icons, group labels and hints', () => {
+	check('shadcn-parity: the bar panels compose icons, group labels and hints, and the disabled word is a weight', () => {
 		assert((bar.match(/class="cm-dropdown__icon"/g) || []).length >= 3,
 			'the bar rows carry no icon slot - the "With Icons" half of the composition is missing');
 		assert((bar.match(/class="cm-dropdown__group-label"/g) || []).length >= 2,
