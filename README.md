@@ -1846,7 +1846,7 @@ Nothing in `src/js/` knows these two components exist. The client owns:
 Proven by `tests/verify-guildrail-composer.py`, a real-WebKit harness that
 asserts the tap floor at 402×667 and that the tooltip lands to the **right**
 of the rail without overlapping it, by 22 `batch 29:` checks in
-`tests/run.mjs`, and by 67 mutation patterns in `tests/mutate-guildrail.py`
+`tests/run.mjs`, and by 74 mutation patterns in `tests/mutate-guildrail.py`
 / `tests/mutate-composer.py`.
 
 ### Tree and resizable panels
