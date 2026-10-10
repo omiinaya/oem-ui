@@ -2350,9 +2350,16 @@
 	   dropdowns in a row, and it is why the handler looks at the menu you
 	   are in before it looks at the trigger you are on. */
 	function menubarTriggers(bar) {
+		// The WALK list: words that can take focus at all. A disabled word
+		// is filtered HERE and not in each door, so every door - arrows,
+		// Home/End, the roving stop - inherits one invariant, exactly as
+		// selectTab() does for the tabs.
 		return Array.prototype.filter.call(
 			bar.querySelectorAll('.cm-menubar__trigger'),
-			function (b) { return b.offsetParent !== null; }
+			function (b) {
+				return b.offsetParent !== null &&
+					b.getAttribute('aria-disabled') !== 'true';
+			}
 		);
 	}
 
@@ -2393,6 +2400,21 @@
 					? t.closest('.cm-menubar__trigger') : null;
 				if (trg) menubarRove(bar, trg);
 			});
+			/* The disabled word's two other doors. popovertarget is a
+			   PLATFORM attribute with no idea what aria-disabled means, so
+			   Enter and Space arrive here as a click and would open the
+			   panel - and the mousedown veto is what keeps focus from
+			   landing on a word the arrows can never come back to (a
+			   native [disabled] button does not take focus either). */
+			var vetoDisabled = function (ev) {
+				var t = ev.target;
+				var d = t && typeof t.closest === 'function'
+					? t.closest('.cm-menubar__trigger[aria-disabled="true"]') : null;
+				if (!d) return;
+				ev.preventDefault();
+			};
+			bar.addEventListener('mousedown', vetoDisabled);
+			bar.addEventListener('click', vetoDisabled);
 		});
 	}
 
@@ -2404,10 +2426,16 @@
 		// [popovertarget]); ArrowDown is the key the platform does NOT map
 		// to "open", and it is the one readers reach for.
 		if (trg && e.key === 'ArrowDown') {
+			e.preventDefault();
+			// A disabled word never opens. aria-disabled is not [disabled]:
+			// the row stays in the accessibility tree so a reader knows help
+			// is there, which means the attribute - not markup - has to be
+			// what refuses. Enter/Space arrive as a click instead, and that
+			// door is the veto bound in initMenubar().
+			if (trg.getAttribute('aria-disabled') === 'true') return;
 			var oid = trg.getAttribute('popovertarget');
 			var om = oid && document.getElementById(oid);
 			if (om && typeof om.showPopover === 'function' && !om.matches(':popover-open')) om.showPopover();
-			e.preventDefault();
 			return;
 		}
 		if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(e.key) === -1) return;

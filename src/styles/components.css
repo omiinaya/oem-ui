@@ -6639,6 +6639,16 @@ input.cm-slider:disabled {
 	background: var(--bg-3);
 	color: var(--ink);
 }
+/* A disabled word is a word at a lower WEIGHT, not a grey chip: it keeps
+   the cell's hairline (it is still a cell) and gives up the ink and the
+   pointer affordance. Declared AFTER the hover/focus block so the state
+   cannot be re-lit by hovering it - disabled is not a hover state. */
+.cm-menubar__trigger[aria-disabled='true'],
+.cm-menubar__trigger[aria-disabled='true']:hover {
+	background: transparent;
+	color: var(--ink-faint);
+	cursor: default;
+}
 /* The panel hangs under the WORD it belongs to rather than off a chevron's
    right edge; the runtime anchors it from the same left edge (see
    anchorPopover). Fixed like .cm-popover, so the frame before anchoring
