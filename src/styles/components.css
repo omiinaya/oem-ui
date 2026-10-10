@@ -9069,6 +9069,15 @@ input.cm-slider:disabled {
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
+/* A mention count is the one sidebar badge that has to outrank the
+   channel it sits on: it is an obligation, not a status. It is marked by
+   WEIGHT and the ink, never by hue alone - forced-colours drops the
+   distinction between two fills, and a mention nobody can see is a
+   mention nobody answers. */
+.cm-sidebar__badge--mention {
+	color: var(--ink);
+	font-weight: 700;
+}
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;

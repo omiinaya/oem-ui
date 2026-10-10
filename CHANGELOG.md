@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - sidebar mention badge
+
+- **`.cm-sidebar__badge--mention`.** The mention count a channel carries
+  needs to outrank the channel around it - it is an obligation, not a
+  status - and the single `.cm-sidebar__badge` could not. Marked by
+  weight and ink rather than a second fill: forced colours collapses
+  two fills into one, and a mention nobody can see is a mention nobody
+  answers.
+
 ## Unreleased - batch 30 fix: the message list speaks the client's contract
 
 `matrix-arrow-client/docs/contract.md` is BINDING on `.cm-msglist`'s class

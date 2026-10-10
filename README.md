@@ -2591,6 +2591,12 @@ would otherwise trip over. And the phone inset inherited the engine's
 own 20px `main` margin - a fresh `<main>` in the console shows it -
 so the inset zeroes its own box instead of trusting the UA sheet.
 
+**`.cm-sidebar__badge--mention`** is the one badge that has to outrank
+the channel it sits on: it is an obligation, not a status. It is marked
+by weight and the ink rather than by a second fill, because forced
+colours drops the distinction between two fills and a mention nobody
+can see is a mention nobody answers.
+
 `tests/verify-sidebar.py` drives the whole surface at 1280 and 402;
 `tests/mutate-sidebar.py` seeds 44 faults. The first proof run came
 back 41/44, and all three survivors were oracle holes rather than
