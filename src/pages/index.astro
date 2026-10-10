@@ -2514,6 +2514,21 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 							<span class="cm-dropdown__icon" aria-hidden="true" data-checked="true"></span>
 							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">status bar</span></span>
 						</button>
+						<hr class="cm-dropdown__sep" />
+						<!-- A radio GROUP: a labelled group of rows sharing one
+						     data-cm-radio name, scoped by setRadio() to this panel, so
+						     the two menus on the page never fight over a selection. -->
+						<div class="cm-dropdown__group-label" id="mb-grp-scale" role="presentation">scale</div>
+						<div role="group" aria-labelledby="mb-grp-scale">
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="true" data-cm-radio="mb-scale">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">100%</span></span>
+							</button>
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="false" data-cm-radio="mb-scale">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">fit width</span></span>
+							</button>
+						</div>
 					</div>
 					<!-- A disabled WORD, not a disabled row: aria-disabled rather than
 					     [disabled] so it stays in the tree (a reader must hear that
