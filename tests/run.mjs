@@ -15515,6 +15515,30 @@ console.log('\nshadcn-parity: guildrail + composer');
 		// fits has proven nothing.
 		const railItems = (showcase.match(/class="cm-guildrail__item/g) || []).length;
 		assert(railItems >= 6, `the specimen rail has ${railItems} items - too few to overflow its box`);
+		// The specimen structure is part of the contract: nav, tooltips
+		// wrapping every item, required separators/parts present.
+		assert(/<nav class="cm-guildrail" aria-label="Servers">/.test(showcase),
+			'the rail is not a nav element');
+		assert(/cm-guildrail__item--home[^>]*aria-current="true"/.test(showcase),
+			'the home item does not expose aria-current');
+		const adds = [...showcase.matchAll(/cm-guildrail__item--add/g)];
+		assert(adds.length === 1, 'exactly one add control required');
+		// The specimen must spell the contract's names EXACTLY. A rename
+		// here renders an unstyled element behind a green build, and the
+		// old generic check reports it far from this batch.
+		const railClasses = new Set(
+			[...showcase.matchAll(/class="([^"]*)"/g)]
+				.flatMap((m) => m[1].split(/\s+/))
+				.filter((c) => c.startsWith('cm-guildrail')),
+		);
+		const CONTRACT = new Set([
+			'cm-guildrail', 'cm-guildrail__item', 'cm-guildrail__item--home',
+			'cm-guildrail__item--add', 'cm-guildrail__pill', 'cm-guildrail__icon',
+			'cm-guildrail__badge', 'cm-guildrail__unread', 'cm-guildrail__sep',
+		]);
+		for (const c of railClasses) {
+			assert(CONTRACT.has(c), `the showcase uses .${c}, which is not a contract name`);
+		}
 	});
 
 	check('batch 29: the composer documents the consumer JS rather than implementing it', () => {
