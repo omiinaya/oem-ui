@@ -8405,6 +8405,327 @@ input.cm-slider:disabled {
 	.cm-chart__legend { gap: var(--space-1) var(--space-3); }
 }
 
+/* ---------- guildrail: the server icon rail ----------
+   A chat client's far-leading column: one square per server, an unread
+   badge, a rule, and an add control. It is a flex column that owns its
+   OWN scroll - a long server list scrolls inside the rail instead of
+   stretching the app grid row it sits in.
+
+   It is a rail, not a sidebar: `--sidebar-icon-width` (3rem) is a
+   collapsed label sidebar, and a monogram in a 44px square wants the
+   4.5rem the square is centred in. Both numbers are tokens, because a
+   consumer retheming a chat client retunes the rail width, not this
+   file.
+
+   THE TIP AND THE SCROLLPORT, measured.
+   `overflow-y: auto` does not buy a vertical-only scroller: only
+   `visible` is ever promoted to the other axis, and it is promoted TO
+   `auto`, so the rail becomes a clipper on both axes. The rail's tip is
+   `position: absolute` inside it, and a scrollport clips everything
+   painted past its padding box. MEASURED in WebKit 26.6 on identical
+   markup, one pixel read through a canvas at the tip's centre:
+
+		overflow-y: auto   -> [255, 255, 255, 255]   (clipped)
+		overflow: visible  -> [255, 215,  0, 255]   (painted)
+
+   The one property that widens a clip rect, `overflow-clip-margin`,
+   does not exist in WebKit at all - `CSS.supports('overflow-clip-margin',
+   '20px')` is false, and the -webkit- prefixed form and both longhands
+   are false too - so the clip edge is widened BY HAND: the rail keeps
+   `overflow-y: auto`, its padding box reaches out by --guildrail-bleed,
+   and the tip paints past the real rail edge. WebKit then reads the
+   inline axis as `hidden`, which is the same clip with no scrollbar.
+
+   The bleed is empty padding, and empty padding that swallows clicks is
+   not empty - it would sit over whatever the consumer put beside the
+   rail and eat the first 18rem of it. So three things keep it invisible:
+   the fill and the trailing edge are clipped to the CONTENT box, the
+   pointer falls through it to whatever the rail overlaps, and the
+   scrollbar is suppressed (base.css gives every element a 12px
+   ::-webkit-scrollbar, and here it would be drawn 18rem to the right of
+   the icons it belongs to). The rail's own square is the only part of
+   its box that is painted or hit-testable, which is exactly what it was
+   before the bleed existed. */
+.cm-guildrail {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--space-1);
+	/* Bounded AND scrollable. Without the max the rail's box IS its
+	   content, the grid row stretches with the server list, and
+	   `overflow-y: auto` then has a box exactly as tall as the content
+	   - nothing to scroll against, which is the failure the rail exists
+	   to prevent. */
+	min-block-size: 0;
+	max-block-size: 100%;
+	/* The box is WIDER than the column it sits in, on purpose, and the
+	   negative margin puts the LAYOUT back. box-sizing is border-box, so
+	   the bleed padding is subtracted from the declared width: left on
+	   `auto` the rail measured its whole 18rem of padding against a 4.5rem
+	   grid track and the squares got a ZERO-width content box. Stating
+	   the width and cancelling it with a margin leaves the grid a
+	   --guildrail-w margin box while the clip rect reaches out to the
+	   bleed - the grid column is 72px and the tip still escapes. */
+	inline-size: calc(var(--guildrail-w) + var(--guildrail-bleed));
+	margin-inline-end: calc(0px - var(--guildrail-bleed));
+	justify-self: start;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding-inline-end: var(--guildrail-bleed);
+	pointer-events: none;
+	scrollbar-width: none;
+	/* A border would be drawn at the padding box too, so the trailing
+	   edge of the rail is a gradient clipped to the content box: same
+	   pixel, same token, no 18rem line. */
+	background:
+		linear-gradient(var(--line), var(--line)) no-repeat right top / 1px 100%,
+		var(--panel);
+	background-origin: content-box;
+	background-clip: content-box;
+}
+.cm-guildrail::-webkit-scrollbar { display: none; }
+/* The wrapper has to be a centring flex row, not the tooltip's own
+   inline-block: it is a stretched flex item, so a bare inline-block left
+   the square pinned to the rail's leading edge and the 44px target
+   stopped being centred in the rail. The pointer comes back on the
+   wrappers alone - they are the only part of the rail a finger needs. */
+.cm-guildrail .cm-tooltip {
+	display: flex;
+	justify-content: center;
+	pointer-events: auto;
+}
+
+/* The tip is moved by hand because none of the three stock answers fit a
+   rail. `--start` puts its LEADING edge at the trigger's, which is
+   inside the rail; `--end` puts its TRAILING edge there, so it points
+   back over the rail; and the base tip hangs above its trigger, which
+   for a rail pinned to the top of a viewport is above the viewport.
+   This one starts exactly where the rail's content ends and is centred
+   on the square it labels, and the hover/focus transform has to carry
+   the centring through - the base rule settles it to `translateY(0)`,
+   which would drop the tip half its own height. */
+.cm-guildrail .cm-tooltip__tip {
+	inset-inline-start: 100%;
+	inset-inline-end: auto;
+	inset-block-start: 50%;
+	inset-block-end: auto;
+	transform: translateY(-50%);
+}
+.cm-guildrail .cm-tooltip:hover .cm-tooltip__tip,
+.cm-guildrail .cm-tooltip:focus-within .cm-tooltip__tip {
+	transform: translateY(-50%);
+}
+
+/* The square. `--tap` for both dimensions on every pointer, not just a
+   coarse one: the contract's floor is unconditional, and a rail is the
+   one place a mouse and a thumb aim at the same 44px box. */
+.cm-guildrail__icon {
+	position: relative;
+	inline-size: var(--tap);
+	block-size: var(--tap);
+	flex: 0 0 auto;
+	display: inline-grid;
+	place-items: center;
+	border: 0;
+	border-radius: var(--radius-sm);
+	background: transparent;
+	color: var(--ink-faint);
+	/* The monogram is set here, not in the markup: the size of a glyph
+	   is a property of the thing holding it. */
+	font-family: var(--font-mono);
+	font-size: var(--text-sm);
+	font-weight: 700;
+	line-height: 1;
+	letter-spacing: 0.04em;
+	transition: background var(--cm-t) var(--cm-ease),
+		color var(--cm-t) var(--cm-ease);
+}
+.cm-guildrail__icon:hover {
+	background: var(--surface-raised);
+	color: var(--ink);
+}
+/* `aria-current` is the only thing that says which server you are in,
+   so it has to be readable in greyscale: a weight AND a fill AND the
+   house's selected-marker rule, not a hue. */
+.cm-guildrail__icon[aria-current='page'] {
+	background: var(--surface-raised);
+	color: var(--ink);
+	box-shadow: inset 3px 0 0 var(--ink);
+}
+.cm-guildrail__glyph { pointer-events: none; }
+/* The count is chrome on a target, so it hangs off the square's corner
+   rather than joining its layout. Filled, never hollow: the badge is
+   the one thing on the rail that is allowed to be a hue, and it still
+   has to read as a count in greyscale. */
+.cm-guildrail__badge {
+	position: absolute;
+	inset-block-start: calc(0 - var(--space-1) / 2);
+	inset-inline-end: calc(0 - var(--space-1) / 2);
+	min-inline-size: var(--space-4);
+	block-size: var(--space-4);
+	display: inline-grid;
+	place-items: center;
+	padding-inline: var(--space-1);
+	border-radius: var(--radius-pill);
+	background: var(--danger);
+	color: var(--on-danger);
+	font-size: var(--text-micro);
+	font-weight: 700;
+	line-height: 1;
+}
+/* The rule between the servers and the add control. A background rather
+   than a border, so the 1px is the whole separator and not 1px plus the
+   element's own box. */
+.cm-guildrail__sep {
+	block-size: 1px;
+	inline-size: var(--tap);
+	align-self: center;
+	flex: 0 0 auto;
+	border: 0;
+	margin-block: var(--space-1);
+	background: var(--line);
+}
+/* The add control is the one square on the rail that is a glyph and
+   nothing else: it inherits the square's box and the base button reset,
+   and it is the same size as the servers so the column stays a column. */
+.cm-guildrail__add {
+	position: relative;
+	inline-size: var(--tap);
+	block-size: var(--tap);
+	flex: 0 0 auto;
+	display: inline-grid;
+	place-items: center;
+	border: 0;
+	border-radius: var(--radius-sm);
+	background: transparent;
+	color: var(--ink-faint);
+	font-family: var(--font-mono);
+	font-size: var(--text);
+	line-height: 1;
+	transition: background var(--cm-t) var(--cm-ease),
+		color var(--cm-t) var(--cm-ease);
+}
+.cm-guildrail__add:hover {
+	background: var(--surface-raised);
+	color: var(--ink);
+}
+
+/* ---------- composer: the message box at the foot of a thread ----------
+   A field, a counter, and the two controls that flank it.
+
+   Everything behavioural here is the CONSUMER's, deliberately: Enter
+   sends, Shift+Enter is a newline, the field grows with what you type,
+   and the counter counts. None of that is CSS and none of it is this
+   library's runtime - a composer that ships a send handler ships a
+   chat protocol. What the CSS owes is a control that is correct when
+   the consumer does nothing at all: three reserved rows (`rows="3"` in
+   the markup, so the reservation is the platform's and survives a
+   missing stylesheet), a box that reads as focused the moment it has
+   focus, and a tap floor on every control.
+
+   The field's own skin is switched off on purpose. base.css gives a
+   `textarea` a fill, a border, its own padding and a 2x-`--tap`
+   min-height - that is right for a form field and wrong inside a box
+   that already IS the surface, the border and the padding. Those four
+   declarations are the whole reason the selector below carries two
+   classes: `textarea:not(.cm-search__input)` is (0,1,1) and beats a
+   bare `.cm-composer__field` (0,1,0), so a one-class rule silently
+   loses all four and the field renders as a form input glued inside a
+   panel. */
+.cm-composer {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	padding: var(--space-2) var(--space-3);
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	background: var(--surface);
+}
+/* A composer that looks inert while you type into it is a composer you
+   cannot trust, and the field carries no ring of its own - the box is
+   the focus indicator. */
+.cm-composer:focus-within { border-color: var(--ink-faint); }
+.cm-composer .cm-composer__field {
+	inline-size: 100%;
+	min-block-size: 0;
+	padding: 0;
+	border: 0;
+	/* `background`, not `background-color`: the field must be
+	   transparent, and the base rule's shorthand-safe longhand is what
+	   has to be undone. */
+	background: transparent;
+	/* The platform reserves the rows; auto-grow is consumer JS and it
+	   needs the element to start where `rows="3"` put it. */
+	resize: none;
+	overflow-y: auto;
+}
+/* The attach control is a bare glyph on a surface that already has one:
+   no box, no border - a bordered button next to an unbordered send
+   button reads as a mistake. Both take the tap floor together below, so
+   the pair is never 32x44 against 44x44.
+
+   The WRAPPER carries `align-self`, because the wrapper is the flex
+   item: `.cm-tooltip` is an inline-block around the button, and an
+   `align-self` on the button inside it resolves against a box that
+   never stretches. */
+.cm-composer > .cm-tooltip { align-self: flex-start; }
+.cm-composer__attach,
+.cm-composer__send {
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: var(--space-5);
+	block-size: var(--space-5);
+	border: 0;
+	border-radius: var(--radius-sm);
+	background: transparent;
+	color: var(--ink-dim);
+	font-family: var(--font-mono);
+	font-size: var(--text);
+	line-height: 1;
+	transition: background var(--cm-t) var(--cm-ease),
+		color var(--cm-t) var(--cm-ease);
+}
+.cm-composer__attach:hover,
+.cm-composer__send:hover {
+	background: var(--surface-raised);
+	color: var(--ink);
+}
+.cm-composer__toolbar {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+/* The counter is a readout, not a control: it must never be able to
+   take focus or a click, and it sits at the smallest step the scale
+   will render so a 5,000-character budget does not outgrow the row. */
+.cm-composer__counter {
+	color: var(--ink-faint);
+	font-size: var(--min-font);
+	line-height: 1.6;
+	font-variant-numeric: tabular-nums;
+}
+/* The send button is the last thing on the row and the only one that
+   reads as a verb, so it takes the ink and is pinned to the far end. */
+.cm-composer__send {
+	margin-inline-start: auto;
+	background: var(--surface-raised);
+	color: var(--ink);
+}
+/* A tap floor on BOTH controls, declared together: one of the two
+   without the other is the 32x44 defect `.cm-icon-btn--bare` was
+   written to stop. The box is pinned in both dimensions, because a
+   min-height on a flex item that is only 32px wide is a floor you can
+   see and not one you can hit. */
+@media (pointer: coarse) {
+	.cm-composer__attach,
+	.cm-composer__send {
+		inline-size: var(--tap);
+		block-size: var(--tap);
+	}
+}
+
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;
@@ -8534,6 +8855,13 @@ input.cm-slider:disabled {
 	/* A progress fill sliding to its new value is motion too: under
 	   reduced motion the bar JUMPS to the value it is told. */
 	.cm-progress__fill { transition: none; }
+	/* A server square brightening under the pointer is a fade, and a fade
+	   is motion. The state itself must still read - `transition: none`
+	   makes it APPEAR at its hovered colour instantly. */
+	.cm-guildrail__icon,
+	.cm-guildrail__add,
+	.cm-composer__attach,
+	.cm-composer__send { transition: none; }
 	/* The navmenu chevron rotates when its panel opens. The rotation is
 	   the ONLY signal that it is open to a pointer user, so it must still
 	   happen - instantly, not suppressed. */
