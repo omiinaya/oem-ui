@@ -1647,7 +1647,18 @@
 		// It also steps out of a submenu when focus is INSIDE it, which is
 		// the only way back for a reader who walked in.
 		if (e.key === 'ArrowLeft') {
-			if (closeSubmenu(t.closest(POP_SEL))) e.preventDefault();
+			var here = t.closest(POP_SEL);
+			/* One exception, and it belongs to the MENUBAR: a panel that
+			   hangs off the bar does not eat Left. There the bar owns the
+			   key and walks to the neighbouring word - the pattern's rule,
+			   and what the specimen documents - and since onMenubarKey now
+			   stands down for a key someone already consumed, a panel that
+			   swallowed this one would turn "walk to the previous menu"
+			   into "close, then press again". A SUBMENU inside that panel
+			   still takes the key: stepping out is the only way back. */
+			if (here && here.classList && here.classList.contains('cm-menubar__menu') &&
+				!here.querySelector('[popover]:popover-open')) return;
+			if (closeSubmenu(here)) e.preventDefault();
 			return;
 		}
 		// Space/Enter flip a checkbox row. Enter already activates the button;
@@ -2393,12 +2404,16 @@
 			menubarTabStop(bar);
 			// Clicking (or Tabbing ONTO) a word moves the stop with it: a
 			// stop left behind on the first word means the NEXT Tab leaves
-			// the bar at a word the reader is no longer looking at.
+			// the bar at a word the reader is no longer looking at. The
+			// disabled word is excepted - it is not in the walk list, so a
+			// stop parked there would hand the bar a tab stop the arrows
+			// can never come back to (measured in WebKit: focus() on the
+			// disabled word was enough to move it there).
 			bar.addEventListener('focusin', function (ev) {
 				var t = ev.target;
 				var trg = t && typeof t.closest === 'function'
 					? t.closest('.cm-menubar__trigger') : null;
-				if (trg) menubarRove(bar, trg);
+				if (trg && trg.getAttribute('aria-disabled') !== 'true') menubarRove(bar, trg);
 			});
 			/* The disabled word's two other doors. popovertarget is a
 			   PLATFORM attribute with no idea what aria-disabled means, so
@@ -2419,6 +2434,14 @@
 	}
 
 	function onMenubarKey(e) {
+		/* A key the PANEL already handled is not the bar's. onMenuKey is
+		   registered first and preventDefaults when it moved an item,
+		   opened a submenu or closed one; without this the bar answers
+		   the SAME press a second time. Measured in WebKit: Right on the
+		   `export` row opened the submenu and then - one press, two
+		   moves - walked to the next word, taking the submenu it had
+		   just opened with it. */
+		if (e.defaultPrevented) return;
 		var bar = e.target && e.target.closest && e.target.closest('[data-cm-menubar]');
 		if (!bar) return;
 		var trg = e.target.closest('.cm-menubar__trigger');

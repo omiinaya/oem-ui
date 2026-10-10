@@ -13403,7 +13403,8 @@ check('shadcn-parity: dropdown depth carries the documented item kinds', () => {
 	// Right opens the submenu, Left closes it and returns focus
 	assert(/if \(openSubmenu\(t\)\) e\.preventDefault\(\);/.test(js),
 		'Right/Enter must open the submenu');
-	assert(/if \(closeSubmenu\(t\.closest\(POP_SEL\)\)\) e\.preventDefault\(\);/.test(js),
+	assert(/var here = t\.closest\(POP_SEL\);/.test(js)
+		&& /if \(closeSubmenu\(here\)\) e\.preventDefault\(\);/.test(js),
 		'Left must close the panel the reader is actually inside');
 	assert(/if \(owner && typeof owner\.focus === 'function'\) owner\.focus\(\);/.test(js),
 		'Left must return focus to the parent row');
@@ -14791,6 +14792,18 @@ console.log('\nshadcn-parity: menubar');
 		assert(g.trig[0].getAttribute('tabindex') === '-1'
 			&& g.trig[1].getAttribute('tabindex') === '0',
 			'walking the words did not move the tab stop with them');
+		// Focus can still be PUT on a disabled word (a script, or a page
+		// that focuses its first control). The stop must not follow it
+		// there: the walk list refuses to visit that word, so a stop
+		// parked on it is a tab stop with nowhere to walk from. Measured
+		// in WebKit before the guard - focus() alone moved it.
+		const h = barFixture([{ attrs: { 'aria-disabled': 'true' } }, { attrs: {} }]);
+		const runH = runOn([h.barEl]);
+		h.trig[0].focus();
+		h.barEl.fire('focusin', { target: h.trig[0] });
+		assert(h.trig[0].getAttribute('tabindex') === '-1'
+			&& h.trig[1].getAttribute('tabindex') === '0',
+			'focus on a disabled word stole the tab stop');
 	});
 
 	check('shadcn-parity: a disabled word is refused by every door that could open it', () => {
@@ -14850,8 +14863,29 @@ console.log('\nshadcn-parity: menubar');
 			'the walk never closes a hanging submenu, so one outlives its host in the top layer');
 		assert(walk.indexOf('[popover]:popover-open') < walk.indexOf('open.hidePopover()'),
 			'the host hides BEFORE its submenu - the nested box outlives the menu it hangs from');
-		// Driven: the same key, two targets. From the parent row it walks (the
-		// control); from inside the submenu it must do nothing at all.
+		// ONE press, ONE move: the bar stands down for a key the panel
+		// already consumed, and the guard has to be FIRST - a check that
+		// only found the text somewhere in the body would pass a version
+		// placed after the walk it is supposed to skip.
+		const guard = runtimeSrc.indexOf('if (e.defaultPrevented) return;',
+			runtimeSrc.indexOf('function onMenubarKey'));
+		const body = runtimeSrc.indexOf('var bar = e.target',
+			runtimeSrc.indexOf('function onMenubarKey'));
+		assert(guard !== -1 && guard < body,
+			'onMenubarKey does not stand down for a consumed key: Right on a submenu row '
+			+ 'opens it and then walks away with it');
+		// ...and the panel does not swallow Left on its way to that walk:
+		// a bare bar panel leaves Left to the bar, a submenu inside it takes it.
+		const menuKey = runtimeSrc.slice(runtimeSrc.indexOf('function onMenuKey'),
+			runtimeSrc.indexOf('/* ---------- navigation menu'))
+			.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+		const left = menuKey.slice(menuKey.indexOf("if (e.key === 'ArrowLeft')"));
+		assert(left.includes("contains('cm-menubar__menu')")
+			&& left.indexOf("contains('cm-menubar__menu')") < left.indexOf('closeSubmenu('),
+			'a bar panel may not eat Left: the bar owns that key and walks to the '
+			+ 'neighbouring word with it');
+		// Driven: the same key, two targets. From the parent row it walks
+		// (the control); from inside the submenu it must do nothing.
 		const subItem = el('button', { class: 'cm-dropdown__item', role: 'menuitem' });
 		const parentRow = el('button', { class: 'cm-dropdown__item', role: 'menuitem' });
 		const sub = el('div', { class: 'cm-dropdown__menu', id: 'mbx-sub', popover: '', role: 'menu' });
@@ -14869,6 +14903,40 @@ console.log('\nshadcn-parity: menubar');
 		assert(f.hidden.length === 0, 'the bar hid a panel while the reader was inside a submenu');
 		assert(doc.activeElement === subItem,
 			'focus left the submenu row: the bar walked on a key it does not own');
+		// ...and the press that OPENS the submenu is not a bar walk either:
+		// the panel consumes Right (openSubmenu preventDefaults), the bar
+		// stands down, and focus lands in the new panel. One press, two
+		// moves was the measured defect: open, walk, take the submenu out.
+		const owner = el('button', { class: 'cm-dropdown__item', role: 'menuitem',
+			'aria-haspopup': 'menu', 'aria-controls': 'mbx-own' });
+		const subItem2 = el('button', { class: 'cm-dropdown__item', role: 'menuitem' });
+		const sub2 = el('div', { class: 'cm-dropdown__menu', id: 'mbx-own',
+			popover: '', role: 'menu' });
+		sub2.appendChild(subItem2);
+		const f2 = barFixture([{ rows: [owner, sub2] }, { attrs: {} }]);
+		// anchorPopover measures boxes and writes inline styles; a fake with
+		// neither would throw inside the RUNTIME and fail for the harness's
+		// poverty rather than the code's.
+		const dress = (n) => {
+			n.style = n.style || {};
+			n.getBoundingClientRect = () => ({ left: 0, top: 0, right: 120,
+				bottom: 40, width: 120, height: 40 });
+			n.offsetWidth = 120;
+			n.offsetHeight = 40;
+			n.kids.forEach(dress);
+			return n;
+		};
+		dress(f2.barEl);
+		let opened = 0;
+		sub2.showPopover = () => { opened++; };
+		const run2 = runOn([f2.barEl]);
+		owner.focus();
+		keyAt(run2.doc, owner, 'ArrowRight');
+		assert(opened === 1, `Right on the submenu owner opened it ${opened} times, want 1`);
+		assert(f2.hidden.length === 0,
+			'the bar ALSO walked on the press that opened the submenu - one press, two moves');
+		assert(run2.focusNode() === subItem2,
+			'focus did not land in the submenu that the press opened');
 	});
 
 	check('shadcn-parity: a checkbox row in a bar panel flips in place', () => {
