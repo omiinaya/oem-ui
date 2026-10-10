@@ -15019,9 +15019,15 @@ console.log('\nshadcn-parity: menubar');
 		const hid = (html.match(/cm-dropdown__shortcut" aria-hidden="true"/g) || []).length;
 		assert(built >= 6 && built === hid,
 			`${hid} of ${built} shortcut hints are aria-hidden; every one must be`);
-		for (const sel of ['.cm-dropdown__icon {', '.cm-dropdown__shortcut {',
-			'.cm-dropdown__group-label {']) {
-			assert(css.includes(sel), `components.css never defines ${sel}`);
+		// The RULE, not a mention of the name: `.cm-dropdown__icon {` is also
+		// the tail of `.cm-dropdown__item[aria-checked='true'] .cm-dropdown__icon {`,
+		// so a plain includes() kept passing with the base rule itself deleted
+		// (mutation s12 caught this). Anchored at a line start, only the rule
+		// satisfies it.
+		for (const sel of ['.cm-dropdown__icon', '.cm-dropdown__shortcut',
+			'.cm-dropdown__group-label']) {
+			assert(new RegExp('^\\' + sel + ' \\{', 'm').test(css),
+				`components.css never defines ${sel} as its own rule`);
 		}
 		// The disabled word is a WEIGHT, not a hue - and the rule has to be
 		// declared after the hover block it beats (same specificity, later
