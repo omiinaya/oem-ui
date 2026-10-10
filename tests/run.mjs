@@ -15079,3 +15079,410 @@ console.log('\nshadcn-parity: menubar');
 			'stack ownership must remain the last block in the stylesheet');
 	});
 }
+// ---------- shadcn-parity: guildrail + composer (batch 29) ----------
+console.log('\nshadcn-parity: guildrail + composer');
+{
+	// The contract in matrix-arrow-client/docs/contract.md is BINDING on
+	// names and structure: the client renders these class names and no
+	// others. Read the RAW source for that (a comment naming a class is
+	// not a declaration) and the comment-stripped `comp` for rule bodies.
+	const rawCss = read('src/styles/components.css');
+
+	// The block the batch owns, sliced out of the RAW file so the grep
+	// below cannot reach another component's rules.
+	const RAIL_START = '/* ---------- guildrail: the server icon rail ----------';
+	const from = rawCss.indexOf(RAIL_START);
+	assert(from > 0, 'the guildrail/composer block is missing from components.css');
+	const to = rawCss.indexOf('.cm-auth {', from);
+	assert(to > from, 'the guildrail/composer block does not end at .cm-auth');
+	const blockRaw = rawCss.slice(from, to);
+	const block = blockRaw.replace(/\/\*[\s\S]*?\*\//g, '');
+
+	check('batch 29: the contract names are all defined, and none is invented', () => {
+		for (const c of [
+			'cm-guildrail', 'cm-guildrail__item', 'cm-guildrail__pill',
+			'cm-guildrail__icon', 'cm-guildrail__badge', 'cm-guildrail__unread',
+			'cm-guildrail__sep', 'cm-guildrail__item--home', 'cm-guildrail__item--add',
+			'cm-composer', 'cm-composer__reply', 'cm-composer__replytext',
+			'cm-composer__replyclose', 'cm-composer__bar', 'cm-composer__attach',
+			'cm-composer__tools', 'cm-composer__send',
+			'cm-composer__typing',
+		]) {
+			assert(isDeclared(rawCss, c), `components.css never defines .${c}`);
+		}
+		// `__input` is deliberately NOT a bare rule: it is defined through
+		// the compound selector that ties base.css's own specificity
+		// (asserted below), so a bare `.cm-composer__input {` would LOSE
+		// the width fight. Prove the definition exists in the compound form.
+		assert(/\.cm-composer__bar > textarea\.cm-composer__input \{/.test(rawCss),
+			'components.css never defines the composer field');
+		// The non-contract names the draft shipped. A rename that leaves
+		// the old rule behind is the renamed-without-selector bug.
+		for (const c of ['cm-guildrail__glyph', 'cm-guildrail__add',
+			'cm-composer__field', 'cm-composer__toolbar']) {
+			assert(!isDeclared(rawCss, c),
+				`.${c} is not a contract name and must not be styled`);
+		}
+	});
+
+	check('batch 29: the rail owns its own scroll and cannot stretch its row', () => {
+		const b = ruleBodies(block, '.cm-guildrail').join('\n');
+		assert(/display:\s*flex/.test(b), 'the rail is not a flex container');
+		assert(/flex-direction:\s*column/.test(b), 'the rail does not run as a column');
+		assert(/overflow-y:\s*auto/.test(b),
+			'the rail does not own its scroll - many servers would stretch the grid');
+		// Bounded AND scrollable. Without a bound the box IS the content,
+		// and `overflow-y: auto` scrolls nothing: the failure is silent.
+		assert(/min-block-size:\s*0/.test(b),
+			'no min-block-size: 0 - the flex item cannot shrink below its content');
+		assert(/max-block-size:\s*100%/.test(b),
+			'the rail is unbounded, so `overflow-y: auto` has nothing to scroll against');
+	});
+
+	check('batch 29: the tip escapes the rail to the RIGHT without overlapping it', () => {
+		const tip = ruleBodies(block, '.cm-guildrail .cm-tooltip__tip').join('\n');
+		assert(tip, 'no rail-specific tip rule at all');
+		assert(/inset-inline-start:\s*100%/.test(tip),
+			'the tip does not start where the rail content ends, so it points back over the rail');
+		assert(/inset-inline-end:\s*auto/.test(tip),
+			'the trailing edge is still anchored, which cancels the leading-edge start');
+		// Centred on its square, and the centring has to be in the BASE
+		// transform: the reveal rule only sets opacity/visibility, and the
+		// stock `translateY(0)` would drop the tip half its own height.
+		assert(/transform:\s*translateY\(-50%\)/.test(tip),
+			'the tip is not vertically centred on the square it labels');
+		// The clip box reaches exactly --guildrail-bleed past the content
+		// box, so the tip cap agreeing with the token is the whole reason
+		// the tip survives; a pixel more and it is cut in half.
+		assert(/max-inline-size:\s*var\(--guildrail-bleed\)/.test(tip),
+			'the tip cap is not tied to --guildrail-bleed, so a narrowed bleed would clip it');
+		const rail = ruleBodies(block, '.cm-guildrail').join('\n');
+		assert(/padding-inline-end:\s*var\(--guildrail-bleed\)/.test(rail),
+			'the rail does not pad out to the bleed, so the tip is clipped by the scrollport');
+		assert(/overflow-x:\s*hidden/.test(rail),
+			'the horizontal clip is not stated, so the bleed scrolls the rail sideways');
+		assert(/pointer-events:\s*none/.test(rail) &&
+			/pointer-events:\s*auto/.test(ruleBodies(block, '.cm-guildrail .cm-tooltip').join('\n')),
+			'tap-through is not wired: the bleed swallows clicks on the column behind it');
+	});
+
+	check('batch 29: every square is --tap on both axes and never widens the rail', () => {
+		const b = ruleBodies(block, '.cm-guildrail__item').join('\n');
+		assert(/inline-size:\s*var\(--tap\)/.test(b) && /block-size:\s*var\(--tap\)/.test(b),
+			'the square is not --tap on both axes - the contract floor is unconditional');
+		// `flex: 0 0 auto`: an item is the tap target, so it must not be
+		// the thing that gives way when the column is tight.
+		assert(/flex:\s*0\s+0\s+auto/.test(b),
+			'the square can be squeezed below its own declared size by layout');
+		// The add control inherits the item's whole box rather than
+		// hand-rolling a second square (the 32x44 defect waiting to happen).
+		const add = ruleBodies(block, '.cm-guildrail__item--add').join('\n');
+		assert(add && !/inline-size|block-size/.test(add),
+			'the add control re-declares its own size instead of inheriting the square');
+	});
+
+	check('batch 29: the pill carries state the reader can see without colour', () => {
+		const item = ruleBodies(block, '.cm-guildrail__item').join('\n');
+		const cur = ruleBodies(block, ".cm-guildrail__item[aria-current='true']").join('\n');
+		assert(cur, 'aria-current does not change the square at all');
+		// A fill AND the ink AND the pill: never the hue on its own, or
+		// the current room reads as idle in greyscale.
+		assert(/background:\s*var\(--surface-raised\)/.test(cur) &&
+			/color:\s*var\(--ink\)/.test(cur),
+			'aria-current is not readable in greyscale (needs a fill and the ink)');
+		const idle = ruleBodies(block, '.cm-guildrail__item').join('\n');
+		assert(/color:\s*var\(--ink-faint\)/.test(idle),
+			'the idle square does not sit on the faint ink, so the active one has no contrast');
+		const pill = ruleBodies(block, '.cm-guildrail__pill').join('\n');
+		assert(/opacity:\s*0/.test(pill),
+			'the idle pill is absent rather than invisible - it is in the markup on every item');
+		assert(/transform:.*scaleY\(/.test(pill),
+			'the pill is resized instead of scaled, so it animates layout every frame');
+		const active = ruleBodies(block, ".cm-guildrail__item[aria-current='true'] .cm-guildrail__pill").join('\n');
+		assert(/opacity:\s*1/.test(active) && /scaleY\(1\)/.test(active),
+			'the current server does not get a full-bar pill');
+		assert(/class="cm-guildrail__pill" aria-hidden="true"/.test(showcase),
+			'the pill is not aria-hidden in the markup (state must be carried by aria-current)');
+	});
+
+	check('batch 29: count and dot are exclusive, and the count cannot break the square', () => {
+		// The contract's markup rule, asserted against the SHOWCASE: an
+		// item carrying both is the state that has no meaning.
+		const items = [...showcase.matchAll(/<button[^>]*class="cm-guildrail__item[^"]*"[\s\S]*?<\/button>/g)]
+			.map((m) => m[0]);
+		assert(items.length >= 4, 'the showcase does not render the rail items');
+		for (const it of items) {
+			assert(!(/cm-guildrail__badge/.test(it) && /cm-guildrail__unread/.test(it)),
+				'an item carries both a count and a dot - never both on one item');
+		}
+		const badge = ruleBodies(block, '.cm-guildrail__badge').join('\n');
+		assert(/max-inline-size:\s*var\(--tap\)/.test(badge),
+			'a two-digit count is not width-bounded, so it can break the 44px square');
+		assert(/white-space:\s*nowrap/.test(badge), 'the count can wrap inside the badge');
+		// The dot is a dot, not a zero.
+		const unread = ruleBodies(block, '.cm-guildrail__unread').join('\n');
+		assert(/inline-size:\s*var\(--space-2\)/.test(unread) && /block-size:\s*var\(--space-2\)/.test(unread),
+			'the unread marker is not square, so it is a shape the count cannot be confused with');
+		assert(!/content:/.test(unread) && !/text/.test(unread),
+			'the dot carries text - a dot with a zero in it is the defect');
+	});
+
+	check('batch 29: the tip is a tooltip in the markup and the name is not only the icon', () => {
+		// Every item is a real button with an aria-label, the monogram is
+		// aria-hidden, and the tip repeats the name for pointer users.
+		const items = [...showcase.matchAll(/<button[^>]*class="cm-guildrail__item[^"]*"[^>]*>/g)].map((m) => m[0]);
+		assert(items.length >= 4, 'no rail items in the showcase');
+		for (const tag of items) {
+			assert(/type="button"/.test(tag), `a rail item is not a real button: ${tag}`);
+			assert(/aria-label="[^"]+"/.test(tag), `a rail item has no aria-label: ${tag}`);
+		}
+		assert(/class="cm-guildrail__icon" aria-hidden="true"/.test(showcase),
+			'the monogram is exposed to the accessibility tree');
+		const tips = [...showcase.matchAll(/<span class="cm-tooltip__tip" role="tooltip">([^<]+)<\/span>/g)];
+		assert(tips.length >= items.length,
+			'not every rail item has a tooltip tip, and the tip copy must repeat the name');
+		const labels = items.map((t) => /aria-label="([^"]+)"/.exec(t)[1]);
+		const names = tips.map((m) => m[1]);
+		for (const l of labels) {
+			assert(names.some((n) => n.startsWith(l)),
+				`no tip repeats the aria-label "${l}" for pointer users`);
+		}
+		// The rail is a landmark with a name.
+		assert(/<nav class="cm-guildrail"[^>]*aria-label="[^"]+"/.test(showcase),
+			'the rail is not a named nav landmark');
+		assert(/class="cm-guildrail__sep" role="separator"/.test(showcase),
+			'the separator is not a separator role');
+	});
+
+	check('batch 29: the composer bar is the focus affordance', () => {
+		const bar = ruleBodies(block, '.cm-composer__bar').join('\n');
+		assert(/border:\s*1px solid var\(--line\)/.test(bar),
+			'the bar is not a hairline frame, so there is nothing to light up');
+		const focus = ruleBodies(block, '.cm-composer__bar:focus-within').join('\n');
+		assert(focus, 'no :focus-within rule on the bar');
+		assert(/border-color:\s*var\(--focus\)/.test(focus),
+			'the bar does not switch to the focus token - a keyboard user has no affordance');
+		// The field inside carries no ring of its own: the bar is it.
+		const input = ruleBodies(block, '.cm-composer__bar > textarea.cm-composer__input').join('\n');
+		assert(input, 'the composer field is not styled by the specificity-matching selector');
+		assert(/border:\s*0/.test(input), 'the field draws its own frame inside the bar');
+		assert(/background:\s*transparent/.test(input),
+			'the field is not transparent, so the bar is not the visible box');
+		assert(/padding:\s*0/.test(input), 'the field carries its own padding inside the bar');
+	});
+
+	check('batch 29: nothing caps the field, so the consumer can grow it to six lines', () => {
+		const input = ruleBodies(block, '.cm-composer__bar > textarea.cm-composer__input').join('\n');
+		// Auto-grow is the consumer's. A `max-block-size` here would clip
+		// line seven and make the library the thing that broke the scroll.
+		assert(/max-block-size:\s*none/.test(input),
+			'the field caps its own height, so auto-grow is clipped by the library');
+		// base.css reserves 2x--tap on a form textarea; a composer's
+		// reservation is its row count plus the tap floor.
+		assert(/min-block-size:\s*var\(--tap\)/.test(input),
+			'the field does not clear the --tap floor on its first row');
+		assert(/min-inline-size:\s*0/.test(input),
+			'the field cannot shrink inside the flex bar');
+		// base.css owns width at (0,2,1); a two-class rule loses, and the
+		// field claims the whole row.
+		assert(/^\.cm-composer__bar > textarea\.cm-composer__input \{/m.test(rawCss),
+			'the field selector does not tie base.css specificity - the width rule loses');
+	});
+
+	check('batch 29: the reply strip is hidden by attribute, above the bar', () => {
+		const reply = ruleBodies(block, '.cm-composer__reply').join('\n');
+		assert(/display:\s*flex/.test(reply), 'the reply strip is not a flex row');
+		// `display: flex` above outranks the UA's `[hidden] {display: none}`,
+		// so the component owes its own rule; the consumer only flips the
+		// attribute.
+		const hidden = ruleBodies(block, '.cm-composer__reply[hidden]').join('\n');
+		assert(/display:\s*none/.test(hidden),
+			'the component does not honour [hidden] on the reply strip');
+		// ABOVE the bar: the strip must come first in source AND in flow,
+		// which is the markup's job - assert it on the page.
+		const show = showcase.indexOf('cm-composer__reply');
+		const bar = showcase.indexOf('cm-composer__bar');
+		assert(show > 0 && bar > show,
+			'the reply strip is not before the bar in the markup');
+		const strip = ruleBodies(block, '.cm-composer').join('\n');
+		assert(/flex-direction:\s*column/.test(strip),
+			'the composer does not stack the strip over the bar');
+		assert(/class="cm-composer__reply" hidden/.test(showcase),
+			'the showcase does not ship the strip hidden, which is the state it exists in');
+	});
+
+	check('batch 29: sending lives on the FORM, and the input stays usable', () => {
+		// `data-cm-sending` dims the send glyph but never disables the
+		// input: the contract says the input stays usable mid-send.
+		assert(/\.cm-composer\[data-cm-sending\] \.cm-composer__send \{/.test(block),
+			'data-cm-sending does not reach the send button');
+		const sending = ruleBodies(block, '.cm-composer[data-cm-sending] .cm-composer__send').join('\n');
+		assert(/color:\s*transparent/.test(sending),
+			'the send glyph is not hidden while in flight');
+		const spun = ruleBodies(block, '.cm-composer[data-cm-sending] .cm-composer__send::before').join('\n');
+		assert(spun, 'the send button shows no busy mark while the message is in flight');
+		assert(/animation:/.test(spun), 'the busy mark does not animate, so it does not read as busy');
+		assert(/position:\s*absolute/.test(spun) && /inset:\s*0/.test(spun),
+			'the busy mark is stacked over the glyph, so the box resizes under the pointer');
+		assert(!/data-cm-sending[^{]*\binput\b[^{]*\{[^}]*pointer-events:\s*none/.test(block),
+			'data-cm-sending blocks the input - the contract says it stays usable');
+		assert(!/\bcm-composer__input\[disabled\]/.test(block) ||
+			!/\.cm-composer\[data-cm-sending\][^{]*disabled/.test(block),
+			'sending disables the input instead of marking the form');
+		// The showcase must show the state, or the rule is a promise nobody
+		// can check.
+		assert(/data-cm-sending/.test(showcase), 'the showcase never renders the sending state');
+	});
+
+	check('batch 29: a disabled textarea dims the whole box, through :has', () => {
+		// The disabled element is a grandchild of the form, so no sibling
+		// combinator can see it - `:has` is the same idiom the header row
+		// uses for the badge it wraps.
+		const dim = ruleBodies(block, '.cm-composer:has(.cm-composer__input:disabled) .cm-composer__bar').join('\n');
+		assert(dim, 'a read-only room does not dim the composer box');
+		assert(/border-color:\s*var\(--line-soft\)/.test(dim),
+			'the dimmed box does not drop to the soft line');
+		const send = ruleBodies(block, '.cm-composer:has(.cm-composer__input:disabled) .cm-composer__send').join('\n');
+		assert(send && /not-allowed/.test(send),
+			'send is not marked as refused in a read-only room');
+		assert(/var\(--ink-faint\)/.test(send), 'the refused send button is not on the faint ink');
+		assert(/<textarea class="cm-composer__input"[^>]*aria-label="[^"]+"/.test(showcase),
+			'the composer field has no aria-label');
+		assert(/rows="1"/.test(showcase), "the field is not a native rows=\"1\" textarea");
+	});
+
+	check('batch 29: the typing line is layout only, and the marker owns the semantics', () => {
+		const typing = ruleBodies(block, '.cm-composer__typing').join('\n');
+		assert(typing, 'no spacing rule for the typing line');
+		for (const p of ['color', 'font-size', 'font-weight', 'background', 'border']) {
+			assert(!new RegExp(`(?:^|;)\\s*${p}\\s*:`).test(typing),
+				`the typing wrapper sets ${p} - the composed .cm-marker must own that`);
+		}
+		assert(/role="status"/.test(showcase) && /class="cm-marker cm-shimmer"/.test(showcase),
+			'the typing specimen does not compose .cm-marker with its status role');
+	});
+
+	check('batch 29: the two new components are token-only, with no raw colour or spacing', () => {
+		// The block is read RAW here - the comment above explains why a
+		// comment naming a hex defeats a raw-file scan, so the comments are
+		// stripped for this one check and nothing else needs them.
+		const hex = block.match(/#[0-9a-f]{3,8}\b/gi) || [];
+		assert(hex.length === 0, `the batch declares raw colours: ${hex.join(', ')}`);
+		const named = block.match(/:\s*(red|green|blue|yellow|orange|purple|pink|teal)\b/gi) || [];
+		assert(named.length === 0, `the batch declares named colours: ${named.join(', ')}`);
+		const raw = [...block.matchAll(
+			/(?:^|[;{])\s*((?:-webkit-)?[a-z-]*color|(?:-webkit-)?background(?:-color)?|border(?:-[a-z]+)?-color|outline(?:-[a-z]+)?-color|box-shadow|fill|stroke)\s*:\s*([^;}]+)/g,
+		)]
+			.filter((m) => !/^var\(|^currentColor$|^inherit$|^none$|^transparent$/.test(m[2].trim()))
+			// A gradient is a colour value, but the ones here are built
+			// entirely from var()s - the rail's own trailing hairline is
+			// `linear-gradient(var(--line), var(--line))`, which is two
+			// token stops and no literal colour. Strip the wrapper and
+			// re-test what is actually inside it.
+			.filter((m) => !/^(?:repeating-)?(?:linear|radial|conic)-gradient\(/.test(m[2].trim()))
+			.map((m) => `${m[1]}: ${m[2].trim()}`);
+		assert(raw.length === 0, `the batch hardcodes a colour: ${raw.join(', ')}`);
+		// ...and the gradient itself is proved token-only, so the filter
+		// above is not a hole a literal colour could climb through.
+		for (const g of block.matchAll(/(?:repeating-)?(?:linear|radial|conic)-gradient\(([^)]*(?:\([^)]*\)[^)]*)*)\)/g)) {
+			const inner = g[1];
+			assert(!/#[0-9a-f]{3,8}\b/i.test(inner) && !/\brgba?\(|\bhsla?\(/i.test(inner),
+				`a gradient stop is a literal colour: ${inner.trim()}`);
+		}
+		// Spacing is a step, not a number.
+		const sp = [...block.matchAll(/\b(margin(?:-[a-z]+)?|padding(?:-[a-z]+)?|gap|row-gap|column-gap):\s*(-?[\d.]+)(rem|px)\s*;/g)];
+		assert(sp.length === 0,
+			`the batch hardcodes spacing: ${sp.map((m) => m[0]).join(', ')}`);
+		// The two new tokens exist, are used, and are not duplicates.
+		for (const t of ['--guildrail-w', '--guildrail-bleed']) {
+			assert(new RegExp(`^\\s*${t}:`, 'm').test(tokenSrc), `tokens.css does not define ${t}`);
+			assert(rawCss.includes(`var(${t})`), `${t} is defined and never used - a dead token`);
+		}
+		assert((block.match(/var\(--guildrail-bleed\)/g) || []).length >= 3,
+			'--guildrail-bleed is not doing the three jobs it exists for (pad, cancel, cap)');
+	});
+
+	check('batch 29: reduced motion kills the new transitions, not the states', () => {
+		// The guard is ONE block and nothing after it: slicing to the end of
+		// the file would let a later mention satisfy the check.
+		const guard = allAtRuleBodies(comp, '@media (prefers-reduced-motion: reduce)');
+		assert(guard.length > 0, 'the reduced-motion guard is missing');
+		for (const sel of ['.cm-guildrail__item', '.cm-guildrail__pill',
+			'.cm-composer__bar', '.cm-composer__attach', '.cm-composer__send']) {
+			assert(guard.includes(sel), `${sel} keeps its transition under reduced motion`);
+		}
+		assert(/\.cm-guildrail__item,\s*[\s\S]{0,300}?transition:\s*none/.test(guard),
+			'the rail transitions are not killed as a group');
+		// The state itself must still read: the spinner cannot animate, so
+		// it is stopped rather than left running.
+		assert(/\.cm-composer\[data-cm-sending\] \.cm-composer__send::before \{ animation: none; \}/.test(guard),
+			'the sending spinner still spins under reduced motion');
+	});
+
+	check('batch 29: the font sizes carry the --min-font floor like every other component', () => {
+		for (const sel of ['.cm-guildrail__item', '.cm-guildrail__badge',
+			'.cm-composer__reply', '.cm-composer__replyclose']) {
+			for (const b of ruleBodies(block, sel)) {
+				if (!/font-size:/.test(b)) continue;
+				assert(/max\(var\(--min-font\)/.test(b),
+					`${sel} declares a font-size with no --min-font floor: ${b.trim()}`);
+			}
+		}
+	});
+
+	check('batch 29: the new rules sit before .cm-auth, and stack ownership still ends the file', () => {
+		assert(rawCss.indexOf('.cm-guildrail {') < rawCss.indexOf('.cm-auth {'),
+			'the batch is written after .cm-auth');
+		assert(rawCss.indexOf('stack ownership (LAST, on purpose)') > rawCss.indexOf('.cm-auth {'),
+			'stack ownership must remain the last block in the stylesheet');
+	});
+
+	check('batch 29: the showcase renders both specimens with the contract structure', () => {
+		assert(/<section id="guildrail" class="cm-section cm-section--pad">/.test(showcase),
+			'the guildrail specimen is not a showcase section');
+		assert(/<section id="composer" class="cm-section cm-section--pad">/.test(showcase),
+			'the composer specimen is not a showcase section');
+		// The section head names the component, which is the page's index.
+		assert(/<SectionHead title="guildrail">/.test(showcase) &&
+			/<SectionHead title="composer">/.test(showcase),
+			'the specimens are missing their section heads');
+		// Rail: the tooltip wrapper is the item's parent, so the tip can
+		// anchor to the square without a second wrapper class.
+		assert(/<span class="cm-tooltip">\s*<button type="button" class="cm-guildrail__item/.test(showcase),
+			'the rail items are not wrapped .cm-tooltip spans');
+		// Composer: the bar holds attach, the field, then the tools.
+		const bar = /<div class="cm-composer__bar">([\s\S]*?)<\/div>\s*<\/form>/.exec(showcase);
+		assert(bar, 'the composer bar is not in the markup');
+		const order = ['cm-composer__attach', 'cm-composer__input', 'cm-composer__tools'];
+		let last = -1;
+		for (const c of order) {
+			const at = bar[1].indexOf(c);
+			assert(at > last, `the bar's ${c} is out of contract order`);
+			last = at;
+		}
+		// A long server list, so the rail really does scroll: a rail that
+		// fits has proven nothing.
+		const railItems = (showcase.match(/class="cm-guildrail__item/g) || []).length;
+		assert(railItems >= 6, `the specimen rail has ${railItems} items - too few to overflow its box`);
+	});
+
+	check('batch 29: the composer documents the consumer JS rather than implementing it', () => {
+		// The three behaviours the contract hands to the client. They must
+		// be documented, and the library must not quietly implement them.
+		const readme = read('README.md');
+		const at = readme.indexOf('### The server rail');
+		assert(at > 0, 'the README has no guildrail/composer section');
+		const sec = readme.slice(at, readme.indexOf('\n### ', at + 4) > 0
+			? readme.indexOf('\n### ', at + 4) : undefined);
+		for (const phrase of ['Enter', 'Shift+Enter', 'auto-grow', 'Consumer']) {
+			assert(sec.includes(phrase), `the README section never mentions ${phrase}`);
+		}
+		// Not implemented: no new runtime file was shipped for either
+		// component. The composer's behaviour is the client's.
+		const runtime = read('src/js/cli-mono.js');
+		assert(!/cm-composer|cm-guildrail/.test(runtime),
+			'the runtime implements the composer - Enter/Shift+Enter/auto-grow are the consumer\'s');
+		const hint = /auto-grow|Enter sends/.test(runtime);
+		assert(!hint, 'the runtime has a partial composer implementation');
+	});
+}

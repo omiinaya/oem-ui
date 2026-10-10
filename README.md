@@ -1677,6 +1677,178 @@ Proven by six `shadcn-parity: menubar` checks, the WebKit harness
 `tests/verify-menubar-parity.py` (402x667) and 18 mutation patterns in
 `tests/mutate-menubar-parity.py`.
 
+### The server rail and the message composer
+
+Two components whose shape comes from a client, not from this library:
+`matrix-arrow-client` renders a Discord-shaped shell, and the names below
+are the **binding contract** between the two repos
+(`matrix-arrow-client/docs/contract.md`, sections 1 and 3). The class names
+and the markup structure are fixed; sizes, tokens, hover feel and dividers
+are this library's call. Anything the contract calls "consumer JS" is
+documented here and **implemented by the client, not by us** — the CSS owes
+a control that is still correct when the consumer does none of it.
+
+```html
+<!-- The rail. One <span class="cm-tooltip"> per square, so the tip can
+     anchor off the square without a second wrapper class. -->
+<nav class="cm-guildrail" aria-label="Servers">
+  <span class="cm-tooltip">
+    <button type="button" class="cm-guildrail__item cm-guildrail__item--home"
+            aria-current="true" aria-label="Direct messages">
+      <span class="cm-guildrail__pill" aria-hidden="true"></span>
+      <span class="cm-guildrail__icon" aria-hidden="true">◇</span>
+    </button>
+    <span class="cm-tooltip__tip" role="tooltip">Direct messages</span>
+  </span>
+
+  <span class="cm-guildrail__sep" role="separator"></span>
+
+  <span class="cm-tooltip">
+    <button type="button" class="cm-guildrail__item" aria-label="OEM HQ">
+      <span class="cm-guildrail__pill" aria-hidden="true"></span>
+      <span class="cm-guildrail__icon" aria-hidden="true">OH</span>
+      <span class="cm-guildrail__badge" aria-hidden="true">3</span>
+    </button>
+    <span class="cm-tooltip__tip" role="tooltip">OEM HQ</span>
+  </span>
+</nav>
+
+<!-- The composer. The reply strip sits ABOVE the bar and is toggled with
+     the `hidden` attribute - the library styles [hidden], the consumer
+     only flips it. -->
+<form class="cm-composer" data-cm-composer>
+  <div class="cm-composer__reply" hidden>
+    <span class="cm-composer__replytext">Replying to <strong>Ciel</strong></span>
+    <button type="button" class="cm-icon-btn cm-composer__replyclose" aria-label="Cancel reply">✕</button>
+  </div>
+  <div class="cm-composer__bar">
+    <button type="button" class="cm-icon-btn cm-composer__attach" aria-label="Attach a file">＋</button>
+    <textarea class="cm-composer__input" rows="1" placeholder="Message #general" aria-label="Message"></textarea>
+    <div class="cm-composer__tools">
+      <button type="button" class="cm-icon-btn" aria-label="Emoji">☺</button>
+      <button type="button" class="cm-icon-btn cm-composer__send" aria-label="Send message">➤</button>
+    </div>
+  </div>
+</form>
+<p class="cm-composer__typing">
+  <span class="cm-marker cm-shimmer" role="status">Ciel is typing…</span>
+</p>
+```
+
+#### The rail owns its own scroll
+
+`.cm-guildrail` is a flex **column** with `overflow-y: auto`, a
+`min-block-size: 0` so the item can shrink below its content, and
+`max-block-size: 100%` so there is a box to scroll against. Without the
+bound the rail's box IS its content, the grid row stretches with the server
+list, and the `auto` scrolls nothing — the exact failure the rail exists to
+prevent. The showcase specimen is capped at `16rem` for that reason: a rail
+that fits has proven nothing.
+
+**The tip escapes to the right of the rail, and that is a token, not a
+coincidence.** A scrollport clips everything painted past its padding box,
+and `overflow-clip-margin` — the one property that widens that box — is not
+implemented in WebKit at all (`CSS.supports('overflow-clip-margin','20px')`
+→ `false`). So the padding box is widened by hand: the rail declares
+`inline-size: calc(var(--guildrail-w) + var(--guildrail-bleed))`, cancels
+the width with a matching negative `margin-inline-end` so the grid still
+sees a `--guildrail-w` margin box, and pads out to `--guildrail-bleed` —
+which is also the tip's own cap, `min(18rem, 52vw)`. Those two numbers
+agreeing is the **whole** reason the tip survives: measured one pixel past
+the padding box and the fill is gone. Tying the cap to the token makes that
+a declaration instead of a coincidence, and a consumer who narrows the bleed
+narrows the tip with it.
+
+The trailing hairline is a `linear-gradient(var(--line), var(--line))`
+clipped to the content box rather than a `border`: a border would be drawn
+at the padding box too, i.e. 18rem to the right of where it belongs.
+
+#### States
+
+- **Active** — `aria-current="true"` **and** a visible `.cm-guildrail__pill`.
+  The pill is `aria-hidden`; the state is carried by `aria-current`, never by
+  colour alone. The square reads in greyscale: a `--surface-raised` fill,
+  the `--ink` on it, and a full-height pill (hover gives a short tick). The
+  idle ink is `--ink-faint`, so the difference is contrast and not hue.
+- **Unread** — `.cm-guildrail__badge` (a count) **or**
+  `.cm-guildrail__unread` (a dot when there is no count). Never both on one
+  item. The badge is width-bounded at `--tap` so a two-digit count cannot
+  break the 44px square; the dot is square and carries no text, so a dot
+  with a zero in it is not expressible.
+- **Home / add** — `--home` wears a frame (`--line`), a shape difference
+  rather than a hue, because this palette has none. `--add` only changes the
+  ink: it inherits the item's whole box rather than hand-rolling a second
+  square.
+- **Tap floor** — every square is `--tap` on **both** axes, on every
+  pointer, not just a coarse one, with `flex: 0 0 auto` so layout cannot
+  squeeze a control whose size *is* the measurement.
+- **Focus** — `outline-color: var(--focus)`; the tip opens on
+  `:focus-within` as well as hover, so a keyboard user gets the name too.
+  The monogram is `aria-hidden` and `aria-label` is mandatory on the button.
+
+The tip is centred by hand: the stock answers all point back over the rail
+or above the viewport. `inset-inline-start: 100%` puts its leading edge
+exactly where the rail's content ends, and the `translateY(-50%)` lives in
+this rule rather than in a `:hover` copy, because the base tip settles to
+`translateY(0)` and would drop the tip half its own height.
+
+#### The composer's frame is the focus affordance
+
+`.cm-composer__bar` is a hairline frame on `--panel-nested` that switches to
+`--focus` on `:focus-within`. The textarea inside carries **no** ring of its
+own — no border, no padding, no background — so the bar is the only thing
+telling a keyboard user where they are. The field is selected as
+`.cm-composer__bar > textarea.cm-composer__input` on purpose: `base.css` owns
+the field's width at `(0,2,1)` and a two-class rule is `(0,2,0)` and loses it
+outright, leaving a textarea claiming the whole row instead of the space left
+between the attach button and the tools.
+
+Nothing caps the field's height. `max-block-size: none` is deliberate: the
+contract's six-line limit is the consumer's auto-grow, and a `max-block-size`
+here would clip line seven and make the library the thing that broke the
+scroll. `base.css` reserves `2 × --tap` on a form textarea; a composer's
+reservation is its row count plus the `--tap` floor, so the field clears the
+floor on its first row and grows from there.
+
+#### States
+
+- **Read-only room** — `[disabled]` on the textarea. The box dims to
+  `--line-soft` and send drops to `--ink-faint` with `cursor: not-allowed`.
+  It reaches the frame through `:has()`, the same idiom the header row uses
+  for the badge it wraps: the disabled element is a grandchild, and no
+  sibling combinator can see it.
+- **Send in flight** — `data-cm-sending` on the **form**, never a `disabled`
+  on the input: the contract says the input stays usable mid-send. The send
+  glyph is made `transparent` rather than removed (the box must not resize
+  under the pointer), and a `::before` spinner is stacked over it with
+  `position: absolute; inset: 0`.
+- **Reply strip** — a flex row above the bar, shown by removing `hidden`.
+  Because the component declares `display: flex` on it, the UA's
+  `[hidden] { display: none }` is outranked outright, so the component owes
+  its own `[.cm-composer__reply[hidden]]` rule.
+- **Typing line** — `.cm-composer__typing` is **layout only** (the spacing
+  under the bar). The semantics stay on the composed `.cm-marker` inside it,
+  exactly as the marker docs require, and no colour, size or border is set
+  on the wrapper.
+
+#### Consumer JS — documented, not implemented
+
+Nothing in `src/js/` knows these two components exist. The client owns:
+
+| behaviour | who | what the library owes |
+|---|---|---|
+| **Enter sends** | consumer | a real `<form>` so the client can bind a keydown; the library never binds one |
+| **Shift+Enter inserts a newline** | consumer | nothing — the textarea is native, so the newline is already the platform's |
+| **auto-grow to ~6 lines, then scroll** | consumer | `max-block-size: none` and `overflow-y: auto`, so a grown field scrolls instead of clipping. Reset the height before measuring on send |
+| reply strip toggle | consumer | `[hidden]` styling on `__reply`; the consumer only flips the attribute |
+| send / read-only state | consumer | `data-cm-sending` on the form, `[disabled]` on the textarea, both fully styled |
+
+Proven by `tests/verify-guildrail-composer.py`, a real-WebKit harness that
+asserts the tap floor at 402×667 and that the tooltip lands to the **right**
+of the rail without overlapping it, by 16 `shadcn-parity: guildrail +
+composer` checks in `tests/run.mjs`, and by 22 mutation patterns in
+`tests/mutate-guildrail.py` / `tests/mutate-composer.py`.
+
 ### Tree and resizable panels
 
 ```html

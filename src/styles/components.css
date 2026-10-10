@@ -8547,7 +8547,7 @@ input.cm-slider:disabled {
 	/* The monogram is set here, not in the markup: the size of a glyph
 	   is a property of the thing holding it. */
 	font-family: var(--font-mono);
-	font-size: var(--text-sm);
+	font-size: max(var(--min-font), var(--text-sm));
 	font-weight: 700;
 	line-height: 1;
 	letter-spacing: 0.04em;
@@ -8624,7 +8624,7 @@ input.cm-slider:disabled {
 	border-radius: var(--radius-sm);
 	background: var(--ink);
 	color: var(--bg);
-	font-size: var(--text-micro);
+	font-size: max(var(--min-font), var(--text-micro));
 	font-weight: 700;
 	line-height: 1;
 	white-space: nowrap;
