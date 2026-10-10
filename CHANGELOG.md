@@ -1,5 +1,345 @@
 # Changelog
 
+## Unreleased - sidebar mention badge
+
+- **`.cm-sidebar__badge--mention`.** The mention count a channel carries
+  needs to outrank the channel around it - it is an obligation, not a
+  status - and the single `.cm-sidebar__badge` could not. Marked by
+  weight and ink rather than a second fill: forced colours collapses
+  two fills into one, and a mention nobody can see is a mention nobody
+  answers.
+
+## Unreleased - batch 30 fix: the message list speaks the client's contract
+
+`matrix-arrow-client/docs/contract.md` is BINDING on `.cm-msglist`'s class
+names and markup structure. Batch 30 was written from the same brief but
+independently, and three of its choices were the exact inverse of the
+contract. A client cannot consume a component whose names disagree with the
+document that promises them, so the library moves - the contract is the
+agreement, and `__row` was never in it.
+
+- **`__row` -> `__msg`.** The grid row is `.cm-msglist__msg`. The old
+  `__msg` was an inner wrapper the contract does not have: it puts
+  `__meta`, `__text` and `__reactions` straight into `__main`. That
+  wrapper is gone, not renamed - a component with one extra div is a
+  component whose structure a consumer cannot predict.
+- **Four classes the contract names and nothing defined.** `__stamp` (the
+  visible time in the meta line), `__hoverstamp` (the gutter's copy on a
+  continuation row), `__daylabel` and `__unreadlabel`. A contract name
+  with no rule behind it is a class a consumer writes into markup that
+  renders as nothing.
+- **Rows are `<article>`.** The contract's markup element, and the honest
+  one: a message is a self-contained unit, not a generic box.
+- **The action toolbar is a real toolbar.** Batch 30 asserted ONE button
+  and the contract's own example carries three named controls (add
+  reaction, reply, more) inside `role="toolbar"`. Styling does not get to
+  overrule the client's affordances; what this library owns is the
+  reserved track, the `opacity`/`pointer-events` rest state and the
+  `:hover`/`:focus-within` reveal, and all three are unchanged.
+- **One stamp per row survives the rename.** The rule is now
+  `__msg:not(__msg--grouped) .__gutter { visibility: hidden }` and the
+  WebKit oracle that measures the column geometry is unchanged and still
+  green at 65/65.
+
+The four contract checks that encoded batch 30's own choices were retargeted
+to the contract's invariants rather than deleted: the empty avatar slot is
+measured against the AVATAR TRACK it fills (not against the width of a
+`--sm` avatar element, which is a different thing), and the unread rule is
+measured as a bar plus a real label carrying a count - the literal word
+"unread" was never the requirement.
+
+Suite 631 passed / 0 failed; `tests/verify-msglist.py` 65/65 in WebKit.
+
+## Unreleased - batch 30: the transcript as a LOG, not a stack of turns
+
+`.cm-msglist` is the flat timeline the chat family renders when the
+conversation reads as a running log: a day divider, a four-track row
+carrying a timestamp gutter, an avatar and a RESERVED action track,
+continuation rows that drop their header, an unread rule, a mention and
+a system note. It lives inside `.cm-scroller` and owns none of that
+frame - the labelled viewport, the `role="log"` content and the
+`data-message-id` addressing stay the scroller's, which is why every row
+also wears `cm-scroller__item`.
+
+- **The action toolbar ships hidden and its column is already there.**
+  `opacity: 0; pointer-events: none` in a track the row grid declares at
+  rest, revealed on `:hover` and `:focus-within`. Revealing it by adding
+  a TRACK is what makes the message jump when the pointer arrives
+  (measured in WebKit: the text column is 123.63px on a 402px viewport
+  and does not move on hover), and `display: none` is what would drop
+  the button out of the tab order and leave the reveal for a keyboard
+  that can never fire it. `position: absolute` would take the cell out
+  of the grid - the same shift in slow motion.
+- **One stamp per row.** Both stamps exist in the markup -
+  `.cm-msglist__gutter` and the `.cm-msglist__meta` line - and CSS
+  chooses which paints: an ungrouped row is stamped by its meta line and
+  its gutter goes `visibility: hidden`, a grouped row has no header so
+  its gutter stamps it. `display: none` was the tempting fix and is the
+  bug: the gutter column measures 60px on a phone and 60px at 1280px and
+  is identical under the rule, so the stamp column cannot collapse row
+  by row. Author the gutter on EVERY row; two visible stamps on one row
+  is the fault.
+- **The empty avatar slot is load-bearing.** A continuation row ships
+  `<span class="cm-msglist__avatar"></span>`, and `--msglist-avatar` is
+  pinned by a test to `.cm-avatar`'s own default (2.5rem), so a bare
+  slot and a real avatar open the same column: measured 40px and 40px in
+  WebKit, against a 60px gutter token. Drop the slot and the row grid
+  lands correctly only by luck of auto-placement.
+- **A mention is a mark AND a tint.** A 2px `border-inline-start` over a
+  `--panel-nested` surface, with the padding the border eats handed back
+  in the logical axis, so the bar does not slide the message column
+  against its neighbours - measured at 493.19px for the mention row and
+  its neighbours, identical inside the marked row and out. The physical
+  `border-left` is the RTL-blind spelling of the same rule and is the
+  fault the Direction baseline exists to catch.
+- **A count is text, never a glyph.** Every reaction count is a real
+  `.cm-msglist__count` span (measured as selectable text: "2", "1",
+  "4"), and the reader's own chip is a heavier edge plus
+  `aria-pressed="true"` rather than a hue - a 1px inset ring in `--ink`
+  over the raised surface, so the state is announced, not implied.
+- **Grouping is the consumer's job.** CSS styles, the consumer groups: a
+  row is `cm-msglist__row--grouped` when it follows a row from the same
+  author within ~5 minutes. The library ships no script that could
+  inspect an author, a clock or a message body, and its whole
+  responsibility is that the grouped row it is handed aligns with the
+  ungrouped one above it.
+- **Two tokens, one per column the row promises** - `--msglist-gutter:
+  3.75rem` and `--msglist-avatar: 2.5rem` - rather than numbers inlined
+  in the grid.
+- Eight `contract: .cm-msglist (batch 30)` checks in `tests/run.mjs`
+  read the source and the built specimen (the classes ship, the toolbar's
+  rest state, one stamp per row, the empty slot, the mark and the tint, a
+  count that is real text, the house rules, the documented README
+  section). A WebKit harness (`tests/verify-msglist.py`, 65 checks at a
+  402px phone width and a 1280px desktop width) measures the geometry a
+  source scan cannot, and a mutation runner (`tests/mutate-msglist.py`,
+  36 patterns) seeds the faults these checks exist to catch - all 36
+  killed, no survivors. The sweep's own count is the point: a mutant only
+  counts as killed when the failing assertion is named, so the runner
+  prints, for any survivor, the claim no test states.
+
+## Unreleased - batch 29: calendar gains a third mode (multiple), parity-correct
+
+- **Calendar: `mode="multiple"`.** The one missing mode documented by
+  shadcn/rdp is now shipped. Selection is still round-tripped through the
+  single `data-cm-cal-selected` attribute — a space-separated set when in
+  multiple mode — so the truth lives on the attribute, never on the day cells.
+  `calRender` rebuilds the grid wholesale, which is precisely why the set must
+  live there: a selection stamped onto cells would be gone after a month step
+  or a re-render. The set is normalised on read (whitespace, duplicates) and
+  written back sorted. A pick is a toggle (remove on a second press), which
+  is the expected behaviour for an independent set rather than a pair.
+- **Roving keeps exactly one tab stop.** In multiple mode `sel` is nulled and
+  the fallback chain takes `picked[0]` so that `active === day` can still
+  place a tab stop for the earliest picked day in the visible month. Escape
+  clears the whole set, the same verb used by the other modes.
+- **Range is asked for by name.** The renderer, datepicker glue and the range
+  preview all test for `calMode(cal) === 'range'` rather than
+  `!== 'single'` — the latter was the defect that made a third mode
+  impossible, because it silently sent `multiple` down the range branch.
+- **Showcase + documentation + contracts.** Added a `cal-multiple` specimen
+  (two picked days, one tab stop) to the forms section, documented the three
+  modes in README, added the `shadcn-parity: calendar` multiple-mode contract
+  check to `tests/run.mjs`, and wrote `tests/verify-calendar-multiple.py`
+  (a WebKit behavioural proof) and `tests/mutate-calendar-multiple.py` (10
+  mutants, kill criterion is `npm test` AND the WebKit harness - two oracles
+  because the invariant "the attribute set survives a month step away and
+  back" is a behaviour, not a string shape). The first run's survivors were
+  text-grep artifacts retargeted to the actual runtime slices.
+
+## Unreleased - batch 29: the server rail and the message composer
+
+Two components whose shape comes from a client rather than from this
+library. `matrix-arrow-client` renders a Discord-shaped shell and its
+`docs/contract.md` is **binding** on the class names and the markup
+structure; the visual detail — sizes, tokens, hover feel, dividers — is
+this library's call. `.cm-guildrail` and `.cm-composer` are the first two
+of the three it names (`.cm-msglist` is not in this batch).
+
+- **A rail that owns its own scroll has to be BOUNDED to do it.** The
+  contract asks for a flex column that scrolls so a long server list
+  cannot stretch the app grid, and `overflow-y: auto` alone does not
+  give that: without a bound the rail's box IS its content, the grid row
+  stretches with the list, and the `auto` scrolls nothing against a box
+  exactly as tall as what is in it. The block declares `min-block-size: 0`
+  (the flex item may shrink below its content) and `max-block-size: 100%`
+  (there is a box to scroll against), and the showcase specimen is capped
+  at `16rem` for the same reason — a rail that fits has proven nothing.
+- **The tip escapes to the right because of a token, not a coincidence.**
+  A tooltip on a rail has to clear the rail's own scrollport, and the
+  scrollport clips everything painted past its padding box.
+  `overflow-clip-margin` — the one property that widens that box — is not
+  implemented in WebKit at all (`CSS.supports('overflow-clip-margin',
+  '20px')` → `false`), so the padding box is widened by hand instead: the
+  rail states `inline-size: calc(var(--guildrail-w) + var(--guildrail-bleed))`,
+  cancels the width with a matching negative `margin-inline-end` so the
+  grid still sees a `--guildrail-w` margin box, and pads out to
+  `--guildrail-bleed`. That token is ALSO the tip's own cap
+  (`min(18rem, 52vw)`), and the two numbers agreeing is the whole reason
+  the tip survives: measured one pixel past the padding box and the fill
+  is gone. Tying the cap to the token makes it a declaration instead of a
+  coincidence. Two new tokens, both used three times, neither a duplicate.
+- **The trailing hairline is a gradient clipped to the content box, not
+  a border.** A `border` is drawn at the padding box, which here is 18rem
+  to the right of where the edge belongs. So is the tip: the stock
+  `--start`/`--end`/above variants all point back over the rail or above
+  the viewport, so `inset-inline-start: 100%` puts its leading edge
+  exactly where the rail's content ends, and the centring
+  `translateY(-50%)` lives in that rule rather than a `:hover` copy —
+  the base tip settles to `translateY(0)` and would drop the tip half its
+  own height.
+- **`aria-current` is a fill AND the ink AND the pill, never the hue.**
+  This palette has no hue to spend, so the current square is
+  `--surface-raised` under `--ink` with a full-height pill, hover is a
+  short tick, and idle sits on `--ink-faint` — the difference is contrast
+  and shape, so it survives greyscale. Unread is a count
+  (`.cm-guildrail__badge`, width-bounded at `--tap` so a two-digit count
+  cannot break the 44px square) OR a dot (`.cm-guildrail__unread`, square
+  and textless, so a dot carrying a zero is not expressible), never both
+  on one item. Every square is `--tap` on both axes on every pointer with
+  `flex: 0 0 auto`: a control whose size IS the measurement must not be
+  the thing that gives way.
+- **The composer's frame is its focus affordance.** The bar is a hairline
+  on `--panel-nested` that switches to `--focus` on `:focus-within`, and
+  the textarea inside carries no ring, border, padding or background of
+  its own. The field is selected as
+  `.cm-composer__bar > textarea.cm-composer__input` on purpose: `base.css`
+  owns the width at `(0,2,1)` and a two-class rule is `(0,2,0)` and loses
+  it outright, leaving a textarea claiming the whole row instead of the
+  space between the attach button and the tools. Nothing caps its height
+  (`max-block-size: none` is deliberate) — the contract's six-line limit
+  is the consumer's auto-grow, and a cap here would clip line seven and
+  make the library the thing that broke the scroll.
+- **Enter sends, Shift+Enter newlines and auto-grow are the CONSUMER's,
+  and that is tested, not just written down.** The README documents all
+  of it in a table, and a check asserts that no batch-29 class reaches
+  `src/js/` — the contract calls this behaviour the client's, so a
+  partial implementation in the runtime is the defect, not the feature.
+  `data-cm-sending` lives on the **form** and never disables the input
+  (the contract says it stays usable mid-send; the glyph goes
+  `transparent` and a `::before` spinner is stacked over it with
+  `inset: 0`, so the box cannot resize under the pointer mid-send), and
+  `[disabled]` on the textarea dims the whole box through `:has()` — the
+  disabled element is a grandchild, and no sibling combinator can see it.
+- **Two real defects the new checks caught in this batch's own CSS.**
+  The item monogram and the badge were the only two sizes in the block
+  with no `--min-font` floor, which every other component in the library
+  carries; a badge at `0.75rem` is 12px only by accident of the root
+  size, and the floor is the point. Fixed before the suite went green.
+
+Proven by 22 `batch 29:` checks in `tests/run.mjs`, the WebKit harness
+`tests/verify-guildrail-composer.py` (44 checks, desktop 1280×900 and
+402×667) and 74 mutation patterns across `tests/mutate-guildrail.py`
+(31 source + 9 live) and `tests/mutate-composer.py` (28 source + 6
+live). Seven further mutations were measured positively EQUIVALENT to the
+pristine tree and are recorded with their measurements in the two runners
+rather than kept as mutants that nothing can kill.
+
+## Unreleased - batch 28: the menubar carries the depth the panel pattern already had
+
+- **One tab stop, not one per word.** `.cm-menubar` now roves: the bar
+  enters the page as a single tab stop and Left/Right/Home/End walk the
+  words from there, the same rule `.cm-tabs` already applies. Each
+  trigger at `tabindex="0"` made `Tab` walk file/edit/view/help before
+  reaching anything else — exactly the thing the pattern exists to
+  prevent. The stop is WRITTEN by `initMenubar`, never read from the
+  author's markup: three authored `tabindex="0"`s still end up as one
+  tabbable word, because a stop derived from authoring is a stop the
+  first consumer gets wrong. Clicking or tabbing onto a word moves the
+  stop with it, so the next `Tab` leaves the bar where the reader is
+  looking.
+- **A disabled word is refused by every door.** The walk list is
+  filtered ONCE, in `menubarTriggers`, on `aria-disabled` — arrows,
+  Home/End and the roving stop all inherit the invariant instead of each
+  re-deriving it, which is what `selectTab()` does for the tabs. The
+  refusal is not cosmetic: a stop parked on a disabled word hands the
+  bar a tab stop the arrows can never return from (measured in WebKit —
+  `focus()` on the disabled word alone was enough to strand it there).
+  It is styled `--ink-faint`, not `--ink`, and carries no
+  `aria-expanded` that nothing else authors.
+- **A submenu hangs off a row inside a bar panel**, and the bar knows
+  the difference: `ArrowLeft` is the bar's walk on a panel it owns, but
+  stepping OUT of a nested submenu is the only way back, so the submenu
+  takes the key first. The one exception is checked at event time
+  (`closeSubmenu`), not by re-implementing submenu logic in the bar —
+  the bar gains no second submenu implementation.
+- **Checkbox and radio rows in a bar panel** compose the dropdown's own
+  parts: `menuitemcheckbox` + `data-cm-check` flips in place with the
+  glyph in the fixed-width icon slot so the column never moves, and a
+  `data-cm-radio` group is scoped by `setRadio()` to its own panel, so
+  two menus on one page cannot fight over a selection.
+- **Icons, group labels and shortcut hints** — the composition shadcn
+  ships as `MenubarGroup`/`MenubarLabel`/`MenubarShortcut` — are the
+  dropdown's `.cm-dropdown__icon` / `__group-label` / `__shortcut` in a
+  bar panel. No new class was invented for any of it.
+- **The bar stands down for a key someone already consumed.**
+  `onMenubarKey` returns early when the event was already handled
+  inside a panel, so a submenu that swallows Left does not turn
+  "walk to the previous menu" into "close, then press again".
+- Six `shadcn-parity: menubar` checks in `tests/run.mjs`, a WebKit
+  harness (`tests/verify-menubar-parity.py`, 402×667) and a mutation
+  runner (`tests/mutate-menubar-parity.py`, 18 patterns) ship with it.
+- The harness's first navigation gets its own budget
+  (`set_default_navigation_timeout`) instead of sharing the 5s CLICK
+  budget: the merged showcase is a 373KB document WebKit measured at
+  **6.92s** to fire `load`, so one shared budget reported a timeout on a
+  correct build. It now gates on the runtime's own marker
+  (`cm-js` + `cliMono`) rather than on a sleep, so a bundle that never
+  executes fails loudly at the start instead of mid-check.
+
+## Unreleased - a dialog can be closed from the foot it ships with
+
+- **A `<button>` outside the `<form method="dialog">` closed nothing, and
+  every button in `.cm-dialog__foot` is outside it.** The native close
+  lives in that form; the foot - the region this component styles and
+  documents for actions - is its sibling, so a bare button there submits
+  nothing and closes nothing, silently, on every platform. On a phone
+  there is no `Escape`, so the modal then cannot be dismissed at all and
+  every control behind it stops responding: reported as "none of it
+  works" rather than as one dead button. The runtime now binds
+  `[data-cm-close]` alongside the `[data-cm-open]` it already bound - no
+  id means the button's own `<dialog>` through `closest`, an id means a
+  dialog it is not inside, and `value=` is carried onto `returnValue` so
+  the answer reads as it does from the form path. The same idiom as the
+  toast's `data-cm-toast-close`.
+- The README's own dialog example shipped those dead foot buttons; it
+  carries the attribute now, and `tests/run.mjs` fails if the binding
+  leaves the runtime or the example loses it again.
+
+## Unreleased — header geometry: 900px at desktop is the rail, not a blown-up bar
+
+- **A height-only probe reports the desktop header as 900px tall and
+  `position: fixed`, against 63px and `position: sticky` on a phone, and
+  that reads as a regression. It is the rail.** Above `1000px` the showcase
+  header opts into `.cm-header--rail`: a FIXED column of `--rail-w` (232px)
+  at `x=0`, `height: 100vh` so the link list is a bounded flex child, with
+  `.cm-shell--rail` padding the content 252px clear of it. **MEASURED** in
+  WebKit at 1280×900: header 232×900 at x=0, shell `padding-left: 252px`,
+  brand at y=20, list at y=67 (749px, scrolling), controls at y=836 inside
+  the 900 - nothing overlaps, nothing is clipped. The rail was added on
+  purpose (`b94cb4b`, "Turn the desktop header into a rail, opt-in") because
+  the horizontal bar wrapped into **seven rows** at 1280. **No CSS changed.**
+
+- **The two readings of that one number are now asserted separately**, so
+  neither can pass for the other again:
+  - `tests/verify-header-geometry.py` sweeps **320/390/402/768/1280** in
+    WebKit and fails if the header is ever a **full-width, viewport-tall**
+    box (the actual defect), if the rail stops being 232px at x=0 or the
+    content stops clearing it, or if the bar is not exactly **63px sticky**
+    (nav 62) at the phone widths and 61px at 768. Stickiness is read while
+    scrolling the 50,000px showcase — `behavior: "instant"` (a smooth
+    programmatic scroll of 80,000px is still travelling when the rect is
+    read), `|scrollY − target| < 2` settle, `scrollY > 0` asserted — and
+    the header's rect is still `top: 0` with the brand on screen at five
+    scroll positions per width. Reading before `document.fonts.ready` +
+    `initHeader` reports 61px, not the 63 the reader sees: the harness
+    waits both out. **110 checks, 0 failed.**
+  - `tests/run.mjs` pins the source half: every `height: …vh` reaching a
+    `.cm-header*` selector must name `--rail`, the fixed rail must declare
+    `width: var(--rail-w)` and `inset-block: 0`, the base header stays
+    `position: sticky; top: 0` with no height of its own, and the phone's
+    `height: auto; min-height: 60px` stays inside `max-width: 640px`.
+
 ## Batch 25 — chart: six hand-rolled SVG types, no dependency
 
 **The gap, and the decision that closed it.** shadcn's Chart is a wrapper
@@ -83,6 +423,56 @@ lying, not the chart.**
 40/40 · sidebar 34/34 · navmenu 52/52.
 
 ## Unreleased — the navigation menu: the nav that opens PANELS
+## Unreleased — the Direction baseline: every directional declaration is logical
+
+- **shadcn's Direction, the honest subset.** Direction is documented as
+  part of the catalog and remains DECLINED as a component - it is a `dir`
+  switch plus mirrored components, and this system owns no locale state.
+  The part that needs no locale state is now done: all 135 physical
+  directional declarations in `src/styles/` became their logical twins
+  (`margin-inline-start`, `padding-inline-end`, `border-inline-start`
+  and its `-width`/`-color` longhands, `inset-inline-start` /
+  `inset-inline-end`, `text-align: start` / `end`). In an LTR document
+  each resolves to the same physical property, so this is a pixel-level
+  no-op today and buys RTL for free later - no `dir`, no mirroring, no
+  runtime. Breakdown: `tokens.css` 0 of 0 (its five hits in an earlier
+  count were prose inside comments), `base.css` 6 of 6, `components.css`
+  129 of 131.
+
+- **Two declarations stay physical, and each says so at the rule.**
+  `.cm-hovercard__panel { left: 0 }` is runtime-owned: `cmClampHovercards()`
+  clears `style.left`, re-measures in viewport coordinates and writes a
+  physical `style.left` back on every init and resize, and the CSS rule
+  is the no-JS fallback its arithmetic starts from - converting the CSS
+  while the JS stays physical is how a stylesheet and its runtime drift.
+  `.cm-navmenu__chev { border-right }` is glyph geometry: a border pair
+  rotated 45deg IS the caret, and a logical mirror would flip the border
+  without flipping `rotate()`. Both are on the guard's permit list, and
+  a permit whose declaration has gone is itself a failure.
+
+- **The conversion is proved a no-op, not asserted to be one.**
+  `tests/measure-logical-geometry.py` records every element rect and
+  every converted computed value at 320/390/402/768/1280 before and
+  after each step: **0 deltas** at every step and at the end. The
+  harness was negative-controlled in the same session - flipping one
+  `margin-inline-start` back to `0` produced 12,692 deltas - so a blind
+  harness is not what keeps it green. One keyword is normalised in the
+  diff (`text-align: start` computes differently from `left` while
+  aligning identically in LTR); every RECT is compared to the pixel.
+
+- **The baseline is guarded, and the guard is mutation-proven.** Three
+  appended checks in `tests/run.mjs` scan the source, the permit list
+  and the BUILT stylesheet (the minifier must not rewrite a logical
+  property back). `tests/mutate-logical-props.py` reverts every logical
+  declaration - 135 converted plus the 18 the library already spelled
+  logically, 153 mutants - back to its physical twin one at a time and
+  requires the suite to kill each one, rebuilding `dist` in every
+  mutant window. A reverted conversion is invisible to the geometry,
+  because it IS a no-op in LTR: the guard is the only thing that can
+  catch it, which is exactly why it is proven this way.
+
+- Proven: suite 590/0; verify-navmenu 52/52; verify-select-tabs 40/40;
+  verify-sidebar 34/34; geometry 0 deltas at five viewport widths.
 
 - **`.cm-navmenu` ships, the last real gap in the shadcn catalog.** The
   library had `.cm-menubar` (a row of words opening *lists*) and the mobile

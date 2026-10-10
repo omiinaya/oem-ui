@@ -711,7 +711,10 @@ the one part CSS cannot express, which is the keyboard contract.
 **`.cm-dialog`** — a real `<dialog>`, opened with `showModal()`. The
 focus trap, `Escape`, the top layer and the inertness of the page behind
 are the browser's job; a hand-rolled modal gets every one of them
-subtly wrong. Any `<form method="dialog">` inside closes it.
+subtly wrong. Any `<form method="dialog">` inside closes it. A button
+that is **not** inside such a form — which is every button in
+`.cm-dialog__foot`, since the foot is a sibling of the head — closes the
+dialog with `data-cm-close`.
 
 ```html
 <button class="cm-btn" data-cm-open="confirm">open</button>
@@ -723,12 +726,21 @@ subtly wrong. Any `<form method="dialog">` inside closes it.
   </form>
   <div class="cm-dialog__body"><p>…</p></div>
   <div class="cm-dialog__foot">
-    <button class="cm-btn" value="cancel">cancel</button>
-    <button class="cm-btn cm-btn--primary" value="confirm">confirm</button>
+    <button class="cm-btn" value="cancel" data-cm-close>cancel</button>
+    <button class="cm-btn cm-btn--primary" value="confirm" data-cm-close>confirm</button>
   </div>
 </dialog>
 ```
 
+- **A bare `<button>` closes nothing.** Outside a `method="dialog"` form
+  it submits nothing and does nothing, silently, on every platform — and
+  a phone has no `Escape`, so an undismissable modal then blocks every
+  control behind it. `data-cm-close` is the attribute for that button;
+  it takes the closest enclosing `<dialog>`, or a dialog id
+  (`data-cm-close="other"`) when the trigger sits outside. Its `value`
+  becomes `dialog.returnValue`, so the answer reads the same as it would
+  from the form path. This is the same idiom as the toast's
+  `data-cm-toast-close`.
 - `::backdrop` paints `--scrim`, which is a **token with a different
   value per theme**. The same alpha over near-black and over near-white
   does not dim the page by the same amount, so one literal is wrong in
@@ -1594,13 +1606,15 @@ attribute is the wire.
   <button type="button" class="cm-dropdown__item" role="menuitem">duplicate</button>
 </div>
 
-<!-- the words are the tabs: Left/Right walk them, Down opens one -->
+<!-- the words are the tabs: Left/Right walk them, Down opens one.
+     ONE of them is in the tab order - initMenubar writes that, so an
+     author who writes none (or three) still gets one stop. -->
 <div class="cm-menubar" data-cm-menubar role="menubar">
-  <button type="button" class="cm-menubar__trigger" popovertarget="mb-file" aria-haspopup="menu">file</button>
+  <button type="button" class="cm-menubar__trigger" popovertarget="mb-file" aria-haspopup="menu" tabindex="0">file</button>
   <div class="cm-dropdown__menu cm-menubar__menu" id="mb-file" popover role="menu">
     <button type="button" class="cm-dropdown__item" role="menuitem">new</button>
   </div>
-  <button type="button" class="cm-menubar__trigger" popovertarget="mb-edit" aria-haspopup="menu">edit</button>
+  <button type="button" class="cm-menubar__trigger" popovertarget="mb-edit" aria-haspopup="menu" tabindex="-1">edit</button>
   <div class="cm-dropdown__menu cm-menubar__menu" id="mb-edit" popover role="menu">...</div>
 </div>
 ```
@@ -1627,6 +1641,213 @@ word, unlike a chevron, is not something the menu hangs off the right
 side of. The platform does not manage `aria-expanded` on `[popover]`, so
 the toggle handler mirrors it onto whichever `[popovertarget]` also carries
 `aria-haspopup`.
+
+**The bar is ONE tab stop.** `.cm-menubar` roves, the same rule
+`.cm-tabs` already applies: `Tab` enters the bar on a single word and the
+arrows walk from there. `initMenubar` WRITES the `tabindex` rather than
+reading the author's — three authored `tabindex="0"`s still resolve to
+one tabbable word, because a stop derived from authoring is a stop the
+first consumer gets wrong. Clicking or tabbing onto a word moves the stop
+with it, so the next `Tab` leaves the bar where the reader is looking.
+
+**A disabled word is refused by every door.** The walk list is filtered
+ONCE, in `menubarTriggers`, on `aria-disabled` — arrows, Home/End and the
+roving stop all inherit that invariant instead of each re-deriving it.
+The refusal is structural, not cosmetic: a stop parked on a disabled word
+hands the bar a tab stop the arrows can never come back from. It reads
+`--ink-faint` and carries no `aria-expanded`.
+
+**Panels compose the dropdown's own parts.** A group label, an icon slot,
+a shortcut hint, a checkbox row (`menuitemcheckbox` + `data-cm-check`) and
+a radio group (`menuitemradio` + `data-cm-radio`, scoped by `setRadio()`
+to its own panel so two bars on a page never fight over a selection) are
+all `.cm-dropdown__*` in a bar panel. **No new class was invented for any
+of it** — the depth was already there; the bar is a new place to stand.
+
+A submenu can hang off a row inside a panel: `ArrowRight` (or Enter)
+opens it, `ArrowLeft` closes it and returns focus to the row. The bar
+takes `ArrowLeft` everywhere EXCEPT inside an open submenu, where
+stepping out is the only way back — checked at event time by
+`closeSubmenu()`, not by a second submenu implementation in the bar. The
+bar also stands down entirely when a key has already been consumed inside
+a panel, so a submenu that swallows `Left` cannot turn "walk to the
+previous menu" into "close, then press again".
+
+Proven by six `shadcn-parity: menubar` checks, the WebKit harness
+`tests/verify-menubar-parity.py` (402x667) and 18 mutation patterns in
+`tests/mutate-menubar-parity.py`.
+
+### The server rail and the message composer
+
+Two components whose shape comes from a client, not from this library:
+`matrix-arrow-client` renders a Discord-shaped shell, and the names below
+are the **binding contract** between the two repos
+(`matrix-arrow-client/docs/contract.md`, sections 1 and 3). The class names
+and the markup structure are fixed; sizes, tokens, hover feel and dividers
+are this library's call. Anything the contract calls "consumer JS" is
+documented here and **implemented by the client, not by us** — the CSS owes
+a control that is still correct when the consumer does none of it.
+
+```html
+<!-- The rail. One <span class="cm-tooltip"> per square, so the tip can
+     anchor off the square without a second wrapper class. -->
+<nav class="cm-guildrail" aria-label="Servers">
+  <span class="cm-tooltip">
+    <button type="button" class="cm-guildrail__item cm-guildrail__item--home"
+            aria-current="true" aria-label="Direct messages">
+      <span class="cm-guildrail__pill" aria-hidden="true"></span>
+      <span class="cm-guildrail__icon" aria-hidden="true">◇</span>
+    </button>
+    <span class="cm-tooltip__tip" role="tooltip">Direct messages</span>
+  </span>
+
+  <span class="cm-guildrail__sep" role="separator"></span>
+
+  <span class="cm-tooltip">
+    <button type="button" class="cm-guildrail__item" aria-label="OEM HQ">
+      <span class="cm-guildrail__pill" aria-hidden="true"></span>
+      <span class="cm-guildrail__icon" aria-hidden="true">OH</span>
+      <span class="cm-guildrail__badge" aria-hidden="true">3</span>
+    </button>
+    <span class="cm-tooltip__tip" role="tooltip">OEM HQ</span>
+  </span>
+</nav>
+
+<!-- The composer. The reply strip sits ABOVE the bar and is toggled with
+     the `hidden` attribute - the library styles [hidden], the consumer
+     only flips it. -->
+<form class="cm-composer" data-cm-composer>
+  <div class="cm-composer__reply" hidden>
+    <span class="cm-composer__replytext">Replying to <strong>Ciel</strong></span>
+    <button type="button" class="cm-icon-btn cm-composer__replyclose" aria-label="Cancel reply">✕</button>
+  </div>
+  <div class="cm-composer__bar">
+    <button type="button" class="cm-icon-btn cm-composer__attach" aria-label="Attach a file">＋</button>
+    <textarea class="cm-composer__input" rows="1" placeholder="Message #general" aria-label="Message"></textarea>
+    <div class="cm-composer__tools">
+      <button type="button" class="cm-icon-btn" aria-label="Emoji">☺</button>
+      <button type="button" class="cm-icon-btn cm-composer__send" aria-label="Send message">➤</button>
+    </div>
+  </div>
+</form>
+<p class="cm-composer__typing">
+  <span class="cm-marker cm-shimmer" role="status">Ciel is typing…</span>
+</p>
+```
+
+#### The rail owns its own scroll
+
+`.cm-guildrail` is a flex **column** with `overflow-y: auto`, a
+`min-block-size: 0` so the item can shrink below its content, and
+`max-block-size: 100%` so there is a box to scroll against. Without the
+bound the rail's box IS its content, the grid row stretches with the server
+list, and the `auto` scrolls nothing — the exact failure the rail exists to
+prevent. The showcase specimen is capped at `16rem` for that reason: a rail
+that fits has proven nothing.
+
+**The tip escapes to the right of the rail, and that is a token, not a
+coincidence.** A scrollport clips everything painted past its padding box,
+and `overflow-clip-margin` — the one property that widens that box — is not
+implemented in WebKit at all (`CSS.supports('overflow-clip-margin','20px')`
+→ `false`). So the padding box is widened by hand: the rail declares
+`inline-size: calc(var(--guildrail-w) + var(--guildrail-bleed))`, cancels
+the width with a matching negative `margin-inline-end` so the grid still
+sees a `--guildrail-w` margin box, and pads out to `--guildrail-bleed` —
+which is also the tip's own cap, `min(18rem, 52vw)`. Those two numbers
+agreeing is the **whole** reason the tip survives: measured one pixel past
+the padding box and the fill is gone. Tying the cap to the token makes that
+a declaration instead of a coincidence, and a consumer who narrows the bleed
+narrows the tip with it.
+
+The trailing hairline is a `linear-gradient(var(--line), var(--line))`
+clipped to the content box rather than a `border`: a border would be drawn
+at the padding box too, i.e. 18rem to the right of where it belongs.
+
+#### States
+
+- **Active** — `aria-current="true"` **and** a visible `.cm-guildrail__pill`.
+  The pill is `aria-hidden`; the state is carried by `aria-current`, never by
+  colour alone. The square reads in greyscale: a `--surface-raised` fill,
+  the `--ink` on it, and a full-height pill (hover gives a short tick). The
+  idle ink is `--ink-faint`, so the difference is contrast and not hue.
+- **Unread** — `.cm-guildrail__badge` (a count) **or**
+  `.cm-guildrail__unread` (a dot when there is no count). Never both on one
+  item. The badge is width-bounded at `--tap` so a two-digit count cannot
+  break the 44px square; the dot is square and carries no text, so a dot
+  with a zero in it is not expressible.
+- **Home / add** — `--home` wears a frame (`--line`), a shape difference
+  rather than a hue, because this palette has none. `--add` only changes the
+  ink: it inherits the item's whole box rather than hand-rolling a second
+  square.
+- **Tap floor** — every square is `--tap` on **both** axes, on every
+  pointer, not just a coarse one, with `flex: 0 0 auto` so layout cannot
+  squeeze a control whose size *is* the measurement.
+- **Focus** — `outline-color: var(--focus)`; the tip opens on
+  `:focus-within` as well as hover, so a keyboard user gets the name too.
+  The monogram is `aria-hidden` and `aria-label` is mandatory on the button.
+
+The tip is centred by hand: the stock answers all point back over the rail
+or above the viewport. `inset-inline-start: 100%` puts its leading edge
+exactly where the rail's content ends, and the `translateY(-50%)` lives in
+this rule rather than in a `:hover` copy, because the base tip settles to
+`translateY(0)` and would drop the tip half its own height.
+
+#### The composer's frame is the focus affordance
+
+`.cm-composer__bar` is a hairline frame on `--panel-nested` that switches to
+`--focus` on `:focus-within`. The textarea inside carries **no** ring of its
+own — no border, no padding, no background — so the bar is the only thing
+telling a keyboard user where they are. The field is selected as
+`.cm-composer__bar > textarea.cm-composer__input` on purpose: `base.css` owns
+the field's width at `(0,2,1)` and a two-class rule is `(0,2,0)` and loses it
+outright, leaving a textarea claiming the whole row instead of the space left
+between the attach button and the tools.
+
+Nothing caps the field's height. `max-block-size: none` is deliberate: the
+contract's six-line limit is the consumer's auto-grow, and a `max-block-size`
+here would clip line seven and make the library the thing that broke the
+scroll. `base.css` reserves `2 × --tap` on a form textarea; a composer's
+reservation is its row count plus the `--tap` floor, so the field clears the
+floor on its first row and grows from there.
+
+#### States
+
+- **Read-only room** — `[disabled]` on the textarea. The box dims to
+  `--line-soft` and send drops to `--ink-faint` with `cursor: not-allowed`.
+  It reaches the frame through `:has()`, the same idiom the header row uses
+  for the badge it wraps: the disabled element is a grandchild, and no
+  sibling combinator can see it.
+- **Send in flight** — `data-cm-sending` on the **form**, never a `disabled`
+  on the input: the contract says the input stays usable mid-send. The send
+  glyph is made `transparent` rather than removed (the box must not resize
+  under the pointer), and a `::before` spinner is stacked over it with
+  `position: absolute; inset: 0`.
+- **Reply strip** — a flex row above the bar, shown by removing `hidden`.
+  Because the component declares `display: flex` on it, the UA's
+  `[hidden] { display: none }` is outranked outright, so the component owes
+  its own `[.cm-composer__reply[hidden]]` rule.
+- **Typing line** — `.cm-composer__typing` is **layout only** (the spacing
+  under the bar). The semantics stay on the composed `.cm-marker` inside it,
+  exactly as the marker docs require, and no colour, size or border is set
+  on the wrapper.
+
+#### Consumer JS — documented, not implemented
+
+Nothing in `src/js/` knows these two components exist. The client owns:
+
+| behaviour | who | what the library owes |
+|---|---|---|
+| **Enter sends** | consumer | a real `<form>` so the client can bind a keydown; the library never binds one |
+| **Shift+Enter inserts a newline** | consumer | nothing — the textarea is native, so the newline is already the platform's |
+| **auto-grow to ~6 lines, then scroll** | consumer | `max-block-size: none` and `overflow-y: auto`, so a grown field scrolls instead of clipping. Reset the height before measuring on send |
+| reply strip toggle | consumer | `[hidden]` styling on `__reply`; the consumer only flips the attribute |
+| send / read-only state | consumer | `data-cm-sending` on the form, `[disabled]` on the textarea, both fully styled |
+
+Proven by `tests/verify-guildrail-composer.py`, a real-WebKit harness that
+asserts the tap floor at 402×667 and that the tooltip lands to the **right**
+of the rail without overlapping it, by 22 `batch 29:` checks in
+`tests/run.mjs`, and by 74 mutation patterns in `tests/mutate-guildrail.py`
+/ `tests/mutate-composer.py`.
 
 ### Tree and resizable panels
 
@@ -1731,6 +1952,30 @@ the markup's initial value are one fact stated three ways.
   </div>
 </div>
 ```
+
+**Three modes, one attribute.** `data-cm-cal-mode` is `single` (the
+default), `range`, or `multiple` — and `data-cm-cal-selected` is "what is
+selected" in every one of them. In `single` it is one day; in `range` it is
+unused (the pair reads `data-cm-cal-start` / `-end`); in `multiple` it is a
+space-separated **set**, and a pick toggles its own day:
+
+```html
+<div class="cm-cal" data-cm-cal data-cm-cal-mode="multiple"
+     data-cm-cal-month="2026-10" data-cm-cal-selected="2026-10-05 2026-10-27">
+```
+
+The set lives on the **attribute**, never on the day cells, and that is
+load-bearing rather than tidiness: `calRender` rebuilds `tbody` wholesale on
+every pick and on every month step, so a selection stamped onto a cell is one
+`PageDown` from gone. The same reason the roving tab stop is re-derived from
+the attribute each render — a set still has exactly ONE tab stop, placed on
+its earliest picked day in the visible month. A multiple pick is a toggle
+(a second press removes the day), asks for no "first then second" gesture,
+and `Escape` clears the whole set the way it clears the single selection.
+
+`range` is asked for **by name** in the renderer, not as "not single": the
+old `mode === 'single' ? … : (range)` test is exactly what made a third mode
+impossible, since it silently sent `multiple` down the range branch.
 
 A month is a **table**: rows and columns are how the eye reads one and how
 a screen reader announces one, and every day is a real `<button>` inside a
@@ -2107,6 +2352,112 @@ kept after it scrolls above the viewport). Visible-row tracking runs
 only while something subscribes - the outline does, with an
 IntersectionObserver, and marks rows on screen.
 
+### Message list
+
+`cm-msglist` is the flat timeline the chat family renders when the
+transcript reads as a LOG rather than a stack of turns: the day divider
+`.cm-msglist__day`, a four-track row, continuation rows that drop their
+header, the unread rule `.cm-msglist__unread`, a mention and a system
+note. It lives INSIDE `.cm-scroller` and
+owns none of that frame - the labelled viewport, the `role="log"`
+content and the `data-message-id` addressing are the scroller's, which
+is why every row also wears `cm-scroller__item` and keeps
+`content-visibility: auto`.
+
+```html
+<div class="cm-msglist">
+  <div class="cm-msglist__day" role="separator"><span class="cm-msglist__daylabel">Today</span></div>
+  <article class="cm-scroller__item cm-msglist__msg" data-message-id="m1">
+    <span class="cm-msglist__gutter"><time datetime="2026-10-10T11:12">11:12</time></span>
+    <span class="cm-avatar cm-msglist__avatar" aria-hidden="true">AB</span>
+    <div class="cm-msglist__main">
+      <header class="cm-msglist__meta"><span class="cm-msglist__author">alex</span>
+        <time class="cm-msglist__stamp" datetime="2026-10-10T11:12">Today at 11:12 AM</time>
+      </header>
+      <div class="cm-msglist__text">branch is cut - review the migration step.</div>
+        <div class="cm-msglist__reactions">
+          <button class="cm-msglist__reaction" aria-pressed="false">👍 <span class="cm-msglist__count">2</span></button>
+          <button class="cm-msglist__reaction cm-msglist__reaction--mine" aria-pressed="true">🚀 <span class="cm-msglist__count">1</span></button>
+      </div>
+    </div>
+    <div class="cm-msglist__actions"><button class="cm-icon-btn" aria-label="Add a reaction">+</button></div>
+  </div>
+</div>
+```
+
+A row is `.cm-msglist__msg`. Inside it: `.cm-msglist__gutter` (the
+timestamp column), `.cm-msglist__avatar` composing `.cm-avatar`, and
+`.cm-msglist__main`, which holds the `.cm-msglist__meta` line - the
+`.cm-msglist__author` beside its `.cm-msglist__stamp` - over the
+`.cm-msglist__text` and a `.cm-msglist__reactions` row of
+`.cm-msglist__reaction` chips, each carrying its `.cm-msglist__count`.
+A continuation row has no header, so its time lives in the gutter as
+`.cm-msglist__hoverstamp`; the day divider labels itself with
+`.cm-msglist__daylabel` and the unread rule with `.cm-msglist__unreadlabel`.
+The row's modifiers are `.cm-msglist__msg--grouped`,
+`.cm-msglist__msg--mention` and `.cm-msglist__msg--system`; the
+reader's own chip is `.cm-msglist__reaction--mine`.
+
+The row grid is `--msglist-gutter` (the timestamp column) ·
+`--msglist-avatar` (the avatar column) · the message · a **reserved**
+`.cm-msglist__actions` track. Every part is placed explicitly on its
+track rather than left to auto-flow, so the grid still lines up when a
+row ships fewer children than its neighbour:
+
+```html
+<div class="cm-scroller__item cm-msglist__msg cm-msglist__msg--grouped" data-message-id="m2">
+  <span class="cm-msglist__gutter"><time datetime="2026-10-10T11:13">11:13</time></span>
+  <span class="cm-msglist__avatar"></span>
+  <div class="cm-msglist__main"><div class="cm-msglist__msg">
+    <p class="cm-msglist__text">continuation - no header, so the gutter stamps it.</p>
+  </div></div>
+</div>
+```
+
+- **`cm-msglist__msg--grouped`** omits the header and tightens the
+  block padding. The **empty `.cm-msglist__avatar`** is not decoration:
+  it is the element that keeps the message column where the row above
+  put it, and the row grid would land correctly with it missing only by
+  luck of auto-placement. Ship it on every continuation row.
+- **`cm-msglist__msg--mention`** carries a mark AND a tint - a 2px
+  `border-inline-start` with the padding it eats handed back, over a
+  `--panel-nested` surface. Colour never carries the meaning alone, and
+  the border must not slide the message column against its neighbours.
+- **`cm-msglist__msg--system`** collapses the row to one full-width
+  track and holds a `.cm-marker` (bordered, separator or inline) -
+  compose the marker, do not write a second system-note style.
+- **`cm-msglist__reaction--mine`** is the reader's own reaction: a
+  heavier edge and a raised fill, plus `aria-pressed="true"` on the
+  button, so the state is announced rather than implied. The count is
+  always real text in a `.cm-msglist__count` span - selectable,
+  copyable, never generated by `content:`.
+- **Timestamps: one stamp per row.** Both stamps exist in the markup
+  (`.cm-msglist__gutter` and the `.cm-msglist__meta` line) and CSS
+  chooses which paints: an ungrouped row is stamped by its meta line
+  and its gutter goes `visibility: hidden`, a grouped row has no header
+  so its gutter stamps it. Author the gutter on EVERY row and let the
+  rule decide - two visible stamps on one row is the bug.
+- **`.cm-msglist__reply`** is a reply quote: the message this one answers,
+  shown above its text inside `.cm-msglist__main` so it lines up under the
+  author rather than under the gutter. `.cm-msglist__replyname` is the
+  anchor the reader scans for; `.cm-msglist__replypreview` takes what is
+  left and is **ellipsised, not wrapped** - a long quote must never push
+  the real message out of the first screenful.
+- **The action toolbar is ONE button**, and it ships `opacity: 0;
+  pointer-events: none` in a column that already exists. It returns on
+  `:hover` and on `:focus-within`. The column is the point: revealing
+  it by adding a track is what makes the text jump when the pointer
+  arrives, and `display: none` is what would take the button out of the
+  tab order and leave the reveal for a keyboard that can never fire it.
+
+**Grouping is the consumer's job** - CSS styles, the consumer groups.
+A row is `cm-msglist__msg--grouped` when it follows a row from the
+same author within ~5 minutes (the usual window; pick your own and
+stick to it); `.cm-msglist` never inspects an author, a clock or a
+message body, and ships no script that could. The library's whole
+responsibility is that the grouped row it is handed aligns with the
+ungrouped one above it.
+
 ### Attachment and questionnaire
 
 `cm-attach` is the composed file card - media, content, icon-only
@@ -2239,6 +2590,12 @@ froze at whatever width the last delivered move computed (measured:
 would otherwise trip over. And the phone inset inherited the engine's
 own 20px `main` margin - a fresh `<main>` in the console shows it -
 so the inset zeroes its own box instead of trusting the UA sheet.
+
+**`.cm-sidebar__badge--mention`** is the one badge that has to outrank
+the channel it sits on: it is an obligation, not a status. It is marked
+by weight and the ink rather than by a second fill, because forced
+colours drops the distinction between two fills and a mention nobody
+can see is a mention nobody answers.
 
 `tests/verify-sidebar.py` drives the whole surface at 1280 and 402;
 `tests/mutate-sidebar.py` seeds 44 faults. The first proof run came
@@ -2499,12 +2856,13 @@ stated reason.
 **Implemented (57):** Accordion, Alert, Alert Dialog (a confirming
 Dialog), Aspect Ratio, Attachment, Avatar, Badge, Bubble,
 Breadcrumb, Button (including
-destructive, outline and joined), Button Group, Calendar, Card,
+destructive, outline and joined), Button Group, Calendar (single, range and
+multiple in one component), Card,
 Carousel, Chart (six hand-rolled SVG types - see *Charts* above; no
 Recharts, no runtime dependency), Checkbox, Collapsible, Combobox, Command (palette), Context
 Menu, Data Table (filter, pagination, column visibility, row selection), Date Picker, Dialog, Drawer, Dropdown
 Menu, Empty, Field (label/help/error wiring), Hover Card, Input, Input
-Group, Input OTP, Item, Kbd, Label, Marker, Message, Message Scroller, Menubar, Native Select (a styled
+Group, Input OTP, Item, Kbd, Label, Marker, Message, Message Scroller, Menubar (roving single tab stop, disabled-word refusal, submenus, checkbox/radio rows, group labels + icons + shortcut hints), Native Select (a styled
 `<select>`), Navigation Menu (a real one - see *Navigation menu* below; the
 rail + sticky header remain the house pattern for this site's own pages),
 Pagination, Popover, Progress, Questionnaire, Radio Group,
@@ -2515,7 +2873,21 @@ Group, Tooltip, Typography.
 **Not implemented (1):**
 
 - **Direction** - an RTL/i18n direction helper; this system is LTR and
-  owns no locale state.
+  owns no locale state. Declined as a *component* - but the part that
+  needs no locale state is DONE: every directional declaration in the
+  stylesheets is LOGICAL (`margin-inline-start`, `padding-inline-end`,
+  `border-inline-start` and its longhands, `inset-inline-start` /
+  `inset-inline-end`, `text-align: start` / `end`), so a consumer who
+  flips the document to `dir="rtl"` gets mirrored layout for free. Three
+  declarations stay physical, each commented at its rule: the hover
+  card's runtime-written `left` (`cmClampHovercards()` writes viewport
+  pixels), the nav-menu chevron's glyph border (a rotated caret is
+  geometry, not an axis), and the chart tooltip's anchor (an offset
+  derived from SVG user space, which has no logical axis). Three checks
+  in `tests/run.mjs` hold the
+  baseline - source scan, permit list, built CSS - and
+  `tests/mutate-logical-props.py` reverts all 153 logical declarations
+  one at a time to prove they are caught.
 
 Chart was the other one, listed for the same reason Navigation Menu was
 listed as a *substitution*: shadcn's Chart is a wrapper over Recharts, so

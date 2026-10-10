@@ -1048,8 +1048,8 @@ check('.cm-select draws its arrow from a gradient, so it needs no image or icon 
 	assert(!/#[0-9a-f]{3,8}\b/i.test(body), '.cm-select hardcodes a colour');
 	assert(!/url\(/.test(body), '.cm-select loads an arrow image; currentColor is the point');
 	// the clearance, from the token that owns it
-	assert(/padding-right:\s*var\(--space-7\)/.test(body),
-		'the value runs under the wedges without padding-right clearance');
+	assert(/padding-inline-end:\s*var\(--space-7\)/.test(body),
+		'the value runs under the wedges without padding-inline-end clearance');
 });
 
 check('the element default and the class agree, or a full and a scoped adoption differ', () => {
@@ -1093,9 +1093,27 @@ check('the element default and the class agree, or a full and a scoped adoption 
 	// asserted below, because the class now restates the element defaults
 	// for the SCOPED case and a divergence would mean a consumer's select
 	// changes appearance depending on how it installed the library.
+	// The Direction baseline spells this clearance logically, and the two
+	// adoptions must keep agreeing. `padding-inline-end` and
+	// `padding-right` are one property in an LTR document, so the
+	// comparison resolves either spelling to the AXIS and compares the
+	// VALUE; a check that hard-coded `padding-right` by name went red the
+	// moment base.css converted and would have pinned the two adoptions
+	// to opposite spellings forever. Which spelling is legal is policed
+	// repo-wide by the logical-baseline check at the end of this file.
+	const AXIS = { 'padding-left': 'padding-inline-start', 'padding-right': 'padding-inline-end' };
 	for (const prop of ['background-image', 'background-position', 'background-size',
 		'background-repeat', 'padding-right']) {
-		const of = (b) => (b.match(new RegExp(prop + ':\\s*([^;]+);')) || [, ''])[1].replace(/\s+/g, '');
+		const canon = AXIS[prop] || prop;
+		const spellings = Object.keys(AXIS).filter((k) => AXIS[k] === canon)
+			.concat([canon]);
+		const of = (b) => {
+			for (const name of spellings) {
+				const m = b.match(new RegExp(`(?:^|[;\\s{])${name}:\\s*([^;]+);`));
+				if (m) return m[1].replace(/\s+/g, '');
+			}
+			return '';
+		};
 		assert(of(bare) && of(bare) === of(cls),
 			`${prop} differs between the bare select and .cm-select — a full and a scoped adoption would paint different arrows`);
 	}
@@ -1392,7 +1410,11 @@ check('wrapped text hangs under the text, not under the marker', () => {
 	// single non-global regex matched the first and never saw the second.
 	const rules = [...comp.matchAll(/\.cm-status__value\s*\{([^}]*)\}/g)].map(m => m[1]);
 	assert(rules.length > 0, '.cm-status__value rule missing');
-	const hanging = rules.some(r => /padding-left:[^;]*em/.test(r) && /text-indent:\s*-[^;]*em/.test(r));
+	// The pair is one unit since the Direction baseline: `text-indent`
+	// is already direction-aware, and the gutter that balances it is
+	// spelled `padding-inline-start`. Both must move together or the
+	// hang breaks, so both are asserted here, by their logical names.
+	const hanging = rules.some(r => /padding-inline-start:[^;]*em/.test(r) && /text-indent:\s*-[^;]*em/.test(r));
 	assert(hanging,
 		'status value has no hanging indent — a wrapped line runs back under the bullet');
 });
@@ -3153,7 +3175,7 @@ check('the rail is a bounded column, so a long list scrolls instead of escaping'
 
 check('the rail clears the content, and the measure stays centred beside it', () => {
 	assert(/\.cm-shell--rail/.test(RAIL), 'nothing offsets the content clear of the rail');
-	assert(/padding-left:\s*calc\(var\(--rail-w\)/.test(RAIL),
+	assert(/padding-inline-start:\s*calc\(var\(--rail-w\)/.test(RAIL),
 		'the shell offset is not derived from --rail-w');
 	// `margin: 0 auto` in base.css centres main on the VIEWPORT. Left
 	// alone, the rail overlapped the first section by 58px at 1440.
@@ -4908,17 +4930,32 @@ const rt = runtimeSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, 
 // behavioural test below pass for the wrong reason.
 let ACTIVE = null;
 const classesOf = (n) => (n.attrs.class || '').split(/\s+/).filter(Boolean);
-const attrOf = (sel) => {
-	const m = /^\[([a-z-]+)(?:=["']?([^\]"']*)["']?)?\]$/.exec(sel);
-	if (!m) return null;
-	return { a: m[1], v: m[2] };
-};
-const matches = (n, sel) => {
-	if (sel.startsWith('.')) return classesOf(n).includes(sel.slice(1));
-	const at = attrOf(sel);
-	if (at) return at.a in n.attrs && (at.v === undefined || n.attrs[at.a] === at.v);
-	return false;
-};
+// A selector is a LIST of alternatives and an alternative can stack a class
+// onto an attribute (`.cm-dropdown__menu[popover]` is exactly what the menu
+// runtime selects by). The old matcher took `sel.startsWith('.')` and used
+// the WHOLE string as one class name, so every compound and every comma
+// selector matched NOTHING - silently: a driven test of any menu path wrote
+// a target the runtime could not find, and got a green pass for a handler
+// that never ran. A pseudo-class (`:popover-open`) names state a fake node
+// does not have, so it never matches - the same answer as before, for the
+// same reason.
+const matches = (n, sel) => sel.split(',').some((raw) => {
+	const part = raw.trim();
+	// unmodelled state, or a bare tag/name with nothing to test: no match
+	if (!part || part.includes(':')) return false;
+	const cls = [...part.matchAll(/\.([\w-]+)/g)].map((m) => m[1]);
+	if (cls.some((c) => !classesOf(n).includes(c))) return false;
+	const attrs = [...part.matchAll(/\[([a-z0-9-]+)(?:([~^$*|]?=)["']?([^\]"']*)["']?)?\]/g)];
+	if (!cls.length && !attrs.length) return false;
+	return attrs.every((m) => {
+		if (!(m[1] in n.attrs)) return false;
+		if (m[2] === undefined) return true;
+		const v = String(n.attrs[m[1]]);
+		return m[2] === '^=' ? v.startsWith(m[3])
+			: m[2] === '$=' ? v.endsWith(m[3])
+			: v === m[3];
+	});
+});
 const walkAll = (n, out, fn) => {
 	if (fn(n)) out.push(n);
 	n.kids.forEach((k) => walkAll(k, out, fn));
@@ -4986,6 +5023,10 @@ const el = (tag, attrs = {}, kids = []) => {
 			return out;
 		},
 		focus() { node.focused = true; ACTIVE = node; },
+		// The runtime asks a panel whether it is currently open. Without
+		// this the fake turns that question into a TypeError, so a driven
+		// path dies on the harness rather than on the code under test.
+		matches: (sel) => matches(node, sel),
 		// The runtime's own dispatch walks up from the event target. A
 		// real closest() must find the trigger, or a click on a child
 		// glyph silently misses the control that owns it.
@@ -5011,6 +5052,7 @@ const el = (tag, attrs = {}, kids = []) => {
 // A document over a set of roots. The runtime's initialisation runs on
 // the document, so this has to answer the same queries.
 const domOf = (roots) => {
+	const ev = {};
 	const d = {
 		readyState: 'complete',
 		// The runtime reads document.activeElement to know which tab an
@@ -5020,7 +5062,15 @@ const domOf = (roots) => {
 		documentElement: { getAttribute: () => null, setAttribute: () => {}, dataset: {} },
 		body: el('body'),
 		createElement: (t) => el(t),
-		addEventListener: () => {},
+		// The runtime binds its DOCUMENT-level handlers here - keydown,
+		// click, toggle. Dropping them on the floor made every delegated
+		// path undrivable: a check could only grep the source for a
+		// handler no fake document could ever run, which is how "the
+		// handler exists" got read as "the handler works". Recorded so a
+		// check can dispatch an event the way the browser would, and
+		// read only by checks that ask for them - nothing else in the
+		// harness looks at this, so every existing test is untouched.
+		addEventListener: (t, fn) => { (ev[t] = ev[t] || []).push(fn); },
 		find(sel) {
 			const out = [];
 			for (const r of roots) walkAll(r, out, (n) => matches(n, sel));
@@ -5037,6 +5087,7 @@ const domOf = (roots) => {
 			return null;
 		},
 	};
+	d.__ev = ev;
 	return d;
 };
 
@@ -5246,6 +5297,27 @@ check('cm-dialog: the trigger calls showModal, not show', () => {
 	assert(/dlg\.showModal\(\)/.test(rt), 'the runtime never calls showModal()');
 	const open = showcase.slice(showcase.indexOf('id="overlays"'), showcase.indexOf('id="prose"'));
 	assert(/data-cm-open="dlg-demo"/.test(open), 'no trigger is wired to the demo dialog');
+});
+
+check('cm-dialog: a button outside the head form can close it', () => {
+	// The foot is a SIBLING of the <form method="dialog">, so a bare
+	// <button> in it submits nothing and closes nothing - silently, on
+	// every platform. On a phone there is no Escape either, so a modal
+	// opened that way cannot be dismissed at all and every control
+	// behind it stops responding: the reader reports "none of it works"
+	// rather than one dead button. The trigger needed a binding for the
+	// same reason; the closer does too.
+	assert(/\[data-cm-close\]/.test(rt),
+		'the runtime does not bind [data-cm-close], so the foot is dead');
+	// no id -> the button's own dialog; id -> a dialog it is not inside.
+	assert(/closest\('dialog'\)/.test(rt),
+		'a closer must fall back to its own enclosing <dialog>');
+	assert(/returnValue/.test(rt),
+		'value= must reach dialog.returnValue, as it does on the form path');
+	// The documented example must not ship the dead button it warns about.
+	const readme = read('README.md');
+	assert(/value="cancel"\s+data-cm-close/.test(readme),
+		'the README example has a foot button with no way to close');
 });
 
 check('cm-dialog: the scrim is a token, and the two themes give it different values', () => {
@@ -5787,12 +5859,14 @@ check('cm-timeline: the dot is centred on the rail by construction', () => {
 	const dot = /^\.cm-timeline__item::after\s*\{([^}]*)\}/m.exec(compSrc);
 	assert(dot, 'no ::after dot on the timeline item');
 	const w = /width:\s*([0-9.]+)rem/.exec(dot[1]);
-	// The offset is read unit-TOLERANT on purpose: `left: 0` is the exact
-	// mutation this check exists to catch, and a rem-only pattern would
-	// fail to match it and report the wrong defect ("no left offset")
-	// instead of the real one (the dot is off the rail).
-	const left = /left:\s*(-?[0-9.]+)(rem)?\s*;/.exec(dot[1]);
-	assert(w && left, 'the dot must declare a rem width and a left offset');
+	// The offset is read unit-TOLERANT on purpose: `inset-inline-start:
+	// 0` is the exact mutation this check exists to catch, and a rem-only
+	// pattern would fail to match it and report the wrong defect ("no
+	// start-edge offset") instead of the real one (the dot is off the
+	// rail). The Direction baseline spells the axis logically; the
+	// mutation runner reverts exactly this declaration.
+	const left = /inset-inline-start:\s*(-?[0-9.]+)(rem)?\s*;/.exec(dot[1]);
+	assert(w && left, 'the dot must declare a rem width and a start-edge offset');
 	const half = parseFloat(w[1]) / 2;
 	const offset = parseFloat(left[1]);
 	assert(Math.abs(offset + half) < 0.001,
@@ -5864,7 +5938,7 @@ check('cm-timeline: the body cannot inherit a bullet or snap under the rail', ()
 	// the body must not inherit the outer list's own padding.
 	const pad = /\.cm-timeline__body ul\s*\{([^}]*)\}/.exec(compSrc);
 	assert(pad, '.cm-timeline__body ul has no rule of its own');
-	assert(/padding-left:\s*1\.2em/.test(pad[1]), 'the inner list must be indented explicitly');
+	assert(/padding-inline-start:\s*1\.2em/.test(pad[1]), 'the inner list must be indented explicitly');
 	assert(/\.cm-timeline__body li::before\s*\{([^}]*)\}/.test(compSrc),
 		'the inner list must cancel the inherited ::before marker');
 });
@@ -7542,7 +7616,7 @@ check('the grouped rail row carries the same declarations as the flat one', () =
 	// the failure says which one went.
 	for (const [prop, why] of [
 		[/min-height:\s*var\(--tap\)/, 'the tap floor'],
-		[/border-left:\s*2px solid transparent/, 'the current-page marker width'],
+		[/border-inline-start:\s*2px solid transparent/, 'the current-page marker width'],
 		[/margin-inline:\s*var\(--space-2\)/, 'the inset that keeps the tick off the rail edge'],
 	]) {
 		assert(prop.test(grouped), `the grouped rail row is missing ${why}`);
@@ -8220,7 +8294,7 @@ check('shadcn-parity: the drawn shortcut, the toast vocabulary, the sticky chrom
 	assert(/\.cm-toast--loading \.cm-toast__mark::before,?[\s\S]{0,200}cm-spin/.test(css),
 		'the loading mark does not spin');
 	const act = /^\.cm-toast__action \{[^}]*\}/m.exec(css);
-	assert(act && act[0].includes('margin-left: auto'), 'the action is not pushed to the far edge');
+	assert(act && act[0].includes('margin-inline-start: auto'), 'the action is not pushed to the far edge');
 });
 
 	/* --- shadcn parity: the utils pair and the validating forms ---
@@ -9685,7 +9759,7 @@ check('a disclosure action is walked to the end of the summary row', () => {
 	const comp = read('src/styles/components.css');
 	const m = /((?:^|[,{}\s])[^{}\n]*\.cm-disclosure__action[^{}\n]*)\{([^}]*)\}/.exec(comp);
 	assert(m, 'the disclosure action slot must have its own rule');
-	assert(/margin-left:\s*auto/.test(m[2]),
+	assert(/margin-inline-start:\s*auto/.test(m[2]),
 		`the action must be walked to the far end of the row, got: ${m[2].trim()}`);
 	// `align-self` only matters once the summary is allowed to wrap, and at
 	// 390px it is: without it the button sits on the first line while the
@@ -9746,7 +9820,7 @@ check('the title row action is pushed to the end of the row', () => {
 	const comp = read('src/styles/components.css');
 	const rule = [...comp.matchAll(/([^{}\n]*\.cm-head-row__action\s*\{[^}]*\})/g)][0];
 	assert(rule, '.cm-head-row__action must have its own rule body');
-	assert(/margin-left:\s*auto/.test(rule[1]),
+	assert(/margin-inline-start:\s*auto/.test(rule[1]),
 		'the action is not walked to the far end of the row, so it sits ' +
 		'beside the title however long the title grows');
 });
@@ -9844,7 +9918,7 @@ check('SectionHead: the action slot renders the control, and the title keeps its
 	// itself: the action is pushed to the far end with margin-left:auto.
 	const rule = /^\.cm-head-row__action\s*\{([^}]*)\}/m.exec(compSrc);
 	assert(rule, '.cm-head-row__action is not defined');
-	assert(/margin-left:\s*auto/.test(rule[1]),
+	assert(/margin-inline-start:\s*auto/.test(rule[1]),
 		'.cm-head-row__action does not push to the far end, so a title and its button share a line instead of opposing');
 });
 
@@ -10094,7 +10168,7 @@ check('a numeric column outranks the cell rule to align on the digit', () => {
 		`the numeric rule is scoped "${sel.trim()}" with no element, so ` +
 		"`.cm-table td` (specificity 0,1,1) beats it and the column is " +
 		'left-aligned with a ragged right edge');
-	assert(/text-align:\s*right/.test(num[1]),
+	assert(/text-align:\s*end/.test(num[1]),
 		'the numeric column does not align right, so durations of different ' +
 		'lengths cannot be compared without reading each one');
 	// The header must match the cells, or the column reads as misaligned
@@ -10231,7 +10305,7 @@ check('the meter note is a fixed-width column, not loose text', () => {
 	assert(/min-width:\s*(?!0)\S/.test(note[1]),
 		'the meter note has no fixed width, so a column of percentages ' +
 		'rags and the reader cannot scan it for the one they want');
-	assert(/text-align:\s*right/.test(note[1]),
+	assert(/text-align:\s*end/.test(note[1]),
 		'the meter note is not right-aligned, so the decimals do not line ' +
 		'up and "96.0%" reads differently from "3.0%"');
 	assert(/font-variant-numeric:\s*tabular-nums/.test(note[1]),
@@ -10626,7 +10700,7 @@ check('the search field keeps the 16px form-text floor the base rule gives up', 
 check('the search gutter is derived from the clear button, not guessed', () => {
 	const inp = declsFor(compSrc, '.cm-search__input');
 	assert(inp, '.cm-search__input has no rule of its own');
-	assert(/padding-right:[^;]*var\(--search-clear\)/.test(inp),
+	assert(/padding-inline-end:[^;]*var\(--search-clear\)/.test(inp),
 		'padding-right is not derived from --search-clear, so the value can '
 		+ 'run under the X as soon as the button changes size');
 	const clr = declsFor(compSrc, '.cm-search__clear');
@@ -10698,8 +10772,8 @@ check('.cm-field__control keeps its affordance on the control, not a new row', (
 		'.cm-field__control is not a positioning context, so its affordance ' +
 		'cannot sit on the control it belongs to');
 	const btn = ruleBodies(compSrc, '.cm-field__control > .cm-icon-btn')[0];
-	assert(btn && /position:\s*absolute/.test(btn) && /right:\s*0/.test(btn),
-		'the affordance is not pinned to the control\'s right edge');
+	assert(btn && /position:\s*absolute/.test(btn) && /inset-inline-end:\s*0/.test(btn),
+		'the affordance is not pinned to the control\'s end edge');
 	assert(btn && /top:\s*50%/.test(btn) && /translateY\(-50%\)/.test(btn),
 		'the affordance is not centred on the control, so it drifts when the ' +
 		'control is taller than one line');
@@ -10756,7 +10830,7 @@ check('.cm-field__control keeps its affordance on the control, not a new row', (
 	// perfectly good declaration and reports a pass.
 	const reserveBody = /\.cm-field__control\.cm-field__control[^\n{]*>\s*input\s*\{([^}]*)\}/.exec(compSrc);
 	const pr = reserveBody
-		&& /padding-right:\s*calc\(var\(--tap\) \+ ([^)]+)\)/.exec(reserveBody[1]);
+		&& /padding-inline-end:\s*calc\(var\(--tap\) \+ ([^)]+)\)/.exec(reserveBody[1]);
 	assert(pr,
 		'the reserve does not leave a gap beside the glyph: it must be the '
 		+ 'overlay width PLUS a gap, read from the reserve rule itself');
@@ -12894,7 +12968,7 @@ check("the hover card is visibility-gated, not merely faded", () => {
 check("the input group collapses to one hairline", () => {
 	const css = read("src/styles/components.css");
 	const page = read("src/pages/index.astro");
-	assert(/\.cm-input-group__addon \{[^}]*border-right-width: 0;/s.test(css),
+	assert(/\.cm-input-group__addon \{[^}]*border-inline-end-width: 0;/s.test(css),
 		"the addon gives up its right border so the field's own border is the only seam");
 	assert(!/\.cm-input-group[^{]*\{[^}]*margin-left: -/.test(css) &&
 		!/\.cm-input-group > \* \+ \* \{[^}]*margin/s.test(css),
@@ -13168,7 +13242,7 @@ check("the input group collapses to one hairline", () => {
 		const trg = css.match(/\.cm-menubar__trigger \{([^}]*)\}/);
 		assert(trg, '.cm-menubar__trigger is not defined');
 		assert(/border-radius:\s*var\(--radius-sm\)/.test(trg[1]), 'the cell takes the sharp radius token');
-		assert(/border-right:\s*1px solid var\(--line\)/.test(trg[1]),
+		assert(/border-inline-end:\s*1px solid var\(--line\)/.test(trg[1]),
 			'cells are divided by a hairline - a menu bar without rules reads as one blob');
 		const panel = css.match(/\.cm-menubar__menu \{([^}]*)\}/);
 		assert(panel && /position:\s*fixed/.test(panel[1]),
@@ -13216,7 +13290,7 @@ check("the input group collapses to one hairline", () => {
 		const tree = css.match(/\.cm-tree \{([^}]*)\}/);
 		assert(tree && /padding: 0 0 0 var\(--space-4\)/.test(tree[1]),
 			'each level must pad its own children: a depth typed into a style is a lie');
-		assert(/\.cm-tree--root \{ padding-left: 0; \}/.test(css), 'the root must not be indented twice');
+		assert(/\.cm-tree--root \{ padding-inline-start: 0; \}/.test(css), 'the root must not be indented twice');
 		const leaves = (page.match(/<a class="cm-tree__row"/g) || []).length;
 		assert(leaves >= 3, `leaves must be real links, found ${leaves}`);
 		assert(/cm-disclosure__summary cm-tree__row/.test(page),
@@ -13334,6 +13408,87 @@ check("the input group collapses to one hairline", () => {
 		assert(/overflow-x: auto;/.test(css),
 			'below ~350px the grid scrolls inside the card, never the page');
 	});
+
+	// shadcn's Calendar documents four modes (single | multiple | range |
+	// default). `multiple` is the one this library claimed and did not
+	// have: any mode that was not `single` fell through to the RANGE
+	// branch, where `sel` is empty and nothing could ever read as picked.
+	// Proven by tests/verify-calendar-multiple.py (WebKit, 390x844) and
+	// tests/mutate-calendar-multiple.py (10 mutants, killed by this suite
+	// OR that harness).
+	check('shadcn-parity: calendar carries shadcn\'s multiple mode', () => {
+		const js = read('src/js/cli-mono.js');
+		const page = read('src/pages/index.astro');
+		const pick = js.slice(js.indexOf('function calPick'), js.indexOf('function onCalClick'));
+		const render = js.slice(js.indexOf('function calRender'), js.indexOf('function calFocus'));
+		const cells = render.slice(render.indexOf('var cells = []'),
+			render.indexOf('body.innerHTML'));
+
+		// The dispatch must be in the PICKER. A whole-file grep for the
+		// mode string passes on the Escape line alone, so a mutant that
+		// deletes the pick branch survives it - assert on the slice.
+		assert(/calMode\(cal\) === 'multiple'/.test(pick),
+			'multiple must be dispatched on where a pick is handled');
+		// A pick TOGGLES. Growing an array without the removal is the
+		// half-implementation that looks right on the first click.
+		assert(/set\.push\(iso\)/.test(pick) && /set\.splice\(at, 1\)/.test(pick),
+			'a multiple pick must add AND remove - it is a toggle');
+		// The set lives on the ATTRIBUTE, so a month step cannot drop it:
+		// the cells are rebuilt wholesale, the attribute is not.
+		assert(/calSet\(cal, set\.sort\(\)\)/.test(pick),
+			'the set must be written back to the attribute the renderer reads');
+		// The set must be read from the ATTRIBUTE into the cell builder,
+		// and never written onto a cell: the cells are rebuilt every
+		// render, so a cell-borne selection is one month step from gone.
+		assert(/picked\.indexOf\(day\) !== -1/.test(cells),
+			'the cell builder must derive its selection from the attribute');
+		// And the SET it derives from must still be populated: a mutant
+		// that empties `picked` leaves the correct predicate above intact,
+		// reading an array that is always empty.
+		assert(/var picked = mode === 'multiple' \? calList\(cal\) : \[\];/.test(render),
+			'the set must be read into the renderer, not defaulted to empty');
+		assert(!/data-cm-cal-selected/.test(cells),
+			'the renderer must never WRITE the set onto day cells');
+		assert(!/setAttribute\('data-(?!cm-day)/.test(cells),
+			'a cell carries no state of its own beyond its day');
+
+		// The RANGE branch must stay reachable: `mode !== 'single'` as the
+		// range test is exactly the defect, because it swallowed multiple.
+		assert(/mode === 'range'/.test(render),
+			'range must be asked for by name, not as "not single"');
+		assert(!/mode === 'single'\s*\n?\s*\?\s*day === sel/.test(render),
+			'the old not-single-means-range test must be gone');
+		// `sel` is the whole set string in multiple mode, and the roving
+		// tab stop is `active === day` - left alone, every day failed to
+		// match and the grid lost its tab stop.
+		assert(/mode === 'multiple' \? null : cal\.getAttribute\('data-cm-cal-selected'\)/.test(render),
+			'`sel` must be nulled in multiple mode so the tab stop resolves');
+
+		// Escape clears it, the same verb the other two modes answer to.
+		const key = js.slice(js.indexOf('function onCalKey'), js.indexOf('function calClearPreview'));
+		assert(/calMode\(cal\) === 'multiple'\) calSet\(cal, \[\]\)/.test(key),
+			'Escape must clear the whole set in multiple mode');
+
+		// The two questions that used to be asked as "not range" now name
+		// the mode that actually owns the behaviour.
+		assert(/if \(dp && calMode\(cal\) === 'single'\)/.test(js),
+			'only single has one value to write into a datepicker field');
+		assert(js.includes("if (!day || calMode(cal) !== 'range') return;"),
+			'the range hover preview must not run in multiple mode');
+
+		// And it is DEMONSTRATED: a class the showcase never renders is
+		// dead surface the next reader cannot trust.
+		assert(/id="cal-multiple"[^>]*data-cm-cal-mode="multiple"/.test(page),
+			'the showcase must ship a multiple specimen');
+		assert(/data-cm-cal-selected="2026-10-05 2026-10-27"/.test(page),
+			'the specimen must pin a SET on the attribute');
+		const spec = page.slice(page.indexOf('id="cal-multiple"'),
+			page.indexOf('id="cal-range"'));
+		assert((spec.match(/aria-selected="true"/g) || []).length === 2,
+			'exactly the two picked days read as selected');
+		assert((spec.match(/tabindex="0"/g) || []).length === 1,
+			'a set still has ONE tab stop (the roving rule, over three modes)');
+	});
 }
 
 /* --- shadcn parity: dropdown depth --- */
@@ -13369,10 +13524,15 @@ check('shadcn-parity: dropdown depth carries the documented item kinds', () => {
 	assert(css.includes('.cm-dropdown__icon {\n\tflex: none;'),
 		'the icon slot must be a fixed-width slot');
 	// shortcuts are out of the accessible name
-	// Both hinted rows, not "one of them": a twin-row mutant removes a
-	// single aria-hidden and a single-occurrence regex sails past it.
-	assert((html.match(/cm-dropdown__shortcut" aria-hidden="true"/g) || []).length === 2,
-		'every shortcut hint must be hidden from the name');
+	// Every hinted row on the BUILT page, not a sample of them: a mutant
+	// that drops a single aria-hidden anywhere must fail, wherever that
+	// row lives (the menubar now hints too). The floor keeps the
+	// equality from going vacuous - two counts of zero are not
+	// agreement, they are a check that stopped looking.
+	const hinted = (html.match(/class="cm-dropdown__shortcut"/g) || []).length;
+	const hidden = (html.match(/cm-dropdown__shortcut" aria-hidden="true"/g) || []).length;
+	assert(hinted >= 4 && hidden === hinted,
+		`every shortcut hint must be hidden from the name (${hidden} of ${hinted} are)`);
 	// the runtime: no per-menu init, one delegated handler.
 	// A plain regex here was /" then a CHARACTER CLASS - it matched any one
 	// of those letters and therefore killed nothing. Literal string only.
@@ -13425,7 +13585,8 @@ check('shadcn-parity: dropdown depth carries the documented item kinds', () => {
 	// Right opens the submenu, Left closes it and returns focus
 	assert(/if \(openSubmenu\(t\)\) e\.preventDefault\(\);/.test(js),
 		'Right/Enter must open the submenu');
-	assert(/if \(closeSubmenu\(t\.closest\(POP_SEL\)\)\) e\.preventDefault\(\);/.test(js),
+	assert(/var here = t\.closest\(POP_SEL\);/.test(js)
+		&& /if \(closeSubmenu\(here\)\) e\.preventDefault\(\);/.test(js),
 		'Left must close the panel the reader is actually inside');
 	assert(/if \(owner && typeof owner\.focus === 'function'\) owner\.focus\(\);/.test(js),
 		'Left must return focus to the parent row');
@@ -14203,7 +14364,7 @@ check('batch 21 tabs: vertical is declared once and read once', () => {
 	const col = /\.cm-tabs\[data-orientation='vertical'\]\s*\.cm-tabs__list\s*\{[^}]*flex-direction:\s*column/.test(compSrc);
 	assert(col, 'the vertical group does not flip the list through the SAME attribute');
 	// Every row pays the same marker edge, so selecting shifts nothing.
-	assert(/\.cm-tabs\[data-orientation='vertical'\]\s*\.cm-tabs__tab\s*\{[^}]*border-left:\s*2px solid transparent/.test(compSrc),
+	assert(/\.cm-tabs\[data-orientation='vertical'\]\s*\.cm-tabs__tab\s*\{[^}]*border-inline-start:\s*2px solid transparent/.test(compSrc),
 		'the vertical marker is not a shared, layout-free edge');
 	const src = read('src/js/cli-mono.js');
 	assert(src.includes("getAttribute('data-orientation') === 'vertical'"),
@@ -14498,3 +14659,1534 @@ check('batch 23 nav: the vertical bar declares itself and paints on the height a
 		assert(h.includes(pin), 'the harness lost a batch-23 check: ' + pin);
 	}
 });
+
+/* ================= header geometry: bar vs rail =================
+   A height-only probe reports two readings of the same number: at 1280
+   the header is 900px tall - the whole viewport - and `position: fixed`;
+   at 402 it is 63px and `position: sticky`. As a defect that says "the
+   desktop header blew up"; as what it is, it says "the header opted into
+   the rail". Both readings fit, which is exactly why the source has to
+   make them separable:
+
+     - a viewport-TALL header may exist only as a width-BOUNDED rail
+       (232px at x=0, content offset past it). The reported defect is a
+       full-width viewport-tall box, and that is asserted impossible:
+       every `height: …vh` that can reach the header must name the rail
+       modifier, and the fixed rail must still declare its width.
+     - below the rail breakpoint the header stays a compact sticky bar:
+       `position: sticky; top: 0`, no height on `.cm-header` itself, the
+       60px nav row, and the phone's `height: auto; min-height: 60px`
+       still inside `max-width: 640px`.
+     - the behaviour - "pinned to the top while the 50,000px showcase
+       scrolls" - is read in a real browser, at 320/390/402/768/1280, by
+       tests/verify-header-geometry.py. The suite pins that harness's
+       checks so one of them cannot be deleted quietly; the suite itself
+       is the zero-dependency half of the repo and does not open pages.
+*/
+console.log('\nheader geometry: bar vs rail');
+
+check('a viewport-tall header can only be the width-bounded rail', () => {
+	const bare = compNoComment;
+	// Every `height: …vh` on any .cm-header* selector must name the rail
+	// modifier. A vh height on `.cm-header` or `.cm-header__nav` alone is
+	// the reported defect: a bar sized to the window.
+	for (const m of bare.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+		const sel = m[1].trim();
+		if (!/\.cm-header/.test(sel)) continue;
+		if (!/height:\s*[\d.]+vh/.test(m[2])) continue;
+		assert(/\.cm-header--rail/.test(sel),
+			'a viewport-height declaration reaches the header outside the rail: ' + sel);
+	}
+	// The rail is allowed the viewport height; it is not allowed the
+	// viewport WIDTH. Drop `width` from the fixed rule and the same 900px
+	// box spans the whole window - the shape of the reported bug.
+	const fixed = ruleBodies(bare, '.cm-header--rail')
+		.filter((b) => /position:\s*fixed/.test(b));
+	assert(fixed.length >= 1, 'the rail never becomes a fixed column at desktop');
+	assert(fixed.some((b) => /width:\s*var\(--rail-w\)/.test(b)),
+		'the fixed rail declares no width, so it can span the full viewport');
+	assert(fixed.some((b) => /inset-block:\s*0/.test(b)),
+		'the fixed rail is not pinned to both viewport edges, so its height is its content');
+});
+
+check('below the rail breakpoint the header stays a compact sticky bar', () => {
+	const bare = compNoComment;
+	const base = ruleBodies(bare, '.cm-header')
+		.find((b) => /position:\s*sticky/.test(b));
+	assert(base, 'the base .cm-header rule is no longer sticky - the bar scrolls away');
+	assert(/top:\s*0/.test(base), 'the sticky header lost `top: 0`, so it does not pin to the top');
+	assert(!/height:/.test(base),
+		'.cm-header declares its own height, which is how a bar grows into a column');
+	const nav = ruleBodies(bare, '.cm-header__nav')
+		.find((b) => /height:\s*60px/.test(b));
+	assert(nav, 'the nav row lost the 60px it is measured against');
+	// The phone override must still live INSIDE max-width: 640px. Sitting
+	// outside it, `height: auto` would reach a desktop bar; a vh value
+	// there would be the reported defect wearing the phone's clothes.
+	const phoneIdx = bare.search(
+		/\.cm-header__nav\s*\{\s*height:\s*auto;\s*min-height:\s*60px;/);
+	assert(phoneIdx > -1,
+		'the phone nav override (height: auto, min-height: 60px) is missing');
+	const mq = bare.lastIndexOf('@media', phoneIdx);
+	assert(mq > -1 && bare.slice(mq, phoneIdx).includes('max-width: 640px'),
+		'the phone nav override is not inside max-width: 640px, so it can reach a desktop bar');
+});
+
+check('the header geometry harness owns the behaviour reads, at five widths', () => {
+	const h = read('tests/verify-header-geometry.py');
+	for (const pin of [
+		'the header is never a full-width viewport-tall box',
+		'rail mode - fixed column, width-bound, x=0',
+		'the phone bar is exactly 63px, nav 62',
+		'header pinned at the top after scrolling to',
+		'actually scrolled to',
+		'header itself is on screen after scrolling to',
+		'served_is_ours',
+		'PORT = 8098',
+		'behavior: "instant"']) {
+		assert(h.includes(pin), 'the harness lost a header check: ' + pin);
+	}
+	assert(/WIDTHS = \[\(320, 667\), \(390, 667\), \(402, 667\), \(768, 900\), \(1280, 900\)\]/
+		.test(h), 'the harness no longer sweeps 320/390/402/768/1280');
+	// The scroll wait is what makes "pinned" mean scrolled-to-position
+	// rather than scrolled-to-somewhere: a smooth programmatic scroll of
+	// 80,000px is still travelling when the rect is read.
+	assert(h.includes('Math.abs(window.scrollY - t) < 2'),
+		'the harness no longer waits for the scroll to settle');
+	assert(h.includes('if target > 0:') && h.includes('got > 0'),
+		'the harness never asserts it actually scrolled');
+});
+/* ================= the Direction baseline: logical properties only =================
+   shadcn documents Direction (RTL support) as part of the catalog, and this
+   library's answer is the honest subset: every directional declaration is
+   spelled LOGICALLY. In an LTR document `margin-inline-start` and
+   `margin-left` resolve to the same physical property, so the conversion is a
+   pixel-level no-op today and buys RTL for free later - no `dir`, no mirroring,
+   no runtime.
+
+   Three declarations stay physical, each documented AT ITS RULE and listed
+   here with the same reason. A fourth one appearing anywhere is a regression:
+     .cm-hovercard__panel { left: 0 }     the runtime anchor writes a physical
+                                          style.left in viewport coordinates;
+                                          the CSS rule is its no-JS fallback
+     .cm-navmenu__chev { border-right }   glyph geometry: a border pair rotated
+                                          45deg IS the caret; a logical mirror
+                                          flips the border but not rotate()
+     .cm-chart__tooltip { left: var(..) } the runtime derives the anchor from
+                                          SVG user space (getBBox().x) minus a
+                                          physical rect delta — SVG has no
+                                          logical axis to name, and the value
+                                          is a pixel offset from the drawing's
+                                          left edge
+
+   The source scan is half the proof; the built stylesheet is the other half.
+   A minifier that rewrote `border-inline-start` back to `border-left` would
+   keep every consumer RTL-blind while the source looked converted, so the dist
+   is scanned with the same walker and the same permit. */
+{
+	const PHYSICAL = new Set([
+		'margin-left', 'margin-right', 'padding-left', 'padding-right',
+		'border-left', 'border-right',
+		'border-left-width', 'border-left-style', 'border-left-color',
+		'border-right-width', 'border-right-style', 'border-right-color',
+		'left', 'right', 'float',
+	]);
+	const ALLOW = [
+		['.cm-hovercard__panel', 'left',
+			'runtime anchor: cmClampHovercards() clears and rewrites a physical style.left on every init and resize'],
+		['.cm-navmenu__chev', 'border-right',
+			'glyph geometry: the rotated caret is drawn from physical borders'],
+		['.cm-chart__tooltip', 'left',
+			'runtime anchor: cmInitCharts() writes a pixel offset from SVG user space (getBBox().x) minus a physical rect delta — SVG has no logical axis'],
+	];
+	// A declaration walker: mask comments (newlines survive, so line numbers
+	// stay true), then track braces and read each `prop: value` chunk. The
+	// innermost enclosing selector rides along - the permit is keyed on it,
+	// so a `left: 50%` centring a tick is judged by the rule it sits in.
+	function declsOf(css, withLines) {
+		const masked = css.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
+		const out = [];
+		const stack = [];
+		let pos = 0;
+		for (let i = 0; i < masked.length;) {
+			const c = masked[i];
+			if (c === '{') {
+				stack.push(masked.slice(pos, i).split('}').pop().trim());
+				i++; pos = i;
+			} else if (c === '}') {
+				stack.pop();
+				i++; pos = i;
+			} else if (c === ';') {
+				const m = /^\s*([a-zA-Z-]+)\s*:\s*([^;]*)$/.exec(css.slice(pos, i));
+				if (m) {
+					out.push({
+						sel: stack[stack.length - 1] || '',
+						prop: m[1],
+						value: m[2].trim(),
+						line: withLines ? css.slice(0, pos).split('\n').length : 0,
+					});
+				}
+				i++; pos = i;
+			} else {
+				i++;
+			}
+		}
+		return out;
+	}
+	const isPhysical = (d) => PHYSICAL.has(d.prop)
+		|| (d.prop === 'text-align' && (d.value === 'left' || d.value === 'right'));
+	const permitted = (d) => ALLOW.some(([sel, prop]) => d.prop === prop && d.sel.includes(sel));
+
+	check('the Direction baseline: the stylesheets carry no physical directional declaration', () => {
+		const files = ['src/styles/tokens.css', 'src/styles/base.css', 'src/styles/components.css'];
+		const bad = [];
+		for (const f of files) {
+			for (const d of declsOf(read(f), true)) {
+				if (isPhysical(d) && !permitted(d)) {
+					bad.push(`${f}:${d.line} \`${d.sel}\` { ${d.prop}: ${d.value} }`);
+				}
+			}
+		}
+		assert(bad.length === 0,
+			'physical directional declarations crept back in (convert them to their logical twin, '
+			+ 'or document a runtime/glyph exception at the rule AND in the permit list):\n  '
+			+ bad.join('\n  '));
+	});
+
+	check('the Direction baseline: every permit still documents a real declaration', () => {
+		const all = ['src/styles/tokens.css', 'src/styles/base.css', 'src/styles/components.css']
+			.flatMap((f) => declsOf(read(f), true));
+		for (const [sel, prop, why] of ALLOW) {
+			const live = all.filter((d) => d.prop === prop && d.sel.includes(sel));
+			assert(live.length > 0,
+				`the permit for \`${sel} { ${prop} }\` is stale: ${why}. The declaration it documents `
+				+ 'is gone, so the permit must go too - a widening permit nobody revisits is how '
+				+ 'a baseline erodes');
+		}
+	});
+
+	check('the Direction baseline: the BUILT stylesheet ships logical properties too', () => {
+		const dir = join(root, 'dist', '_astro');
+		assert(existsSync(dir), 'dist/_astro is missing - run `npm run build` before the contract tests');
+		const names = readdirSync(dir).filter((n) => n.endsWith('.css'));
+		assert(names.length > 0, 'no built CSS in dist/_astro');
+		const built = names.map((n) => readFileSync(join(dir, n), 'utf8')).join('');
+		const bad = declsOf(built, false).filter((d) => isPhysical(d) && !permitted(d));
+		assert(bad.length === 0,
+			'the built CSS carries physical directional declarations the source does not - the '
+			+ 'minifier or the build rewrote them back:\n  '
+			+ bad.slice(0, 10).map((d) => `${d.sel} { ${d.prop}: ${d.value} }`).join('\n  '));
+		const logical = built.match(/(?:margin|padding|border|inset)-inline-(?:start|end)/g) || [];
+		// Measured at 109 on the commit that introduced this check. A build
+		// that dropped the logical properties would sail through the physical
+		// scan above (nothing physical left = nothing to flag), so the count
+		// is the half that proves the converted declarations SURVIVED.
+		assert(logical.length >= 100,
+			`the built CSS carries ${logical.length} logical declarations, expected at least 100 - `
+			+ 'the conversion did not survive the build');
+	});
+}
+
+// ---------- shadcn-parity: menubar (batch 28) ----------
+console.log('\nshadcn-parity: menubar');
+{
+	// The six gaps the feature-by-feature audit of shadcn's Menubar docs left
+	// open. Markup claims read the specimen AND the built page; runtime claims
+	// are DRIVEN - the fake document records the delegated listeners the
+	// runtime registers on it, so a keydown reaches the same handler the
+	// browser would run. Every driven assertion carries its control: "nothing
+	// happened" is indistinguishable from "the handler never ran" unless the
+	// case that must fire is shown firing first.
+	const page = read('src/pages/index.astro');
+	const html = read('dist/index.html');
+	const js = rt;        // the runtime, comments stripped
+	const css = compSrc;  // the stylesheet, comments stripped
+	// Bounded by its neighbours, so a specimen moved or renamed fails here
+	// instead of matching some other button on the page.
+	const bar = page.slice(page.indexOf('<div class="cm-menubar"'),
+		page.indexOf('<h3 class="cm-kicker">tooltip'));
+	assert(bar.length > 500, 'the menubar specimen moved: the slice anchors no longer bracket it');
+
+	const triggersOf = (src) => [...src.matchAll(/<button[^>]*class="cm-menubar__trigger"[^>]*>/g)]
+		.map((m) => m[0]);
+
+	// A document-level keydown, dispatched the way the browser would: to
+	// EVERY listener the runtime registered on `document`. The handlers that
+	// are not about a menubar must walk past this target on their own guards -
+	// if one does not, this throws and the check fails, which is the correct
+	// verdict for an unguarded handler.
+	const keyAt = (doc, target, key) => {
+		const ev = {
+			target,
+			key,
+			defaultPrevented: false,
+			preventDefault() { ev.defaultPrevented = true; },
+		};
+		for (const fn of (doc.__ev.keydown || [])) fn(ev);
+		return ev;
+	};
+
+	// A bar of words with a showPopover/hidePopover spy on each panel: "it
+	// opened" is an observation, never an assumption about the [popovertarget]
+	// attribute a fake cannot act on.
+	const barFixture = (words) => {
+		const barEl = el('div', { class: 'cm-menubar', 'data-cm-menubar': '', role: 'menubar' });
+		const opened = [];
+		const hidden = [];
+		const trig = [];
+		words.forEach((w, i) => {
+			const id = 'mbx-' + i;
+			const panel = el('div', { class: 'cm-dropdown__menu cm-menubar__menu', id, popover: '', role: 'menu' });
+			(w.rows || []).forEach((r) => panel.appendChild(r));
+			panel.showPopover = () => opened.push(id);
+			panel.hidePopover = () => hidden.push(id);
+			const t = el('button', Object.assign({
+				class: 'cm-menubar__trigger', popovertarget: id,
+				'aria-haspopup': 'menu', role: 'menuitem',
+			}, w.attrs || {}));
+			barEl.appendChild(t);
+			barEl.appendChild(panel);
+			trig.push(t);
+		});
+		return { barEl, trig, opened, hidden };
+	};
+
+	check('shadcn-parity: the bar is ONE tab stop and init re-derives it', () => {
+		const words = triggersOf(bar);
+		assert(words.length >= 3, `the menubar must have words to walk, found ${words.length}`);
+		const authored = words.filter((w) => /tabindex="0"/.test(w)).length;
+		assert(authored === 1,
+			`the specimen puts ${authored} words in the tab order; the pattern enters as one stop`);
+		// The runtime, not the author, owns the stop: three words all claiming
+		// it collapse to one on init, and a disabled word never wins it.
+		const f = barFixture([
+			{ attrs: { 'aria-disabled': 'true', tabindex: '0' } },
+			{ attrs: { tabindex: '0' } },
+			{ attrs: { tabindex: '0' } },
+		]);
+		const { api, doc } = runOn([f.barEl]);
+		api.init(doc);
+		const stops = f.trig.filter((t) => t.getAttribute('tabindex') === '0');
+		assert(stops.length === 1, `${stops.length} words hold the tab stop after init, want 1`);
+		assert(stops[0] === f.trig[1],
+			'the stop must land on the first ENABLED word - not the disabled one, not nowhere');
+		assert(f.trig[0].getAttribute('tabindex') === '-1'
+			&& f.trig[2].getAttribute('tabindex') === '-1',
+			'the other words must be arrow targets only (tabindex="-1")');
+		// ...and the stop is not a one-shot fixup: it TRAVELS with the focus,
+		// or the next Tab leaves the bar at the word the reader walked off.
+		const g = barFixture([{ attrs: { tabindex: '0' } }, { attrs: { tabindex: '-1' } }]);
+		const run = runOn([g.barEl]);
+		g.trig[0].focus();
+		keyAt(run.doc, g.trig[0], 'ArrowRight');
+		assert(g.trig[0].getAttribute('tabindex') === '-1'
+			&& g.trig[1].getAttribute('tabindex') === '0',
+			'walking the words did not move the tab stop with them');
+		// Focus can still be PUT on a disabled word (a script, or a page
+		// that focuses its first control). The stop must not follow it
+		// there: the walk list refuses to visit that word, so a stop
+		// parked on it is a tab stop with nowhere to walk from. Measured
+		// in WebKit before the guard - focus() alone moved it.
+		const h = barFixture([{ attrs: { 'aria-disabled': 'true' } }, { attrs: {} }]);
+		const runH = runOn([h.barEl]);
+		h.trig[0].focus();
+		h.barEl.fire('focusin', { target: h.trig[0] });
+		assert(h.trig[0].getAttribute('tabindex') === '-1'
+			&& h.trig[1].getAttribute('tabindex') === '0',
+			'focus on a disabled word stole the tab stop');
+	});
+
+	check('shadcn-parity: a disabled word is refused by every door that could open it', () => {
+		const off = triggersOf(bar).filter((w) => /aria-disabled="true"/.test(w));
+		assert(off.length >= 1, 'the anatomy ships a disabled word; the bar specimen has none');
+		assert(/id="mb-help" popover role="menu"/.test(page),
+			'the disabled word must still own its panel: aria-disabled is not [disabled], it stays in the tree');
+		// ONE filter, every door: the arrows, Home/End and the roving stop all
+		// read menubarTriggers().
+		assert(js.includes("b.getAttribute('aria-disabled') !== 'true'"),
+			'menubarTriggers() still walks to the disabled word - it filters on visibility only');
+		// ArrowDown reads the attribute BEFORE it opens. Order, not presence:
+		// a guard moved below showPopover() is not a guard.
+		const down = js.slice(js.indexOf("if (trg && e.key === 'ArrowDown')"),
+			js.indexOf("if (['ArrowLeft'"));
+		assert(down.includes('aria-disabled')
+			&& down.indexOf('aria-disabled') < down.indexOf('showPopover()'),
+			'ArrowDown must read aria-disabled before it shows anything');
+		// Enter and Space do not arrive as ArrowDown - they arrive as a click,
+		// because popovertarget is a platform attribute with no idea what
+		// aria-disabled means.
+		assert(js.includes("bar.addEventListener('mousedown', vetoDisabled)")
+			&& js.includes("bar.addEventListener('click', vetoDisabled)"),
+			'the pointer and keyboard doors on a disabled word are not vetoed');
+		// Driven: ArrowDown opens the ENABLED word - the control, without which
+		// "the disabled one stayed shut" could mean the handler never ran at all.
+		const f = barFixture([{ attrs: {} }, { attrs: { 'aria-disabled': 'true' } }]);
+		const { doc } = runOn([f.barEl]);
+		keyAt(doc, f.trig[0], 'ArrowDown');
+		assert(f.opened.includes('mbx-0'),
+			'control failed: ArrowDown did not open the enabled word, so nothing below proves anything');
+		const openedBefore = f.opened.length;
+		const ev = keyAt(doc, f.trig[1], 'ArrowDown');
+		assert(f.opened.length === openedBefore, 'ArrowDown opened a disabled word');
+		assert(ev.defaultPrevented,
+			'the menubar handler never reached the disabled branch (it did not answer the key)');
+	});
+
+	check('shadcn-parity: the bar owns a submenu and leaves its keys to it', () => {
+		assert(/role="menuitem" aria-haspopup="menu" aria-controls="mb-export"/.test(page),
+			'the bar ships no submenu owner row');
+		const filePanel = page.slice(page.indexOf('id="mb-file"'), page.indexOf('id="mb-edit"'));
+		assert(/id="mb-export" popover role="menu"/.test(filePanel),
+			'the submenu panel must live INSIDE the panel whose row owns it - the anchor walks up for its host');
+		// A key inside a nested panel belongs to that panel. Without this guard
+		// one Left press closes the submenu AND walks the bar to the next word.
+		assert(js.includes('if (nested && nested !== open) return;'),
+			'onMenubarKey() has no nested-panel guard');
+		// And a panel that walks takes its submenus with it - deepest first, and
+		// before the host hides, so focus unwinds onto a row that still has a
+		// panel behind it. Sliced from the RAW source so the section markers
+		// exist, then stripped, so a comment cannot satisfy either assertion.
+		const walk = runtimeSrc.slice(runtimeSrc.indexOf('function onMenubarKey'),
+			runtimeSrc.indexOf('/* ---------- toggle group'))
+			.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+		assert(walk.includes('[popover]:popover-open'),
+			'the walk never closes a hanging submenu, so one outlives its host in the top layer');
+		assert(walk.indexOf('[popover]:popover-open') < walk.indexOf('open.hidePopover()'),
+			'the host hides BEFORE its submenu - the nested box outlives the menu it hangs from');
+		// ONE press, ONE move: the bar stands down for a key the panel
+		// already consumed, and the guard has to be FIRST - a check that
+		// only found the text somewhere in the body would pass a version
+		// placed after the walk it is supposed to skip.
+		const guard = runtimeSrc.indexOf('if (e.defaultPrevented) return;',
+			runtimeSrc.indexOf('function onMenubarKey'));
+		const body = runtimeSrc.indexOf('var bar = e.target',
+			runtimeSrc.indexOf('function onMenubarKey'));
+		assert(guard !== -1 && guard < body,
+			'onMenubarKey does not stand down for a consumed key: Right on a submenu row '
+			+ 'opens it and then walks away with it');
+		// ...and the panel does not swallow Left on its way to that walk:
+		// a bare bar panel leaves Left to the bar, a submenu inside it takes it.
+		const menuKey = runtimeSrc.slice(runtimeSrc.indexOf('function onMenuKey'),
+			runtimeSrc.indexOf('/* ---------- navigation menu'))
+			.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+		const left = menuKey.slice(menuKey.indexOf("if (e.key === 'ArrowLeft')"));
+		assert(left.includes("contains('cm-menubar__menu')")
+			&& left.indexOf("contains('cm-menubar__menu')") < left.indexOf('closeSubmenu('),
+			'a bar panel may not eat Left: the bar owns that key and walks to the '
+			+ 'neighbouring word with it');
+		// Driven: the same key, two targets. From the parent row it walks
+		// (the control); from inside the submenu it must do nothing.
+		const subItem = el('button', { class: 'cm-dropdown__item', role: 'menuitem' });
+		const parentRow = el('button', { class: 'cm-dropdown__item', role: 'menuitem' });
+		const sub = el('div', { class: 'cm-dropdown__menu', id: 'mbx-sub', popover: '', role: 'menu' });
+		sub.appendChild(subItem);
+		const f = barFixture([{ rows: [parentRow, sub] }, { attrs: {} }]);
+		const { doc } = runOn([f.barEl]);
+		parentRow.focus();
+		keyAt(doc, parentRow, 'ArrowRight');
+		assert(f.hidden.includes('mbx-0'),
+			'control failed: ArrowRight on a parent row did not walk the bar - nothing below proves anything');
+		assert(doc.activeElement === f.trig[1], 'the control walk did not focus the next word');
+		f.hidden.length = 0;
+		subItem.focus();
+		keyAt(doc, subItem, 'ArrowRight');
+		assert(f.hidden.length === 0, 'the bar hid a panel while the reader was inside a submenu');
+		assert(doc.activeElement === subItem,
+			'focus left the submenu row: the bar walked on a key it does not own');
+		// ...and the press that OPENS the submenu is not a bar walk either:
+		// the panel consumes Right (openSubmenu preventDefaults), the bar
+		// stands down, and focus lands in the new panel. One press, two
+		// moves was the measured defect: open, walk, take the submenu out.
+		const owner = el('button', { class: 'cm-dropdown__item', role: 'menuitem',
+			'aria-haspopup': 'menu', 'aria-controls': 'mbx-own' });
+		const subItem2 = el('button', { class: 'cm-dropdown__item', role: 'menuitem' });
+		const sub2 = el('div', { class: 'cm-dropdown__menu', id: 'mbx-own',
+			popover: '', role: 'menu' });
+		sub2.appendChild(subItem2);
+		const f2 = barFixture([{ rows: [owner, sub2] }, { attrs: {} }]);
+		// anchorPopover measures boxes and writes inline styles; a fake with
+		// neither would throw inside the RUNTIME and fail for the harness's
+		// poverty rather than the code's.
+		const dress = (n) => {
+			n.style = n.style || {};
+			n.getBoundingClientRect = () => ({ left: 0, top: 0, right: 120,
+				bottom: 40, width: 120, height: 40 });
+			n.offsetWidth = 120;
+			n.offsetHeight = 40;
+			n.kids.forEach(dress);
+			return n;
+		};
+		dress(f2.barEl);
+		let opened = 0;
+		sub2.showPopover = () => { opened++; };
+		const run2 = runOn([f2.barEl]);
+		owner.focus();
+		keyAt(run2.doc, owner, 'ArrowRight');
+		assert(opened === 1, `Right on the submenu owner opened it ${opened} times, want 1`);
+		assert(f2.hidden.length === 0,
+			'the bar ALSO walked on the press that opened the submenu - one press, two moves');
+		assert(run2.focusNode() === subItem2,
+			'focus did not land in the submenu that the press opened');
+	});
+
+	check('shadcn-parity: a checkbox row in a bar panel flips in place', () => {
+		assert(/role="menuitemcheckbox" aria-checked="true"/.test(bar),
+			'the bar ships no checkbox item');
+		const icon = el('span', { class: 'cm-dropdown__icon', 'aria-hidden': 'true', 'data-checked': 'true' });
+		const row = el('button', { class: 'cm-dropdown__item', role: 'menuitemcheckbox', 'aria-checked': 'true' });
+		row.appendChild(icon);
+		const plain = el('button', { class: 'cm-dropdown__item', role: 'menuitem' });
+		const f = barFixture([{ rows: [row, plain] }, { attrs: {} }]);
+		const { doc } = runOn([f.barEl]);
+		row.focus();
+		const first = keyAt(doc, row, ' ');
+		assert(first.defaultPrevented, 'Space on a checkbox row was not handled at all');
+		assert(row.getAttribute('aria-checked') === 'false', 'the checkbox row did not flip');
+		assert(icon.getAttribute('data-checked') === 'false',
+			'the check glyph did not follow the row - the column would jump when it toggles');
+		// A flip is a flip, not a write to false: pressing again puts it back.
+		keyAt(doc, row, ' ');
+		assert(row.getAttribute('aria-checked') === 'true',
+			'the second press did not toggle it back - this is a switch, not a one-way flag');
+		// And a plain row is not a checkable one: it must not claim the key or
+		// flip the row beside it.
+		const plainEv = keyAt(doc, plain, ' ');
+		assert(!plainEv.defaultPrevented,
+			'a plain menu row swallowed Space - only a checkable row owns that key');
+		assert(row.getAttribute('aria-checked') === 'true',
+			'the plain row flipped the checkbox next to it');
+	});
+
+	check('shadcn-parity: the bar radio group moves selection, one row at a time', () => {
+		const view = page.slice(page.indexOf('id="mb-view"'),
+			page.indexOf('<!-- A disabled WORD'));
+		assert(view.length > 200, 'the view panel slice came back empty');
+		assert(/role="group" aria-labelledby="mb-grp-scale"/.test(view)
+			&& /class="cm-dropdown__group-label" id="mb-grp-scale"/.test(view),
+			'radio rows must sit in a labelled group, not loose in the panel');
+		const rows = [...view.matchAll(/role="menuitemradio"[^>]*data-cm-radio="([^"]+)"/g)];
+		assert(rows.length >= 2, `a radio group needs rows, found ${rows.length}`);
+		assert(new Set(rows.map((r) => r[1])).size === 1,
+			'the rows do not share one data-cm-radio name, so they are not a group');
+		assert((view.match(/role="menuitemradio"[^>]*aria-checked="true"/g) || []).length === 1,
+			'the authored group must start with exactly one checked row');
+		// Driven: arrows MOVE the selection (the APG pattern) - arrival is the
+		// door setRadio() is wired to, and it is scoped to this panel.
+		const r1 = el('button', { class: 'cm-dropdown__item', role: 'menuitemradio', 'aria-checked': 'true', 'data-cm-radio': 'mbz' });
+		const r2 = el('button', { class: 'cm-dropdown__item', role: 'menuitemradio', 'aria-checked': 'false', 'data-cm-radio': 'mbz' });
+		const f = barFixture([{ rows: [r1, r2] }, { attrs: {} }]);
+		const { doc } = runOn([f.barEl]);
+		r1.focus();
+		keyAt(doc, r1, 'ArrowDown');
+		assert(r1.getAttribute('aria-checked') === 'false'
+			&& r2.getAttribute('aria-checked') === 'true',
+			'ArrowDown did not take the selection onto the next row');
+		keyAt(doc, r2, 'ArrowUp');
+		assert(r1.getAttribute('aria-checked') === 'true'
+			&& r2.getAttribute('aria-checked') === 'false',
+			'ArrowUp did not hand the selection back');
+		const checked = [r1, r2].filter((r) => r.getAttribute('aria-checked') === 'true');
+		assert(checked.length === 1,
+			`${checked.length} rows are checked - a radio group answers exactly one question`);
+		// The selection has to be SEEN: the dot rides the icon slot and reads
+		// aria-checked, the attribute setRadio() owns. (Before it existed the
+		// slot computed to `content: none` - the state was real and invisible.)
+		assert(/\.cm-dropdown__item\[role='menuitemradio'\]\[aria-checked='true'\] \.cm-dropdown__icon::before/.test(css),
+			'the checked radio row draws no mark on the icon slot - the selection is invisible');
+	});
+
+	check('shadcn-parity: the bar panels compose icons, group labels and hints, and the disabled word is a weight', () => {
+		assert((bar.match(/class="cm-dropdown__icon"/g) || []).length >= 3,
+			'the bar rows carry no icon slot - the "With Icons" half of the composition is missing');
+		assert((bar.match(/class="cm-dropdown__group-label"/g) || []).length >= 2,
+			'the bar has no group labels - MenubarGroup/MenubarLabel is unapplied');
+		const hints = bar.match(/class="cm-dropdown__shortcut" aria-hidden="true"/g) || [];
+		assert(hints.length >= 3, `the bar ships ${hints.length} shortcut hints, want at least 3`);
+		// The BUILT page, not the specimen: every hint anywhere is out of the
+		// accessible name - and the floor stops two zero counts from reading
+		// as agreement.
+		const built = (html.match(/class="cm-dropdown__shortcut"/g) || []).length;
+		const hid = (html.match(/cm-dropdown__shortcut" aria-hidden="true"/g) || []).length;
+		assert(built >= 6 && built === hid,
+			`${hid} of ${built} shortcut hints are aria-hidden; every one must be`);
+		// The RULE, not a mention of the name: `.cm-dropdown__icon {` is also
+		// the tail of `.cm-dropdown__item[aria-checked='true'] .cm-dropdown__icon {`,
+		// so a plain includes() kept passing with the base rule itself deleted
+		// (mutation s12 caught this). Anchored at a line start, only the rule
+		// satisfies it.
+		for (const sel of ['.cm-dropdown__icon', '.cm-dropdown__shortcut',
+			'.cm-dropdown__group-label']) {
+			assert(new RegExp('^\\' + sel + ' \\{', 'm').test(css),
+				`components.css never defines ${sel} as its own rule`);
+		}
+		// The disabled word is a WEIGHT, not a hue - and the rule has to be
+		// declared after the hover block it beats (same specificity, later
+		// wins) or the dead word lights up under the pointer.
+		const disabled = /(\.cm-menubar__trigger\[aria-disabled='true'\][^{]*\{[^}]*\})/.exec(css);
+		assert(disabled, 'no rule for the disabled word - it would wear the hover highlight like a live one');
+		assert(/var\(--ink-faint\)/.test(disabled[1]),
+			'the disabled word does not drop to the faint ink token');
+		assert(!/#[0-9a-f]{3,8}\b/i.test(disabled[1]) && !/\brgba?\(/.test(disabled[1]),
+			'the disabled word declares a raw colour instead of a token');
+		assert(css.indexOf(".cm-menubar__trigger[aria-disabled='true']") > css.indexOf('.cm-menubar__trigger:hover'),
+			'the disabled rule precedes the hover rule it has to beat');
+		// House rule for where new CSS may live: before .cm-auth, and the
+		// stack-ownership block still ends the file. Read raw - the block's
+		// name only exists in a comment, which compSrc has stripped.
+		const rawCss = read('src/styles/components.css');
+		assert(css.indexOf(".cm-menubar__trigger[aria-disabled='true']") < rawCss.indexOf('.cm-auth {'),
+			'the new menubar rule sits after .cm-auth - it must come before it');
+		assert(rawCss.indexOf('stack ownership (LAST, on purpose)') > rawCss.indexOf('.cm-auth {'),
+			'stack ownership must remain the last block in the stylesheet');
+	});
+}
+// ---------- contract: the message list (batch 30) ----------
+console.log('\ncontract: .cm-msglist (batch 30)');
+{
+	// The flat timeline, asserted where it lies: the row grid it
+	// promises, which of a row's two stamps is allowed to paint, the
+	// slot an empty avatar is holding open, a mark that is not a hue,
+	// a count that is real text, and a toolbar that appears WITHOUT
+	// moving the thing it acts on. Geometry claims that need a layout
+	// are measured in WebKit (tests/verify-msglist.py); everything
+	// here is what a reader of the source can be held to.
+	const page = read('src/pages/index.astro');
+	const html = read('dist/index.html');
+	const css = compSrc;                       // comments stripped
+	const raw = read('src/styles/components.css');
+	const tokens = read('src/styles/tokens.css');
+	const readme = read('README.md');
+
+	// Bounded by the neighbouring blocks, so a scan below reads THIS
+	// family and not the chat row sitting above it or the file card
+	// below it. Comments are kept: the anchors live in them.
+	const from = raw.indexOf('/* ---------- message list');
+	const to = raw.indexOf('/* ---------- attachment');
+	assert(from !== -1 && to > from,
+		'the msglist block moved: its slice anchors no longer bracket it');
+	const block = raw.slice(from, to);
+	assert(block.length > 2000,
+		`the msglist block is only ${block.length} chars - the anchors cut it short`);
+
+	// The BUILT specimen, bounded by its own section: grepping the
+	// showcase source reads what Astro was asked to render, not what
+	// the browser got, and a renamed class fails only against dist.
+	const sec = html.slice(html.indexOf('id="msglist"'),
+		html.indexOf('id="attachment"'));
+	assert(sec.length > 2000, 'the built page has no msglist section between #msglist and #attachment');
+
+	// Exact, line-anchored rule bodies. A substring match returns the
+	// first rule that MENTIONS the class, which for `.cm-msglist__msg`
+	// would be the grouped variant and would report declarations the
+	// base rule never had.
+	const rule = (sel) => {
+		const m = new RegExp('^\\' + sel + ' \\{([^}]*)\\}', 'm').exec(css);
+		return m ? m[1] : null;
+	};
+	const styledIn = (cls) => new RegExp('\\.' + cls + '(?![a-z0-9_-])').test(allCss);
+	// Track breaks only: a comma inside minmax() or calc() separates
+	// nothing, and grid-template-columns does not use commas at all -
+	// tracks are space-separated, so a comma counter reports 1 for a
+	// perfectly good four-track row.
+	const tracks = (decl) => {
+		let depth = 0, tok = '';
+		const out = [];
+		for (const ch of decl) {
+			if (ch === '(') depth++;
+			if (depth === 0 && /\s/.test(ch)) {
+				if (tok) { out.push(tok); tok = ''; }
+				continue;
+			}
+			tok += ch;
+			if (ch === ')') depth--;
+		}
+		if (tok) out.push(tok);
+		return out.length;
+	};
+	// Real class TOKENS out of the built section, not substrings:
+	// `cm-msglist__msg` is a substring of `--grouped`, so an includes()
+	// check is satisfied by the variant alone.
+	const rendered = new Set();
+	for (const m of sec.matchAll(/class="([^"]*)"/g)) {
+		for (const t of m[1].split(/\s+/)) if (t) rendered.add(t);
+	}
+	// The rows, opening tag AND body. A check over the opening tag
+	// alone can see the classes and never the meta line inside - which
+	// is exactly the claim "one stamp per row" turns on.
+	const starts = [...sec.matchAll(/<(?:div|article) class="[^"]*\bcm-msglist__msg\b[^"]*"[^>]*>/g)];
+	const rows = starts.map((m, i) => ({
+		open: m[0],
+		body: sec.slice(m.index + m[0].length,
+			i + 1 < starts.length ? starts[i + 1].index : sec.length),
+	}));
+	const groupedRows = rows.filter((r) => /cm-msglist__msg--grouped\b/.test(r.open));
+
+	const REQUIRED_MSGLIST = [
+		'cm-msglist', 'cm-msglist__day', 'cm-msglist__msg', 'cm-msglist__gutter',
+		'cm-msglist__avatar', 'cm-msglist__main', 'cm-msglist__meta',
+		'cm-msglist__author', 'cm-msglist__msg', 'cm-msglist__text',
+		'cm-msglist__actions', 'cm-msglist__reactions', 'cm-msglist__reaction',
+		'cm-msglist__count', 'cm-msglist__unread', 'cm-msglist__msg--grouped',
+		'cm-msglist__msg--mention', 'cm-msglist__msg--system',
+		'cm-msglist__reaction--mine',
+		'cm-msglist__stamp', 'cm-msglist__hoverstamp',
+		'cm-msglist__daylabel', 'cm-msglist__unreadlabel',
+		'cm-msglist__daylabel', 'cm-msglist__unreadlabel',
+	];
+
+	check('the message list ships every class the contract names', () => {
+		for (const cls of REQUIRED_MSGLIST) {
+			assert(styledIn(cls), `.${cls} is in the contract but no rule styles it`);
+			assert(rendered.has(cls),
+				`the built page never renders .${cls} - a class nothing renders is a promise nobody can check`);
+		}
+		assert(rows.length >= 8, `only ${rows.length} message rows in the specimen; the family needs a real transcript`);
+		assert(rows.every((r) => /data-message-id="/.test(r.open)),
+			'every message row must carry data-message-id or the scroller cannot address it');
+		assert(rows.every((r) => /\bcm-scroller__item\b/.test(r.open)),
+			'a row outside cm-scroller__item skips the scroller content-visibility contract');
+		// The frame the contract puts around it: viewport -> log -> list.
+		assert(/class="cm-scroller__viewport" role="region" aria-label="Message list" tabindex="0"/.test(sec),
+			'the timeline is not inside a labelled focusable scroll region');
+		assert(/class="cm-scroller__content" role="log" aria-relevant="additions"/.test(sec),
+			'the transcript must stay a role="log" with aria-relevant="additions"');
+		const open = sec.indexOf('<div class="cm-msglist"');
+		const close = sec.lastIndexOf('</div>');
+		assert(open !== -1 && open < close, 'the built section has no .cm-msglist list element');
+		// Modifiers render where they belong, not as a stray class.
+		assert(/class="[^"]*\bcm-msglist__day\b[^"]*"[^>]*role="separator"[^>]*>[\s\S]{0,200}?cm-msglist__daylabel/.test(sec),
+			'the day divider is not the contract\'s separator carrying a __daylabel');
+		assert(/class="[^"]*\bcm-msglist__unread\b[^"]*"[^>]*role="separator"[^>]*>[\s\S]{0,200}?cm-msglist__unreadlabel/.test(sec),
+			'the unread divider must carry its label as text, not as a rule alone');
+		assert(/class="[^"]*cm-msglist__msg--mention[^"]*"/.test(sec), 'no mention row in the specimen');
+		assert(/class="[^"]*cm-msglist__msg--system[^"]*"/.test(sec), 'no system row in the specimen');
+		const sysRow = rows.find((r) => /cm-msglist__msg--system\b/.test(r.open));
+		assert(sysRow && /\bcm-marker\b/.test(sysRow.body),
+			'the system row does not compose .cm-marker - it would be a second system-note implementation');
+		// ONE button in the toolbar. Three is the shape the contract
+		// explicitly refuses, so count them where they render - and the
+		// system note is the only row that carries none.
+		const bars = [...sec.matchAll(/<div class="[^"]*cm-msglist__actions[^"]*"[^>]*>([\s\S]*?)<\/div>/g)];
+		const toolbarRows = rows.filter((r) => !/cm-msglist__msg--system\b/.test(r.open));
+		assert(bars.length === toolbarRows.length,
+			`${bars.length} action toolbars for ${toolbarRows.length} message rows - every row but the system note carries one`);
+		for (const b of bars) {
+			const n = (b[1].match(/<button/g) || []).length;
+			assert(n >= 1, `an action toolbar renders ${n} buttons - every named control needs a real button`);
+			for (const btn of b[1].match(/aria-label="[^"]*"/g) || []) {
+				assert(btn.length > 'aria-label=""'.length,
+					'a toolbar control has an empty aria-label, so it is an icon with no name');
+			}
+		}
+	});
+
+	check('the toolbar is hidden until hover or focus-within, in a column that already exists', () => {
+		// The rest state. `opacity` + `pointer-events` and NOT
+		// display:none / position:absolute: the cell has to stay in the
+		// layout (that is the reserved column) and the button has to
+		// stay in the tab order, or the reveal can never fire for a
+		// keyboard and the control is mouse-only by construction.
+		const rest = rule('.cm-msglist__actions');
+		assert(rest, '.cm-msglist__actions has no rule of its own');
+		assert(/opacity:\s*0/.test(rest), 'the toolbar must ship invisible, not merely unhovered');
+		assert(/pointer-events:\s*none/.test(rest),
+			'the invisible toolbar still takes the pointer - it would swallow a click on the row');
+		assert(!/display:\s*none/.test(rest),
+			'display:none would take the button out of the tab order, so :focus-within could never open it');
+		assert(!/position:\s*absolute/.test(rest),
+			'absolute positioning takes the toolbar out of the grid, so its column is not reserved');
+		// The reveal, on BOTH doors the contract names.
+		const show = /\.cm-msglist__msg:hover \.cm-msglist__actions,\s*\.cm-msglist__msg:focus-within \.cm-msglist__actions \{([^}]*)\}/.exec(css);
+		assert(show, 'no :hover / :focus-within reveal for the toolbar');
+		assert(/opacity:\s*1/.test(show[1]), 'the reveal does not put the toolbar back');
+		assert(/pointer-events:\s*auto/.test(show[1]), 'the revealed toolbar cannot be clicked');
+		// The reserved column itself: four tracks, and the toolbar is
+		// the fourth. A three-track grid with an overlay is exactly the
+		// layout shift this claim exists to prevent.
+		const rowBody = rule('.cm-msglist__msg');
+		assert(rowBody, '.cm-msglist__msg has no rule of its own');
+		const cols = /grid-template-columns:\s*([^;]+);/.exec(rowBody);
+		assert(cols, 'the row declares no grid-template-columns');
+		assert(tracks(cols[1]) === 4,
+			`the row grid has ${tracks(cols[1])} tracks, not the 4 (gutter/avatar/message/actions) the contract reserves`);
+		assert(/grid-column:\s*4/.test(rest),
+			'the toolbar is not parked on the fourth track, so it would land wherever auto-flow put it');
+		// The other three parts are placed too - auto-placement would
+		// shift every element one column left the moment a gutter is
+		// missing from a grouped row.
+		assert(/grid-column:\s*1/.test(rule('.cm-msglist__gutter') || ''), 'the gutter is not on track 1');
+		assert(/grid-column:\s*2/.test(rule('.cm-msglist__avatar') || ''), 'the avatar is not on track 2');
+		assert(/grid-column:\s*3/.test(rule('.cm-msglist__main') || ''), 'the message is not on track 3');
+		// The system row gives up the grid on purpose (one full-width
+		// track for the marker), so assert it rather than let it read as
+		// a broken row.
+		const sysCols = /grid-template-columns:\s*([^;]+);/.exec(rule('.cm-msglist__msg--system') || '');
+		assert(sysCols && tracks(sysCols[1]) === 1,
+			'the system row must collapse to one full-width track for .cm-marker');
+	});
+
+	check('one stamp per row: the gutter goes quiet when the meta line stamps', () => {
+		// Both stamps exist in the markup - that is the point: the
+		// consumer authors ONE row template and CSS decides which of the
+		// two paints. An assertion over markup alone would pass with the
+		// gutter deleted, which is a row with no timestamp at all on a
+		// grouped line.
+		const hide = /^\.cm-msglist__msg:not\(\.cm-msglist__msg--grouped\) \.cm-msglist__gutter \{([^}]*)\}/m.exec(css);
+		assert(hide, 'no rule quiets the gutter on a row that already carries a meta stamp');
+		assert(/visibility:\s*hidden/.test(hide[1]),
+			'the gutter stamp must be visibility:hidden (not removed): it is still the column the grid reserves');
+		// The specimen exercises BOTH sides of the rule.
+		const plain = rows.filter((r) => !/cm-msglist__msg--(grouped|system|mention)/.test(r.open));
+		assert(plain.length >= 2, 'the specimen needs ungrouped rows to show the meta stamp winning');
+		for (const r of plain) {
+			const g = /class="[^"]*\bcm-msglist__gutter\b[^"]*"[^>]*>([\s\S]*?)<\/div>/.exec(r.body);
+			assert(g && /<time[^>]*>[^<]+<\/time>/.test(g[1]),
+				'an ungrouped row has no gutter stamp for the rule to hide - the rule would be decorative');
+			assert((r.body.match(/<[a-z]+ class="cm-msglist__meta"/g) || []).length === 1,
+				'an ungrouped row must carry exactly one meta line, with its own stamp');
+		}
+		assert(groupedRows.length >= 2, 'the specimen needs grouped rows to show the gutter stamp winning');
+		for (const g of groupedRows) {
+			const gg = /class="[^"]*\bcm-msglist__gutter\b[^"]*"[^>]*>([\s\S]*?)<\/div>/.exec(g.body);
+			assert(gg && /cm-msglist__hoverstamp/.test(gg[1]) && /<time[^>]*>[^<]+<\/time>/.test(gg[1]),
+				'a grouped row has no stamp at all: the header is gone and the gutter is its only one');
+			assert(!/cm-msglist__meta/.test(g.body),
+				'a grouped row still stamps itself in a meta line - that is the double stamp this rule exists to stop');
+		}
+		// And the day/unread/system rows carry no time at all, so the
+		// "exactly one visible stamp per row" claim is checkable.
+		assert(!/<time/.test(sec.match(/<div class="[^"]*cm-msglist__unread[^"]*"[^>]*>[\s\S]*?<\/div>/)?.[0] || ''),
+			'the unread divider must not carry a timestamp');
+	});
+
+	check('a grouped row keeps the empty avatar slot that holds the column open', () => {
+		const slot = (sec.match(/<span class="cm-msglist__avatar"[^>]*><\/span>/g) || []).length;
+		assert(slot === groupedRows.length,
+			`${slot} empty avatar slots for ${groupedRows.length} grouped rows - the slot is what keeps the text aligned`);
+		assert(slot > 0, 'no empty avatar slot in the specimen, so the alignment claim has nothing behind it');
+		// The real avatar composes .cm-avatar instead of restating it.
+		const composed = [...sec.matchAll(/<span class="([^"]*)cm-msglist__avatar([^"]*)"/g)]
+			.filter((m) => /\bcm-avatar\b/.test(m[1] + m[2]));
+		assert(composed.length > 0,
+			'the timeline invents its own avatar instead of composing .cm-avatar');
+		// The two tracks are tokens, and the avatar track's default is
+		// pinned to .cm-avatar's default: a bare slot and a real avatar
+		// must open the same width, or the first grouped row slides.
+		const gutterTok = /^\s*--msglist-gutter:\s*([^;]+);/m.exec(tokens);
+		const avatarTok = /^\s*--msglist-avatar:\s*([^;]+);/m.exec(tokens);
+		assert(gutterTok && avatarTok, '--msglist-gutter / --msglist-avatar are not declared in tokens.css');
+		assert(/var\(--msglist-gutter\)/.test(css), 'the row does not read the gutter token');
+		assert(/var\(--msglist-avatar\)/.test(css), 'the row does not read the avatar token');
+		const cmAvatar = /^\.cm-avatar \{[\s\S]*?--cm-avatar:\s*([^;]+);/m.exec(css);
+		assert(cmAvatar, '.cm-avatar no longer declares its own default size');
+		assert(avatarTok[1].trim() === cmAvatar[1].trim(),
+			`--msglist-avatar is ${avatarTok[1].trim()} but .cm-avatar defaults to ${cmAvatar[1].trim()} - `
+			+ 'an empty slot and a real avatar would open different widths');
+	});
+
+	check('the mention row is a mark and a tint, never a hue alone', () => {
+		const mention = rule('.cm-msglist__msg--mention');
+		assert(mention, 'no rule for .cm-msglist__msg--mention');
+		// The mark: a rule on the inline-start edge (logical, so RTL
+		// gets the same one), thick enough to read as a shape.
+		const border = /border-inline-start:\s*([^;]+);/.exec(mention)
+			|| /border-inline-start-width:\s*([^;]+);/.exec(mention);
+		assert(border, 'the mention is a background tint only - colour must never carry the meaning alone');
+		const bw = /(\d+(?:\.\d+)?)(px|rem|em)/.exec(border[1]);
+		assert(bw && bw[1] !== '0', `the mention bar is ${border[1].trim()}, i.e. not a mark at all`);
+		// The tint: a real step off the panel, in both themes.
+		assert(/background:\s*var\(--[a-z0-9-]+\)/.test(mention),
+			'the mention also needs a surface step so the row reads as raised before it is read');
+		// And the border must not PUSH the message column sideways: the
+		// padding it eats is handed back.
+		assert(/padding-inline-start:\s*calc\(var\(--space-2\) - 2px\)/.test(mention),
+			'the mention border would shift the message column 2px against every other row');
+		// The hover band must not swallow the tint.
+		const hover = /\.cm-msglist__msg--mention:hover,\s*\.cm-msglist__msg--mention:focus-within \{([^}]*)\}/.exec(css);
+		assert(hover && /var\(--panel-nested\)/.test(hover[1]),
+			'the row hover band repaints a mentioned row as a plain one');
+		// Words, too: the specimen's mention carries a sentence.
+		const mRow = rows.find((r) => /cm-msglist__msg--mention\b/.test(r.open));
+		assert(mRow, 'the mention row is missing from the built specimen');
+		const text = /<[a-z]+ class="cm-msglist__text">([\s\S]*?)<\/[a-z]+>/.exec(mRow.body);
+		assert(text && text[1].trim().length > 10,
+			'the mention row carries no words - a tint and a bar with no sentence is a colour cue with a shape on it');
+	});
+
+	check('a reaction count is text, and the reader\'s own reaction is marked as pressed', () => {
+		const counts = [...sec.matchAll(/<span class="cm-msglist__count">([^<]*)<\/span>/g)];
+		assert(counts.length >= 3, `only ${counts.length} reaction counts in the specimen`);
+		for (const c of counts) assert(/^\d+$/.test(c[1].trim()),
+			`the count "${c[1]}" is not a number a reader can select and copy`);
+		// Every count sits INSIDE its reaction button, so the number is
+		// part of the control it describes.
+		for (const b of [...sec.matchAll(/<button[^>]*class="[^"]*cm-msglist__reaction[^"]*"[^>]*>([\s\S]*?)<\/button>/g)]) {
+			assert(/cm-msglist__count">\d+</.test(b[1]),
+				'a reaction button renders without a numeric count beside its glyph');
+		}
+		// Nothing fabricates the number from CSS: a `content:` count
+		// cannot be selected or copied, and a rule scoped to the count
+		// is the one that would do it. (Every generated string in the
+		// block is checked with the house rules below.)
+		const countRule = rule('.cm-msglist__count');
+		assert(countRule !== null, '.cm-msglist__count has no rule of its own');
+		assert(!/content:/.test(countRule),
+			'the reaction count is generated by CSS instead of rendered as text');
+		// --mine is the reader's own: a heavier edge, and the state
+		// announced rather than implied by a hue.
+		const mine = rule('.cm-msglist__reaction--mine');
+		assert(mine, 'no rule for .cm-msglist__reaction--mine');
+		assert(/border-color:\s*var\(--ink\)/.test(mine) && /box-shadow:\s*inset/.test(mine),
+			'the reader\'s own reaction is marked by a hue alone - it needs a heavier edge');
+		const mineRow = /<button[^>]*cm-msglist__reaction--mine[^>]*aria-pressed="true"/.test(sec)
+			|| /aria-pressed="true"[^>]*cm-msglist__reaction--mine/.test(sec);
+		assert(mineRow, 'the --mine reaction does not announce aria-pressed="true"');
+		const plain = /<button[^>]*class="cm-msglist__reaction"[^>]*aria-pressed="false"/.test(sec);
+		assert(plain, 'a reaction that is not the reader\'s must still carry aria-pressed="false"');
+	});
+
+	check('the message list stays inside the house rules', () => {
+		// Property scans run on the RULES, comments stripped: a note in
+		// the block that NAMES `z-index` while explaining that nothing
+		// uses one is documentation, not a declaration - a raw scan
+		// fails on its own comment and starts crying wolf.
+		const rules = block.replace(/\/\*[\s\S]*?\*\//g, ' ');
+		// Tokens only: no hex anywhere, and every colour-ish
+		// declaration goes through a var() - the same rule the state
+		// components live under.
+		const hex = rules.match(/#[0-9a-f]{3,8}\b/gi) || [];
+		assert(hex.length === 0, `the msglist block carries literal colours: ${hex.join(', ')}`);
+		const raw_colour = [...rules.matchAll(
+			/(?:^|[;{])\s*((?:-webkit-)?[a-z-]*color|(?:-webkit-)?background(?:-color)?|border(?:-[a-z]+)?-color|outline(?:-[a-z]+)?-color|box-shadow|fill|stroke)\s*:\s*([^;}]+)/g,
+		)].filter((m) => {
+			const v = m[2].trim();
+			if (/^(?:var\(|currentColor$|inherit$|none$|transparent$)/.test(v)) return false;
+			// A multi-part value (an inset ring, a shadow) is still a
+			// token value when nothing literal rides along with it -
+			// and the hex scan above already bans the other half.
+			return !(/var\(/.test(v) && !/#[0-9a-f]/i.test(v) && !/rgba?\(/.test(v));
+		}).map((m) => `${m[1]}: ${m[2].trim()}`);
+		assert(raw_colour.length === 0, `colour must come from a token: ${raw_colour.join(', ')}`);
+		// Sharp, and it does not stack: the chat family is the one
+		// place allowed to paint above itself, and this row is a
+		// sibling of it, not a layer over it.
+		assert(!/border-radius/.test(rules), 'the message list rounds - the house shape is sharp');
+		assert(!/z-index/.test(rules), 'the message list stacks - a row that reveals a toolbar needs no paint order');
+		// No physical direction: the Direction baseline bans left/right
+		// outright, and a timestamp column pinned to `left` is RTL-blind.
+		const physical = rules.match(/(?:^|[{;])\s*(?:margin|padding|border(?:-\w+)?)-(?:left|right)\s*:|text-align:\s*(?:left|right)|(?:^|[{;\s])(?:left|right)\s*:\s*[-\d]/g);
+		assert(!physical, `physical directional declarations in the msglist block: ${physical}`);
+		// Every var() without a fallback resolves (the global check
+		// reads components.css; this pins the two this family added).
+		for (const v of ['--msglist-gutter', '--msglist-avatar']) {
+			assert(new RegExp(`^\\s*${v}:`, 'm').test(tokens), `${v} is consumed but never declared in tokens.css`);
+		}
+		// Fonts: every size the block declares is a scale step, floored.
+		for (const m of rules.matchAll(/font-size:\s*([^;]+);/g)) {
+			assert(/var\(--text|--max\(|max\(var\(--min-font\)/.test(m[1]),
+				`the msglist block declares a raw font-size: ${m[1].trim()}`);
+		}
+		// And no generated text: the count, the stamps and the labels
+		// are all things a reader must be able to select.
+		const contents = [...rules.matchAll(/content:\s*([^;]+);/g)].map((m) => m[1].trim());
+		assert(contents.length > 0, 'the block parses no content: declarations at all - is the slice stale?');
+		for (const c of contents) assert(c === '""',
+			'the message list generates content (`' + c + '`) instead of rendering text');
+	});
+
+	check('the message list is documented where a consumer will look', () => {
+		const rFrom = readme.indexOf('### Message list');
+		assert(rFrom !== -1, 'the README has no "### Message list" section');
+		const rSec = readme.slice(rFrom, readme.indexOf('\n### ', rFrom + 5));
+		assert(rSec.length > 400, `the README Message list section is a stub (${rSec.length} chars)`);
+		for (const cls of REQUIRED_MSGLIST) {
+			assert(rSec.includes('.' + cls), `the README does not document .${cls}`);
+		}
+		// Shown, not merely named: a fenced html block that a consumer
+		// can paste, containing the list element itself.
+		const fences = [...rSec.matchAll(/```html\n([\s\S]*?)```/g)].map((m) => m[1]);
+		assert(fences.some((f) => f.includes('class="cm-msglist"')),
+			'the README names .cm-msglist but shows no markup for it');
+		assert(fences.some((f) => f.includes('cm-msglist__msg--grouped') && f.includes('cm-msglist__avatar')),
+			'the README never shows the grouped row and its empty avatar slot');
+		// The grouping rule is a CONSUMER responsibility and the
+		// timespan is the contract: say both, or the reader will look
+		// for the JS that groups.
+		assert(/five minutes|5 minutes/.test(rSec),
+			'the README must state the grouping rule (same author within ~5 minutes)');
+		assert(/consumer/i.test(rSec),
+			'the README must say grouping is the consumer\'s job - this library styles, it does not group');
+		assert(/hover/i.test(rSec) && /focus-within/i.test(rSec),
+			'the README must document the toolbar reveal and its keyboard door');
+		assert(showcaseIndex.includes('msglist'), 'the nav index has no msglist entry, so the scroll-spy skips it');
+		assert(/id="msglist"/.test(page), 'the showcase has no #msglist section to navigate to');
+	});
+}
+// ---------- shadcn-parity: guildrail + composer (batch 29) ----------
+console.log('\nshadcn-parity: guildrail + composer');
+{
+	// The contract in matrix-arrow-client/docs/contract.md is BINDING on
+	// names and structure: the client renders these class names and no
+	// others. Read the RAW source for that (a comment naming a class is
+	// not a declaration) and the comment-stripped `comp` for rule bodies.
+	const rawCss = read('src/styles/components.css');
+
+	// The block the batch owns, sliced out of the RAW file so the grep
+	// below cannot reach another component's rules.
+	const RAIL_START = '/* ---------- guildrail: the server icon rail ----------';
+	const from = rawCss.indexOf(RAIL_START);
+	assert(from > 0, 'the guildrail/composer block is missing from components.css');
+	const to = rawCss.indexOf('.cm-auth {', from);
+	assert(to > from, 'the guildrail/composer block does not end at .cm-auth');
+	const blockRaw = rawCss.slice(from, to);
+	const block = blockRaw.replace(/\/\*[\s\S]*?\*\//g, '');
+
+	check('batch 29: the contract names are all defined, and none is invented', () => {
+		for (const c of [
+			'cm-guildrail', 'cm-guildrail__item', 'cm-guildrail__pill',
+			'cm-guildrail__icon', 'cm-guildrail__badge', 'cm-guildrail__unread',
+			'cm-guildrail__sep', 'cm-guildrail__item--home', 'cm-guildrail__item--add',
+			'cm-composer', 'cm-composer__reply', 'cm-composer__replytext',
+			'cm-composer__replyclose', 'cm-composer__bar', 'cm-composer__attach',
+			'cm-composer__tools', 'cm-composer__send',
+			'cm-composer__typing',
+		]) {
+			assert(isDeclared(rawCss, c), `components.css never defines .${c}`);
+		}
+		// `__input` is deliberately NOT a bare rule: it is defined through
+		// the compound selector that ties base.css's own specificity
+		// (asserted below), so a bare `.cm-composer__input {` would LOSE
+		// the width fight. Prove the definition exists in the compound form.
+		assert(/\.cm-composer__bar > textarea\.cm-composer__input \{/.test(rawCss),
+			'components.css never defines the composer field');
+		// The non-contract names the draft shipped. A rename that leaves
+		// the old rule behind is the renamed-without-selector bug.
+		for (const c of ['cm-guildrail__glyph', 'cm-guildrail__add',
+			'cm-composer__field', 'cm-composer__toolbar']) {
+			assert(!isDeclared(rawCss, c),
+				`.${c} is not a contract name and must not be styled`);
+		}
+	});
+
+	check('batch 29: the rail owns its own scroll and cannot stretch its row', () => {
+		const b = ruleBodies(block, '.cm-guildrail').join('\n');
+		assert(/display:\s*flex/.test(b), 'the rail is not a flex container');
+		assert(/flex-direction:\s*column/.test(b), 'the rail does not run as a column');
+		assert(/overflow-y:\s*auto/.test(b),
+			'the rail does not own its scroll - many servers would stretch the grid');
+		// Bounded AND scrollable. Without a bound the box IS the content,
+		// and `overflow-y: auto` scrolls nothing: the failure is silent.
+		assert(/min-block-size:\s*0/.test(b),
+			'no min-block-size: 0 - the flex item cannot shrink below its content');
+		assert(/max-block-size:\s*100%/.test(b),
+			'the rail is unbounded, so `overflow-y: auto` has nothing to scroll against');
+		// The bleed is a box the rail PADS OUT TO and then cancels, and
+		// every half of that bargain is load-bearing. Stated width, or the
+		// 18rem of padding is measured against a 4.5rem grid track and the
+		// squares get a ZERO-width content box. Negative margin, or the
+		// grid column beside the rail starts 18rem to the right. Padding to
+		// the bleed, or the tip is clipped by the scrollport it escapes.
+		assert(/inline-size:\s*calc\(var\(--guildrail-w\) \+ var\(--guildrail-bleed\)\)/.test(b),
+			'the rail does not state a width, so its own bleed padding eats the content box');
+		assert(/margin-inline-end:\s*calc\(0px - var\(--guildrail-bleed\)\)/.test(b),
+			'the bleed is not cancelled by a negative margin, so the layout keeps the 18rem');
+		// The trailing hairline is a gradient CLIPPED to the content box.
+		// A border would be drawn at the padding box too - an 18rem line
+		// down the page - and the clip is what stops it.
+		assert(/background-origin:\s*content-box/.test(b) && /background-clip:\s*content-box/.test(b),
+			'the rail edge is not clipped to the content box, so it is drawn across the bleed');
+		// The scrollbar would be drawn 18rem to the right of the squares.
+		assert(/scrollbar-width:\s*none/.test(b), 'the rail does not suppress its scrollbar');
+		assert(/\.cm-guildrail::-webkit-scrollbar\s*\{\s*display:\s*none/.test(
+			read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '')),
+			'the rail has no WebKit scrollbar suppression, and Omar reads on iPhone');
+		// The squares are boxes the rail owns: a modifier that is only a
+		// hue must still be a declaration (this palette has no hue to spend).
+		const add = ruleBodies(block, '.cm-guildrail__item--add').join('\n');
+		assert(add, 'the add control has no rule, so it is a bare square with no meaning');
+		assert(/color:\s*var\(--ink-dim\)/.test(add),
+			'the add control does not take the dim ink, so it reads as a live server');
+		const home = ruleBodies(block, '.cm-guildrail__item--home').join('\n');
+		assert(home, 'the home door has no rule of its own');
+		assert(/border-color:\s*var\(--line\)/.test(home),
+			'the home door is not framed, so "not a server" is carried by nothing');
+	});
+
+	check('batch 29: the tip escapes the rail to the RIGHT without overlapping it', () => {
+		const tip = ruleBodies(block, '.cm-guildrail .cm-tooltip__tip').join('\n');
+		assert(tip, 'no rail-specific tip rule at all');
+		assert(/inset-inline-start:\s*100%/.test(tip),
+			'the tip does not start where the rail content ends, so it points back over the rail');
+		assert(/inset-inline-end:\s*auto/.test(tip),
+			'the trailing edge is still anchored, which cancels the leading-edge start');
+		// Centred on its square, and the centring has to be in the BASE
+		// transform: the reveal rule only sets opacity/visibility, and the
+		// stock `translateY(0)` would drop the tip half its own height.
+		assert(/transform:\s*translateY\(-50%\)/.test(tip),
+			'the tip is not vertically centred on the square it labels');
+		// The clip box reaches exactly --guildrail-bleed past the content
+		// box, so the tip cap agreeing with the token is the whole reason
+		// the tip survives; a pixel more and it is cut in half.
+		assert(/max-inline-size:\s*var\(--guildrail-bleed\)/.test(tip),
+			'the tip cap is not tied to --guildrail-bleed, so a narrowed bleed would clip it');
+		const rail = ruleBodies(block, '.cm-guildrail').join('\n');
+		assert(/padding-inline-end:\s*var\(--guildrail-bleed\)/.test(rail),
+			'the rail does not pad out to the bleed, so the tip is clipped by the scrollport');
+		assert(/overflow-x:\s*hidden/.test(rail),
+			'the horizontal clip is not stated, so the bleed scrolls the rail sideways');
+		assert(/pointer-events:\s*none/.test(rail) &&
+			/pointer-events:\s*auto/.test(ruleBodies(block, '.cm-guildrail .cm-tooltip').join('\n')),
+			'tap-through is not wired: the bleed swallows clicks on the column behind it');
+		// The wrapper is a centring flex ROW, not the tooltip's own
+		// inline-block. It is a stretched flex item in a column rail, so a
+		// bare inline-block pinned the square to the rail's leading edge
+		// and the 44px target stopped being centred in the rail.
+		const wrap = ruleBodies(block, '.cm-guildrail .cm-tooltip').join('\n');
+		assert(wrap, 'the rail never styles its tooltip wrapper');
+		assert(/display:\s*flex/.test(wrap) && /justify-content:\s*center/.test(wrap),
+			'the wrapper does not centre the square, so the tap target sits off the rail centre');
+	});
+
+	check('batch 29: every square is --tap on both axes and never widens the rail', () => {
+		const b = ruleBodies(block, '.cm-guildrail__item').join('\n');
+		assert(/inline-size:\s*var\(--tap\)/.test(b) && /block-size:\s*var\(--tap\)/.test(b),
+			'the square is not --tap on both axes - the contract floor is unconditional');
+		// `flex: 0 0 auto`: an item is the tap target, so it must not be
+		// the thing that gives way when the column is tight.
+		assert(/flex:\s*0\s+0\s+auto/.test(b),
+			'the square can be squeezed below its own declared size by layout');
+		// The add control inherits the item's whole box rather than
+		// hand-rolling a second square (the 32x44 defect waiting to happen).
+		const add = ruleBodies(block, '.cm-guildrail__item--add').join('\n');
+		assert(add && !/inline-size|block-size/.test(add),
+			'the add control re-declares its own size instead of inheriting the square');
+	});
+
+	check('batch 29: the pill carries state the reader can see without colour', () => {
+		const item = ruleBodies(block, '.cm-guildrail__item').join('\n');
+		const cur = ruleBodies(block, ".cm-guildrail__item[aria-current='true']").join('\n');
+		assert(cur, 'aria-current does not change the square at all');
+		// A fill AND the ink AND the pill: never the hue on its own, or
+		// the current room reads as idle in greyscale.
+		assert(/background:\s*var\(--surface-raised\)/.test(cur) &&
+			/color:\s*var\(--ink\)/.test(cur),
+			'aria-current is not readable in greyscale (needs a fill and the ink)');
+		const idle = ruleBodies(block, '.cm-guildrail__item').join('\n');
+		assert(/color:\s*var\(--ink-faint\)/.test(idle),
+			'the idle square does not sit on the faint ink, so the active one has no contrast');
+		const pill = ruleBodies(block, '.cm-guildrail__pill').join('\n');
+		assert(/opacity:\s*0/.test(pill),
+			'the idle pill is absent rather than invisible - it is in the markup on every item');
+		assert(/transform:.*scaleY\(/.test(pill),
+			'the pill is resized instead of scaled, so it animates layout every frame');
+		const active = ruleBodies(block, ".cm-guildrail__item[aria-current='true'] .cm-guildrail__pill").join('\n');
+		assert(/opacity:\s*1/.test(active) && /scaleY\(1\)/.test(active),
+			'the current server does not get a full-bar pill');
+		assert(/class="cm-guildrail__pill" aria-hidden="true"/.test(showcase),
+			'the pill is not aria-hidden in the markup (state must be carried by aria-current)');
+	});
+
+	check('batch 29: count and dot are exclusive, and the count cannot break the square', () => {
+		// The contract's markup rule, asserted against the SHOWCASE: an
+		// item carrying both is the state that has no meaning.
+		const items = [...showcase.matchAll(/<button[^>]*class="cm-guildrail__item[^"]*"[\s\S]*?<\/button>/g)]
+			.map((m) => m[0]);
+		assert(items.length >= 4, 'the showcase does not render the rail items');
+		for (const it of items) {
+			assert(!(/cm-guildrail__badge/.test(it) && /cm-guildrail__unread/.test(it)),
+				'an item carries both a count and a dot - never both on one item');
+		}
+		const badge = ruleBodies(block, '.cm-guildrail__badge').join('\n');
+		assert(/max-inline-size:\s*var\(--tap\)/.test(badge),
+			'a two-digit count is not width-bounded, so it can break the 44px square');
+		assert(/white-space:\s*nowrap/.test(badge), 'the count can wrap inside the badge');
+		// The dot is a dot, not a zero.
+		const unread = ruleBodies(block, '.cm-guildrail__unread').join('\n');
+		assert(/inline-size:\s*var\(--space-2\)/.test(unread) && /block-size:\s*var\(--space-2\)/.test(unread),
+			'the unread marker is not square, so it is a shape the count cannot be confused with');
+		assert(!/content:/.test(unread) && !/text/.test(unread),
+			'the dot carries text - a dot with a zero in it is the defect');
+	});
+
+	check('batch 29: the tip is a tooltip in the markup and the name is not only the icon', () => {
+		// Every item is a real button with an aria-label, the monogram is
+		// aria-hidden, and the tip repeats the name for pointer users.
+		const items = [...showcase.matchAll(/<button[^>]*class="cm-guildrail__item[^"]*"[^>]*>/g)].map((m) => m[0]);
+		assert(items.length >= 4, 'no rail items in the showcase');
+		for (const tag of items) {
+			assert(/type="button"/.test(tag), `a rail item is not a real button: ${tag}`);
+			assert(/aria-label="[^"]+"/.test(tag), `a rail item has no aria-label: ${tag}`);
+		}
+		// EVERY monogram, not just the first one: one exposed glyph in a
+		// list of nine is a screen reader reading out a decoration.
+		const icons = [...showcase.matchAll(/<span class="cm-guildrail__icon"[^>]*>/g)].map((m) => m[0]);
+		assert(icons.length >= 4, 'no monograms in the showcase');
+		for (const t of icons) {
+			assert(/aria-hidden="true"/.test(t), `a monogram is exposed to the a11y tree: ${t}`);
+		}
+		// The separator is a hairline the RAIL owns, drawn as a background
+		// rather than a border so the 1px is the whole separator and not
+		// 1px plus the element's own box.
+		const sep = ruleBodies(block, '.cm-guildrail__sep').join('\n');
+		assert(sep, 'the rail never styles its separator');
+			assert(!/border-block-start/.test(sep), 'the separator is a border, so its 1px is drawn on top of the element block');
+		assert(/block-size:\s*1px/.test(sep) && /inline-size:\s*var\(--tap\)/.test(sep),
+			'the separator is not a short --tap-wide hairline');
+		const tips = [...showcase.matchAll(/<span class="cm-tooltip__tip" role="tooltip">([^<]+)<\/span>/g)];
+		assert(tips.length >= items.length,
+			'not every rail item has a tooltip tip, and the tip copy must repeat the name');
+		const labels = items.map((t) => /aria-label="([^"]+)"/.exec(t)[1]);
+		const names = tips.map((m) => m[1]);
+		for (const l of labels) {
+			assert(names.some((n) => n.startsWith(l)),
+				`no tip repeats the aria-label "${l}" for pointer users`);
+		}
+		// The rail is a landmark with a name.
+		assert(/<nav class="cm-guildrail"[^>]*aria-label="[^"]+"/.test(showcase),
+			'the rail is not a named nav landmark');
+		assert(/class="cm-guildrail__sep" role="separator"/.test(showcase),
+			'the separator is not a separator role');
+	});
+
+	check('batch 29: the composer bar is the focus affordance', () => {
+		const bar = ruleBodies(block, '.cm-composer__bar').join('\n');
+		assert(/border:\s*1px solid var\(--line\)/.test(bar),
+			'the bar is not a hairline frame, so there is nothing to light up');
+		const focus = ruleBodies(block, '.cm-composer__bar:focus-within').join('\n');
+		assert(focus, 'no :focus-within rule on the bar');
+		assert(/border-color:\s*var\(--focus\)/.test(focus),
+			'the bar does not switch to the focus token - a keyboard user has no affordance');
+		// The field inside carries no ring of its own: the bar is it.
+		const input = ruleBodies(block, '.cm-composer__bar > textarea.cm-composer__input').join('\n');
+		assert(input, 'the composer field is not styled by the specificity-matching selector');
+		assert(/border:\s*0/.test(input), 'the field draws its own frame inside the bar');
+		assert(/background:\s*transparent/.test(input),
+			'the field is not transparent, so the bar is not the visible box');
+		assert(/padding:\s*0/.test(input), 'the field carries its own padding inside the bar');
+		// The bar is a ROW OF CONTROLS ON A BASELINE, not a centred row:
+		// `flex-end` keeps the buttons on the field's last line as it
+		// grows. Centring them would float the attach/send pair to the
+		// middle of a six-line box.
+		assert(/align-items:\s*flex-end/.test(bar),
+			'the bar centres its controls, so they float mid-box once the field grows');
+		// --panel-nested, not --panel: a composer sits ON a panel, and
+		// two identical fills would make the frame the only edge it has.
+		assert(/background:\s*var\(--panel-nested\)/.test(bar),
+			'the bar takes the outer panel fill, so its frame is the only edge it has');
+	});
+
+	check('batch 29: every part of the composer takes its place on the row', () => {
+		// The field takes the LEFTOVER width (flex says so, the width rule
+		// is helpfully overridden by layout otherwise), the tools take the
+		// tail, and send is the one control that reads as a verb.
+		const input = ruleBodies(block, '.cm-composer__bar > textarea.cm-composer__input').join('\n');
+		assert(/flex:\s*1 1 auto/.test(input),
+			'the field does not take the leftover width, so the row is sized by the field');
+		const tools = ruleBodies(block, '.cm-composer__tools').join('\n');
+		assert(tools, 'the tools group has no rule, so it cannot be pushed to the tail');
+		assert(/margin-inline-start:\s*auto/.test(tools),
+			'the tools do not take the tail, so the controls drift to the middle');
+		const send = ruleBodies(block, '.cm-composer__send').join('\n');
+		assert(/border-color:\s*var\(--ink-dim\)/.test(send) && /color:\s*var\(--ink\)/.test(send),
+			'send does not take the ink, so it reads as dim as the emoji button beside it');
+		const reply = ruleBodies(block, '.cm-composer__reply').join('\n');
+		assert(/border-inline-start:\s*1px solid var\(--line\)/.test(reply),
+			'the reply strip has no leading rule, so it is not visibly quoted context');
+	});
+
+	check('batch 29: the named controls clear the tap floor on a coarse pointer', () => {
+		// .cm-icon-btn's own coarse rule is the general case; a composer is
+		// the one place the floor is a contract term, and it must name both
+		// controls - dropping one leaves a 32px target on a phone.
+		const coarse = allAtRuleBodies(read('src/styles/components.css'), '@media (pointer: coarse)');
+		for (const c of ['.cm-composer__attach', '.cm-composer__send']) {
+			assert(new RegExp('\\' + c + '[^{]*\\{[^}]*inline-size:\\s*var\\(--tap\\)').test(coarse)
+				|| new RegExp('\\' + c + '[^{]*\\{[^}]*block-size:\\s*var\\(--tap\\)').test(coarse),
+				`${c} has no --tap floor on a coarse pointer`);
+		}
+		// The typing line is layout only; its spacing is the component's,
+		// because the marker it wraps owns the semantics.
+		const typing = ruleBodies(block, '.cm-composer__typing').join('\n');
+		assert(/margin:\s*var\(--space-1\) 0 0/.test(typing),
+			'the typing line has no spacing, so it collides with the bar');
+		assert(/cm-marker/.test(showcase) && !/cm-composer__typing[^{]*\{[^}]*font/.test(block),
+			'the typing line styles the marker text instead of leaving the semantics to .cm-marker');
+	});
+
+	check('batch 29: the composer specimen carries the contract structure', () => {
+		assert(/<form class="cm-composer" data-cm-composer>/.test(showcase),
+			'the composer is not a real form - Enter/Shift+Enter need one to bind to');
+		assert(/class="cm-icon-btn cm-composer__attach" aria-label="[^"]+"/.test(showcase),
+			'the attach control is missing or unlabelled');
+		assert(/class="cm-icon-btn cm-composer__send" aria-label="[^"]+"/.test(showcase),
+			'the send control is not marked up - it would render as a plain icon button');
+		assert(/<span class="cm-marker cm-shimmer" role="status">/.test(showcase),
+			'the typing line does not expose the status role, so a reader never hears it');
+		// Every cm-composer class the specimen emits must be a contract name.
+		const names = new Set(
+			[...showcase.matchAll(/class="([^"]*)"/g)]
+				.flatMap((m) => m[1].split(/\s+/))
+				.filter((c) => c.startsWith('cm-composer')),
+		);
+		const CONTRACT = new Set([
+			'cm-composer', 'cm-composer__reply', 'cm-composer__replytext',
+			'cm-composer__replyclose', 'cm-composer__bar', 'cm-composer__attach',
+			'cm-composer__input', 'cm-composer__tools', 'cm-composer__send',
+			'cm-composer__typing',
+		]);
+		for (const c of names) {
+			assert(CONTRACT.has(c), `the showcase uses .${c}, which is not a contract name`);
+		}
+	});
+
+	check('batch 29: nothing caps the field, so the consumer can grow it to six lines', () => {
+		const input = ruleBodies(block, '.cm-composer__bar > textarea.cm-composer__input').join('\n');
+		// Auto-grow is the consumer's. A `max-block-size` here would clip
+		// line seven and make the library the thing that broke the scroll.
+		assert(/max-block-size:\s*none/.test(input),
+			'the field caps its own height, so auto-grow is clipped by the library');
+		// base.css reserves 2x--tap on a form textarea; a composer's
+		// reservation is its row count plus the tap floor.
+		assert(/min-block-size:\s*var\(--tap\)/.test(input),
+			'the field does not clear the --tap floor on its first row');
+		assert(/min-inline-size:\s*0/.test(input),
+			'the field cannot shrink inside the flex bar');
+		// base.css owns width at (0,2,1); a two-class rule loses, and the
+		// field claims the whole row.
+		assert(/^\.cm-composer__bar > textarea\.cm-composer__input \{/m.test(rawCss),
+			'the field selector does not tie base.css specificity - the width rule loses');
+	});
+
+	check('batch 29: the reply strip is hidden by attribute, above the bar', () => {
+		const reply = ruleBodies(block, '.cm-composer__reply').join('\n');
+		assert(/display:\s*flex/.test(reply), 'the reply strip is not a flex row');
+		// `display: flex` above outranks the UA's `[hidden] {display: none}`,
+		// so the component owes its own rule; the consumer only flips the
+		// attribute.
+		const hidden = ruleBodies(block, '.cm-composer__reply[hidden]').join('\n');
+		assert(/display:\s*none/.test(hidden),
+			'the component does not honour [hidden] on the reply strip');
+		// ABOVE the bar: the strip must come first in source AND in flow,
+		// which is the markup's job - assert it on the page.
+		const show = showcase.indexOf('cm-composer__reply');
+		const bar = showcase.indexOf('cm-composer__bar');
+		assert(show > 0 && bar > show,
+			'the reply strip is not before the bar in the markup');
+		const strip = ruleBodies(block, '.cm-composer').join('\n');
+		assert(/flex-direction:\s*column/.test(strip),
+			'the composer does not stack the strip over the bar');
+		assert(/class="cm-composer__reply" hidden/.test(showcase),
+			'the showcase does not ship the strip hidden, which is the state it exists in');
+	});
+
+	check('batch 29: sending lives on the FORM, and the input stays usable', () => {
+		// `data-cm-sending` dims the send glyph but never disables the
+		// input: the contract says the input stays usable mid-send.
+		assert(/\.cm-composer\[data-cm-sending\] \.cm-composer__send \{/.test(block),
+			'data-cm-sending does not reach the send button');
+		const sending = ruleBodies(block, '.cm-composer[data-cm-sending] .cm-composer__send').join('\n');
+		assert(/color:\s*transparent/.test(sending),
+			'the send glyph is not hidden while in flight');
+		const spun = ruleBodies(block, '.cm-composer[data-cm-sending] .cm-composer__send::before').join('\n');
+		assert(spun, 'the send button shows no busy mark while the message is in flight');
+		assert(/animation:/.test(spun), 'the busy mark does not animate, so it does not read as busy');
+		assert(/position:\s*absolute/.test(spun) && /inset:\s*0/.test(spun),
+			'the busy mark is stacked over the glyph, so the box resizes under the pointer');
+		assert(!/data-cm-sending[^{]*\binput\b[^{]*\{[^}]*pointer-events:\s*none/.test(block),
+			'data-cm-sending blocks the input - the contract says it stays usable');
+		assert(!/\bcm-composer__input\[disabled\]/.test(block) ||
+			!/\.cm-composer\[data-cm-sending\][^{]*disabled/.test(block),
+			'sending disables the input instead of marking the form');
+		// The showcase must show the state, or the rule is a promise nobody
+		// can check.
+		assert(/data-cm-sending/.test(showcase), 'the showcase never renders the sending state');
+	});
+
+	check('batch 29: a disabled textarea dims the whole box, through :has', () => {
+		// The disabled element is a grandchild of the form, so no sibling
+		// combinator can see it - `:has` is the same idiom the header row
+		// uses for the badge it wraps.
+		const dim = ruleBodies(block, '.cm-composer:has(.cm-composer__input:disabled) .cm-composer__bar').join('\n');
+		assert(dim, 'a read-only room does not dim the composer box');
+		assert(/border-color:\s*var\(--line-soft\)/.test(dim),
+			'the dimmed box does not drop to the soft line');
+		const send = ruleBodies(block, '.cm-composer:has(.cm-composer__input:disabled) .cm-composer__send').join('\n');
+		assert(send && /not-allowed/.test(send),
+			'send is not marked as refused in a read-only room');
+		assert(/var\(--ink-faint\)/.test(send), 'the refused send button is not on the faint ink');
+		assert(/<textarea class="cm-composer__input"[^>]*aria-label="[^"]+"/.test(showcase),
+			'the composer field has no aria-label');
+		assert(/rows="1"/.test(showcase), "the field is not a native rows=\"1\" textarea");
+	});
+
+	check('batch 29: the typing line is layout only, and the marker owns the semantics', () => {
+		const typing = ruleBodies(block, '.cm-composer__typing').join('\n');
+		assert(typing, 'no spacing rule for the typing line');
+		for (const p of ['color', 'font-size', 'font-weight', 'background', 'border']) {
+			assert(!new RegExp(`(?:^|;)\\s*${p}\\s*:`).test(typing),
+				`the typing wrapper sets ${p} - the composed .cm-marker must own that`);
+		}
+		assert(/role="status"/.test(showcase) && /class="cm-marker cm-shimmer"/.test(showcase),
+			'the typing specimen does not compose .cm-marker with its status role');
+	});
+
+	check('batch 29: the two new components are token-only, with no raw colour or spacing', () => {
+		// The block is read RAW here - the comment above explains why a
+		// comment naming a hex defeats a raw-file scan, so the comments are
+		// stripped for this one check and nothing else needs them.
+		const hex = block.match(/#[0-9a-f]{3,8}\b/gi) || [];
+		assert(hex.length === 0, `the batch declares raw colours: ${hex.join(', ')}`);
+		const named = block.match(/:\s*(red|green|blue|yellow|orange|purple|pink|teal)\b/gi) || [];
+		assert(named.length === 0, `the batch declares named colours: ${named.join(', ')}`);
+		const raw = [...block.matchAll(
+			/(?:^|[;{])\s*((?:-webkit-)?[a-z-]*color|(?:-webkit-)?background(?:-color)?|border(?:-[a-z]+)?-color|outline(?:-[a-z]+)?-color|box-shadow|fill|stroke)\s*:\s*([^;}]+)/g,
+		)]
+			.filter((m) => !/^var\(|^currentColor$|^inherit$|^none$|^transparent$/.test(m[2].trim()))
+			// A gradient is a colour value, but the ones here are built
+			// entirely from var()s - the rail's own trailing hairline is
+			// `linear-gradient(var(--line), var(--line))`, which is two
+			// token stops and no literal colour. Strip the wrapper and
+			// re-test what is actually inside it.
+			.filter((m) => !/^(?:repeating-)?(?:linear|radial|conic)-gradient\(/.test(m[2].trim()))
+			.map((m) => `${m[1]}: ${m[2].trim()}`);
+		assert(raw.length === 0, `the batch hardcodes a colour: ${raw.join(', ')}`);
+		// ...and the gradient itself is proved token-only, so the filter
+		// above is not a hole a literal colour could climb through.
+		for (const g of block.matchAll(/(?:repeating-)?(?:linear|radial|conic)-gradient\(([^)]*(?:\([^)]*\)[^)]*)*)\)/g)) {
+			const inner = g[1];
+			assert(!/#[0-9a-f]{3,8}\b/i.test(inner) && !/\brgba?\(|\bhsla?\(/i.test(inner),
+				`a gradient stop is a literal colour: ${inner.trim()}`);
+		}
+		// Spacing is a step, not a number.
+		const sp = [...block.matchAll(/\b(margin(?:-[a-z]+)?|padding(?:-[a-z]+)?|gap|row-gap|column-gap):\s*(-?[\d.]+)(rem|px)\s*;/g)];
+		assert(sp.length === 0,
+			`the batch hardcodes spacing: ${sp.map((m) => m[0]).join(', ')}`);
+		// The two new tokens exist, are used, and are not duplicates.
+		for (const t of ['--guildrail-w', '--guildrail-bleed']) {
+			assert(new RegExp(`^\\s*${t}:`, 'm').test(tokenSrc), `tokens.css does not define ${t}`);
+			assert(rawCss.includes(`var(${t})`), `${t} is defined and never used - a dead token`);
+		}
+		assert((block.match(/var\(--guildrail-bleed\)/g) || []).length >= 3,
+			'--guildrail-bleed is not doing the three jobs it exists for (pad, cancel, cap)');
+	});
+
+	check('batch 29: reduced motion kills the new transitions, not the states', () => {
+		// The guard is ONE block and nothing after it: slicing to the end of
+		// the file would let a later mention satisfy the check.
+		const guard = allAtRuleBodies(comp, '@media (prefers-reduced-motion: reduce)');
+		assert(guard.length > 0, 'the reduced-motion guard is missing');
+		for (const sel of ['.cm-guildrail__item', '.cm-guildrail__pill',
+			'.cm-composer__bar', '.cm-composer__attach', '.cm-composer__send']) {
+			assert(guard.includes(sel), `${sel} keeps its transition under reduced motion`);
+		}
+		assert(/\.cm-guildrail__item,\s*[\s\S]{0,300}?transition:\s*none/.test(guard),
+			'the rail transitions are not killed as a group');
+		// The state itself must still read: the spinner cannot animate, so
+		// it is stopped rather than left running.
+		assert(/\.cm-composer\[data-cm-sending\] \.cm-composer__send::before \{ animation: none; \}/.test(guard),
+			'the sending spinner still spins under reduced motion');
+	});
+
+	check('batch 29: the font sizes carry the --min-font floor like every other component', () => {
+		for (const sel of ['.cm-guildrail__item', '.cm-guildrail__badge',
+			'.cm-composer__reply', '.cm-composer__replyclose']) {
+			for (const b of ruleBodies(block, sel)) {
+				if (!/font-size:/.test(b)) continue;
+				assert(/max\(var\(--min-font\)/.test(b),
+					`${sel} declares a font-size with no --min-font floor: ${b.trim()}`);
+			}
+		}
+	});
+
+	check('batch 29: the new rules sit before .cm-auth, and stack ownership still ends the file', () => {
+		assert(rawCss.indexOf('.cm-guildrail {') < rawCss.indexOf('.cm-auth {'),
+			'the batch is written after .cm-auth');
+		assert(rawCss.indexOf('stack ownership (LAST, on purpose)') > rawCss.indexOf('.cm-auth {'),
+			'stack ownership must remain the last block in the stylesheet');
+	});
+
+	check('batch 29: the showcase renders both specimens with the contract structure', () => {
+		assert(/<section id="guildrail" class="cm-section cm-section--pad">/.test(showcase),
+			'the guildrail specimen is not a showcase section');
+		assert(/<section id="composer" class="cm-section cm-section--pad">/.test(showcase),
+			'the composer specimen is not a showcase section');
+		// The section head names the component, which is the page's index.
+		assert(/<SectionHead title="guildrail">/.test(showcase) &&
+			/<SectionHead title="composer">/.test(showcase),
+			'the specimens are missing their section heads');
+		// Rail: the tooltip wrapper is the item's parent, so the tip can
+		// anchor to the square without a second wrapper class.
+		assert(/<span class="cm-tooltip">\s*<button type="button" class="cm-guildrail__item/.test(showcase),
+			'the rail items are not wrapped .cm-tooltip spans');
+		// Composer: the bar holds attach, the field, then the tools.
+		const bar = /<div class="cm-composer__bar">([\s\S]*?)<\/div>\s*<\/form>/.exec(showcase);
+		assert(bar, 'the composer bar is not in the markup');
+		const order = ['cm-composer__attach', 'cm-composer__input', 'cm-composer__tools'];
+		let last = -1;
+		for (const c of order) {
+			const at = bar[1].indexOf(c);
+			assert(at > last, `the bar's ${c} is out of contract order`);
+			last = at;
+		}
+		// A long server list, so the rail really does scroll: a rail that
+		// fits has proven nothing.
+		const railItems = (showcase.match(/class="cm-guildrail__item/g) || []).length;
+		assert(railItems >= 6, `the specimen rail has ${railItems} items - too few to overflow its box`);
+		// The specimen structure is part of the contract: nav, tooltips
+		// wrapping every item, required separators/parts present.
+		assert(/<nav class="cm-guildrail" aria-label="Servers">/.test(showcase),
+			'the rail is not a nav element');
+		assert(/cm-guildrail__item--home[^>]*aria-current="true"/.test(showcase),
+			'the home item does not expose aria-current');
+		const adds = [...showcase.matchAll(/cm-guildrail__item--add/g)];
+		assert(adds.length === 1, 'exactly one add control required');
+		// The specimen must spell the contract's names EXACTLY. A rename
+		// here renders an unstyled element behind a green build, and the
+		// old generic check reports it far from this batch.
+		const railClasses = new Set(
+			[...showcase.matchAll(/class="([^"]*)"/g)]
+				.flatMap((m) => m[1].split(/\s+/))
+				.filter((c) => c.startsWith('cm-guildrail')),
+		);
+		const CONTRACT = new Set([
+			'cm-guildrail', 'cm-guildrail__item', 'cm-guildrail__item--home',
+			'cm-guildrail__item--add', 'cm-guildrail__pill', 'cm-guildrail__icon',
+			'cm-guildrail__badge', 'cm-guildrail__unread', 'cm-guildrail__sep',
+		]);
+		for (const c of railClasses) {
+			assert(CONTRACT.has(c), `the showcase uses .${c}, which is not a contract name`);
+		}
+	});
+
+	check('batch 29: the composer documents the consumer JS rather than implementing it', () => {
+		// The three behaviours the contract hands to the client. They must
+		// be documented NAMED, not merely mentioned: `includes('Enter')`
+		// passed on a rewrite that replaced the row with "the return key",
+		// because the word still appears elsewhere in the section (found
+		// by mutation s28, which survived). Match the act, not the token.
+		const readme = read('README.md');
+		const at = readme.indexOf('### The server rail');
+		assert(at > 0, 'the README has no guildrail/composer section');
+		const sec = readme.slice(at, readme.indexOf('\n### ', at + 4) > 0
+			? readme.indexOf('\n### ', at + 4) : undefined);
+		for (const [phrase, re] of [
+			['Enter sends', /Enter\s+sends/],
+			['Shift+Enter inserts a newline', /Shift\+Enter/],
+			['auto-grow', /auto-grow/i],
+			['the consumer owns them', /consumer/i],
+		]) {
+			assert(re.test(sec), `the README section never documents ${phrase}`);
+		}
+		// It must also say these are the CONSUMER's, not the library's:
+		// the table's `who` column is the contract's whole answer.
+		assert(/\|\s*consumer\s*\|/i.test(sec),
+			'the README does not hand the behaviours to the consumer');
+		// Not implemented: no new runtime file was shipped for either
+		// component. The composer's behaviour is the client's.
+		const runtime = read('src/js/cli-mono.js');
+		assert(!/cm-composer|cm-guildrail/.test(runtime),
+			'the runtime implements the composer - Enter/Shift+Enter/auto-grow are the consumer\'s');
+		const hint = /auto-grow|Enter sends/.test(runtime);
+		assert(!hint, 'the runtime has a partial composer implementation');
+	});
+}

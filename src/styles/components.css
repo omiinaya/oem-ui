@@ -43,7 +43,7 @@
 	content: '~/';
 	opacity: 0.7;
 	letter-spacing: 0;
-	margin-right: 0.18em;
+	margin-inline-end: 0.18em;
 }
 .cm-kicker--plain::before { content: none; }
 /* `--plain` means "no `~/` prefix", NOT "no bottom margin". Those were
@@ -219,7 +219,7 @@
 .cm-prose td {
 	padding: var(--space-2) var(--space-3);
 	border-bottom: 1px solid var(--line);
-	text-align: left;
+	text-align: start;
 }
 .cm-prose th {
 	color: var(--ink-dim);
@@ -317,7 +317,7 @@
    `gap: var(--space-2)` gives them the same breathing room as the rest
    of the sheet. */
 .cm-head-row__action {
-	margin-left: auto;
+	margin-inline-start: auto;
 	flex: 0 0 auto;
 	display: flex;
 	align-items: center;
@@ -329,7 +329,7 @@
    MEASURED on rpm: `.cm-tag` sat 623px from its card's right edge,
    stranded mid-card, because nothing on the row pushed it. The action
    variant above covers buttons; this is the read-only equivalent. */
-.cm-head-row__meta { margin-left: auto; flex: 0 0 auto; align-self: center; }
+.cm-head-row__meta { margin-inline-start: auto; flex: 0 0 auto; align-self: center; }
 
 /* THE ORPHAN, and the reason `margin-left: auto` is only half the answer.
 
@@ -369,10 +369,10 @@
    no badge would otherwise be indented under nothing. Both halves are
    `:has()`, which the sheet already depends on above. */
 @media (max-width: 768px) {
-	.cm-head-row__meta { margin-left: 0; }
+	.cm-head-row__meta { margin-inline-start: 0; }
 	.cm-head-row:has(> .cm-head-row__text > .cm-head__badge)
 		.cm-head-row__meta {
-		margin-left: calc(2rem + var(--space-3));
+		margin-inline-start: calc(2rem + var(--space-3));
 	}
 }
 /* The badge and the title sit BESIDE each other, on one line.
@@ -473,8 +473,8 @@
    cannot respond to a breakpoint, and does not show up in a class audit.
 
    `.cm-push` is the whole rule. `.cm-stick-top` is its column twin. */
-.cm-push { margin-left: auto; }
-.cm-push-group { margin-left: auto; display: flex; gap: var(--space-2); }
+.cm-push { margin-inline-start: auto; }
+.cm-push-group { margin-inline-start: auto; display: flex; gap: var(--space-2); }
 .cm-stick-top { align-self: flex-start; }
 
 /* ---------- section heading ----------
@@ -516,7 +516,7 @@
 @media (max-width: 420px) {
 	.cm-head-row { flex-wrap: wrap; }
 	.cm-head-row__action {
-		margin-left: 0;
+		margin-inline-start: 0;
 		width: 100%;
 		/* The action row can itself hold three controls, and on its own
 		   310px line a search + two buttons cannot share it honestly.
@@ -623,7 +623,7 @@
 .cm-spec__row:last-child { border-bottom: 0; }
 .cm-spec__label { flex: 0 0 6.5rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .cm-spec__sample { flex: 1; min-width: 0; line-height: 1.1; }
-.cm-spec__val { flex: 0 0 auto; text-align: right; }
+.cm-spec__val { flex: 0 0 auto; text-align: end; }
 /* A specimen that reports its own live state. The inline row's title
    column is only in play inside a width band, and a static `42ch` beside
    it is decoration -- it cannot tell you that at 700px the excerpt has
@@ -672,7 +672,7 @@
 	/* The value keeps only the width its text needs. flex:1 here would let a
 	   wrapping row's value claim the entire line, which is how --space-10's
 	   "6rem · 96px" ballooned to 283px and made its own row taller. */
-	.cm-spec__val { flex: 0 1 auto; text-align: right; margin-left: auto; }
+	.cm-spec__val { flex: 0 1 auto; text-align: end; margin-inline-start: auto; }
 	.cm-spec__sample { flex: 1 0 100%; }
 	/* The bar must NOT stretch: its width IS the measurement. It keeps the
 	   label's line and starts at the label's left edge, so the scale still
@@ -887,7 +887,7 @@
 .cm-codebar > pre {
 	margin: 0;
 	border: 0;
-	border-left: 0;
+	border-inline-start: 0;
 	border-radius: 0;
 	background: var(--bg-2);
 }
@@ -962,7 +962,7 @@
    the container's left edge and runs UNDER the bullet (measured 15px left of
    the first line). Indent the run instead, so continuation lines align under
    the text and not under the marker. */
-.cm-status__value { padding-left: 1.15em; text-indent: -1.15em; }
+.cm-status__value { padding-inline-start: 1.15em; text-indent: -1.15em; }
 .cm-status--ok .cm-status__value::before { content: '\25cf\00a0'; color: var(--ink-dim); }
 .cm-status--warn .cm-status__value::before { content: '\25b2\00a0'; color: var(--ink-dim); }
 .cm-status--err .cm-status__value::before { content: '\2715\00a0'; color: var(--ink); }
@@ -1049,7 +1049,7 @@ html {
    in a style prop, which is the thing a stylesheet exists to prevent. */
 button.cm-row {
 	width: 100%;
-	text-align: left;
+	text-align: start;
 	background: transparent;
 	border: 0;
 	border-bottom: 1px solid var(--line);
@@ -1227,7 +1227,7 @@ button.cm-row:hover { background: var(--bg-2); }
    and the second is the address; everything after that is inside the
    value and must be flush. */
 .cm-row__meta--tight { gap: 0; }
-.cm-row__meta--tight > *:first-child + * { margin-left: 0.35em; }
+.cm-row__meta--tight > *:first-child + * { margin-inline-start: 0.35em; }
 
 /* A row body is a nowrap flex line by default - title, desc and meta on
    one line, which is right when the row is a summary. It has to give way
@@ -1296,7 +1296,7 @@ button.cm-row:hover { background: var(--bg-2); }
 .cm-rows--stacked .cm-row__meta { display: block; font-size: var(--text-micro); margin-top: var(--space-1); }
 
 /* list footer link, right-aligned */
-.cm-list-more { margin-top: var(--space-6); text-align: right; }
+.cm-list-more { margin-top: var(--space-6); text-align: end; }
 .cm-list-more a {
 	font-family: var(--font-mono); font-size: var(--text-xs); color: var(--ink-dim);
 }
@@ -1425,7 +1425,7 @@ button.cm-row:hover { background: var(--bg-2); }
 }
 .cm-prose-table caption {
 	caption-side: top;
-	text-align: left;
+	text-align: start;
 	color: var(--ink-faint);
 	font-size: var(--min-font);
 	padding-bottom: var(--space-2);
@@ -1434,7 +1434,7 @@ button.cm-row:hover { background: var(--bg-2); }
    readable stacked-ish rows instead of a horizontal scrollbar. */
 .cm-prose-table th,
 .cm-prose-table td {
-	text-align: left;
+	text-align: start;
 	vertical-align: top;
 	padding: var(--space-2) var(--space-3);
 	border-bottom: 1px solid var(--line);
@@ -1805,7 +1805,7 @@ button.cm-row:hover { background: var(--bg-2); }
 	width: 0.55em;
 	height: 1em;
 	background: var(--ink);
-	margin-left: 0.1em;
+	margin-inline-start: 0.1em;
 	animation: cm-blink 1.2s step-end infinite;
 }
 @keyframes cm-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
@@ -2162,7 +2162,7 @@ button.cm-row:hover { background: var(--bg-2); }
 	gap: var(--space-3);
 	padding: var(--space-4);
 	border: 1px solid var(--line);
-	border-left-width: 3px;
+	border-inline-start-width: 3px;
 	border-radius: var(--radius-sm);
 	background: var(--panel);
 }
@@ -2199,13 +2199,13 @@ button.cm-row:hover { background: var(--bg-2); }
 .cm-alert--ok .cm-toast__mark::before { content: '\25cf\00a0'; }
 .cm-alert--warn .cm-toast__mark::before { content: '\25b2\00a0'; }
 .cm-alert--err .cm-toast__mark::before { content: '\2715\00a0'; }
-.cm-alert--ok { border-left-color: var(--ink-dim); }
-.cm-alert--warn { border-left-color: var(--ink-faint); }
-.cm-alert--err { border-left-color: var(--ink); }
-.cm-alert--info { border-left-color: var(--ink-faint); }
+.cm-alert--ok { border-inline-start-color: var(--ink-dim); }
+.cm-alert--warn { border-inline-start-color: var(--ink-faint); }
+.cm-alert--err { border-inline-start-color: var(--ink); }
+.cm-alert--info { border-inline-start-color: var(--ink-faint); }
 .cm-alert--info .cm-alert__mark::before { content: '\2139\00a0'; }
 .cm-alert--info .cm-toast__mark::before { content: '\2139\00a0'; }
-.cm-alert--loading { border-left-color: var(--ink-dim); }
+.cm-alert--loading { border-inline-start-color: var(--ink-dim); }
 
 /* ---------- table ----------
    Data, not prose. The scroll wrapper is part of the component because a
@@ -2246,7 +2246,7 @@ button.cm-row:hover { background: var(--bg-2); }
 .cm-table { width: 100%; border-collapse: collapse; font-size: var(--text-xs); }
 /* Sticky needs the wrapper to be the scroll box, not the page. */
 .cm-table th, .cm-table td {
-	text-align: left;
+	text-align: start;
 	padding: var(--space-2) var(--space-3);
 	border-bottom: 1px solid var(--line);
 	white-space: nowrap;
@@ -2267,7 +2267,7 @@ button.cm-row:hover { background: var(--bg-2); }
 	background: var(--bg-3);
 	color: var(--ink);
 }
-.cm-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.cm-table td.num { text-align: end; font-variant-numeric: tabular-nums; }
 /* A numeric column aligns on the digit, which is the only way a column of
    durations or sizes can be compared without reading each one. The
    `__num` form matches the BEM of the rest of the block; `.num` above is
@@ -2280,7 +2280,7 @@ button.cm-row:hover { background: var(--bg-2); }
    correctly in the source the whole time. */
 .cm-table td.cm-table__num,
 .cm-table th.cm-table__num {
-	text-align: right;
+	text-align: end;
 	font-variant-numeric: tabular-nums;
 }
 /* A long host or path must not set the column width for the whole
@@ -2322,14 +2322,14 @@ button.cm-row:hover { background: var(--bg-2); }
 	gap: var(--space-2);
 	min-height: var(--tap);
 	padding: 0 var(--space-1);
-	margin-left: calc(-1 * var(--space-1));
+	margin-inline-start: calc(-1 * var(--space-1));
 	background: none;
 	border: 0;
 	border-radius: var(--radius-sm);
 	color: var(--ink);
 	font: inherit;
 	font-family: var(--font-mono);
-	text-align: left;
+	text-align: start;
 	cursor: pointer;
 }
 .cm-table__action:hover { text-decoration: underline; }
@@ -2576,7 +2576,7 @@ button.cm-row:hover { background: var(--bg-2); }
 	flex-wrap: wrap;
 	gap: 0 var(--space-2);
 }
-.cm-footer__dot { color: var(--ink-dim); margin-right: 0.35em; }
+.cm-footer__dot { color: var(--ink-dim); margin-inline-end: 0.35em; }
 /* The SAME pairing as `.cm-footer__meta`: the separator is a `::before` on
    the part it PRECEDES, so it is impossible for a wrapped line to END with
    one. The alternative (`::after` on `:not(:last-child)`, which is what the
@@ -2588,8 +2588,8 @@ button.cm-row:hover { background: var(--bg-2); }
 	content: '│';
 	color: var(--ink-faint);
 	opacity: 0.6;
-	margin-left: calc(-1 * var(--space-2));
-	margin-right: var(--space-2);
+	margin-inline-start: calc(-1 * var(--space-2));
+	margin-inline-end: var(--space-2);
 }
 /* The separator between footer meta fragments.
 
@@ -2640,8 +2640,8 @@ button.cm-row:hover { background: var(--bg-2); }
 	content: '·';
 	color: var(--ink-faint);
 	opacity: 0.6;
-	margin-left: calc(-1 * var(--space-2));
-	margin-right: var(--space-2);
+	margin-inline-start: calc(-1 * var(--space-2));
+	margin-inline-end: var(--space-2);
 }
 
 /* ============ header ============
@@ -2729,7 +2729,7 @@ button.cm-row:hover { background: var(--bg-2); }
 .cm-header__link + .cm-header__link::before {
 	content: '';
 	position: absolute;
-	left: 0;
+	inset-inline-start: 0;
 	top: 50%;
 	transform: translateY(-50%);
 	height: 1.1em;
@@ -2912,7 +2912,7 @@ button.cm-row:hover { background: var(--bg-2); }
 .cm-nav-toggle__bars::after {
 	content: '';
 	position: absolute;
-	left: 0;
+	inset-inline-start: 0;
 	width: 100%;
 	height: 2px;
 	background: currentColor;
@@ -2929,7 +2929,7 @@ button.cm-row:hover { background: var(--bg-2); }
    So the bar centres itself with no positional selector at all. */
 .cm-nav-toggle__bar {
 	position: absolute;
-	left: 0;
+	inset-inline-start: 0;
 	width: 100%;
 	height: 2px;
 	top: 50%;
@@ -2997,7 +2997,7 @@ button.cm-row:hover { background: var(--bg-2); }
 	   leads the row with no `order` at all - visual order and tab order
 	   stay the same. The brand takes the slack and the theme toggle keeps
 	   the right edge. */
-	.cm-header__brand { margin-right: auto; }
+	.cm-header__brand { margin-inline-end: auto; }
 
 	/* The panel opens from the LEFT edge as a drawer, anchored to the
 	   header, rather than dropping into the flow under it. */
@@ -3011,8 +3011,8 @@ button.cm-row:hover { background: var(--bg-2); }
 	.cm-header__links {
 		order: 3;
 		position: fixed;
-		left: 0;
-		right: auto;
+		inset-inline-start: 0;
+		inset-inline-end: auto;
 		top: var(--header-h, 60px);
 		bottom: 0;
 		width: min(86vw, 320px);
@@ -3020,7 +3020,7 @@ button.cm-row:hover { background: var(--bg-2); }
 		overscroll-behavior: contain;
 		background: var(--bg);
 		border-top: 0;
-		border-right: 1px solid var(--line);
+		border-inline-end: 1px solid var(--line);
 		z-index: var(--z-drawer);
 		/* A drawer that SNAPS into place is motion the reader did not
 		   ask for; a short fade keeps the direction legible. */
@@ -3076,7 +3076,7 @@ button.cm-row:hover { background: var(--bg-2); }
 	.cm-header__link[aria-current='page'] {
 		color: var(--accent-bright);
 		text-decoration: none;
-		padding-left: calc(var(--space-4) + var(--space-2));
+		padding-inline-start: calc(var(--space-4) + var(--space-2));
 	}
 }
 /* The showcase's specimen of the burger. It is a PICTURE of the control
@@ -3225,12 +3225,12 @@ button.cm-row:hover { background: var(--bg-2); }
    padding-right was still 11.2px. Source order cannot fix specificity;
    the selector has to actually outrank the thing it is overriding. */
 .cm-field__control.cm-field__control:has(> .cm-icon-btn) > input {
-	padding-right: calc(var(--tap) + var(--space-2));
+	padding-inline-end: calc(var(--tap) + var(--space-2));
 }
 .cm-field__control > .cm-icon-btn {
 	position: absolute;
 	top: 50%;
-	right: 0;
+	inset-inline-end: 0;
 	transform: translateY(-50%);
 }
 .cm-form { display: flex; flex-direction: column; }
@@ -3282,7 +3282,7 @@ button.cm-row:hover { background: var(--bg-2); }
 	margin: 0;
 	padding: var(--space-2) var(--space-4);
 	border: 0;
-	border-right: 1px solid var(--line);
+	border-inline-end: 1px solid var(--line);
 	background: transparent;
 	color: var(--ink-dim);
 	font-family: var(--font-mono);
@@ -3321,7 +3321,7 @@ button.cm-row:hover { background: var(--bg-2); }
 .cm-tabs__panel[hidden] { display: none; }
 @media (max-width: 520px) {
 	.cm-tabs__list { flex-direction: column; }
-	.cm-tabs__tab { border-right: 0; border-bottom: 1px solid var(--line); }
+	.cm-tabs__tab { border-inline-end: 0; border-bottom: 1px solid var(--line); }
 	.cm-tabs__tab[aria-selected='true'] { box-shadow: inset 2px 0 0 var(--ink); }
 }
 /* orientation="vertical" is DECLARATIVE: the same flip as the narrow
@@ -3331,15 +3331,15 @@ button.cm-row:hover { background: var(--bg-2); }
 	flex-direction: column;
 }
 .cm-tabs[data-orientation='vertical'] .cm-tabs__tab {
-	border-right: 0;
+	border-inline-end: 0;
 	border-bottom: 1px solid var(--line);
 	/* The marker is a border, not an inset shadow: every row pays the
 	   same 2px transparent left edge, so selecting one shifts nothing,
 	   and the colour declaration still passes through a token. */
-	border-left: 2px solid transparent;
+	border-inline-start: 2px solid transparent;
 }
 .cm-tabs[data-orientation='vertical'] .cm-tabs__tab[aria-selected='true'] {
-	border-left-color: var(--ink);
+	border-inline-start-color: var(--ink);
 }
 
 /* ---------- dialog ----------
@@ -3389,7 +3389,7 @@ button.cm-row:hover { background: var(--bg-2); }
 @media (max-width: 640px) {
 	.cm-dialog--sheet {
 		width: 100%;
-		border-left-width: 0;
+		border-inline-start-width: 0;
 	}
 }
 .cm-dialog--sheet .cm-dialog__head {
@@ -3413,8 +3413,8 @@ dialog.cm-dialog--spec:not([open]) {
 	width: min(24rem, 100%);
 	border-width: 1px;
 	box-shadow: var(--shadow-card);
-	margin-left: auto;
-	margin-right: auto;
+	margin-inline-start: auto;
+	margin-inline-end: auto;
 }
 
 .cm-dialog__head {
@@ -3457,7 +3457,7 @@ dialog.cm-dialog--spec:not([open]) {
    A second, prettier alert component is how two systems end up. */
 .cm-toast-region {
 	position: fixed;
-	right: var(--space-5);
+	inset-inline-end: var(--space-5);
 	bottom: var(--space-5);
 	z-index: var(--z-toast);
 	display: flex;
@@ -3474,7 +3474,7 @@ dialog.cm-dialog--spec:not([open]) {
 	gap: var(--space-3);
 	padding: var(--space-3) var(--space-4);
 	border: 1px solid var(--line);
-	border-left-width: 3px;
+	border-inline-start-width: 3px;
 	border-radius: var(--radius-sm);
 	background: var(--panel);
 	color: var(--ink);
@@ -3503,9 +3503,9 @@ dialog.cm-dialog--spec:not([open]) {
 	cursor: pointer;
 }
 .cm-toast__close:hover { color: var(--ink); }
-.cm-toast--ok { border-left-color: var(--ink-dim); }
-.cm-toast--warn { border-left-color: var(--ink-faint); }
-.cm-toast--err { border-left-color: var(--ink); }
+.cm-toast--ok { border-inline-start-color: var(--ink-dim); }
+.cm-toast--warn { border-inline-start-color: var(--ink-faint); }
+.cm-toast--err { border-inline-start-color: var(--ink); }
 /* Same glyphs as .cm-alert, from CSS, so a greyscale print and a
    colour-blind read both get the state without relying on hue. */
 .cm-toast--ok .cm-toast__mark::before { content: '\25cf\00a0'; }
@@ -3526,9 +3526,9 @@ dialog.cm-dialog--spec:not([open]) {
    rides the toast's flex row: margin-left auto is the handshake that
    pushes it to the far edge, align-self lifts it off the top-aligned
    body, and flex-shrink:0 stops a long message squeezing the label. */
-.cm-toast--info { border-left-color: var(--ink-faint); }
+.cm-toast--info { border-inline-start-color: var(--ink-faint); }
 .cm-toast--info .cm-toast__mark::before { content: '\2139\00a0'; }
-.cm-toast--loading { border-left-color: var(--ink-dim); }
+.cm-toast--loading { border-inline-start-color: var(--ink-dim); }
 .cm-alert--loading .cm-alert__mark::before,
 .cm-alert--loading .cm-toast__mark::before,
 .cm-toast--loading .cm-toast__mark::before {
@@ -3537,7 +3537,7 @@ dialog.cm-dialog--spec:not([open]) {
 	animation: cm-spin 0.9s linear infinite;
 }
 .cm-toast__action {
-	margin-left: auto;
+	margin-inline-start: auto;
 	align-self: center;
 	flex-shrink: 0;
 }
@@ -3545,8 +3545,8 @@ dialog.cm-dialog--spec:not([open]) {
 	/* A fixed corner stack eats the bottom of a phone screen, which is
 	   where the primary action is. Full width, anchored to the bottom. */
 	.cm-toast-region {
-		right: var(--gutter);
-		left: var(--gutter);
+		inset-inline-end: var(--gutter);
+		inset-inline-start: var(--gutter);
 		bottom: var(--gutter);
 		width: auto;
 	}
@@ -3559,7 +3559,7 @@ dialog.cm-dialog--spec:not([open]) {
 .cm-dropdown { position: relative; display: inline-block; }
 .cm-dropdown__menu {
 	position: absolute;
-	right: 0;
+	inset-inline-end: 0;
 	top: calc(100% + var(--space-1));
 	z-index: var(--z-popover);
 	min-width: 12rem;
@@ -3601,7 +3601,7 @@ dialog.cm-dialog--spec:not([open]) {
 	background: transparent;
 	color: var(--ink-dim);
 	font: inherit;
-	text-align: left;
+	text-align: start;
 	text-decoration: none;
 	cursor: pointer;
 }
@@ -3637,7 +3637,7 @@ dialog.cm-dialog--spec:not([open]) {
 	   The cap below is derived from the viewport so it is correct at
 	   every width; the centring transform and the alignment variants
 	   are in the second .cm-tooltip__tip block, further down. */
-	left: 50%;
+	inset-inline-start: 50%;
 	bottom: calc(100% + var(--space-2));
 	z-index: var(--z-popover);
 	width: max-content;
@@ -3719,7 +3719,7 @@ dialog.cm-dialog--spec:not([open]) {
 	transform: translateX(-50%);
 }
 .cm-tooltip--start .cm-tooltip__tip {
-	left: 0;
+	inset-inline-start: 0;
 	transform: none;
 	/* The CSS-only floor. The runtime clamps this properly by measuring
 	   the trigger, but without JS this cap is all there is, and a `100vw`
@@ -3737,8 +3737,8 @@ dialog.cm-dialog--spec:not([open]) {
 	max-width: min(18rem, 52vw);
 }
 .cm-tooltip--end .cm-tooltip__tip {
-	left: auto;
-	right: 0;
+	inset-inline-start: auto;
+	inset-inline-end: 0;
 	transform: none;
 	max-width: min(18rem, 52vw);
 }
@@ -3925,7 +3925,7 @@ dialog.cm-dialog--spec:not([open]) {
 		align-items: center;
 		min-height: var(--tap);
 		padding: 0 var(--gutter);
-		border-left: 2px solid transparent;
+		border-inline-start: 2px solid transparent;
 		/* The active marker is a `border-left` on a full-bleed row, so
 		   without an inset it drew at x=0 and the viewport edge shaved it.
 		   Insetting the row keeps the 2px tick inside the rail, and the
@@ -3943,8 +3943,8 @@ dialog.cm-dialog--spec:not([open]) {
 	.cm-header--rail .cm-header__links > .cm-header__link[aria-current='page'],
 	.cm-header--rail .cm-header__group .cm-header__link.is-active,
 	.cm-header--rail .cm-header__group .cm-header__link[aria-current='page'] {
-		border-left-color: var(--accent);
-		padding-left: calc(var(--gutter) - 2px);
+		border-inline-start-color: var(--accent);
+		padding-inline-start: calc(var(--gutter) - 2px);
 	}
 	/* Controls drop to the foot of the rail. */
 	.cm-header--rail .cm-header__controls {
@@ -3976,7 +3976,7 @@ dialog.cm-dialog--spec:not([open]) {
 	   first section by 58px. `margin-inline: 0` re-anchors the box to the
 	   padding edge; the max-width still bounds the measure. */
 	.cm-shell--rail {
-		padding-left: calc(var(--rail-w) + var(--gutter));
+		padding-inline-start: calc(var(--rail-w) + var(--gutter));
 		margin-inline: 0;
 	}
 	/* ...and the measure is then centred inside the space BESIDE the rail,
@@ -4020,7 +4020,7 @@ dialog.cm-dialog--spec:not([open]) {
 	   column and its contents have to end on the SAME line, so the
 	   gutter lives on the shell here rather than on each page. */
 	.cm-shell--rail--fill {
-		padding-right: var(--gutter);
+		padding-inline-end: var(--gutter);
 	}
 	/* `width: auto` matters as much as `max-width: none`. base.css
 	   gives `main` `width: var(--maxw)`, so a rule that only relaxes
@@ -4038,7 +4038,7 @@ dialog.cm-dialog--spec:not([open]) {
 		inset-inline-start: 0;
 		width: var(--rail-w);
 		border-bottom: 0;
-		border-right: 1px solid var(--line);
+		border-inline-end: 1px solid var(--line);
 		z-index: var(--z-header);
 	}
 	/* Scroll anchoring: with a fixed rail the in-page anchors must clear it,
@@ -4189,7 +4189,7 @@ dialog.cm-dialog--spec:not([open]) {
 .cm-timeline__item::before {
 	content: '';
 	position: absolute;
-	left: 0;
+	inset-inline-start: 0;
 	top: 0.5em;
 	bottom: 0;
 	width: 1px;
@@ -4203,7 +4203,7 @@ dialog.cm-dialog--spec:not([open]) {
 .cm-timeline__item::after {
 	content: '';
 	position: absolute;
-	left: -0.25rem;
+	inset-inline-start: -0.25rem;
 	top: 0.45em;
 	width: 0.5rem;
 	height: 0.5rem;
@@ -4254,7 +4254,7 @@ dialog.cm-dialog--spec:not([open]) {
 }
 .cm-timeline__body > :first-child { margin-top: 0; }
 .cm-timeline__body > :last-child { margin-bottom: 0; }
-.cm-timeline__body ul { margin: 0; padding-left: 1.2em; }
+.cm-timeline__body ul { margin: 0; padding-inline-start: 1.2em; }
 .cm-timeline__body li { margin-bottom: var(--space-2); }
 /* Wrapping under its own marker: a ::before bullet is part of the
    text run, so without this a second line snaps back to the
@@ -4279,7 +4279,7 @@ dialog.cm-dialog--spec:not([open]) {
    onto a single 1px rule: every member after the first drops its left
    border, so no gap token is faked and no negative margin is needed. */
 .cm-btn-group--joined { gap: 0; flex-wrap: nowrap; }
-.cm-btn-group--joined > .cm-btn + .cm-btn { border-left-width: 0; }
+.cm-btn-group--joined > .cm-btn + .cm-btn { border-inline-start-width: 0; }
 
 /* ---------- sheet: the other three edges ----------
    Same native <dialog>, so focus trap, Escape and inertness are unchanged;
@@ -4305,7 +4305,7 @@ dialog.cm-dialog--spec:not([open]) {
 	border-width: 1px 0 0 0;
 }
 @media (max-width: 640px) {
-	.cm-dialog--sheet-left { border-right-width: 0; }
+	.cm-dialog--sheet-left { border-inline-end-width: 0; }
 }
 
 /* ---------- kbd ----------
@@ -4428,7 +4428,7 @@ dialog.cm-dialog--spec:not([open]) {
    is painted in the page colour so the overlap reads as a cut. */
 .cm-avatar-group { display: inline-flex; align-items: center; }
 .cm-avatar-group > .cm-avatar { border-color: var(--bg); box-shadow: 0 0 0 1px var(--line); }
-.cm-avatar-group > .cm-avatar + .cm-avatar { margin-left: calc(var(--space-2) * -1); }
+.cm-avatar-group > .cm-avatar + .cm-avatar { margin-inline-start: calc(var(--space-2) * -1); }
 
 /* ---------- accordion ----------
    A run of disclosures that reads as ONE block. The exclusive mode is
@@ -4523,7 +4523,7 @@ dialog.cm-dialog--spec:not([open]) {
 /* The accent is a border, not a gradient or a glow: the palette has
    no hue to spend on decoration, and a left rule reads as "this is
    the marked item" in both themes. */
-.cm-card--accent { border-left: 2px solid var(--accent); }
+.cm-card--accent { border-inline-start: 2px solid var(--accent); }
 .cm-card__head {
 	display: flex;
 	flex-direction: column;
@@ -4816,7 +4816,7 @@ dialog.cm-dialog--spec:not([open]) {
 .cm-meter--row .cm-meter__label {
 	flex: 1 1 auto;
 	order: 2;
-	text-align: right;
+	text-align: end;
 }
 .cm-meter--row .cm-meter__track {
 	flex: 1 1 0;
@@ -4836,7 +4836,7 @@ dialog.cm-dialog--spec:not([open]) {
 	order: 4;
 	flex: 0 0 auto;
 	min-width: 3.5rem;
-	text-align: right;
+	text-align: end;
 	font-size: max(var(--min-font), var(--text-xs));
 	font-family: var(--font-mono);
 	font-variant-numeric: tabular-nums;
@@ -4855,10 +4855,10 @@ dialog.cm-dialog--spec:not([open]) {
    infer from tint. */
 th.cm-table__sortcol {
 	padding: 0;
-	text-align: left;
+	text-align: start;
 }
 th.cm-table__sortcol.right {
-	text-align: right;
+	text-align: end;
 }
 button.cm-table__sort {
 	display: flex;
@@ -5041,7 +5041,7 @@ button.cm-row > span > svg {
    tap-floor contract test rejects. The glyph inherits the floor. */
 .cm-tile--warn .cm-tile__label::before,
 .cm-tile--err .cm-tile__label::before {
-	margin-right: 0.3em;
+	margin-inline-end: 0.3em;
 }
 .cm-tile--warn .cm-tile__val,
 .cm-tile--err .cm-tile__val {
@@ -5366,7 +5366,7 @@ button.cm-link:focus-visible {
 .cm-toolbar__count {
 	color: var(--ink-dim);
 	font-size: max(var(--min-font), var(--text-xs));
-	margin-right: var(--space-2);
+	margin-inline-end: var(--space-2);
 }
 
 /* ---------- check row: a bare checkbox in a tappable label ----------
@@ -5474,7 +5474,7 @@ button.cm-link:focus-visible {
 	   `.cm-field__control` uses for its icon button (measured there at
 	   390px: 11.2px of padding and a 2.3px gap without it). Declared after
 	   `padding`, exactly as base.css orders the same pair. */
-	padding-right: var(--space-7);
+	padding-inline-end: var(--space-7);
 	/* A text cursor over a control that opens a popup reads as an editable
 	   field; the chevron is the affordance and the whole box is the target. */
 	cursor: pointer;
@@ -5486,7 +5486,7 @@ button.cm-link:focus-visible {
    are the same bug in opposite directions. */
 .cm-select--multi {
 	background-image: none;
-	padding-right: var(--space-3);
+	padding-inline-end: var(--space-3);
 	padding-block: var(--space-2);
 	/* A list box taller than its own box has to scroll; without this the
 	   extra options are simply unreachable. */
@@ -5550,7 +5550,7 @@ button.cm-link:focus-visible {
 .cm-switch__knob {
 	position: absolute;
 	top: 50%;
-	left: var(--knob-inset);
+	inset-inline-start: var(--knob-inset);
 	width: var(--knob-d);
 	height: var(--knob-d);
 	transform: translateY(-50%);
@@ -5639,7 +5639,7 @@ button.cm-link:focus-visible {
 	margin: 0;
 	padding: var(--space-2) var(--space-4);
 	border: 0;
-	border-right: 1px solid var(--line);
+	border-inline-end: 1px solid var(--line);
 	background: transparent;
 	color: var(--ink-dim);
 	font-family: var(--font-mono);
@@ -5651,7 +5651,7 @@ button.cm-link:focus-visible {
 	transition: color var(--cm-t) var(--cm-ease),
 		background var(--cm-t) var(--cm-ease);
 }
-.cm-seg__opt:last-child { border-right: 0; }
+.cm-seg__opt:last-child { border-inline-end: 0; }
 .cm-seg__opt:hover { color: var(--ink); background: var(--panel); }
 .cm-seg__opt[aria-pressed='true'] {
 	color: var(--ink);
@@ -5739,7 +5739,7 @@ button.cm-link:focus-visible {
    of summary text, and `align-self` keeps it off the tap floor's optical
    line when the summary wraps at 390px. */
 .cm-disclosure__action {
-	margin-left: auto;
+	margin-inline-start: auto;
 	align-self: center;
 }
 .cm-disclosure__body {
@@ -5815,12 +5815,12 @@ button.cm-link:focus-visible {
 	   placeholder ran UNDER the magnifier by the glyph's width; with an
 	   earlier `1.25em` fudge it sat 9px too far right and squeezed the
 	   hint. */
-	padding-left: calc(var(--space-3) + 1em + var(--space-2));
+	padding-inline-start: calc(var(--space-3) + 1em + var(--space-2));
 	/* The right gutter clears .cm-search__clear, so a typed value never
 	   runs under it. The clear button's own width is a TOKEN now (it was
 	   a bare 32px), so this derivation cannot drift from the thing it
 	   has to clear. */
-	padding-right: calc(var(--space-3) + var(--search-clear) + var(--space-2));
+	padding-inline-end: calc(var(--space-3) + var(--search-clear) + var(--space-2));
 	padding-top: var(--space-2);
 	padding-bottom: var(--space-2);
 	min-height: var(--tap);
@@ -5853,7 +5853,7 @@ button.cm-link:focus-visible {
 	position: absolute;
 	/* Anchored to the same space-3 as the input's left padding, so the
 	   glyph and the text gutter can never drift apart. */
-	left: var(--space-3);
+	inset-inline-start: var(--space-3);
 	pointer-events: none;
 	display: inline-flex;
 	align-items: center;
@@ -5871,7 +5871,7 @@ button.cm-link:focus-visible {
 }
 .cm-search__clear {
 	position: absolute;
-	right: var(--space-1);
+	inset-inline-end: var(--space-1);
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -6185,6 +6185,15 @@ input.cm-slider:disabled {
 	position: relative;
 	display: inline-block;
 }
+/* The panel's `left` is PHYSICAL on purpose - the Direction baseline
+   (logical properties) does not touch it. The runtime owns the final
+   offset: cmClampHovercards() clears `style.left`, re-measures in
+   viewport coordinates and writes a physical `style.left` back on every
+   init and resize. A CSS-only consumer keeps the physical `left: 0` the
+   clamp's arithmetic assumes; converting this one declaration to
+   `inset-inline-start` would desync the stylesheet from the JS that
+   overwrites it. Runtime-owned offsets stay physical, with a comment,
+   until the runtime itself flips. */
 .cm-hovercard__panel {
 	position: absolute;
 	z-index: var(--z-hovercard);
@@ -6239,11 +6248,11 @@ input.cm-slider:disabled {
    loses the cascade silently. The addon is ours, so the collapse lives
    there - and the same rule, reversed, covers an addon on the right. */
 .cm-input-group > .cm-input-group__addon {
-	border-right-width: 0;
+	border-inline-end-width: 0;
 }
 .cm-input-group > .cm-input-group__addon:last-child {
-	border-right-width: 1px;
-	border-left-width: 0;
+	border-inline-end-width: 1px;
+	border-inline-start-width: 0;
 }
 .cm-input-group__addon {
 	display: inline-flex;
@@ -6346,7 +6355,7 @@ input.cm-slider:disabled {
 	background: transparent;
 	color: var(--ink-dim);
 	font: inherit;
-	text-align: left;
+	text-align: start;
 	cursor: pointer;
 }
 /* Hover and the script's roving row highlight the same way, so a mouse
@@ -6468,7 +6477,7 @@ input.cm-slider:disabled {
 	background: transparent;
 	color: inherit;
 	font: inherit;
-	text-align: left;
+	text-align: start;
 }
 .cm-step__marker {
 	display: inline-flex;
@@ -6555,8 +6564,8 @@ input.cm-slider:disabled {
 	position: absolute;
 	z-index: var(--z-popover);
 	top: calc(100% + 4px);
-	left: 0;
-	right: 0;
+	inset-inline-start: 0;
+	inset-inline-end: 0;
 	display: block;
 	margin: 0;
 	padding: var(--space-1);
@@ -6581,7 +6590,7 @@ input.cm-slider:disabled {
 	background: transparent;
 	color: var(--ink-dim);
 	font: inherit;
-	text-align: left;
+	text-align: start;
 	cursor: pointer;
 }
 .cm-combobox__option:hover,
@@ -6627,12 +6636,12 @@ input.cm-slider:disabled {
 	margin: 0;
 	padding: var(--space-2) var(--space-3);
 	border: 0;
-	border-right: 1px solid var(--line);
+	border-inline-end: 1px solid var(--line);
 	border-radius: var(--radius-sm);
 	background: transparent;
 	color: var(--ink-dim);
 	font: inherit;
-	text-align: left;
+	text-align: start;
 	cursor: pointer;
 }
 .cm-menubar__trigger:hover,
@@ -6640,6 +6649,16 @@ input.cm-slider:disabled {
 .cm-menubar__trigger[aria-expanded='true'] {
 	background: var(--bg-3);
 	color: var(--ink);
+}
+/* A disabled word is a word at a lower WEIGHT, not a grey chip: it keeps
+   the cell's hairline (it is still a cell) and gives up the ink and the
+   pointer affordance. Declared AFTER the hover/focus block so the state
+   cannot be re-lit by hovering it - disabled is not a hover state. */
+.cm-menubar__trigger[aria-disabled='true'],
+.cm-menubar__trigger[aria-disabled='true']:hover {
+	background: transparent;
+	color: var(--ink-faint);
+	cursor: default;
 }
 /* The panel hangs under the WORD it belongs to rather than off a chevron's
    right edge; the runtime anchors it from the same left edge (see
@@ -6707,7 +6726,12 @@ input.cm-slider:disabled {
 /* A border pair rotated 45deg IS the mark: no icon font, no inline SVG, and
    nothing that can drift from the label's colour, because it is drawn in
    `currentColor`. The transition is listed in the reduced-motion block at
-   the end of this layer, where every other transition in the system is. */
+   the end of this layer, where every other transition in the system is.
+   The pair is GLYPH GEOMETRY, so the Direction baseline leaves it
+   physical: a logical mirror would flip `border-right` to the other side
+   while `rotate(45deg)` still turns the same way, and the caret would
+   point the wrong way out of a shape that only reads correctly in one
+   orientation. Non-directional shape construction stays physical. */
 .cm-navmenu__chev {
 	display: inline-block;
 	width: 0.4em;
@@ -6809,7 +6833,7 @@ input.cm-slider:disabled {
 .cm-navmenu[data-orientation='vertical'] .cm-navmenu__indicator {
 	position: absolute;
 	top: 0;
-	left: 0;
+	inset-inline-start: 0;
 	width: 2px;
 	height: 100%;
 }
@@ -6865,7 +6889,7 @@ input.cm-slider:disabled {
 	padding: 0 0 0 var(--space-4);
 	list-style: none;
 }
-.cm-tree--root { padding-left: 0; }
+.cm-tree--root { padding-inline-start: 0; }
 .cm-tree > li { margin: 0; }
 /* ONE row treatment for both shapes. A branch summary and a leaf link that
    measure differently make the tree stop reading as a single list. */
@@ -6882,7 +6906,7 @@ input.cm-slider:disabled {
 	background: transparent;
 	color: var(--ink-dim);
 	font: inherit;
-	text-align: left;
+	text-align: start;
 	text-decoration: none;
 	cursor: pointer;
 }
@@ -6922,8 +6946,8 @@ input.cm-slider:disabled {
 	width: 9px;
 	margin: 0 -1px;
 	border: 0;
-	border-left: 1px solid var(--line);
-	border-right: 1px solid var(--line);
+	border-inline-start: 1px solid var(--line);
+	border-inline-end: 1px solid var(--line);
 	background: var(--bg-3);
 	cursor: col-resize;
 	touch-action: none;
@@ -6935,12 +6959,12 @@ input.cm-slider:disabled {
 	content: '';
 	position: absolute;
 	top: 50%;
-	left: 50%;
+	inset-inline-start: 50%;
 	width: 3px;
 	height: 18px;
 	transform: translate(-50%, -50%);
-	border-left: 1px solid var(--ink-faint);
-	border-right: 1px solid var(--ink-faint);
+	border-inline-start: 1px solid var(--ink-faint);
+	border-inline-end: 1px solid var(--ink-faint);
 }
 @media (max-width: 640px) {
 	/* Two panes side by side on a phone are two unusable panes: stack, and
@@ -6951,8 +6975,8 @@ input.cm-slider:disabled {
 		width: auto;
 		height: 9px;
 		margin: -1px 0;
-		border-left: 0;
-		border-right: 0;
+		border-inline-start: 0;
+		border-inline-end: 0;
 		border-top: 1px solid var(--line);
 		border-bottom: 1px solid var(--line);
 		cursor: row-resize;
@@ -6960,8 +6984,8 @@ input.cm-slider:disabled {
 	.cm-resize__handle::after {
 		width: 18px;
 		height: 3px;
-		border-left: 0;
-		border-right: 0;
+		border-inline-start: 0;
+		border-inline-end: 0;
 		border-top: 1px solid var(--ink-faint);
 		border-bottom: 1px solid var(--ink-faint);
 	}
@@ -6996,7 +7020,7 @@ input.cm-slider:disabled {
 	/* pinned: when the grid scrolls sideways inside the card, the
 	   month and its arrows stay put. */
 	position: sticky;
-	left: 0;
+	inset-inline-start: 0;
 	display: flex;
 	background: var(--panel);
 	align-items: center;
@@ -7432,6 +7456,243 @@ input.cm-slider:disabled {
 	border-top: 1px solid var(--line-soft);
 }
 
+/* ---------- message list: the flat transcript timeline ----------
+   .cm-msglist is the Discord-shaped timeline that lives INSIDE
+   .cm-scroller: a day divider, a four-track row, continuation rows
+   that lose their header, an unread rule, a mention row and a system
+   row. It composes the family instead of restating it - the avatar is
+   .cm-avatar, the system note is .cm-marker, the frame is .cm-scroller
+   - and it never stacks: no rule in this block carries a z-index,
+   because a row that only reveals a toolbar on hover needs no paint
+   order.
+
+   Grouping (one author inside ~5 minutes) is the CONSUMER's job:
+   this layer styles the --grouped row it is handed. That split is
+   what the timestamp rule rests on. An ungrouped row stamps itself in
+   the meta line; a continuation row has no header to stamp it, so its
+   time lives in the gutter. One visible stamp per row, decided here,
+   so a consumer authors ONE row template instead of two. */
+.cm-msglist {
+	display: grid;
+}
+/* The row grid, in the contract's order. The FOURTH track is the
+   action toolbar's, and it exists at rest: revealing a control by
+   adding a column is what makes the text jump when the pointer
+   arrives. Hiding the toolbar is opacity, never geometry. */
+.cm-msglist__msg {
+	display: grid;
+	grid-template-columns: var(--msglist-gutter) var(--msglist-avatar) minmax(0, 1fr) auto;
+	column-gap: var(--space-2);
+	align-items: start;
+	padding-block: var(--space-2);
+	padding-inline: var(--space-2);
+}
+/* The row lifts under the pointer and for a keyboard that reached
+   inside it. --bg-3 is one step off the viewport's --panel in BOTH
+   themes: --bg-2 measured 1.008:1 against --panel, which is a hover
+   state nobody can see. */
+.cm-msglist__msg:hover,
+.cm-msglist__msg:focus-within {
+	background: var(--bg-3);
+}
+/* The gutter's time. The contract splits it in two names because the
+   two rows carry it for different reasons and CSS must be able to
+   address them apart: --stamp is the meta line's copy on a first row,
+   --hoverstamp is the gutter's copy on a continuation row, which the
+   row only reveals when the pointer or the keyboard is on it. Sharing
+   one class would make "never both at once" unenforceable in CSS. */
+.cm-msglist__stamp,
+.cm-msglist__hoverstamp {
+	font-size: var(--text-micro);
+	color: var(--ink-faint);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+.cm-msglist__hoverstamp {
+	opacity: 0;
+}
+.cm-msglist__msg:hover .cm-msglist__hoverstamp,
+.cm-msglist__msg:focus-within .cm-msglist__hoverstamp {
+	opacity: 1;
+}
+/* The stamp column, right-aligned so the time reads as a margin note
+   against the avatar it belongs to. */
+.cm-msglist__gutter {
+	grid-column: 1;
+	font-size: var(--text-micro);
+	color: var(--ink-faint);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	text-align: end;
+}
+/* ONE stamp per row: the meta line already stamps an ungrouped row,
+   so its gutter copy goes quiet, and the continuation row - which has
+   no meta at all - keeps its own. visibility rather than display:none
+   so the column's geometry is identical either way; that is what lets
+   a consumer author the gutter on every row and leave the decision
+   to this one rule. */
+.cm-msglist__msg:not(.cm-msglist__msg--grouped) .cm-msglist__gutter {
+	visibility: hidden;
+}
+/* The avatar lands in the fixed second track, top-aligned with the
+   author line it belongs to. A grouped row hands the SAME track an
+   empty slot: no initials, no border, but the message column behind
+   it does not move a pixel. */
+.cm-msglist__avatar {
+	grid-column: 2;
+	align-self: start;
+}
+.cm-msglist__main {
+	grid-column: 3;
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	min-width: 0;
+}
+.cm-msglist__meta {
+	display: flex;
+	align-items: baseline;
+	gap: var(--space-2);
+	margin: 0;
+	font-size: var(--text-sm);
+	color: var(--ink-faint);
+}
+.cm-msglist__author {
+	color: var(--ink);
+	font-weight: 700;
+}
+.cm-msglist__text {
+	margin: 0;
+	color: var(--ink);
+	overflow-wrap: break-word;
+}
+/* ONE button, in a track that is already there. opacity +
+   pointer-events, not visibility: the toolbar must be invisible AND
+   unable to swallow a click on the row beneath it, while staying in
+   the layout (the reserved track is what stops the text moving) and
+   in the tab order - a control that only exists under a pointer is a
+   control the keyboard can never reach. */
+.cm-msglist__actions {
+	grid-column: 4;
+	align-self: start;
+	opacity: 0;
+	pointer-events: none;
+}
+.cm-msglist__msg:hover .cm-msglist__actions,
+.cm-msglist__msg:focus-within .cm-msglist__actions {
+	opacity: 1;
+	pointer-events: auto;
+}
+/* Reactions sit under the text as real toggles: the count is TEXT
+   inside the button, never a ::after or a label, so the number is
+   selectable, translatable and announced with the emoji. */
+.cm-msglist__reactions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-1);
+	margin: 0;
+}
+.cm-msglist__reaction {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	margin: 0;
+	padding-inline: var(--space-1);
+	border: 1px solid var(--line);
+	background: var(--panel-nested);
+	color: var(--ink-dim);
+	font-size: var(--text-micro);
+	line-height: 1.5;
+	cursor: pointer;
+}
+.cm-msglist__reaction:hover {
+	border-color: var(--ink-dim);
+	color: var(--ink);
+}
+/* The reader's own reaction: a heavier edge and a raised fill. The
+   edge is a SHAPE cue, so "you reacted" survives a greyscale read of
+   the row - and aria-pressed carries the same state to AT. */
+.cm-msglist__reaction--mine {
+	border-color: var(--ink);
+	background: var(--surface-raised);
+	color: var(--ink);
+	box-shadow: inset 0 0 0 1px var(--ink);
+}
+.cm-msglist__count {
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+}
+/* The day divider: one label between two hairlines, the way
+   .cm-marker--separator draws it, in the divider's own class because
+   the contract marks this element as a separator in the markup. */
+.cm-msglist__day {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	margin-block: var(--space-3) var(--space-1);
+	font-size: var(--text-micro);
+	color: var(--ink-faint);
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+}
+.cm-msglist__daylabel {
+	font-weight: 700;
+}
+.cm-msglist__day::before,
+.cm-msglist__day::after {
+	content: "";
+	flex: 1;
+	border-block-start: 1px solid var(--line);
+}
+/* The unread rule. A 2px bar and the label in WORDS: colour is never
+   the only thing telling a reader that messages went unread. */
+.cm-msglist__unread {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	margin-block: var(--space-2);
+	padding-block-start: var(--space-1);
+	border-block-start: 2px solid var(--ink);
+	font-size: var(--text-micro);
+	font-weight: 700;
+	color: var(--ink);
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+}
+.cm-msglist__unreadlabel {
+	letter-spacing: inherit;
+}
+/* A mention is a mark AND a tint, and the mark comes first: a bar on
+   the inline-start edge (logical, so RTL is handed the same rule)
+   with the width it eats handed back as padding, so the message
+   column starts where it does in every other row. */
+.cm-msglist__msg--mention {
+	border-inline-start: 2px solid var(--ink);
+	padding-inline-start: calc(var(--space-2) - 2px);
+	background: var(--panel-nested);
+}
+/* The lift rule above would otherwise repaint a mentioned row back to
+   a plain one exactly when the reader is looking at it. */
+.cm-msglist__msg--mention:hover,
+.cm-msglist__msg--mention:focus-within {
+	background: var(--panel-nested);
+}
+/* A continuation row: no header, and the block padding tightens from
+   --space-2 to --space-0 so the turn reads as one paragraph of the
+   log. The empty avatar slot is still there - it is what keeps the
+   message column aligned. */
+.cm-msglist__msg--grouped {
+	padding-block-start: var(--space-0);
+}
+/* A system row gives up the grid: one full-width track, so the
+   .cm-marker it carries - bordered, separator or inline - is the only
+   thing on the line. */
+.cm-msglist__msg--system {
+	grid-template-columns: minmax(0, 1fr);
+	align-items: center;
+	padding-block: var(--space-1);
+}
+
 /* ---------- attachment: the file/upload card ----------
    shadcn's Attachment is a composed card (media, content, actions, an
    optional full-card trigger) with an upload lifecycle, three sizes, two
@@ -7698,7 +7959,7 @@ input.cm-slider:disabled {
 	color: var(--ink-dim);
 	font: inherit;
 	font-size: var(--text-sm);
-	text-align: left;
+	text-align: start;
 	cursor: pointer;
 	width: 100%;
 }
@@ -7733,9 +7994,16 @@ input.cm-slider:disabled {
 /* The check and the dot ARE the checked state, so the glyph slot is never
    empty and the column never jumps when an item toggles. */
 .cm-dropdown__icon[data-checked='true']::before { content: "\2713"; }
+/* The radio's mark is a DOT, and it hangs on the same slot. The checkbox
+   glyph above is keyed on data-checked (the RUNTIME writes it); a radio row's
+   truth is aria-checked, which setRadio() owns - so the dot reads the
+   attribute the radio actually speaks. Measured before this rule: a checked
+   row's icon slot computed to `content: none`, i.e. the selection had no
+   visual state at all, only a colour change on an empty box. */
+.cm-dropdown__item[role='menuitemradio'][aria-checked='true'] .cm-dropdown__icon::before { content: "\25cf"; }
 .cm-dropdown__shortcut {
 	flex: none;
-	margin-left: auto;
+	margin-inline-start: auto;
 	color: var(--ink-faint);
 	font-size: var(--text-micro);
 }
@@ -7744,7 +8012,7 @@ input.cm-slider:disabled {
 .cm-dropdown__shortcut { -webkit-user-select: none; user-select: none; }
 .cm-dropdown__item[aria-haspopup='menu'] > .cm-dropdown__caret {
 	flex: none;
-	margin-left: auto;
+	margin-inline-start: auto;
 	color: var(--ink-faint);
 }
 .cm-dropdown__label-text {
@@ -7917,7 +8185,7 @@ input.cm-slider:disabled {
 	font-size: var(--text-micro);
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
-	text-align: left;
+	text-align: start;
 	cursor: pointer;
 }
 .cm-sidebar__grouplabel::after {
@@ -7965,7 +8233,7 @@ input.cm-slider:disabled {
 	color: var(--sidebar-foreground);
 	font-family: inherit;
 	font-size: var(--text-sm);
-	text-align: left;
+	text-align: start;
 	text-decoration: none;
 	cursor: pointer;
 }
@@ -8034,7 +8302,7 @@ input.cm-slider:disabled {
 	color: var(--ink-dim);
 	font-family: inherit;
 	font-size: var(--text-sm);
-	text-align: left;
+	text-align: start;
 	text-decoration: none;
 	cursor: pointer;
 }
@@ -8271,6 +8539,14 @@ input.cm-slider:disabled {
 }
 
 /* ---- the tooltip layer ---- */
+/* The horizontal anchor is PHYSICAL, and it has to be: the runtime derives
+   it from SVG user space (`band.getBBox().x`) minus the plot's own
+   `getBoundingClientRect().left` — a pixel offset measured from the
+   drawing's LEFT EDGE. SVG has no logical axis, so there is no
+   `inset-inline-start` this value could honestly name; converting only the
+   CSS would promise RTL mirroring the arithmetic cannot deliver, exactly
+   the hovercard's situation. Runtime-owned offset, physical, until the
+   runtime itself flips. Listed in the Direction baseline's permit. */
 .cm-chart__tooltip {
 	position: absolute;
 	top: var(--space-2);
@@ -8379,6 +8655,442 @@ input.cm-slider:disabled {
 	.cm-chart__legend { gap: var(--space-1) var(--space-3); }
 }
 
+/* ---------- guildrail: the server icon rail ----------
+   A chat client's far-leading column: one square per server, a visible
+   activity pill, an unread count or dot, a separator, and an add
+   control. It is a flex column that owns its OWN scroll - a long server
+   list scrolls inside the rail instead of stretching the app grid row
+   it sits in.
+
+   It is a rail, not a sidebar: `--sidebar-icon-width` (3rem) is a
+   collapsed label sidebar, and a monogram in a 44px square wants the
+   4.5rem the square is centred in. Both numbers are tokens, because a
+   consumer retheming a chat client retunes the rail width, not this
+   file.
+
+   THE TIP AND THE SCROLLPORT, measured.
+   `overflow-y: auto` does not buy a vertical-only scroller: only
+   `visible` is ever promoted to the other axis, and it is promoted TO
+   `auto`, so the rail becomes a clipper on both axes. The rail's tip is
+   `position: absolute` inside it, and a scrollport clips everything
+   painted past its padding box. MEASURED in WebKit 26.6 on identical
+   markup, one pixel read through a canvas at the tip's centre:
+
+		overflow-y: auto   -> [255, 255, 255, 255]   (clipped)
+		overflow: visible  -> [255, 215,  0, 255]   (painted)
+
+   The one property that widens a clip rect, `overflow-clip-margin`,
+   does not exist in WebKit at all - `CSS.supports('overflow-clip-margin',
+   '20px')` is false, and the -webkit- prefixed form and both longhands
+   are false too - so the clip edge is widened BY HAND: the rail keeps
+   `overflow-y: auto`, its padding box reaches out by --guildrail-bleed,
+   and the tip paints past the real rail edge. WebKit then reads the
+   inline axis as `hidden`, which is the same clip with no scrollbar.
+
+   The bleed is empty padding, and empty padding that swallows clicks is
+   not empty - it would sit over whatever the consumer put beside the
+   rail and eat the first 18rem of it. So three things keep it invisible:
+   the fill and the trailing edge are clipped to the CONTENT box, the
+   pointer falls through it to whatever the rail overlaps, and the
+   scrollbar is suppressed (base.css gives every element a 12px
+   ::-webkit-scrollbar, and here it would be drawn 18rem to the right of
+   the icons it belongs to). The rail's own square is the only part of
+   its box that is painted or hit-testable, which is exactly what it was
+   before the bleed existed. */
+.cm-guildrail {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--space-1);
+	/* Bounded AND scrollable. Without the max the rail's box IS its
+	   content, the grid row stretches with the server list, and
+	   `overflow-y: auto` then has a box exactly as tall as the content
+	   - nothing to scroll against, which is the failure the rail exists
+	   to prevent. */
+	min-block-size: 0;
+	max-block-size: 100%;
+	/* The box is WIDER than the column it sits in, on purpose, and the
+	   negative margin puts the LAYOUT back. box-sizing is border-box, so
+	   the bleed padding is subtracted from the declared width: left on
+	   `auto` the rail measured its whole 18rem of padding against a 4.5rem
+	   grid track and the squares got a ZERO-width content box. Stating
+	   the width and cancelling it with a margin leaves the grid a
+	   --guildrail-w margin box while the clip rect reaches out to the
+	   bleed - the grid column is 72px and the tip still escapes. */
+	inline-size: calc(var(--guildrail-w) + var(--guildrail-bleed));
+	margin-inline-end: calc(0px - var(--guildrail-bleed));
+	justify-self: start;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding-inline-end: var(--guildrail-bleed);
+	pointer-events: none;
+	scrollbar-width: none;
+	/* A border would be drawn at the padding box too, so the trailing
+	   edge of the rail is a gradient clipped to the content box: same
+	   pixel, same token, no 18rem line. `100% 0` is the trailing edge of
+	   the positioning area, which is the content box - a physical
+	   keyword would sit at the padding box edge instead. */
+	background:
+		linear-gradient(var(--line), var(--line)) no-repeat 100% 0 / 1px 100%,
+		var(--panel);
+	background-origin: content-box;
+	background-clip: content-box;
+}
+.cm-guildrail::-webkit-scrollbar { display: none; }
+/* The wrapper has to be a centring flex row, not the tooltip's own
+   inline-block: it is a stretched flex item, so a bare inline-block left
+   the square pinned to the rail's leading edge and the 44px target
+   stopped being centred in the rail. The pointer comes back on the
+   wrappers alone - they are the only part of the rail a finger needs. */
+.cm-guildrail .cm-tooltip {
+	display: flex;
+	justify-content: center;
+	pointer-events: auto;
+}
+
+/* The tip is moved by hand because none of the three stock answers fit a
+   rail. `--start` puts its LEADING edge at the trigger's, which is
+   inside the rail; `--end` puts its TRAILING edge there, so it points
+   back over the rail; and the base tip hangs above its trigger, which
+   for a rail pinned to the top of a viewport is above the viewport.
+   This one starts exactly where the rail's content ends and is centred
+   on the square it labels, and the hover/focus transform has to carry
+   the centring through - the base rule settles it to `translateY(0)`,
+   which would drop the tip half its own height.
+
+   The reveal rule needs no restatement here: it sets opacity and
+   visibility only, and this selector already outranks the base tip, so
+   a `:hover`/`:focus-within` copy of this transform would be a
+   declaration superseded by a later equal rule (proved by deleting it
+   and re-running the WebKit harness, which still measured the tip
+   centred at 0.0px). */
+.cm-guildrail .cm-tooltip__tip {
+	inset-inline-start: 100%;
+	inset-inline-end: auto;
+	inset-block-start: 50%;
+	inset-block-end: auto;
+	transform: translateY(-50%);
+	/* The tip's own cap is `min(18rem, 52vw)` and the clip box reaches
+	   exactly --guildrail-bleed past the content box, so the two numbers
+	   agreeing is the WHOLE reason the tip survives: measured one pixel
+	   past the padding box and the fill is gone. Tying the cap to the
+	   token makes that a declaration instead of a coincidence - a
+	   consumer who narrows the bleed narrows the tip with it, and the
+	   tip can never be clipped by its own container. */
+	max-inline-size: var(--guildrail-bleed);
+}
+
+/* The square. `--tap` for both dimensions on every pointer, not just a
+   coarse one: the contract's floor is unconditional, and a rail is the
+   one place a mouse and a thumb aim at the same 44px box. */
+.cm-guildrail__item {
+	position: relative;
+	inline-size: var(--tap);
+	block-size: var(--tap);
+	flex: 0 0 auto;
+	display: inline-grid;
+	place-items: center;
+	border: 1px solid transparent;
+	border-radius: var(--radius-sm);
+	background: transparent;
+	color: var(--ink-faint);
+	/* The monogram is set here, not in the markup: the size of a glyph
+	   is a property of the thing holding it. */
+	font-family: var(--font-mono);
+	font-size: max(var(--min-font), var(--text-sm));
+	font-weight: 700;
+	line-height: 1;
+	letter-spacing: 0.04em;
+	transition: background var(--cm-t) var(--cm-ease),
+		color var(--cm-t) var(--cm-ease);
+}
+.cm-guildrail__item:hover,
+.cm-guildrail__item:focus-visible {
+	background: var(--surface-raised);
+	color: var(--ink);
+}
+.cm-guildrail__item:focus-visible { outline-color: var(--focus); }
+/* The home door is the one square that is not a server, so it wears a
+   frame - a shape difference, not a hue, because this palette has none. */
+.cm-guildrail__item--home { border-color: var(--line); }
+/* `aria-current` is the only thing that says which server you are in, so
+   it has to be readable in greyscale: a fill AND the ink AND the pill,
+   never the hue on its own. */
+.cm-guildrail__item[aria-current='true'] {
+	background: var(--surface-raised);
+	color: var(--ink);
+}
+/* The activity pill: a tick on hover, a full bar for the room you are
+   in. It is scaled, not resized - a `block-size` transition is a layout
+   transition on every frame, and a marker two pixels wide is not worth
+   one. The idle state is invisible rather than absent, because the
+   element is in the contract's markup on every item. */
+.cm-guildrail__pill {
+	position: absolute;
+	inset-inline-start: 0;
+	inset-block-start: 50%;
+	inline-size: var(--space-0);
+	block-size: var(--tap);
+	background: var(--ink);
+	opacity: 0;
+	transform: translateY(-50%) scaleY(0.14);
+	transition: opacity var(--cm-t) var(--cm-ease),
+		transform var(--cm-t) var(--cm-ease);
+}
+.cm-guildrail__item:hover .cm-guildrail__pill,
+.cm-guildrail__item:focus-visible .cm-guildrail__pill {
+	opacity: 1;
+}
+.cm-guildrail__item[aria-current='true'] .cm-guildrail__pill {
+	opacity: 1;
+	transform: translateY(-50%) scaleY(1);
+}
+.cm-guildrail__icon {
+	pointer-events: none;
+	/* A two-digit badge must not be able to widen the monogram box: the
+	   square is the tap target and the contract measures it. */
+	min-inline-size: 0;
+}
+/* The count is chrome on a target, so it hangs off the square's corner
+   rather than joining its layout. Filled, never hollow - and it fills
+   with `--ink`, because this palette is greyscale and a badge is not
+   the place to introduce the first hue in the system.
+
+   `max-inline-size: --tap` is the contract's "a two-digit count must not
+   break the 44px square" read as a WIDTH bound on the badge itself: the
+   count may hang outside the corner (it is chrome) but it can never be
+   wider than the target it belongs to. */
+.cm-guildrail__badge {
+	position: absolute;
+	inset-block-start: calc(0px - var(--space-1) / 2);
+	inset-inline-end: calc(0px - var(--space-1) / 2);
+	display: inline-grid;
+	place-items: center;
+	min-inline-size: var(--space-4);
+	max-inline-size: var(--tap);
+	block-size: var(--space-4);
+	padding-inline: var(--space-1);
+	overflow: hidden;
+	border-radius: var(--radius-sm);
+	background: var(--ink);
+	color: var(--bg);
+	font-size: max(var(--min-font), var(--text-micro));
+	font-weight: 700;
+	line-height: 1;
+	white-space: nowrap;
+}
+/* No count and unread is a DOT, not a zero - and never both on one item,
+   which is a markup rule the contract states and the tests assert. */
+.cm-guildrail__unread {
+	position: absolute;
+	inset-block-start: calc(0px - var(--space-1) / 2);
+	inset-inline-end: calc(0px - var(--space-1) / 2);
+	inline-size: var(--space-2);
+	block-size: var(--space-2);
+	background: var(--ink);
+}
+/* The rule between the servers and the add control. A background rather
+   than a border, so the 1px is the whole separator and not 1px plus the
+   element's own box. */
+.cm-guildrail__sep {
+	flex: 0 0 auto;
+	align-self: center;
+	inline-size: var(--tap);
+	block-size: 1px;
+	margin-block: var(--space-1);
+	background: var(--line);
+}
+/* The add control is the same square as a server and differs only in
+   what it means, so it inherits the item's whole box: a hand-rolled
+   second square is the 32x44 defect waiting to happen. */
+.cm-guildrail__item--add { color: var(--ink-dim); }
+
+/* ---------- composer: the message box at the foot of a thread ----------
+   A frame, a field, a reply strip above it, and the controls that flank
+   the field.
+
+   Everything behavioural here is the CONSUMER's, deliberately: Enter
+   sends, Shift+Enter is a newline, the field grows with what you type,
+   and the reply strip is shown by removing `hidden`. None of that is CSS
+   and none of it is this library's runtime - a composer that ships a
+   send handler ships a chat protocol. What the CSS owes is a control
+   that is correct when the consumer does nothing at all: a native
+   `rows="1"` textarea that reserves what the platform reserves, a bar
+   that reads as focused the moment anything inside it has focus, and a
+   tap floor on every control.
+
+   The field's own skin is switched off on purpose. base.css gives a
+   `textarea` a fill, a border, its own padding and a 2x-`--tap`
+   min-height - that is right for a form field and wrong inside a bar
+   that already IS the surface, the border and the padding. */
+.cm-composer {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+/* The reply strip sits ABOVE the bar, outside the frame - it is context
+   for the message, not part of the message box. */
+.cm-composer__reply {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding-inline: var(--space-2);
+	border-inline-start: 1px solid var(--line);
+	color: var(--ink-dim);
+	font-size: max(var(--min-font), var(--text-xs));
+}
+/* The library styles [hidden]; the consumer only flips the attribute. A
+   `display: flex` above outranks the UA's `[hidden] { display: none }`
+   outright, so this rule is the component's own. */
+.cm-composer__reply[hidden] { display: none; }
+.cm-composer__replytext {
+	flex: 1 1 auto;
+	min-inline-size: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+.cm-composer__replyclose { color: var(--ink-faint); }
+/* The bar is the frame, and the frame is the focus affordance: the field
+   inside it carries no ring of its own, so `:focus-within` on the bar is
+   the only thing telling a keyboard user where they are. */
+.cm-composer__bar {
+	display: flex;
+	align-items: flex-end;
+	gap: var(--space-2);
+	padding: var(--space-2) var(--space-3);
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	/* --panel-nested, not --panel: a composer sits ON a panel, and the
+	   two identical fills would make the frame the only edge the box
+	   has. */
+	background: var(--panel-nested);
+	transition: border-color var(--cm-t) var(--cm-ease);
+}
+.cm-composer__bar:focus-within { border-color: var(--focus); }
+/* THREE selectors, and the third one is load-bearing twice over.
+
+   `textarea:not(.cm-search__input)` in base.css is (0,1,1) and owns the
+   field's padding, border and background; the WIDTH comes from a
+   different rule, `textarea:not(.cm-inline__input):not(.cm-search__input)`
+   at (0,2,1). A two-class rule is (0,2,0) and loses the width outright -
+   a textarea claiming `width: 100%` inside a flex bar, which is the
+   whole row and not the space left over. Matching that rule's selector
+   ties its specificity at (0,2,1), and this layer loads after base.css,
+   so source order settles it. The same trick, for the same reason, is
+   documented on the select arrow in base.css. */
+.cm-composer__bar > textarea.cm-composer__input {
+	flex: 1 1 auto;
+	inline-size: auto;
+	min-inline-size: 0;
+	/* NOT a cap. The contract's six-line limit is the consumer's
+	   auto-grow; a `max-block-size` here would clip line seven and make
+	   the library the thing that broke the scroll. */
+	max-block-size: none;
+	/* base.css reserves 2x--tap for a FORM field. A composer's
+	   reservation is its row count plus the tap floor, and the consumer
+	   grows it from there. */
+	min-block-size: var(--tap);
+	padding: 0;
+	border: 0;
+	/* `background`, not `background-color`: the field must be
+	   transparent, and the base rule's own longhand is what is undone. */
+	background: transparent;
+	resize: none;
+	overflow-y: auto;
+	line-height: 1.5;
+}
+.cm-composer__tools {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	flex: 0 0 auto;
+	margin-inline-start: auto;
+}
+/* A tap floor on the two named controls, declared by the component that
+   names them: `.cm-icon-btn`'s own coarse rule is the general case, and
+   a composer is the one place the floor is a contract term. */
+@media (pointer: coarse) {
+	.cm-composer__attach,
+	.cm-composer__send {
+		inline-size: var(--tap);
+		block-size: var(--tap);
+	}
+}
+/* The send button is the only control on the row that reads as a verb,
+   so it takes the ink while the attach and emoji controls stay dim. */
+.cm-composer__send {
+	position: relative;
+	border-color: var(--ink-dim);
+	color: var(--ink);
+}
+/* Send in flight: the button shows busy and the input stays usable, so
+   `data-cm-sending` is on the FORM and not a `disabled` on anything. The
+   glyph stays in the box and is made transparent rather than removed -
+   the box must not resize under the pointer mid-send. */
+.cm-composer[data-cm-sending] .cm-composer__send { color: transparent; }
+.cm-composer[data-cm-sending] .cm-composer__send::before {
+	content: '\21bb';
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	color: var(--ink-dim);
+	animation: cm-spin 0.9s linear infinite;
+}
+/* A read-only room: the textarea is `disabled` and the box says so. It
+   reaches the frame through `:has`, which is the same idiom the header
+   row uses for the badge it wraps - the disabled element is a
+   grandchild, and no sibling combinator can see it. */
+.cm-composer:has(.cm-composer__input:disabled) .cm-composer__bar {
+	border-color: var(--line-soft);
+}
+.cm-composer:has(.cm-composer__input:disabled) .cm-composer__send {
+	color: var(--ink-faint);
+	cursor: not-allowed;
+}
+/* Layout only: the semantics stay on the composed `.cm-marker` inside
+   it, exactly as the marker docs require. */
+.cm-composer__typing { margin: var(--space-1) 0 0; }
+
+/* A reply quote inside a row: the message this one answers, shown
+   above its text as a one-line context strip. It sits in the MAIN
+   column, not across the row, so it lines up under the author it
+   belongs to rather than under the gutter. The name is the anchor -
+   it is what the reader scans for - and the preview takes whatever
+   is left, ellipsised rather than wrapped, so a long quote can never
+   push the real message out of the first screenful. min-inline-size:
+   0 is what lets a flex child actually shrink; without it the strip
+   grows to its content and the ellipsis never happens. */
+.cm-msglist__reply {
+	display: flex;
+	align-items: baseline;
+	gap: var(--space-2);
+	min-inline-size: 0;
+	margin-block-end: var(--space-1);
+	color: var(--ink-dim);
+	font-size: var(--text-micro);
+}
+.cm-msglist__replyname {
+	flex: none;
+	color: var(--ink-dim);
+	font-weight: 600;
+}
+.cm-msglist__replypreview {
+	min-inline-size: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+/* A mention count is the one sidebar badge that has to outrank the
+   channel it sits on: it is an obligation, not a status. It is marked by
+   WEIGHT and the ink, never by hue alone - forced-colours drops the
+   distinction between two fills, and a mention nobody can see is a
+   mention nobody answers. */
+.cm-sidebar__badge--mention {
+	color: var(--ink);
+	font-weight: 700;
+}
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;
@@ -8409,7 +9121,7 @@ input.cm-slider:disabled {
 	height: 1.15em;
 	flex: 0 0 auto;
 	vertical-align: -0.18em;
-	margin-right: 0.35em;
+	margin-inline-end: 0.35em;
 }
 /* The card carries the padding, so the head and the body must BOTH give
    it up. Zeroing only the head left the title 16px left of the first
@@ -8494,7 +9206,8 @@ input.cm-slider:disabled {
 	.cm-alert--loading .cm-alert__mark::before,
 	.cm-alert--loading .cm-toast__mark::before,
 	.cm-navmenu__panel[data-state='open'] > *,
-	.cm-toast--loading .cm-toast__mark::before { animation: none; }
+	.cm-toast--loading .cm-toast__mark::before,
+	.cm-composer[data-cm-sending] .cm-composer__send::before { animation: none; }
 	/* With no pulse, a skeleton must still read as a placeholder, and a
 	   blinking caret must still read as a caret. */
 	.cm-skeleton__line, .cm-skeleton__block { opacity: 0.55; }
@@ -8508,6 +9221,14 @@ input.cm-slider:disabled {
 	/* A progress fill sliding to its new value is motion too: under
 	   reduced motion the bar JUMPS to the value it is told. */
 	.cm-progress__fill { transition: none; }
+	/* A server square brightening under the pointer is a fade, and a fade
+	   is motion. The state itself must still read - `transition: none`
+	   makes it APPEAR at its hovered colour instantly. */
+	.cm-guildrail__item,
+	.cm-guildrail__pill,
+	.cm-composer__bar,
+	.cm-composer__attach,
+	.cm-composer__send { transition: none; }
 	/* The navmenu chevron rotates when its panel opens. The rotation is
 	   the ONLY signal that it is open to a pointer user, so it must still
 	   happen - instantly, not suppressed. */

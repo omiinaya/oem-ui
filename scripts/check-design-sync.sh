@@ -658,8 +658,13 @@ for t in "${targets[@]}"; do
 		# flat-scoped entry at web/src/ says ../cli-mono/components.css.
 		resolved="$(cd "$(dirname "$f")" 2>/dev/null && cd "$(dirname "$imp")" 2>/dev/null && pwd)/$(basename "$imp")"
 		if [ ! -f "$resolved" ]; then
-			out+="  SCOPED   ${f#$t/} imports $imp, which does not exist - PostCSS drops it silently"$'\n'\
-			     "            the whole design system is absent while every other check passes"$'\n'
+			# Both fragments stay quoted. A `\` continuation that left the
+			# SECOND string indented ended the assignment at the closing
+			# quote and ran the rest as a command: `line 662: the whole
+			# design system is absent...: command not found`, once per
+			# scoped consumer, while the SCOPED line still printed - so
+			# the report looked right and stderr looked broken.
+			out+="  SCOPED   ${f#$t/} imports $imp, which does not exist - PostCSS drops it silently"$'\n'"            the whole design system is absent while every other check passes"$'\n'
 			stale=1; tstale=1
 			continue
 		fi

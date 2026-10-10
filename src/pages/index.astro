@@ -40,7 +40,7 @@ const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'sidebar', 'crumbs', 'lists', 'states', 'surface',
   'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'data-table', 'json', 'rowon', 'switch', 'sheet', 'drawer', 'choice', 'keys-pages-people',
 	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'proselists', 'proselists-order', 'prosetap', 'prosetable', 'tablelabels', 'layout', 'surface-paint',
-	'forms', 'datepicker', 'scrollarea', 'charts', 'utilities', 'chat', 'dropdown-depth', 'navmenu', 'scroller', 'attachment', 'quiz', 'search', 'auth', 'readme',
+	'forms', 'datepicker', 'scrollarea', 'charts', 'utilities', 'chat', 'guildrail', 'composer', 'dropdown-depth', 'navmenu', 'scroller', 'msglist', 'attachment', 'quiz', 'search', 'auth', 'readme',
 ] as const;
 
 /* The log specimen. Long enough to actually scroll, because a sticky
@@ -720,7 +720,7 @@ shadcn's Sidebar is a layout, not a widget: a panel that knows which side it is 
 											<button type="button" class="cm-sidebar__link">
 												<span aria-hidden="true">&#9707;</span>
 												<span class="cm-sidebar__label">deploys</span>
-												<span class="cm-sidebar__badge">12</span>
+												<span class="cm-sidebar__badge cm-sidebar__badge--mention">12</span>
 											</button>
 										</li>
 								</ul>
@@ -2631,22 +2631,106 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 					panel hangs from the LEFT edge of its own word.
 				</p>
 				<div class="cm-menubar" data-cm-menubar role="menubar" aria-label="demo menubar">
-					<button type="button" class="cm-menubar__trigger" popovertarget="mb-file" aria-haspopup="menu" role="menuitem">file</button>
+					<!-- ONE tab stop: the first word is the tabbable one, the rest are
+					     focus targets for the arrows only (.cm-tabs roves the same way).
+					     The runtime re-derives this, so a consumer who authors three
+					     tabindex="0"s still ends up with one. -->
+					<button type="button" class="cm-menubar__trigger" popovertarget="mb-file" aria-haspopup="menu" role="menuitem" tabindex="0">file</button>
 					<div class="cm-dropdown__menu cm-menubar__menu" id="mb-file" popover role="menu" aria-label="file">
-						<button type="button" class="cm-dropdown__item" role="menuitem">new</button>
-						<button type="button" class="cm-dropdown__item" role="menuitem">open</button>
+						<!-- The composition shadcn ships as MenubarGroup/MenubarLabel/
+						     MenubarShortcut plus a "With Icons" section: a fixed-width
+						     icon slot, the label taking the slack, the hint pinned right
+						     - all of it the dropdown's own parts, in a bar panel. -->
+						<div class="cm-dropdown__group-label" id="mb-grp-create" role="presentation">create</div>
+						<div role="group" aria-labelledby="mb-grp-create">
+							<button type="button" class="cm-dropdown__item" role="menuitem">
+								<span class="cm-dropdown__icon" aria-hidden="true">&#9633;</span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">new</span></span>
+								<span class="cm-dropdown__shortcut" aria-hidden="true">ctrl n</span>
+							</button>
+							<button type="button" class="cm-dropdown__item" role="menuitem">
+								<span class="cm-dropdown__icon" aria-hidden="true">&#9662;</span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">open</span></span>
+								<span class="cm-dropdown__shortcut" aria-hidden="true">ctrl o</span>
+							</button>
+						</div>
 						<hr class="cm-dropdown__sep" />
-						<button type="button" class="cm-dropdown__item" role="menuitem" aria-disabled="true">save</button>
+						<!-- The submenu: a nested popover OWNED by a row. Right (or
+						     Enter) opens it, Left closes it and puts focus back on this
+						     row - the same machinery the dropdown specimen proves, so the
+						     bar gains no second implementation of a submenu. -->
+						<button type="button" class="cm-dropdown__item" role="menuitem" aria-haspopup="menu" aria-controls="mb-export">
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">export</span></span>
+							<span class="cm-dropdown__caret" aria-hidden="true">&rsaquo;</span>
+						</button>
+						<div class="cm-dropdown__menu" id="mb-export" popover role="menu" aria-label="export">
+							<button type="button" class="cm-dropdown__item" role="menuitem">as markdown</button>
+							<button type="button" class="cm-dropdown__item" role="menuitem">as html</button>
+						</div>
+						<hr class="cm-dropdown__sep" />
+						<button type="button" class="cm-dropdown__item" role="menuitem" aria-disabled="true">
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">save</span></span>
+							<span class="cm-dropdown__shortcut" aria-hidden="true">ctrl s</span>
+						</button>
 					</div>
-					<button type="button" class="cm-menubar__trigger" popovertarget="mb-edit" aria-haspopup="menu" role="menuitem">edit</button>
+					<button type="button" class="cm-menubar__trigger" popovertarget="mb-edit" aria-haspopup="menu" role="menuitem" tabindex="-1">edit</button>
 					<div class="cm-dropdown__menu cm-menubar__menu" id="mb-edit" popover role="menu" aria-label="edit">
-						<button type="button" class="cm-dropdown__item" role="menuitem">undo</button>
-						<button type="button" class="cm-dropdown__item" role="menuitem">redo</button>
+						<button type="button" class="cm-dropdown__item" role="menuitem">
+							<span class="cm-dropdown__icon" aria-hidden="true">&#8592;</span>
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">undo</span></span>
+							<span class="cm-dropdown__shortcut" aria-hidden="true">ctrl z</span>
+						</button>
+						<button type="button" class="cm-dropdown__item" role="menuitem">
+							<span class="cm-dropdown__icon" aria-hidden="true">&rarr;</span>
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">redo</span></span>
+							<span class="cm-dropdown__shortcut" aria-hidden="true">ctrl shift z</span>
+						</button>
 					</div>
-					<button type="button" class="cm-menubar__trigger" popovertarget="mb-view" aria-haspopup="menu" role="menuitem">view</button>
+					<button type="button" class="cm-menubar__trigger" popovertarget="mb-view" aria-haspopup="menu" role="menuitem" tabindex="-1">view</button>
 					<div class="cm-dropdown__menu cm-menubar__menu" id="mb-view" popover role="menu" aria-label="view">
-						<button type="button" class="cm-dropdown__item" role="menuitem">zoom in</button>
-						<button type="button" class="cm-dropdown__item" role="menuitem">zoom out</button>
+						<button type="button" class="cm-dropdown__item" role="menuitem">
+							<span class="cm-dropdown__icon" aria-hidden="true">+</span>
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">zoom in</span></span>
+							<span class="cm-dropdown__shortcut" aria-hidden="true">ctrl =</span>
+						</button>
+						<button type="button" class="cm-dropdown__item" role="menuitem">
+							<span class="cm-dropdown__icon" aria-hidden="true">&minus;</span>
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">zoom out</span></span>
+							<span class="cm-dropdown__shortcut" aria-hidden="true">ctrl -</span>
+						</button>
+						<hr class="cm-dropdown__sep" />
+						<!-- A checkbox item in the SAME list as the plain rows: the glyph
+						     slot carries the check, so the column never moves when it
+						     flips. toggleCheckable() is the dropdown's, unchanged. -->
+						<button type="button" class="cm-dropdown__item" role="menuitemcheckbox" aria-checked="true" data-cm-check>
+							<span class="cm-dropdown__icon" aria-hidden="true" data-checked="true"></span>
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">status bar</span></span>
+						</button>
+						<hr class="cm-dropdown__sep" />
+						<!-- A radio GROUP: a labelled group of rows sharing one
+						     data-cm-radio name, scoped by setRadio() to this panel, so
+						     the two menus on the page never fight over a selection. -->
+						<div class="cm-dropdown__group-label" id="mb-grp-scale" role="presentation">scale</div>
+						<div role="group" aria-labelledby="mb-grp-scale">
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="true" data-cm-radio="mb-scale">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">100%</span></span>
+							</button>
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="false" data-cm-radio="mb-scale">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">fit width</span></span>
+							</button>
+						</div>
+					</div>
+					<!-- A disabled WORD, not a disabled row: aria-disabled rather than
+					     [disabled] so it stays in the tree (a reader must hear that
+					     help exists), and the runtime - not the attribute - is what
+					     refuses to open it. It is never a tab stop and never a
+					     landing for the arrows. -->
+					<button type="button" class="cm-menubar__trigger" popovertarget="mb-help" aria-haspopup="menu" role="menuitem" aria-disabled="true" tabindex="-1">help</button>
+					<div class="cm-dropdown__menu cm-menubar__menu" id="mb-help" popover role="menu" aria-label="help">
+						<button type="button" class="cm-dropdown__item" role="menuitem">manual</button>
+						<button type="button" class="cm-dropdown__item" role="menuitem">about</button>
 					</div>
 				</div>
 
@@ -3668,6 +3752,14 @@ inputs are element defaults, so a bare <code>&lt;input&gt;</code> is already on-
 					<code>aria-current="date"</code>. The cell is <code>--tap</code> wide
 					so the square is also the touch target.
 				</p>
+				<p class="cm-head__sub">
+					Three modes, one attribute: <code>data-cm-cal-selected</code> holds
+					the single day in <code>single</code>, nothing in <code>range</code>
+					(which reads <code>data-cm-cal-start</code> / <code>-end</code>), and a
+					space-separated <em>set</em> in <code>multiple</code>, where a pick
+					toggles its own day. The set lives on the attribute rather than on the
+					cells, so stepping a month away and back keeps it.
+				</p>
 				<div class="cm-cal-pair">
 				<div class="cm-cal" id="cal-single" data-cm-cal data-cm-cal-mode="single" data-cm-cal-month="2026-10" data-cm-cal-selected="2026-10-15" data-cm-cal-disabled="2026-10-22">
 					<div class="cm-cal__bar">
@@ -3698,7 +3790,41 @@ inputs are element defaults, so a bare <code>&lt;input&gt;</code> is already on-
 						</tbody>
 					</table>
 				</div>
-				<div class="cm-cal" id="cal-range" data-cm-cal data-cm-cal-mode="range" data-cm-cal-month="2026-10" data-cm-cal-start="2026-10-12" data-cm-cal-end="2026-10-16">
+								<!-- multiple: the same attribute as single, carrying a SET.
+				     A pick toggles its own day; the whole set survives a month
+				     step because it lives on the attribute, not on the cells the
+				     renderer rebuilds. -->
+<div class="cm-cal" id="cal-multiple" data-cm-cal data-cm-cal-mode="multiple" data-cm-cal-month="2026-10" data-cm-cal-selected="2026-10-05 2026-10-27" data-cm-cal-disabled="2026-10-22">
+					<div class="cm-cal__bar">
+						<button type="button" class="cm-cal__nav" data-cm-cal-prev
+							aria-label="previous month">&#8249;</button>
+						<span class="cm-cal__title" data-cm-cal-title>october 2026</span>
+						<button type="button" class="cm-cal__nav" data-cm-cal-next
+							aria-label="next month">&#8250;</button>
+					</div>
+					<table class="cm-cal__grid" role="grid" aria-label="october 2026">
+						<thead>
+							<tr role="row">
+									<th role="columnheader" scope="col" abbr="su">su</th>
+									<th role="columnheader" scope="col" abbr="mo">mo</th>
+									<th role="columnheader" scope="col" abbr="tu">tu</th>
+									<th role="columnheader" scope="col" abbr="we">we</th>
+									<th role="columnheader" scope="col" abbr="th">th</th>
+									<th role="columnheader" scope="col" abbr="fr">fr</th>
+									<th role="columnheader" scope="col" abbr="sa">sa</th>
+							</tr>
+						</thead>
+						<tbody>
+								<tr role="row"><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-09-27" data-outside tabindex="-1">27</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-09-28" data-outside tabindex="-1">28</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-09-29" data-outside tabindex="-1">29</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-09-30" data-outside tabindex="-1">30</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-01" tabindex="-1">1</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-02" tabindex="-1">2</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-03" tabindex="-1">3</button></td></tr>
+								<tr role="row"><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-04" tabindex="-1">4</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-05" aria-selected="true" tabindex="0">5</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-06" tabindex="-1">6</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-07" tabindex="-1">7</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-08" aria-current="date" tabindex="-1">8</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-09" tabindex="-1">9</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-10" tabindex="-1">10</button></td></tr>
+								<tr role="row"><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-11" tabindex="-1">11</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-12" tabindex="-1">12</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-13" tabindex="-1">13</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-14" tabindex="-1">14</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-15" tabindex="-1">15</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-16" tabindex="-1">16</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-17" tabindex="-1">17</button></td></tr>
+								<tr role="row"><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-18" tabindex="-1">18</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-19" tabindex="-1">19</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-20" tabindex="-1">20</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-21" tabindex="-1">21</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-22" aria-disabled="true" tabindex="-1">22</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-23" tabindex="-1">23</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-24" tabindex="-1">24</button></td></tr>
+								<tr role="row"><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-25" tabindex="-1">25</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-26" tabindex="-1">26</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-27" aria-selected="true" tabindex="-1">27</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-28" tabindex="-1">28</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-29" tabindex="-1">29</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-30" tabindex="-1">30</button></td><td role="gridcell"><button type="button" class="cm-cal__day" data-cm-day="2026-10-31" tabindex="-1">31</button></td></tr>
+						</tbody>
+					</table>
+				</div>
+				
+<div class="cm-cal" id="cal-range" data-cm-cal data-cm-cal-mode="range" data-cm-cal-month="2026-10" data-cm-cal-start="2026-10-12" data-cm-cal-end="2026-10-16">
 					<div class="cm-cal__bar">
 						<button type="button" class="cm-cal__nav" data-cm-cal-prev
 							aria-label="previous month">&#8249;</button>
@@ -4279,6 +4405,166 @@ Two helpers shadcn ships under utils, in house CSS. <code>scroll-fade</code>
 					</div>
 				</div>
 			</section>
+			<section id="guildrail" class="cm-section cm-section--pad">
+				<SectionHead title="guildrail">
+					the server icon rail: one square per server, a visible
+					activity pill, an unread count or dot, a rule, and an add
+					control. The rail owns its own scroll, so a long server
+					list scrolls inside the column instead of stretching the
+					grid row it sits in — the specimen below is capped so it
+					really does scroll, because a rail that fits has proven
+					nothing. Every square is a real <code>button</code>, the
+					monogram is <code>aria-hidden</code> and the
+					<code>aria-label</code> carries the name, so Tab walks the
+					column and the tip opens on focus as well as hover.
+				</SectionHead>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">active</span>
+						<span class="cm-spec__val">aria-current="true" + the __pill</span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">unread</span>
+						<span class="cm-spec__val">__badge (count) or __unread (dot), never both</span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">scroll</span>
+						<span class="cm-spec__val">the rail owns it; the bleed is empty padding</span>
+					</div>
+				</div>
+				<div style="display: grid; grid-template-columns: var(--guildrail-w) minmax(0, 1fr); block-size: 16rem; margin-top: var(--space-4); border: 1px solid var(--line);">
+					<nav class="cm-guildrail" aria-label="Servers">
+						<span class="cm-tooltip">
+							<button type="button" class="cm-guildrail__item cm-guildrail__item--home"
+								aria-current="true" aria-label="Direct messages">
+								<span class="cm-guildrail__pill" aria-hidden="true"></span>
+								<span class="cm-guildrail__icon" aria-hidden="true">◇</span>
+							</button>
+							<span class="cm-tooltip__tip" role="tooltip">Direct messages</span>
+						</span>
+
+						<span class="cm-guildrail__sep" role="separator"></span>
+
+						<span class="cm-tooltip">
+							<button type="button" class="cm-guildrail__item" aria-label="OEM HQ">
+								<span class="cm-guildrail__pill" aria-hidden="true"></span>
+								<span class="cm-guildrail__icon" aria-hidden="true">OH</span>
+								<span class="cm-guildrail__badge" aria-hidden="true">3</span>
+							</button>
+							<span class="cm-tooltip__tip" role="tooltip">OEM HQ</span>
+						</span>
+
+						<span class="cm-tooltip">
+							<button type="button" class="cm-guildrail__item" aria-label="LAN Ops">
+								<span class="cm-guildrail__pill" aria-hidden="true"></span>
+								<span class="cm-guildrail__icon" aria-hidden="true">LO</span>
+								<span class="cm-guildrail__unread" aria-hidden="true"></span>
+							</button>
+							<span class="cm-tooltip__tip" role="tooltip">LAN Ops</span>
+						</span>
+
+						<span class="cm-tooltip">
+							<button type="button" class="cm-guildrail__item" aria-label="Studio">
+								<span class="cm-guildrail__pill" aria-hidden="true"></span>
+								<span class="cm-guildrail__icon" aria-hidden="true">ST</span>
+							</button>
+							<span class="cm-tooltip__tip" role="tooltip">Studio</span>
+						</span>
+
+						<span class="cm-tooltip">
+							<button type="button" class="cm-guildrail__item" aria-label="Arcade">
+								<span class="cm-guildrail__pill" aria-hidden="true"></span>
+								<span class="cm-guildrail__icon" aria-hidden="true">AR</span>
+								<span class="cm-guildrail__badge" aria-hidden="true">99+</span>
+							</button>
+							<span class="cm-tooltip__tip" role="tooltip">Arcade — 99+ unread</span>
+						</span>
+
+						<span class="cm-tooltip">
+							<button type="button" class="cm-guildrail__item" aria-label="Forge">
+								<span class="cm-guildrail__pill" aria-hidden="true"></span>
+								<span class="cm-guildrail__icon" aria-hidden="true">FG</span>
+							</button>
+							<span class="cm-tooltip__tip" role="tooltip">Forge</span>
+						</span>
+
+						<span class="cm-tooltip">
+							<button type="button" class="cm-guildrail__item" aria-label="Vault">
+								<span class="cm-guildrail__pill" aria-hidden="true"></span>
+								<span class="cm-guildrail__icon" aria-hidden="true">VL</span>
+								<span class="cm-guildrail__unread" aria-hidden="true"></span>
+							</button>
+							<span class="cm-tooltip__tip" role="tooltip">Vault</span>
+						</span>
+
+						<span class="cm-tooltip">
+							<button type="button" class="cm-guildrail__item" aria-label="CF Tunnel">
+								<span class="cm-guildrail__pill" aria-hidden="true"></span>
+								<span class="cm-guildrail__icon" aria-hidden="true">CF</span>
+							</button>
+							<span class="cm-tooltip__tip" role="tooltip">CF Tunnel</span>
+						</span>
+
+						<span class="cm-tooltip">
+							<button type="button" class="cm-guildrail__item cm-guildrail__item--add" aria-label="Add a server">
+								<span class="cm-guildrail__pill" aria-hidden="true"></span>
+								<span class="cm-guildrail__icon" aria-hidden="true">＋</span>
+							</button>
+							<span class="cm-tooltip__tip" role="tooltip">Add a server</span>
+						</span>
+					</nav>
+					<div style="border-inline-start: 1px solid var(--line); padding: var(--space-4);">
+						<p class="cm-kicker"># general</p>
+						<p class="cm-lede">the rail is the column on the left, and the
+							column on the right begins where the rail's margin box ends —
+							not where its clip box does.</p>
+					</div>
+				</div>
+			</section>
+			<section id="composer" class="cm-section cm-section--pad">
+				<SectionHead title="composer">
+					the message box at the foot of a thread: a frame, a field, a
+					reply strip above it, and the controls that flank the field.
+					Everything behavioural is the CONSUMER's — Enter sends,
+					Shift+Enter is a newline, the field grows with its content
+					and the reply strip is shown by removing <code>hidden</code>
+					— so the CSS owes a control that is still correct when the
+					consumer does none of it.
+				</SectionHead>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">consumer js</span>
+						<span class="cm-spec__val">Enter sends · Shift+Enter newline · auto-grow to ~6 lines, then scroll</span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">read-only room</span>
+						<span class="cm-spec__val">[disabled] on the textarea; the box dims, send is disabled</span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">send in flight</span>
+						<span class="cm-spec__val">data-cm-sending on the form; the input stays usable</span>
+					</div>
+				</div>
+				<div style="margin-top: var(--space-4); max-width: 42rem;">
+					<form class="cm-composer" data-cm-composer>
+						<div class="cm-composer__reply" hidden>
+							<span class="cm-composer__replytext">Replying to <strong>Ciel</strong></span>
+							<button type="button" class="cm-icon-btn cm-composer__replyclose" aria-label="Cancel reply">✕</button>
+						</div>
+						<div class="cm-composer__bar">
+							<button type="button" class="cm-icon-btn cm-composer__attach" aria-label="Attach a file">＋</button>
+							<textarea class="cm-composer__input" rows="1" placeholder="Message #general" aria-label="Message"></textarea>
+							<div class="cm-composer__tools">
+								<button type="button" class="cm-icon-btn" aria-label="Emoji">☺</button>
+								<button type="button" class="cm-icon-btn cm-composer__send" aria-label="Send message">➤</button>
+							</div>
+						</div>
+					</form>
+					<p class="cm-composer__typing">
+						<span class="cm-marker cm-shimmer" role="status">Ciel is typing…</span>
+					</p>
+				</div>
+			</section>
 			<section id="dropdown-depth" class="cm-section cm-section--pad">
 				<SectionHead title="dropdown depth">
 					the documented item kinds, all composing the same row: a
@@ -4671,7 +4957,174 @@ Two helpers shadcn ships under utils, in house CSS. <code>scroll-fade</code>
 				</div>
 			</section>
 
-
+			<section id="msglist" class="cm-section cm-section--pad">
+				<SectionHead title="message list">
+					the flat timeline that lives inside the scroller: a day
+					divider, a four-track row (timestamp gutter, avatar column,
+					message, and a RESERVED action track so the hover toolbar
+					appears without moving the text), continuation rows that
+					drop their header and keep an empty avatar slot, an unread
+					rule, a mention and a system note. Grouping - one author
+					inside about five minutes - is the consumer's job; this
+					layer styles the row it is handed and decides which of a
+					row's two stamps is the visible one.
+				</SectionHead>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">row grid</span>
+						<span class="cm-spec__val">gutter · avatar · message · actions (reserved)</span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">modifiers</span>
+						<span class="cm-spec__val">--grouped · --mention · --system · --mine</span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">grouping</span>
+						<span class="cm-spec__val">consumer groups; CSS only tightens the row</span>
+					</div>
+				</div>
+				<p class="cm-row__meta" style="margin-top: var(--space-4);">
+					hover a row for its toolbar - or tab into it: the button stays in
+					the tab order even while it is invisible
+				</p>
+				<div class="cm-scroller" data-cm-scroller style="margin-top: var(--space-2);">
+					<div class="cm-scroller__bar">
+						<span class="cm-scroller__status" data-scroller-status>transcript</span>
+						<span class="cm-scroller__bar">
+							<button class="cm-btn cm-btn--sm" type="button" data-scroller-start data-active="false" tabindex="-1">jump to start</button>
+							<button class="cm-btn cm-btn--sm" type="button" data-scroller-end data-active="true">jump to latest</button>
+						</span>
+					</div>
+					<div class="cm-scroller__viewport" role="region" aria-label="Message list" tabindex="0" data-scrollable="">
+						<div class="cm-scroller__content" role="log" aria-relevant="additions">
+							<div class="cm-msglist" role="log" aria-relevant="additions">
+								<div class="cm-msglist__day" role="separator"><span class="cm-msglist__daylabel">Today</span></div>
+									<article class="cm-scroller__item cm-msglist__msg" data-message-id="ml1" data-scroll-anchor>
+										<div class="cm-msglist__gutter"><time class="cm-msglist__hoverstamp" datetime="2026-10-10T11:12">11:12</time></div>
+										<span class="cm-avatar cm-avatar--sm cm-msglist__avatar" aria-hidden="true">AB</span>
+										<div class="cm-msglist__main">
+																						<div class="cm-msglist__reply">
+												<span class="cm-msglist__replyname">sam</span>
+												<span class="cm-msglist__replypreview">which migration step is cut - the schema one or the backfill?</span>
+											</div>
+<header class="cm-msglist__meta">
+												<span class="cm-msglist__author">alex</span>
+												<time class="cm-msglist__stamp" datetime="2026-10-10T11:12">Today at 11:12 AM</time>
+											</header>
+											<div class="cm-msglist__text">branch is cut - review the migration step before you approve.</div>
+											<div class="cm-msglist__reactions" role="group" aria-label="Reactions">
+												<button type="button" class="cm-msglist__reaction" aria-pressed="false">
+													<span aria-hidden="true">👍</span><span class="cm-msglist__count">2</span>
+												</button>
+												<button type="button" class="cm-msglist__reaction cm-msglist__reaction--mine" aria-pressed="true">
+													<span aria-hidden="true">🚀</span><span class="cm-msglist__count">1</span>
+												</button>
+											</div>
+										</div>
+										<div class="cm-msglist__actions" role="toolbar" aria-label="Message actions">
+											<button type="button" class="cm-icon-btn" aria-label="Add reaction">＋</button>
+											<button type="button" class="cm-icon-btn" aria-label="Reply">↩</button>
+											<button type="button" class="cm-icon-btn" aria-label="More actions">⋯</button>
+										</div>
+									</article>
+									<article class="cm-scroller__item cm-msglist__msg cm-msglist__msg--grouped" data-message-id="ml2" data-scroll-anchor>
+										<div class="cm-msglist__gutter"><time class="cm-msglist__hoverstamp" datetime="2026-10-10T11:13">11:13</time></div>
+										<span class="cm-msglist__avatar" aria-hidden="true"></span>
+										<div class="cm-msglist__main">
+											<div class="cm-msglist__text">same author, three minutes on: no header, and the time moves to the gutter.</div>
+										</div>
+										<div class="cm-msglist__actions" role="toolbar" aria-label="Message actions">
+											<button type="button" class="cm-icon-btn" aria-label="Add reaction">＋</button>
+											<button type="button" class="cm-icon-btn" aria-label="Reply">↩</button>
+											<button type="button" class="cm-icon-btn" aria-label="More actions">⋯</button>
+										</div>
+									</article>
+									<article class="cm-scroller__item cm-msglist__msg cm-msglist__msg--grouped" data-message-id="ml3" data-scroll-anchor>
+										<div class="cm-msglist__gutter"><time class="cm-msglist__hoverstamp" datetime="2026-10-10T11:14">11:14</time></div>
+										<span class="cm-msglist__avatar" aria-hidden="true"></span>
+										<div class="cm-msglist__main">
+											<div class="cm-msglist__text">the empty avatar slot is what keeps this line aligned with the first one.</div>
+										</div>
+										<div class="cm-msglist__actions" role="toolbar" aria-label="Message actions">
+											<button type="button" class="cm-icon-btn" aria-label="Add reaction">＋</button>
+											<button type="button" class="cm-icon-btn" aria-label="Reply">↩</button>
+											<button type="button" class="cm-icon-btn" aria-label="More actions">⋯</button>
+										</div>
+									</article>
+									<article class="cm-scroller__item cm-msglist__msg" data-message-id="ml4" data-scroll-anchor>
+										<div class="cm-msglist__gutter"><time class="cm-msglist__hoverstamp" datetime="2026-10-10T11:31">11:31</time></div>
+										<span class="cm-avatar cm-avatar--sm cm-msglist__avatar" aria-hidden="true">SK</span>
+										<div class="cm-msglist__main">
+											<header class="cm-msglist__meta">
+												<span class="cm-msglist__author">sam</span>
+												<time class="cm-msglist__stamp" datetime="2026-10-10T11:31">Today at 11:31 AM</time>
+											</header>
+											<div class="cm-msglist__text">rerunning against <a class="cm-inline-link" href="#msglist">the runbook</a> now.</div>
+										</div>
+										<div class="cm-msglist__actions" role="toolbar" aria-label="Message actions">
+											<button type="button" class="cm-icon-btn" aria-label="Add reaction">＋</button>
+											<button type="button" class="cm-icon-btn" aria-label="Reply">↩</button>
+											<button type="button" class="cm-icon-btn" aria-label="More actions">⋯</button>
+										</div>
+									</article>
+								<div class="cm-msglist__unread" role="separator"><span class="cm-msglist__unreadlabel">2 new messages</span></div>
+									<article class="cm-scroller__item cm-msglist__msg cm-msglist__msg--mention" data-message-id="ml5" data-scroll-anchor>
+										<div class="cm-msglist__gutter"><time class="cm-msglist__hoverstamp" datetime="2026-10-10T11:47">11:47</time></div>
+										<span class="cm-avatar cm-avatar--sm cm-msglist__avatar" aria-hidden="true">OL</span>
+										<div class="cm-msglist__main">
+											<header class="cm-msglist__meta">
+												<span class="cm-msglist__author">olivia</span>
+												<time class="cm-msglist__stamp" datetime="2026-10-10T11:47">Today at 11:47 AM</time>
+											</header>
+											<div class="cm-msglist__text">you were mentioned in #build</div>
+										</div>
+										<div class="cm-msglist__actions" role="toolbar" aria-label="Message actions">
+											<button type="button" class="cm-icon-btn" aria-label="Add reaction">＋</button>
+											<button type="button" class="cm-icon-btn" aria-label="Reply">↩</button>
+											<button type="button" class="cm-icon-btn" aria-label="More actions">⋯</button>
+										</div>
+									</article>
+								<div class="cm-scroller__item cm-msglist__msg cm-msglist__msg--system" data-message-id="ml6" data-scroll-anchor>
+									<span class="cm-marker cm-marker--border">olivia joined #build</span>
+								</div>
+									<article class="cm-scroller__item cm-msglist__msg cm-msglist__msg--grouped" data-message-id="ml7" data-scroll-anchor>
+										<div class="cm-msglist__gutter"><time class="cm-msglist__hoverstamp" datetime="2026-10-10T11:49">11:49</time></div>
+										<span class="cm-msglist__avatar" aria-hidden="true"></span>
+										<div class="cm-msglist__main">
+											<div class="cm-msglist__text">rolled back the flag while the migration settles.</div>
+										</div>
+										<div class="cm-msglist__actions" role="toolbar" aria-label="Message actions">
+											<button type="button" class="cm-icon-btn" aria-label="Add reaction">＋</button>
+											<button type="button" class="cm-icon-btn" aria-label="Reply">↩</button>
+											<button type="button" class="cm-icon-btn" aria-label="More actions">⋯</button>
+										</div>
+									</article>
+									<article class="cm-scroller__item cm-msglist__msg" data-message-id="ml8" data-scroll-anchor>
+										<div class="cm-msglist__gutter"><time class="cm-msglist__hoverstamp" datetime="2026-10-10T11:52">11:52</time></div>
+										<span class="cm-avatar cm-avatar--sm cm-msglist__avatar" aria-hidden="true">AB</span>
+										<div class="cm-msglist__main">
+											<header class="cm-msglist__meta">
+												<span class="cm-msglist__author">alex</span>
+												<time class="cm-msglist__stamp" datetime="2026-10-10T11:52">Today at 11:52 AM</time>
+											</header>
+											<div class="cm-msglist__text">green. merging.</div>
+											<div class="cm-msglist__reactions" role="group" aria-label="Reactions">
+												<button type="button" class="cm-msglist__reaction" aria-pressed="false">
+													<span aria-hidden="true">✅</span><span class="cm-msglist__count">4</span>
+												</button>
+											</div>
+										</div>
+										<div class="cm-msglist__actions" role="toolbar" aria-label="Message actions">
+											<button type="button" class="cm-icon-btn" aria-label="Add reaction">＋</button>
+											<button type="button" class="cm-icon-btn" aria-label="Reply">↩</button>
+											<button type="button" class="cm-icon-btn" aria-label="More actions">⋯</button>
+										</div>
+									</article>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
 
 			<section id="attachment" class="cm-section cm-section--pad">
 				<SectionHead title="attachment">
