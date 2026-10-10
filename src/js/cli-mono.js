@@ -4581,9 +4581,25 @@
 			.replace(/&/g, '&amp;').replace(/</g, '&lt;')
 			.replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 	}
+	/* A chart's numbers arrive as TEXT from two places - the hidden
+	   table the runtime re-renders from, and the consumer's config - and
+	   the table is grouped: "1,860" is the number 1860, and parseFloat
+	   stops at the first comma and returns 1. MEASURED: with the table
+	   as the only source, every value at or above 1000 in the line
+	   specimen re-rendered as 1, the y axis climbed to 1k off a peak of
+	   1, and the pie's first two arcs collapsed to 0.34 degrees each -
+	   a chart that drew correctly, then redrew itself as nonsense the
+	   moment the ResizeObserver fired. So the separator is removed
+	   before parsing, and a k suffix is expanded, because the axis
+	   format that prints "1k" is the only place a k can come from. */
 	function chNum(v) {
-		var n = typeof v === 'number' ? v : parseFloat(v);
-		return isFinite(n) ? n : 0;
+		if (typeof v === 'number') return isFinite(v) ? v : 0;
+		var t = String(v == null ? '' : v).trim().replace(/,/g, '');
+		var k = /k$/i.test(t);
+		if (k) t = t.slice(0, -1);
+		var n = parseFloat(t);
+		if (!isFinite(n)) return 0;
+		return k ? n * 1000 : n;
 	}
 	function chText(el) {
 		return el ? String(el.textContent || '').trim() : '';
@@ -4597,6 +4613,22 @@
 			return (k % 1 === 0 ? k : k.toFixed(1)) + 'k';
 		}
 		return String(Math.round(n * 100) / 100);
+	}
+	/* The EXACT value, grouped. This is a different formatter from
+	   chFmt on purpose: an axis label is read at a glance next to its
+	   neighbours and "6k" is the right answer there, but a tooltip and
+	   a data table are where a reader comes to get the FIGURE. Measured
+	   on this page's own specimen: the tooltip said "1.9k" about the
+	   month whose row reads 1,860 four inches below it. Two numbers for
+	   one value on one card, and the rounded one is the one the reader
+	   is holding. */
+	function chExact(v) {
+		var n = chNum(v);
+		var neg = n < 0 ? '-' : '';
+		var s = String(Math.round(Math.abs(n) * 1000) / 1000);
+		var parts = s.split('.');
+		parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+		return neg + parts.join('.');
 	}
 	/* The nice-number ladder. 2.5 is in there because a step of 2.5
 	   gives four gridlines over 0-10 where a step of 2 gives five -
@@ -4744,23 +4776,48 @@
 		s += '</g>';
 
 		var body = '';
+		/* The slot layout. A band is `band` wide; the bars in it get a
+		   `bw` column. Stacked, every level occupies that column and
+		   they differ only in y. Grouped, the column is split into one
+		   slot per series, because two bars drawn at the same x are
+		   one bar drawn twice - the second covers the first and the
+		   chart silently plots one series less than it says it has. */
 		var bw = Math.max(2, Math.min(band * 0.62, 26));
-		ser.forEach(function (sp) {
+		var slot = stacked ? bw : bw / ser.length;
+		var barX = function (i, si) {
+			return stacked ? xAt(i) - bw / 2
+				: xAt(i) - bw / 2 + slot * si;
+		};
+		/* The stack floor is PER BAND and belongs OUTSIDE the series
+		   loop: nesting it inside walked every band once per series and
+		   emitted each bar twice, and it also let the second band start
+		   where the first ended, so a stacked column read no taller than
+		   a grouped one. One array, one pass over the series, one
+		   floor per band - the outer loop's index is the stack LEVEL. */
+		var floors = new Array(rows.length);
+		ser.forEach(function (sp, si) {
 			var k = chIdent(sp.key);
 			var vals = rows.map(function (r) { return chNum(r[sp.key]); });
-			var floor = 0, d = '';
+			var d = '';
 			if (isBar) {
 				vals.forEach(function (v, i) {
-					var y0 = yAt(floor), y1 = yAt(floor + v);
+					var f = floors[i] || 0;
+					var y0 = yAt(f), y1 = yAt(f + v);
 					var top = Math.min(y0, y1), hgt = Math.max(1, Math.abs(y1 - y0));
+					// Only a stacked column carries a floor forward. In a
+					// grouped one every bar starts on the ground, so
+					// accumulating here lifted the second series of each
+					// band to sit on the first and the grouped chart grew
+					// a phantom staircase.
+					if (stacked) floors[i] = f + v;
 					body += '<rect class="cm-chart__bar' + (stacked ? ' cm-chart__bar--stacked' : '') +
-						'" data-cm-k="' + chEsc(sp.key) + '" data-cm-band="' + i + '"' +
-						'" x="' + Math.round((xAt(i) - bw / 2) * 100) / 100 + '" y="' + Math.round(top * 100) / 100 +
-						'" width="' + Math.round(bw * 100) / 100 + '" height="' + Math.round(hgt * 100) / 100 + '"/>';
-					floor += v;
+						'" data-cm-k="' + chEsc(sp.key) + '" data-cm-band="' + i + '" data-cm-level="' + si + '"' +
+						' x="' + Math.round(barX(i, si) * 100) / 100 + '" y="' + Math.round(top * 100) / 100 +
+						'" width="' + Math.round(slot * 100) / 100 + '" height="' + Math.round(hgt * 100) / 100 + '"/>';
 				});
 				return;
 			}
+			var floor = 0;
 			vals.forEach(function (v, i) {
 				if (i === 0) floor = 0;
 				var y = yAt(stacked ? floor + v : v);
@@ -4923,7 +4980,25 @@
 			});
 			s += '<polygon class="cm-chart__radar" data-cm-k="' + chEsc(sp.key) + '" points="' + pts.join(' ') + '"/>';
 		});
-		return s + '</g>';
+		/* The pointer layer. A radar plot has no x BANDS to divide, so
+		   the hits are one strip along each SPOKE instead: a rect
+		   rotated about the centre, narrow enough not to steal the
+		   neighbouring spoke's angle and long enough to be a target.
+		   Without this the radar chart is the one type on the page a
+		   pointer cannot interrogate at all - and a chart the reader
+		   cannot ask a question of is a picture. */
+		var hits = '';
+		for (var h = 0; h < n; h++) {
+			var hp = at(h, 1);
+			var ang = (Math.atan2(hp[1] - cy, hp[0] - cx) * 180) / Math.PI;
+			var len = r * 1.02;
+			hits += '<rect class="cm-chart__hit" data-cm-band="' + h + '" x="' +
+				Math.round((cx - len / 2) * 100) / 100 + '" y="' +
+				Math.round((cy - 6) * 100) / 100 + '" width="' + Math.round(len * 100) / 100 +
+				'" height="12" transform="rotate(' + Math.round(ang * 100) / 100 +
+				' ' + cx + ' ' + cy + ')"/>';
+		}
+		return s + '</g><g>' + hits + '</g>';
 	}
 
 	/* ---------------- the plot, at a measured width ---------------- */
@@ -4961,7 +5036,7 @@
 			}).join('') + '</tr>';
 		var body = (cfg.data || []).map(function (row) {
 			return '<tr><th scope="row">' + chEsc(row[xkey]) + '</th>' +
-				ser.map(function (s) { return '<td>' + chEsc(chNum(row[s.key])) + '</td>'; }).join('') + '</tr>';
+				ser.map(function (s) { return '<td>' + chEsc(chExact(row[s.key])) + '</td>'; }).join('') + '</tr>';
 		}).join('');
 		/* The modifier is only emitted for the types that HAVE one: it
 		   exists to move a circular or bar plot onto the nested
@@ -5059,6 +5134,18 @@
 		if (!svg || !tip) return;
 		if (i == null || i < 0 || i >= d.data.length) {
 			box.setAttribute('data-cm-chart-state', 'idle');
+			// Idle means idle. Setting the attribute alone left the
+			// last category's title and numbers in the tooltip's DOM,
+			// so Escape (and every pointer-out) left a tooltip reading
+			// "nov 3,690" floating over a chart nothing points at.
+			// The layer is visibility-driven, so clearing the text is
+			// belt and braces - but it is what a screen reader would
+			// still announce, and that one is not hidden by CSS.
+			var t0 = tip.querySelector('.cm-chart__tip-title');
+			if (t0) t0.textContent = '';
+			tip.querySelectorAll('.cm-chart__tip-val').forEach(function (v) { v.textContent = ''; });
+			var marks0 = svg.querySelectorAll('.cm-chart__marker');
+			for (var mi = 0; mi < marks0.length; mi++) marks0[mi].removeAttribute('data-cm-on');
 			return;
 		}
 		var row = d.data[i];
@@ -5069,7 +5156,7 @@
 		d.series.forEach(function (sp, k) {
 			var v = chNum(row[sp.key]);
 			var val = rows[k] && rows[k].querySelector('.cm-chart__tip-val');
-			if (val) val.textContent = chFmt(v);
+			if (val) val.textContent = chExact(v);
 			if (!marks[k]) return;
 			var band = svg.querySelector('.cm-chart__hit[data-cm-band="' + i + '"]');
 			var src = svg.querySelector('.cm-chart__bar[data-cm-k="' + sp.key + '"][data-cm-band="' + i + '"]');
