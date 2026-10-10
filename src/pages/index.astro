@@ -2631,22 +2631,106 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 					panel hangs from the LEFT edge of its own word.
 				</p>
 				<div class="cm-menubar" data-cm-menubar role="menubar" aria-label="demo menubar">
-					<button type="button" class="cm-menubar__trigger" popovertarget="mb-file" aria-haspopup="menu" role="menuitem">file</button>
+					<!-- ONE tab stop: the first word is the tabbable one, the rest are
+					     focus targets for the arrows only (.cm-tabs roves the same way).
+					     The runtime re-derives this, so a consumer who authors three
+					     tabindex="0"s still ends up with one. -->
+					<button type="button" class="cm-menubar__trigger" popovertarget="mb-file" aria-haspopup="menu" role="menuitem" tabindex="0">file</button>
 					<div class="cm-dropdown__menu cm-menubar__menu" id="mb-file" popover role="menu" aria-label="file">
-						<button type="button" class="cm-dropdown__item" role="menuitem">new</button>
-						<button type="button" class="cm-dropdown__item" role="menuitem">open</button>
+						<!-- The composition shadcn ships as MenubarGroup/MenubarLabel/
+						     MenubarShortcut plus a "With Icons" section: a fixed-width
+						     icon slot, the label taking the slack, the hint pinned right
+						     - all of it the dropdown's own parts, in a bar panel. -->
+						<div class="cm-dropdown__group-label" id="mb-grp-create" role="presentation">create</div>
+						<div role="group" aria-labelledby="mb-grp-create">
+							<button type="button" class="cm-dropdown__item" role="menuitem">
+								<span class="cm-dropdown__icon" aria-hidden="true">&#9633;</span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">new</span></span>
+								<span class="cm-dropdown__shortcut" aria-hidden="true">ctrl n</span>
+							</button>
+							<button type="button" class="cm-dropdown__item" role="menuitem">
+								<span class="cm-dropdown__icon" aria-hidden="true">&#9662;</span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">open</span></span>
+								<span class="cm-dropdown__shortcut" aria-hidden="true">ctrl o</span>
+							</button>
+						</div>
 						<hr class="cm-dropdown__sep" />
-						<button type="button" class="cm-dropdown__item" role="menuitem" aria-disabled="true">save</button>
+						<!-- The submenu: a nested popover OWNED by a row. Right (or
+						     Enter) opens it, Left closes it and puts focus back on this
+						     row - the same machinery the dropdown specimen proves, so the
+						     bar gains no second implementation of a submenu. -->
+						<button type="button" class="cm-dropdown__item" role="menuitem" aria-haspopup="menu" aria-controls="mb-export">
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">export</span></span>
+							<span class="cm-dropdown__caret" aria-hidden="true">&rsaquo;</span>
+						</button>
+						<div class="cm-dropdown__menu" id="mb-export" popover role="menu" aria-label="export">
+							<button type="button" class="cm-dropdown__item" role="menuitem">as markdown</button>
+							<button type="button" class="cm-dropdown__item" role="menuitem">as html</button>
+						</div>
+						<hr class="cm-dropdown__sep" />
+						<button type="button" class="cm-dropdown__item" role="menuitem" aria-disabled="true">
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">save</span></span>
+							<span class="cm-dropdown__shortcut" aria-hidden="true">ctrl s</span>
+						</button>
 					</div>
-					<button type="button" class="cm-menubar__trigger" popovertarget="mb-edit" aria-haspopup="menu" role="menuitem">edit</button>
+					<button type="button" class="cm-menubar__trigger" popovertarget="mb-edit" aria-haspopup="menu" role="menuitem" tabindex="-1">edit</button>
 					<div class="cm-dropdown__menu cm-menubar__menu" id="mb-edit" popover role="menu" aria-label="edit">
-						<button type="button" class="cm-dropdown__item" role="menuitem">undo</button>
-						<button type="button" class="cm-dropdown__item" role="menuitem">redo</button>
+						<button type="button" class="cm-dropdown__item" role="menuitem">
+							<span class="cm-dropdown__icon" aria-hidden="true">&#8592;</span>
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">undo</span></span>
+							<span class="cm-dropdown__shortcut" aria-hidden="true">ctrl z</span>
+						</button>
+						<button type="button" class="cm-dropdown__item" role="menuitem">
+							<span class="cm-dropdown__icon" aria-hidden="true">&rarr;</span>
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">redo</span></span>
+							<span class="cm-dropdown__shortcut" aria-hidden="true">ctrl shift z</span>
+						</button>
 					</div>
-					<button type="button" class="cm-menubar__trigger" popovertarget="mb-view" aria-haspopup="menu" role="menuitem">view</button>
+					<button type="button" class="cm-menubar__trigger" popovertarget="mb-view" aria-haspopup="menu" role="menuitem" tabindex="-1">view</button>
 					<div class="cm-dropdown__menu cm-menubar__menu" id="mb-view" popover role="menu" aria-label="view">
-						<button type="button" class="cm-dropdown__item" role="menuitem">zoom in</button>
-						<button type="button" class="cm-dropdown__item" role="menuitem">zoom out</button>
+						<button type="button" class="cm-dropdown__item" role="menuitem">
+							<span class="cm-dropdown__icon" aria-hidden="true">+</span>
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">zoom in</span></span>
+							<span class="cm-dropdown__shortcut" aria-hidden="true">ctrl =</span>
+						</button>
+						<button type="button" class="cm-dropdown__item" role="menuitem">
+							<span class="cm-dropdown__icon" aria-hidden="true">&minus;</span>
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">zoom out</span></span>
+							<span class="cm-dropdown__shortcut" aria-hidden="true">ctrl -</span>
+						</button>
+						<hr class="cm-dropdown__sep" />
+						<!-- A checkbox item in the SAME list as the plain rows: the glyph
+						     slot carries the check, so the column never moves when it
+						     flips. toggleCheckable() is the dropdown's, unchanged. -->
+						<button type="button" class="cm-dropdown__item" role="menuitemcheckbox" aria-checked="true" data-cm-check>
+							<span class="cm-dropdown__icon" aria-hidden="true" data-checked="true"></span>
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">status bar</span></span>
+						</button>
+						<hr class="cm-dropdown__sep" />
+						<!-- A radio GROUP: a labelled group of rows sharing one
+						     data-cm-radio name, scoped by setRadio() to this panel, so
+						     the two menus on the page never fight over a selection. -->
+						<div class="cm-dropdown__group-label" id="mb-grp-scale" role="presentation">scale</div>
+						<div role="group" aria-labelledby="mb-grp-scale">
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="true" data-cm-radio="mb-scale">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">100%</span></span>
+							</button>
+							<button type="button" class="cm-dropdown__item" role="menuitemradio" aria-checked="false" data-cm-radio="mb-scale">
+								<span class="cm-dropdown__icon" aria-hidden="true"></span>
+								<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">fit width</span></span>
+							</button>
+						</div>
+					</div>
+					<!-- A disabled WORD, not a disabled row: aria-disabled rather than
+					     [disabled] so it stays in the tree (a reader must hear that
+					     help exists), and the runtime - not the attribute - is what
+					     refuses to open it. It is never a tab stop and never a
+					     landing for the arrows. -->
+					<button type="button" class="cm-menubar__trigger" popovertarget="mb-help" aria-haspopup="menu" role="menuitem" aria-disabled="true" tabindex="-1">help</button>
+					<div class="cm-dropdown__menu cm-menubar__menu" id="mb-help" popover role="menu" aria-label="help">
+						<button type="button" class="cm-dropdown__item" role="menuitem">manual</button>
+						<button type="button" class="cm-dropdown__item" role="menuitem">about</button>
 					</div>
 				</div>
 

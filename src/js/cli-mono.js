@@ -1677,7 +1677,18 @@
 		// It also steps out of a submenu when focus is INSIDE it, which is
 		// the only way back for a reader who walked in.
 		if (e.key === 'ArrowLeft') {
-			if (closeSubmenu(t.closest(POP_SEL))) e.preventDefault();
+			var here = t.closest(POP_SEL);
+			/* One exception, and it belongs to the MENUBAR: a panel that
+			   hangs off the bar does not eat Left. There the bar owns the
+			   key and walks to the neighbouring word - the pattern's rule,
+			   and what the specimen documents - and since onMenubarKey now
+			   stands down for a key someone already consumed, a panel that
+			   swallowed this one would turn "walk to the previous menu"
+			   into "close, then press again". A SUBMENU inside that panel
+			   still takes the key: stepping out is the only way back. */
+			if (here && here.classList && here.classList.contains('cm-menubar__menu') &&
+				!here.querySelector('[popover]:popover-open')) return;
+			if (closeSubmenu(here)) e.preventDefault();
 			return;
 		}
 		// Space/Enter flip a checkbox row. Enter already activates the button;
@@ -2380,13 +2391,87 @@
 	   dropdowns in a row, and it is why the handler looks at the menu you
 	   are in before it looks at the trigger you are on. */
 	function menubarTriggers(bar) {
+		// The WALK list: words that can take focus at all. A disabled word
+		// is filtered HERE and not in each door, so every door - arrows,
+		// Home/End, the roving stop - inherits one invariant, exactly as
+		// selectTab() does for the tabs.
 		return Array.prototype.filter.call(
 			bar.querySelectorAll('.cm-menubar__trigger'),
-			function (b) { return b.offsetParent !== null; }
+			function (b) {
+				return b.offsetParent !== null &&
+					b.getAttribute('aria-disabled') !== 'true';
+			}
 		);
 	}
 
+	/* ONE tab stop. The bar ENTERS the page as a single stop and the arrows
+	   walk the words from there - the .cm-tabs rule, applied to the other
+	   component that needs it. Every trigger at tabindex=0 makes Tab walk
+	   file/edit/view before it reaches anything else, which is exactly the
+	   thing the pattern exists to prevent. The stop is WRITTEN, never read
+	   from the author: whoever authored tabindex on three buttons gets one
+	   tabbable word and two arrow targets. */
+	function menubarRove(bar, cur) {
+		Array.prototype.forEach.call(
+			bar.querySelectorAll('.cm-menubar__trigger'),
+			function (t) {
+				t.setAttribute('tabindex', t === cur ? '0' : '-1');
+			}
+		);
+	}
+	/* Which word holds the stop: the one focus is already on, else the first
+	   one a reader can reach. */
+	function menubarTabStop(bar) {
+		var list = menubarTriggers(bar);
+		if (!list.length) return;
+		var focused = document.activeElement;
+		menubarRove(bar, list.indexOf(focused) !== -1 ? focused : list[0]);
+	}
+	function initMenubar(root) {
+		(root || document).querySelectorAll('[data-cm-menubar]').forEach(function (bar) {
+			if (bar.dataset.cmMenubarBound) return;
+			bar.dataset.cmMenubarBound = '1';
+			menubarTabStop(bar);
+			// Clicking (or Tabbing ONTO) a word moves the stop with it: a
+			// stop left behind on the first word means the NEXT Tab leaves
+			// the bar at a word the reader is no longer looking at. The
+			// disabled word is excepted - it is not in the walk list, so a
+			// stop parked there would hand the bar a tab stop the arrows
+			// can never come back to (measured in WebKit: focus() on the
+			// disabled word was enough to move it there).
+			bar.addEventListener('focusin', function (ev) {
+				var t = ev.target;
+				var trg = t && typeof t.closest === 'function'
+					? t.closest('.cm-menubar__trigger') : null;
+				if (trg && trg.getAttribute('aria-disabled') !== 'true') menubarRove(bar, trg);
+			});
+			/* The disabled word's two other doors. popovertarget is a
+			   PLATFORM attribute with no idea what aria-disabled means, so
+			   Enter and Space arrive here as a click and would open the
+			   panel - and the mousedown veto is what keeps focus from
+			   landing on a word the arrows can never come back to (a
+			   native [disabled] button does not take focus either). */
+			var vetoDisabled = function (ev) {
+				var t = ev.target;
+				var d = t && typeof t.closest === 'function'
+					? t.closest('.cm-menubar__trigger[aria-disabled="true"]') : null;
+				if (!d) return;
+				ev.preventDefault();
+			};
+			bar.addEventListener('mousedown', vetoDisabled);
+			bar.addEventListener('click', vetoDisabled);
+		});
+	}
+
 	function onMenubarKey(e) {
+		/* A key the PANEL already handled is not the bar's. onMenuKey is
+		   registered first and preventDefaults when it moved an item,
+		   opened a submenu or closed one; without this the bar answers
+		   the SAME press a second time. Measured in WebKit: Right on the
+		   `export` row opened the submenu and then - one press, two
+		   moves - walked to the next word, taking the submenu it had
+		   just opened with it. */
+		if (e.defaultPrevented) return;
 		var bar = e.target && e.target.closest && e.target.closest('[data-cm-menubar]');
 		if (!bar) return;
 		var trg = e.target.closest('.cm-menubar__trigger');
@@ -2394,16 +2479,30 @@
 		// [popovertarget]); ArrowDown is the key the platform does NOT map
 		// to "open", and it is the one readers reach for.
 		if (trg && e.key === 'ArrowDown') {
+			e.preventDefault();
+			// A disabled word never opens. aria-disabled is not [disabled]:
+			// the row stays in the accessibility tree so a reader knows help
+			// is there, which means the attribute - not markup - has to be
+			// what refuses. Enter/Space arrive as a click instead, and that
+			// door is the veto bound in initMenubar().
+			if (trg.getAttribute('aria-disabled') === 'true') return;
 			var oid = trg.getAttribute('popovertarget');
 			var om = oid && document.getElementById(oid);
 			if (om && typeof om.showPopover === 'function' && !om.matches(':popover-open')) om.showPopover();
-			e.preventDefault();
 			return;
 		}
 		if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(e.key) === -1) return;
 		var list = menubarTriggers(bar);
 		if (!list.length) return;
 		var open = e.target.closest('.cm-menubar__menu');
+		/* A key inside a NESTED panel belongs to that panel, not to the bar:
+		   Left closes the submenu (closeSubmenu() has already handled it
+		   and preventDefault'd), and Right walks the submenu's own rows.
+		   Without this the bar would step to the next word with a panel
+		   still open underneath - one press, two moves, and the submenu it
+		   never looked at left hanging in the top layer. */
+		var nested = e.target.closest('[popover]');
+		if (nested && nested !== open) return;
 		var cur = open
 			? popTrigger(open) || trg
 			: trg;
@@ -2415,7 +2514,21 @@
 		else next = list[(i + (e.key === 'ArrowLeft' ? -1 : 1) + list.length) % list.length];
 		if (!next || next === cur) return;
 		e.preventDefault();
-		if (open && typeof open.hidePopover === 'function') open.hidePopover();
+		/* The panel walks away and takes its SUBMENUS with it: a nested
+		   popover is its own top-layer box, so hiding the host leaves it
+		   open over a menu that is gone. Deepest first, the order
+		   closeSubmenu() steps out in - and before the host, so focus
+		   unwinds to the owner row while that row still has a panel. */
+		if (open) {
+			Array.prototype.forEach.call(
+				open.querySelectorAll('[popover]:popover-open'),
+				function (s) { if (typeof s.hidePopover === 'function') s.hidePopover(); }
+			);
+			if (typeof open.hidePopover === 'function') open.hidePopover();
+		}
+		// The stop MOVES with the focus, or the next Tab leaves the bar at
+		// the word the reader just walked away from.
+		menubarRove(bar, next);
 		// Focus BEFORE opening: the toggle handler moves focus into the
 		// panel, and doing it in the other order would leave the new
 		// trigger focused while the panel's own focus steal is still to
@@ -4028,6 +4141,7 @@
 		initScrollSpy(document.querySelector('[data-cm-nav]'));
 		initCopy(root);
 		initTabs(root);
+		initMenubar(root);
 		initDialogs(root);
 		initToasts(root);
 		initTooltipClamp(root);

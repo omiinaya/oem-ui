@@ -1606,13 +1606,15 @@ attribute is the wire.
   <button type="button" class="cm-dropdown__item" role="menuitem">duplicate</button>
 </div>
 
-<!-- the words are the tabs: Left/Right walk them, Down opens one -->
+<!-- the words are the tabs: Left/Right walk them, Down opens one.
+     ONE of them is in the tab order - initMenubar writes that, so an
+     author who writes none (or three) still gets one stop. -->
 <div class="cm-menubar" data-cm-menubar role="menubar">
-  <button type="button" class="cm-menubar__trigger" popovertarget="mb-file" aria-haspopup="menu">file</button>
+  <button type="button" class="cm-menubar__trigger" popovertarget="mb-file" aria-haspopup="menu" tabindex="0">file</button>
   <div class="cm-dropdown__menu cm-menubar__menu" id="mb-file" popover role="menu">
     <button type="button" class="cm-dropdown__item" role="menuitem">new</button>
   </div>
-  <button type="button" class="cm-menubar__trigger" popovertarget="mb-edit" aria-haspopup="menu">edit</button>
+  <button type="button" class="cm-menubar__trigger" popovertarget="mb-edit" aria-haspopup="menu" tabindex="-1">edit</button>
   <div class="cm-dropdown__menu cm-menubar__menu" id="mb-edit" popover role="menu">...</div>
 </div>
 ```
@@ -1639,6 +1641,41 @@ word, unlike a chevron, is not something the menu hangs off the right
 side of. The platform does not manage `aria-expanded` on `[popover]`, so
 the toggle handler mirrors it onto whichever `[popovertarget]` also carries
 `aria-haspopup`.
+
+**The bar is ONE tab stop.** `.cm-menubar` roves, the same rule
+`.cm-tabs` already applies: `Tab` enters the bar on a single word and the
+arrows walk from there. `initMenubar` WRITES the `tabindex` rather than
+reading the author's — three authored `tabindex="0"`s still resolve to
+one tabbable word, because a stop derived from authoring is a stop the
+first consumer gets wrong. Clicking or tabbing onto a word moves the stop
+with it, so the next `Tab` leaves the bar where the reader is looking.
+
+**A disabled word is refused by every door.** The walk list is filtered
+ONCE, in `menubarTriggers`, on `aria-disabled` — arrows, Home/End and the
+roving stop all inherit that invariant instead of each re-deriving it.
+The refusal is structural, not cosmetic: a stop parked on a disabled word
+hands the bar a tab stop the arrows can never come back from. It reads
+`--ink-faint` and carries no `aria-expanded`.
+
+**Panels compose the dropdown's own parts.** A group label, an icon slot,
+a shortcut hint, a checkbox row (`menuitemcheckbox` + `data-cm-check`) and
+a radio group (`menuitemradio` + `data-cm-radio`, scoped by `setRadio()`
+to its own panel so two bars on a page never fight over a selection) are
+all `.cm-dropdown__*` in a bar panel. **No new class was invented for any
+of it** — the depth was already there; the bar is a new place to stand.
+
+A submenu can hang off a row inside a panel: `ArrowRight` (or Enter)
+opens it, `ArrowLeft` closes it and returns focus to the row. The bar
+takes `ArrowLeft` everywhere EXCEPT inside an open submenu, where
+stepping out is the only way back — checked at event time by
+`closeSubmenu()`, not by a second submenu implementation in the bar. The
+bar also stands down entirely when a key has already been consumed inside
+a panel, so a submenu that swallows `Left` cannot turn "walk to the
+previous menu" into "close, then press again".
+
+Proven by six `shadcn-parity: menubar` checks, the WebKit harness
+`tests/verify-menubar-parity.py` (402x667) and 18 mutation patterns in
+`tests/mutate-menubar-parity.py`.
 
 ### Tree and resizable panels
 
@@ -2516,7 +2553,7 @@ Carousel, Chart (six hand-rolled SVG types - see *Charts* above; no
 Recharts, no runtime dependency), Checkbox, Collapsible, Combobox, Command (palette), Context
 Menu, Data Table (filter, pagination, column visibility, row selection), Date Picker, Dialog, Drawer, Dropdown
 Menu, Empty, Field (label/help/error wiring), Hover Card, Input, Input
-Group, Input OTP, Item, Kbd, Label, Marker, Message, Message Scroller, Menubar, Native Select (a styled
+Group, Input OTP, Item, Kbd, Label, Marker, Message, Message Scroller, Menubar (roving single tab stop, disabled-word refusal, submenus, checkbox/radio rows, group labels + icons + shortcut hints), Native Select (a styled
 `<select>`), Navigation Menu (a real one - see *Navigation menu* below; the
 rail + sticky header remain the house pattern for this site's own pages),
 Pagination, Popover, Progress, Questionnaire, Radio Group,

@@ -1,5 +1,57 @@
 # Changelog
 
+## Unreleased - batch 28: the menubar carries the depth the panel pattern already had
+
+- **One tab stop, not one per word.** `.cm-menubar` now roves: the bar
+  enters the page as a single tab stop and Left/Right/Home/End walk the
+  words from there, the same rule `.cm-tabs` already applies. Each
+  trigger at `tabindex="0"` made `Tab` walk file/edit/view/help before
+  reaching anything else — exactly the thing the pattern exists to
+  prevent. The stop is WRITTEN by `initMenubar`, never read from the
+  author's markup: three authored `tabindex="0"`s still end up as one
+  tabbable word, because a stop derived from authoring is a stop the
+  first consumer gets wrong. Clicking or tabbing onto a word moves the
+  stop with it, so the next `Tab` leaves the bar where the reader is
+  looking.
+- **A disabled word is refused by every door.** The walk list is
+  filtered ONCE, in `menubarTriggers`, on `aria-disabled` — arrows,
+  Home/End and the roving stop all inherit the invariant instead of each
+  re-deriving it, which is what `selectTab()` does for the tabs. The
+  refusal is not cosmetic: a stop parked on a disabled word hands the
+  bar a tab stop the arrows can never return from (measured in WebKit —
+  `focus()` on the disabled word alone was enough to strand it there).
+  It is styled `--ink-faint`, not `--ink`, and carries no
+  `aria-expanded` that nothing else authors.
+- **A submenu hangs off a row inside a bar panel**, and the bar knows
+  the difference: `ArrowLeft` is the bar's walk on a panel it owns, but
+  stepping OUT of a nested submenu is the only way back, so the submenu
+  takes the key first. The one exception is checked at event time
+  (`closeSubmenu`), not by re-implementing submenu logic in the bar —
+  the bar gains no second submenu implementation.
+- **Checkbox and radio rows in a bar panel** compose the dropdown's own
+  parts: `menuitemcheckbox` + `data-cm-check` flips in place with the
+  glyph in the fixed-width icon slot so the column never moves, and a
+  `data-cm-radio` group is scoped by `setRadio()` to its own panel, so
+  two menus on one page cannot fight over a selection.
+- **Icons, group labels and shortcut hints** — the composition shadcn
+  ships as `MenubarGroup`/`MenubarLabel`/`MenubarShortcut` — are the
+  dropdown's `.cm-dropdown__icon` / `__group-label` / `__shortcut` in a
+  bar panel. No new class was invented for any of it.
+- **The bar stands down for a key someone already consumed.**
+  `onMenubarKey` returns early when the event was already handled
+  inside a panel, so a submenu that swallows Left does not turn
+  "walk to the previous menu" into "close, then press again".
+- Six `shadcn-parity: menubar` checks in `tests/run.mjs`, a WebKit
+  harness (`tests/verify-menubar-parity.py`, 402×667) and a mutation
+  runner (`tests/mutate-menubar-parity.py`, 18 patterns) ship with it.
+- The harness's first navigation gets its own budget
+  (`set_default_navigation_timeout`) instead of sharing the 5s CLICK
+  budget: the merged showcase is a 373KB document WebKit measured at
+  **6.92s** to fire `load`, so one shared budget reported a timeout on a
+  correct build. It now gates on the runtime's own marker
+  (`cm-js` + `cliMono`) rather than on a sleep, so a bundle that never
+  executes fails loudly at the start instead of mid-check.
+
 ## Unreleased - a dialog can be closed from the foot it ships with
 
 - **A `<button>` outside the `<form method="dialog">` closed nothing, and

@@ -4850,17 +4850,32 @@ const rt = runtimeSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, 
 // behavioural test below pass for the wrong reason.
 let ACTIVE = null;
 const classesOf = (n) => (n.attrs.class || '').split(/\s+/).filter(Boolean);
-const attrOf = (sel) => {
-	const m = /^\[([a-z-]+)(?:=["']?([^\]"']*)["']?)?\]$/.exec(sel);
-	if (!m) return null;
-	return { a: m[1], v: m[2] };
-};
-const matches = (n, sel) => {
-	if (sel.startsWith('.')) return classesOf(n).includes(sel.slice(1));
-	const at = attrOf(sel);
-	if (at) return at.a in n.attrs && (at.v === undefined || n.attrs[at.a] === at.v);
-	return false;
-};
+// A selector is a LIST of alternatives and an alternative can stack a class
+// onto an attribute (`.cm-dropdown__menu[popover]` is exactly what the menu
+// runtime selects by). The old matcher took `sel.startsWith('.')` and used
+// the WHOLE string as one class name, so every compound and every comma
+// selector matched NOTHING - silently: a driven test of any menu path wrote
+// a target the runtime could not find, and got a green pass for a handler
+// that never ran. A pseudo-class (`:popover-open`) names state a fake node
+// does not have, so it never matches - the same answer as before, for the
+// same reason.
+const matches = (n, sel) => sel.split(',').some((raw) => {
+	const part = raw.trim();
+	// unmodelled state, or a bare tag/name with nothing to test: no match
+	if (!part || part.includes(':')) return false;
+	const cls = [...part.matchAll(/\.([\w-]+)/g)].map((m) => m[1]);
+	if (cls.some((c) => !classesOf(n).includes(c))) return false;
+	const attrs = [...part.matchAll(/\[([a-z0-9-]+)(?:([~^$*|]?=)["']?([^\]"']*)["']?)?\]/g)];
+	if (!cls.length && !attrs.length) return false;
+	return attrs.every((m) => {
+		if (!(m[1] in n.attrs)) return false;
+		if (m[2] === undefined) return true;
+		const v = String(n.attrs[m[1]]);
+		return m[2] === '^=' ? v.startsWith(m[3])
+			: m[2] === '$=' ? v.endsWith(m[3])
+			: v === m[3];
+	});
+});
 const walkAll = (n, out, fn) => {
 	if (fn(n)) out.push(n);
 	n.kids.forEach((k) => walkAll(k, out, fn));
@@ -4928,6 +4943,10 @@ const el = (tag, attrs = {}, kids = []) => {
 			return out;
 		},
 		focus() { node.focused = true; ACTIVE = node; },
+		// The runtime asks a panel whether it is currently open. Without
+		// this the fake turns that question into a TypeError, so a driven
+		// path dies on the harness rather than on the code under test.
+		matches: (sel) => matches(node, sel),
 		// The runtime's own dispatch walks up from the event target. A
 		// real closest() must find the trigger, or a click on a child
 		// glyph silently misses the control that owns it.
@@ -4953,6 +4972,7 @@ const el = (tag, attrs = {}, kids = []) => {
 // A document over a set of roots. The runtime's initialisation runs on
 // the document, so this has to answer the same queries.
 const domOf = (roots) => {
+	const ev = {};
 	const d = {
 		readyState: 'complete',
 		// The runtime reads document.activeElement to know which tab an
@@ -4962,7 +4982,15 @@ const domOf = (roots) => {
 		documentElement: { getAttribute: () => null, setAttribute: () => {}, dataset: {} },
 		body: el('body'),
 		createElement: (t) => el(t),
-		addEventListener: () => {},
+		// The runtime binds its DOCUMENT-level handlers here - keydown,
+		// click, toggle. Dropping them on the floor made every delegated
+		// path undrivable: a check could only grep the source for a
+		// handler no fake document could ever run, which is how "the
+		// handler exists" got read as "the handler works". Recorded so a
+		// check can dispatch an event the way the browser would, and
+		// read only by checks that ask for them - nothing else in the
+		// harness looks at this, so every existing test is untouched.
+		addEventListener: (t, fn) => { (ev[t] = ev[t] || []).push(fn); },
 		find(sel) {
 			const out = [];
 			for (const r of roots) walkAll(r, out, (n) => matches(n, sel));
@@ -4979,6 +5007,7 @@ const domOf = (roots) => {
 			return null;
 		},
 	};
+	d.__ev = ev;
 	return d;
 };
 
@@ -13334,10 +13363,15 @@ check('shadcn-parity: dropdown depth carries the documented item kinds', () => {
 	assert(css.includes('.cm-dropdown__icon {\n\tflex: none;'),
 		'the icon slot must be a fixed-width slot');
 	// shortcuts are out of the accessible name
-	// Both hinted rows, not "one of them": a twin-row mutant removes a
-	// single aria-hidden and a single-occurrence regex sails past it.
-	assert((html.match(/cm-dropdown__shortcut" aria-hidden="true"/g) || []).length === 2,
-		'every shortcut hint must be hidden from the name');
+	// Every hinted row on the BUILT page, not a sample of them: a mutant
+	// that drops a single aria-hidden anywhere must fail, wherever that
+	// row lives (the menubar now hints too). The floor keeps the
+	// equality from going vacuous - two counts of zero are not
+	// agreement, they are a check that stopped looking.
+	const hinted = (html.match(/class="cm-dropdown__shortcut"/g) || []).length;
+	const hidden = (html.match(/cm-dropdown__shortcut" aria-hidden="true"/g) || []).length;
+	assert(hinted >= 4 && hidden === hinted,
+		`every shortcut hint must be hidden from the name (${hidden} of ${hinted} are)`);
 	// the runtime: no per-menu init, one delegated handler.
 	// A plain regex here was /" then a CHARACTER CLASS - it matched any one
 	// of those letters and therefore killed nothing. Literal string only.
@@ -13390,7 +13424,8 @@ check('shadcn-parity: dropdown depth carries the documented item kinds', () => {
 	// Right opens the submenu, Left closes it and returns focus
 	assert(/if \(openSubmenu\(t\)\) e\.preventDefault\(\);/.test(js),
 		'Right/Enter must open the submenu');
-	assert(/if \(closeSubmenu\(t\.closest\(POP_SEL\)\)\) e\.preventDefault\(\);/.test(js),
+	assert(/var here = t\.closest\(POP_SEL\);/.test(js)
+		&& /if \(closeSubmenu\(here\)\) e\.preventDefault\(\);/.test(js),
 		'Left must close the panel the reader is actually inside');
 	assert(/if \(owner && typeof owner\.focus === 'function'\) owner\.focus\(\);/.test(js),
 		'Left must return focus to the parent row');
@@ -14688,5 +14723,359 @@ check('the header geometry harness owns the behaviour reads, at five widths', ()
 		assert(logical.length >= 100,
 			`the built CSS carries ${logical.length} logical declarations, expected at least 100 - `
 			+ 'the conversion did not survive the build');
+	});
+}
+
+// ---------- shadcn-parity: menubar (batch 28) ----------
+console.log('\nshadcn-parity: menubar');
+{
+	// The six gaps the feature-by-feature audit of shadcn's Menubar docs left
+	// open. Markup claims read the specimen AND the built page; runtime claims
+	// are DRIVEN - the fake document records the delegated listeners the
+	// runtime registers on it, so a keydown reaches the same handler the
+	// browser would run. Every driven assertion carries its control: "nothing
+	// happened" is indistinguishable from "the handler never ran" unless the
+	// case that must fire is shown firing first.
+	const page = read('src/pages/index.astro');
+	const html = read('dist/index.html');
+	const js = rt;        // the runtime, comments stripped
+	const css = compSrc;  // the stylesheet, comments stripped
+	// Bounded by its neighbours, so a specimen moved or renamed fails here
+	// instead of matching some other button on the page.
+	const bar = page.slice(page.indexOf('<div class="cm-menubar"'),
+		page.indexOf('<h3 class="cm-kicker">tooltip'));
+	assert(bar.length > 500, 'the menubar specimen moved: the slice anchors no longer bracket it');
+
+	const triggersOf = (src) => [...src.matchAll(/<button[^>]*class="cm-menubar__trigger"[^>]*>/g)]
+		.map((m) => m[0]);
+
+	// A document-level keydown, dispatched the way the browser would: to
+	// EVERY listener the runtime registered on `document`. The handlers that
+	// are not about a menubar must walk past this target on their own guards -
+	// if one does not, this throws and the check fails, which is the correct
+	// verdict for an unguarded handler.
+	const keyAt = (doc, target, key) => {
+		const ev = {
+			target,
+			key,
+			defaultPrevented: false,
+			preventDefault() { ev.defaultPrevented = true; },
+		};
+		for (const fn of (doc.__ev.keydown || [])) fn(ev);
+		return ev;
+	};
+
+	// A bar of words with a showPopover/hidePopover spy on each panel: "it
+	// opened" is an observation, never an assumption about the [popovertarget]
+	// attribute a fake cannot act on.
+	const barFixture = (words) => {
+		const barEl = el('div', { class: 'cm-menubar', 'data-cm-menubar': '', role: 'menubar' });
+		const opened = [];
+		const hidden = [];
+		const trig = [];
+		words.forEach((w, i) => {
+			const id = 'mbx-' + i;
+			const panel = el('div', { class: 'cm-dropdown__menu cm-menubar__menu', id, popover: '', role: 'menu' });
+			(w.rows || []).forEach((r) => panel.appendChild(r));
+			panel.showPopover = () => opened.push(id);
+			panel.hidePopover = () => hidden.push(id);
+			const t = el('button', Object.assign({
+				class: 'cm-menubar__trigger', popovertarget: id,
+				'aria-haspopup': 'menu', role: 'menuitem',
+			}, w.attrs || {}));
+			barEl.appendChild(t);
+			barEl.appendChild(panel);
+			trig.push(t);
+		});
+		return { barEl, trig, opened, hidden };
+	};
+
+	check('shadcn-parity: the bar is ONE tab stop and init re-derives it', () => {
+		const words = triggersOf(bar);
+		assert(words.length >= 3, `the menubar must have words to walk, found ${words.length}`);
+		const authored = words.filter((w) => /tabindex="0"/.test(w)).length;
+		assert(authored === 1,
+			`the specimen puts ${authored} words in the tab order; the pattern enters as one stop`);
+		// The runtime, not the author, owns the stop: three words all claiming
+		// it collapse to one on init, and a disabled word never wins it.
+		const f = barFixture([
+			{ attrs: { 'aria-disabled': 'true', tabindex: '0' } },
+			{ attrs: { tabindex: '0' } },
+			{ attrs: { tabindex: '0' } },
+		]);
+		const { api, doc } = runOn([f.barEl]);
+		api.init(doc);
+		const stops = f.trig.filter((t) => t.getAttribute('tabindex') === '0');
+		assert(stops.length === 1, `${stops.length} words hold the tab stop after init, want 1`);
+		assert(stops[0] === f.trig[1],
+			'the stop must land on the first ENABLED word - not the disabled one, not nowhere');
+		assert(f.trig[0].getAttribute('tabindex') === '-1'
+			&& f.trig[2].getAttribute('tabindex') === '-1',
+			'the other words must be arrow targets only (tabindex="-1")');
+		// ...and the stop is not a one-shot fixup: it TRAVELS with the focus,
+		// or the next Tab leaves the bar at the word the reader walked off.
+		const g = barFixture([{ attrs: { tabindex: '0' } }, { attrs: { tabindex: '-1' } }]);
+		const run = runOn([g.barEl]);
+		g.trig[0].focus();
+		keyAt(run.doc, g.trig[0], 'ArrowRight');
+		assert(g.trig[0].getAttribute('tabindex') === '-1'
+			&& g.trig[1].getAttribute('tabindex') === '0',
+			'walking the words did not move the tab stop with them');
+		// Focus can still be PUT on a disabled word (a script, or a page
+		// that focuses its first control). The stop must not follow it
+		// there: the walk list refuses to visit that word, so a stop
+		// parked on it is a tab stop with nowhere to walk from. Measured
+		// in WebKit before the guard - focus() alone moved it.
+		const h = barFixture([{ attrs: { 'aria-disabled': 'true' } }, { attrs: {} }]);
+		const runH = runOn([h.barEl]);
+		h.trig[0].focus();
+		h.barEl.fire('focusin', { target: h.trig[0] });
+		assert(h.trig[0].getAttribute('tabindex') === '-1'
+			&& h.trig[1].getAttribute('tabindex') === '0',
+			'focus on a disabled word stole the tab stop');
+	});
+
+	check('shadcn-parity: a disabled word is refused by every door that could open it', () => {
+		const off = triggersOf(bar).filter((w) => /aria-disabled="true"/.test(w));
+		assert(off.length >= 1, 'the anatomy ships a disabled word; the bar specimen has none');
+		assert(/id="mb-help" popover role="menu"/.test(page),
+			'the disabled word must still own its panel: aria-disabled is not [disabled], it stays in the tree');
+		// ONE filter, every door: the arrows, Home/End and the roving stop all
+		// read menubarTriggers().
+		assert(js.includes("b.getAttribute('aria-disabled') !== 'true'"),
+			'menubarTriggers() still walks to the disabled word - it filters on visibility only');
+		// ArrowDown reads the attribute BEFORE it opens. Order, not presence:
+		// a guard moved below showPopover() is not a guard.
+		const down = js.slice(js.indexOf("if (trg && e.key === 'ArrowDown')"),
+			js.indexOf("if (['ArrowLeft'"));
+		assert(down.includes('aria-disabled')
+			&& down.indexOf('aria-disabled') < down.indexOf('showPopover()'),
+			'ArrowDown must read aria-disabled before it shows anything');
+		// Enter and Space do not arrive as ArrowDown - they arrive as a click,
+		// because popovertarget is a platform attribute with no idea what
+		// aria-disabled means.
+		assert(js.includes("bar.addEventListener('mousedown', vetoDisabled)")
+			&& js.includes("bar.addEventListener('click', vetoDisabled)"),
+			'the pointer and keyboard doors on a disabled word are not vetoed');
+		// Driven: ArrowDown opens the ENABLED word - the control, without which
+		// "the disabled one stayed shut" could mean the handler never ran at all.
+		const f = barFixture([{ attrs: {} }, { attrs: { 'aria-disabled': 'true' } }]);
+		const { doc } = runOn([f.barEl]);
+		keyAt(doc, f.trig[0], 'ArrowDown');
+		assert(f.opened.includes('mbx-0'),
+			'control failed: ArrowDown did not open the enabled word, so nothing below proves anything');
+		const openedBefore = f.opened.length;
+		const ev = keyAt(doc, f.trig[1], 'ArrowDown');
+		assert(f.opened.length === openedBefore, 'ArrowDown opened a disabled word');
+		assert(ev.defaultPrevented,
+			'the menubar handler never reached the disabled branch (it did not answer the key)');
+	});
+
+	check('shadcn-parity: the bar owns a submenu and leaves its keys to it', () => {
+		assert(/role="menuitem" aria-haspopup="menu" aria-controls="mb-export"/.test(page),
+			'the bar ships no submenu owner row');
+		const filePanel = page.slice(page.indexOf('id="mb-file"'), page.indexOf('id="mb-edit"'));
+		assert(/id="mb-export" popover role="menu"/.test(filePanel),
+			'the submenu panel must live INSIDE the panel whose row owns it - the anchor walks up for its host');
+		// A key inside a nested panel belongs to that panel. Without this guard
+		// one Left press closes the submenu AND walks the bar to the next word.
+		assert(js.includes('if (nested && nested !== open) return;'),
+			'onMenubarKey() has no nested-panel guard');
+		// And a panel that walks takes its submenus with it - deepest first, and
+		// before the host hides, so focus unwinds onto a row that still has a
+		// panel behind it. Sliced from the RAW source so the section markers
+		// exist, then stripped, so a comment cannot satisfy either assertion.
+		const walk = runtimeSrc.slice(runtimeSrc.indexOf('function onMenubarKey'),
+			runtimeSrc.indexOf('/* ---------- toggle group'))
+			.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+		assert(walk.includes('[popover]:popover-open'),
+			'the walk never closes a hanging submenu, so one outlives its host in the top layer');
+		assert(walk.indexOf('[popover]:popover-open') < walk.indexOf('open.hidePopover()'),
+			'the host hides BEFORE its submenu - the nested box outlives the menu it hangs from');
+		// ONE press, ONE move: the bar stands down for a key the panel
+		// already consumed, and the guard has to be FIRST - a check that
+		// only found the text somewhere in the body would pass a version
+		// placed after the walk it is supposed to skip.
+		const guard = runtimeSrc.indexOf('if (e.defaultPrevented) return;',
+			runtimeSrc.indexOf('function onMenubarKey'));
+		const body = runtimeSrc.indexOf('var bar = e.target',
+			runtimeSrc.indexOf('function onMenubarKey'));
+		assert(guard !== -1 && guard < body,
+			'onMenubarKey does not stand down for a consumed key: Right on a submenu row '
+			+ 'opens it and then walks away with it');
+		// ...and the panel does not swallow Left on its way to that walk:
+		// a bare bar panel leaves Left to the bar, a submenu inside it takes it.
+		const menuKey = runtimeSrc.slice(runtimeSrc.indexOf('function onMenuKey'),
+			runtimeSrc.indexOf('/* ---------- navigation menu'))
+			.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+		const left = menuKey.slice(menuKey.indexOf("if (e.key === 'ArrowLeft')"));
+		assert(left.includes("contains('cm-menubar__menu')")
+			&& left.indexOf("contains('cm-menubar__menu')") < left.indexOf('closeSubmenu('),
+			'a bar panel may not eat Left: the bar owns that key and walks to the '
+			+ 'neighbouring word with it');
+		// Driven: the same key, two targets. From the parent row it walks
+		// (the control); from inside the submenu it must do nothing.
+		const subItem = el('button', { class: 'cm-dropdown__item', role: 'menuitem' });
+		const parentRow = el('button', { class: 'cm-dropdown__item', role: 'menuitem' });
+		const sub = el('div', { class: 'cm-dropdown__menu', id: 'mbx-sub', popover: '', role: 'menu' });
+		sub.appendChild(subItem);
+		const f = barFixture([{ rows: [parentRow, sub] }, { attrs: {} }]);
+		const { doc } = runOn([f.barEl]);
+		parentRow.focus();
+		keyAt(doc, parentRow, 'ArrowRight');
+		assert(f.hidden.includes('mbx-0'),
+			'control failed: ArrowRight on a parent row did not walk the bar - nothing below proves anything');
+		assert(doc.activeElement === f.trig[1], 'the control walk did not focus the next word');
+		f.hidden.length = 0;
+		subItem.focus();
+		keyAt(doc, subItem, 'ArrowRight');
+		assert(f.hidden.length === 0, 'the bar hid a panel while the reader was inside a submenu');
+		assert(doc.activeElement === subItem,
+			'focus left the submenu row: the bar walked on a key it does not own');
+		// ...and the press that OPENS the submenu is not a bar walk either:
+		// the panel consumes Right (openSubmenu preventDefaults), the bar
+		// stands down, and focus lands in the new panel. One press, two
+		// moves was the measured defect: open, walk, take the submenu out.
+		const owner = el('button', { class: 'cm-dropdown__item', role: 'menuitem',
+			'aria-haspopup': 'menu', 'aria-controls': 'mbx-own' });
+		const subItem2 = el('button', { class: 'cm-dropdown__item', role: 'menuitem' });
+		const sub2 = el('div', { class: 'cm-dropdown__menu', id: 'mbx-own',
+			popover: '', role: 'menu' });
+		sub2.appendChild(subItem2);
+		const f2 = barFixture([{ rows: [owner, sub2] }, { attrs: {} }]);
+		// anchorPopover measures boxes and writes inline styles; a fake with
+		// neither would throw inside the RUNTIME and fail for the harness's
+		// poverty rather than the code's.
+		const dress = (n) => {
+			n.style = n.style || {};
+			n.getBoundingClientRect = () => ({ left: 0, top: 0, right: 120,
+				bottom: 40, width: 120, height: 40 });
+			n.offsetWidth = 120;
+			n.offsetHeight = 40;
+			n.kids.forEach(dress);
+			return n;
+		};
+		dress(f2.barEl);
+		let opened = 0;
+		sub2.showPopover = () => { opened++; };
+		const run2 = runOn([f2.barEl]);
+		owner.focus();
+		keyAt(run2.doc, owner, 'ArrowRight');
+		assert(opened === 1, `Right on the submenu owner opened it ${opened} times, want 1`);
+		assert(f2.hidden.length === 0,
+			'the bar ALSO walked on the press that opened the submenu - one press, two moves');
+		assert(run2.focusNode() === subItem2,
+			'focus did not land in the submenu that the press opened');
+	});
+
+	check('shadcn-parity: a checkbox row in a bar panel flips in place', () => {
+		assert(/role="menuitemcheckbox" aria-checked="true"/.test(bar),
+			'the bar ships no checkbox item');
+		const icon = el('span', { class: 'cm-dropdown__icon', 'aria-hidden': 'true', 'data-checked': 'true' });
+		const row = el('button', { class: 'cm-dropdown__item', role: 'menuitemcheckbox', 'aria-checked': 'true' });
+		row.appendChild(icon);
+		const plain = el('button', { class: 'cm-dropdown__item', role: 'menuitem' });
+		const f = barFixture([{ rows: [row, plain] }, { attrs: {} }]);
+		const { doc } = runOn([f.barEl]);
+		row.focus();
+		const first = keyAt(doc, row, ' ');
+		assert(first.defaultPrevented, 'Space on a checkbox row was not handled at all');
+		assert(row.getAttribute('aria-checked') === 'false', 'the checkbox row did not flip');
+		assert(icon.getAttribute('data-checked') === 'false',
+			'the check glyph did not follow the row - the column would jump when it toggles');
+		// A flip is a flip, not a write to false: pressing again puts it back.
+		keyAt(doc, row, ' ');
+		assert(row.getAttribute('aria-checked') === 'true',
+			'the second press did not toggle it back - this is a switch, not a one-way flag');
+		// And a plain row is not a checkable one: it must not claim the key or
+		// flip the row beside it.
+		const plainEv = keyAt(doc, plain, ' ');
+		assert(!plainEv.defaultPrevented,
+			'a plain menu row swallowed Space - only a checkable row owns that key');
+		assert(row.getAttribute('aria-checked') === 'true',
+			'the plain row flipped the checkbox next to it');
+	});
+
+	check('shadcn-parity: the bar radio group moves selection, one row at a time', () => {
+		const view = page.slice(page.indexOf('id="mb-view"'),
+			page.indexOf('<!-- A disabled WORD'));
+		assert(view.length > 200, 'the view panel slice came back empty');
+		assert(/role="group" aria-labelledby="mb-grp-scale"/.test(view)
+			&& /class="cm-dropdown__group-label" id="mb-grp-scale"/.test(view),
+			'radio rows must sit in a labelled group, not loose in the panel');
+		const rows = [...view.matchAll(/role="menuitemradio"[^>]*data-cm-radio="([^"]+)"/g)];
+		assert(rows.length >= 2, `a radio group needs rows, found ${rows.length}`);
+		assert(new Set(rows.map((r) => r[1])).size === 1,
+			'the rows do not share one data-cm-radio name, so they are not a group');
+		assert((view.match(/role="menuitemradio"[^>]*aria-checked="true"/g) || []).length === 1,
+			'the authored group must start with exactly one checked row');
+		// Driven: arrows MOVE the selection (the APG pattern) - arrival is the
+		// door setRadio() is wired to, and it is scoped to this panel.
+		const r1 = el('button', { class: 'cm-dropdown__item', role: 'menuitemradio', 'aria-checked': 'true', 'data-cm-radio': 'mbz' });
+		const r2 = el('button', { class: 'cm-dropdown__item', role: 'menuitemradio', 'aria-checked': 'false', 'data-cm-radio': 'mbz' });
+		const f = barFixture([{ rows: [r1, r2] }, { attrs: {} }]);
+		const { doc } = runOn([f.barEl]);
+		r1.focus();
+		keyAt(doc, r1, 'ArrowDown');
+		assert(r1.getAttribute('aria-checked') === 'false'
+			&& r2.getAttribute('aria-checked') === 'true',
+			'ArrowDown did not take the selection onto the next row');
+		keyAt(doc, r2, 'ArrowUp');
+		assert(r1.getAttribute('aria-checked') === 'true'
+			&& r2.getAttribute('aria-checked') === 'false',
+			'ArrowUp did not hand the selection back');
+		const checked = [r1, r2].filter((r) => r.getAttribute('aria-checked') === 'true');
+		assert(checked.length === 1,
+			`${checked.length} rows are checked - a radio group answers exactly one question`);
+		// The selection has to be SEEN: the dot rides the icon slot and reads
+		// aria-checked, the attribute setRadio() owns. (Before it existed the
+		// slot computed to `content: none` - the state was real and invisible.)
+		assert(/\.cm-dropdown__item\[role='menuitemradio'\]\[aria-checked='true'\] \.cm-dropdown__icon::before/.test(css),
+			'the checked radio row draws no mark on the icon slot - the selection is invisible');
+	});
+
+	check('shadcn-parity: the bar panels compose icons, group labels and hints, and the disabled word is a weight', () => {
+		assert((bar.match(/class="cm-dropdown__icon"/g) || []).length >= 3,
+			'the bar rows carry no icon slot - the "With Icons" half of the composition is missing');
+		assert((bar.match(/class="cm-dropdown__group-label"/g) || []).length >= 2,
+			'the bar has no group labels - MenubarGroup/MenubarLabel is unapplied');
+		const hints = bar.match(/class="cm-dropdown__shortcut" aria-hidden="true"/g) || [];
+		assert(hints.length >= 3, `the bar ships ${hints.length} shortcut hints, want at least 3`);
+		// The BUILT page, not the specimen: every hint anywhere is out of the
+		// accessible name - and the floor stops two zero counts from reading
+		// as agreement.
+		const built = (html.match(/class="cm-dropdown__shortcut"/g) || []).length;
+		const hid = (html.match(/cm-dropdown__shortcut" aria-hidden="true"/g) || []).length;
+		assert(built >= 6 && built === hid,
+			`${hid} of ${built} shortcut hints are aria-hidden; every one must be`);
+		// The RULE, not a mention of the name: `.cm-dropdown__icon {` is also
+		// the tail of `.cm-dropdown__item[aria-checked='true'] .cm-dropdown__icon {`,
+		// so a plain includes() kept passing with the base rule itself deleted
+		// (mutation s12 caught this). Anchored at a line start, only the rule
+		// satisfies it.
+		for (const sel of ['.cm-dropdown__icon', '.cm-dropdown__shortcut',
+			'.cm-dropdown__group-label']) {
+			assert(new RegExp('^\\' + sel + ' \\{', 'm').test(css),
+				`components.css never defines ${sel} as its own rule`);
+		}
+		// The disabled word is a WEIGHT, not a hue - and the rule has to be
+		// declared after the hover block it beats (same specificity, later
+		// wins) or the dead word lights up under the pointer.
+		const disabled = /(\.cm-menubar__trigger\[aria-disabled='true'\][^{]*\{[^}]*\})/.exec(css);
+		assert(disabled, 'no rule for the disabled word - it would wear the hover highlight like a live one');
+		assert(/var\(--ink-faint\)/.test(disabled[1]),
+			'the disabled word does not drop to the faint ink token');
+		assert(!/#[0-9a-f]{3,8}\b/i.test(disabled[1]) && !/\brgba?\(/.test(disabled[1]),
+			'the disabled word declares a raw colour instead of a token');
+		assert(css.indexOf(".cm-menubar__trigger[aria-disabled='true']") > css.indexOf('.cm-menubar__trigger:hover'),
+			'the disabled rule precedes the hover rule it has to beat');
+		// House rule for where new CSS may live: before .cm-auth, and the
+		// stack-ownership block still ends the file. Read raw - the block's
+		// name only exists in a comment, which compSrc has stripped.
+		const rawCss = read('src/styles/components.css');
+		assert(css.indexOf(".cm-menubar__trigger[aria-disabled='true']") < rawCss.indexOf('.cm-auth {'),
+			'the new menubar rule sits after .cm-auth - it must come before it');
+		assert(rawCss.indexOf('stack ownership (LAST, on purpose)') > rawCss.indexOf('.cm-auth {'),
+			'stack ownership must remain the last block in the stylesheet');
 	});
 }

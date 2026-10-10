@@ -6639,6 +6639,16 @@ input.cm-slider:disabled {
 	background: var(--bg-3);
 	color: var(--ink);
 }
+/* A disabled word is a word at a lower WEIGHT, not a grey chip: it keeps
+   the cell's hairline (it is still a cell) and gives up the ink and the
+   pointer affordance. Declared AFTER the hover/focus block so the state
+   cannot be re-lit by hovering it - disabled is not a hover state. */
+.cm-menubar__trigger[aria-disabled='true'],
+.cm-menubar__trigger[aria-disabled='true']:hover {
+	background: transparent;
+	color: var(--ink-faint);
+	cursor: default;
+}
 /* The panel hangs under the WORD it belongs to rather than off a chevron's
    right edge; the runtime anchors it from the same left edge (see
    anchorPopover). Fixed like .cm-popover, so the frame before anchoring
@@ -7736,6 +7746,13 @@ input.cm-slider:disabled {
 /* The check and the dot ARE the checked state, so the glyph slot is never
    empty and the column never jumps when an item toggles. */
 .cm-dropdown__icon[data-checked='true']::before { content: "\2713"; }
+/* The radio's mark is a DOT, and it hangs on the same slot. The checkbox
+   glyph above is keyed on data-checked (the RUNTIME writes it); a radio row's
+   truth is aria-checked, which setRadio() owns - so the dot reads the
+   attribute the radio actually speaks. Measured before this rule: a checked
+   row's icon slot computed to `content: none`, i.e. the selection had no
+   visual state at all, only a colour change on an empty box. */
+.cm-dropdown__item[role='menuitemradio'][aria-checked='true'] .cm-dropdown__icon::before { content: "\25cf"; }
 .cm-dropdown__shortcut {
 	flex: none;
 	margin-inline-start: auto;
