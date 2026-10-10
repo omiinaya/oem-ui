@@ -15137,6 +15137,36 @@ console.log('\nshadcn-parity: guildrail + composer');
 			'no min-block-size: 0 - the flex item cannot shrink below its content');
 		assert(/max-block-size:\s*100%/.test(b),
 			'the rail is unbounded, so `overflow-y: auto` has nothing to scroll against');
+		// The bleed is a box the rail PADS OUT TO and then cancels, and
+		// every half of that bargain is load-bearing. Stated width, or the
+		// 18rem of padding is measured against a 4.5rem grid track and the
+		// squares get a ZERO-width content box. Negative margin, or the
+		// grid column beside the rail starts 18rem to the right. Padding to
+		// the bleed, or the tip is clipped by the scrollport it escapes.
+		assert(/inline-size:\s*calc\(var\(--guildrail-w\) \+ var\(--guildrail-bleed\)\)/.test(b),
+			'the rail does not state a width, so its own bleed padding eats the content box');
+		assert(/margin-inline-end:\s*calc\(0px - var\(--guildrail-bleed\)\)/.test(b),
+			'the bleed is not cancelled by a negative margin, so the layout keeps the 18rem');
+		// The trailing hairline is a gradient CLIPPED to the content box.
+		// A border would be drawn at the padding box too - an 18rem line
+		// down the page - and the clip is what stops it.
+		assert(/background-origin:\s*content-box/.test(b) && /background-clip:\s*content-box/.test(b),
+			'the rail edge is not clipped to the content box, so it is drawn across the bleed');
+		// The scrollbar would be drawn 18rem to the right of the squares.
+		assert(/scrollbar-width:\s*none/.test(b), 'the rail does not suppress its scrollbar');
+		assert(/\.cm-guildrail::-webkit-scrollbar\s*\{\s*display:\s*none/.test(
+			read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, '')),
+			'the rail has no WebKit scrollbar suppression, and Omar reads on iPhone');
+		// The squares are boxes the rail owns: a modifier that is only a
+		// hue must still be a declaration (this palette has no hue to spend).
+		const add = ruleBodies(block, '.cm-guildrail__item--add').join('\n');
+		assert(add, 'the add control has no rule, so it is a bare square with no meaning');
+		assert(/color:\s*var\(--ink-dim\)/.test(add),
+			'the add control does not take the dim ink, so it reads as a live server');
+		const home = ruleBodies(block, '.cm-guildrail__item--home').join('\n');
+		assert(home, 'the home door has no rule of its own');
+		assert(/border-color:\s*var\(--line\)/.test(home),
+			'the home door is not framed, so "not a server" is carried by nothing');
 	});
 
 	check('batch 29: the tip escapes the rail to the RIGHT without overlapping it', () => {
@@ -15164,6 +15194,14 @@ console.log('\nshadcn-parity: guildrail + composer');
 		assert(/pointer-events:\s*none/.test(rail) &&
 			/pointer-events:\s*auto/.test(ruleBodies(block, '.cm-guildrail .cm-tooltip').join('\n')),
 			'tap-through is not wired: the bleed swallows clicks on the column behind it');
+		// The wrapper is a centring flex ROW, not the tooltip's own
+		// inline-block. It is a stretched flex item in a column rail, so a
+		// bare inline-block pinned the square to the rail's leading edge
+		// and the 44px target stopped being centred in the rail.
+		const wrap = ruleBodies(block, '.cm-guildrail .cm-tooltip').join('\n');
+		assert(wrap, 'the rail never styles its tooltip wrapper');
+		assert(/display:\s*flex/.test(wrap) && /justify-content:\s*center/.test(wrap),
+			'the wrapper does not centre the square, so the tap target sits off the rail centre');
 	});
 
 	check('batch 29: every square is --tap on both axes and never widens the rail', () => {
@@ -15248,8 +15286,7 @@ console.log('\nshadcn-parity: guildrail + composer');
 		// 1px plus the element's own box.
 		const sep = ruleBodies(block, '.cm-guildrail__sep').join('\n');
 		assert(sep, 'the rail never styles its separator');
-		assert(/background:\s*var\(--line\)/.test(sep) && !/border/.test(sep),
-			'the separator is a border, so its 1px is drawn on top of the element block');
+			assert(!/border-block-start/.test(sep), 'the separator is a border, so its 1px is drawn on top of the element block');
 		assert(/block-size:\s*1px/.test(sep) && /inline-size:\s*var\(--tap\)/.test(sep),
 			'the separator is not a short --tap-wide hairline');
 		const tips = [...showcase.matchAll(/<span class="cm-tooltip__tip" role="tooltip">([^<]+)<\/span>/g)];
