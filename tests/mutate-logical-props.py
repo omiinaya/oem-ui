@@ -151,6 +151,8 @@ def main():
         plan = [m for m in plan if needle in f"{m['rel']}:{m['line']}"]
     if '--limit' in args:
         plan = plan[:int(args[args.index('--limit') + 1])]
+    if '--skip' in args:
+        plan = plan[int(args[args.index('--skip') + 1]):]
     print(f'planned mutations: {len(plan)}')
     # pre-flight: every mutation must still be present in the real source
     for m in plan:
@@ -161,19 +163,37 @@ def main():
             f"`{m['sel']}` expected {m['old']!r} found {window!r}")
     print(f'pre-flight: all {len(plan)} patterns present in the source')
 
+    # The snapshot is HELD IN MEMORY and is the authority. A first run of
+    # this runner kept its only copy in a scratch tempdir, and the scratch
+    # pruner deleted it mid-sweep: the restore in `finally` then raised
+    # FileNotFoundError with mutant 138 still applied to the working tree.
+    # The cp snapshot below survives as a fallback artifact, but nothing
+    # depends on it anymore, and every restore is byte-verified.
+    originals = {rel: (ROOT / rel).read_text() for rel in FILES}
+
     snapshot_dir = Path(tempfile.mkdtemp(prefix='logical-mutate-'))
     snapshots = {}
     for rel in FILES:
         snap = snapshot_dir / Path(rel).name
-        shutil.copy(ROOT / rel, snap)
-        snapshots[rel] = snap
-    print(f'snapshots: {snapshot_dir}')
+        try:
+            shutil.copy(ROOT / rel, snap)
+            snapshots[rel] = snap
+        except OSError as e:  # advisory only
+            print(f'note: could not write the cp snapshot for {rel}: {e}')
+    print(f'snapshots: memory + {snapshot_dir}')
+
+    def restore(rel):
+        (ROOT / rel).write_text(originals[rel])
 
     killed = 0
     survived = []
     try:
         for idx, m in enumerate(plan, 1):
             target = ROOT / m['rel']
+            # the tree must be exactly the pre-mutant content before each
+            # window: a failed restore would otherwise chain silently
+            assert target.read_text() == originals[m['rel']], (
+                f'the tree is not pristine before mutant {idx}: {m["rel"]}')
             text = target.read_text()
             assert text[m['start']:m['end']] == m['old'], (
                 f'window drifted before mutant {idx}: {m["rel"]}:{m["line"]}')
@@ -200,19 +220,22 @@ def main():
             print(f'[{idx}/{len(plan)}] {m["rel"]}:{m["line"]} '
                   f'`{m["sel"][:40]}` {m["logical"]} -> {m["physical"]}: {verdict}',
                   flush=True)
-            # restore with a real copy, never `git checkout --`
-            shutil.copy(snapshots[m['rel']], target)
+            # restore from the in-memory original, never `git checkout --`,
+            # and verify the restore immediately - a silent failed restore
+            # would poison every later window in the sweep
+            restore(m['rel'])
+            assert target.read_text() == originals[m['rel']], (
+                f'restore did not take after mutant {idx}: {m["rel"]}')
     finally:
-        for rel, snap in snapshots.items():
-            shutil.copy(snap, ROOT / rel)
+        for rel in FILES:
+            restore(rel)
         rc, _ = run(['npm', 'run', 'build'], BUILD_TIMEOUT)
         print(f'restored; final rebuild rc={rc}')
 
     # the tree must be exactly as the plan found it
     for rel in FILES:
-        now = (ROOT / rel).read_text()
-        was = snapshots[rel].read_text()
-        assert now == was, f'{rel} did not restore byte-for-byte'
+        assert (ROOT / rel).read_text() == originals[rel], (
+            f'{rel} did not restore byte-for-byte')
 
     total = killed + len(survived)
     print(f'killed={killed} survived={len(survived)} of {total}')
