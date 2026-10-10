@@ -314,6 +314,23 @@
 	--knob-d: calc(var(--track-h) - 0.25rem);
 	--knob-inset: 0.1875rem;
 
+	/* ---- message timeline geometry ------------------------------
+	   `.cm-msglist`'s row is a four-track grid - timestamp gutter,
+	   avatar column, message, reserved action column - and every row
+	   has to land the same tracks or the timeline stops lining up.
+	   Both fixed tracks live HERE rather than being read off
+	   `.cm-avatar`, because the COLUMN is a layout decision the avatar
+	   component cannot know: a consumer who steps their avatars down
+	   to `--sm` still wants a text column that starts where it did.
+	   The default equals `.cm-avatar`'s own default (pinned by a test),
+	   so the empty slot a grouped row carries is the same width as the
+	   real avatar above it.
+	   The gutter is the contract's ~60px stamp column: wide enough for
+	   `11:12` at --text-micro beside the avatar, narrow enough that a
+	   402px phone still gives the message the majority of the row. */
+	--msglist-gutter: 3.75rem;
+	--msglist-avatar: 2.5rem;
+
 	/* ---- scrollbar (dark default) ------------------------------
 	   width:thin + always-visible gutter so short pages reserve the same
 	   12px a scrolling page uses. Without this the content box differs by

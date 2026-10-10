@@ -7445,6 +7445,223 @@ input.cm-slider:disabled {
 	border-top: 1px solid var(--line-soft);
 }
 
+/* ---------- message list: the flat transcript timeline ----------
+   .cm-msglist is the Discord-shaped timeline that lives INSIDE
+   .cm-scroller: a day divider, a four-track row, continuation rows
+   that lose their header, an unread rule, a mention row and a system
+   row. It composes the family instead of restating it - the avatar is
+   .cm-avatar, the system note is .cm-marker, the frame is .cm-scroller
+   - and it never stacks: no rule in this block carries a z-index,
+   because a row that only reveals a toolbar on hover needs no paint
+   order.
+
+   Grouping (one author inside ~5 minutes) is the CONSUMER's job:
+   this layer styles the --grouped row it is handed. That split is
+   what the timestamp rule rests on. An ungrouped row stamps itself in
+   the meta line; a continuation row has no header to stamp it, so its
+   time lives in the gutter. One visible stamp per row, decided here,
+   so a consumer authors ONE row template instead of two. */
+.cm-msglist {
+	display: grid;
+}
+/* The row grid, in the contract's order. The FOURTH track is the
+   action toolbar's, and it exists at rest: revealing a control by
+   adding a column is what makes the text jump when the pointer
+   arrives. Hiding the toolbar is opacity, never geometry. */
+.cm-msglist__row {
+	display: grid;
+	grid-template-columns: var(--msglist-gutter) var(--msglist-avatar) minmax(0, 1fr) auto;
+	column-gap: var(--space-2);
+	align-items: start;
+	padding-block: var(--space-2);
+	padding-inline: var(--space-2);
+}
+/* The row lifts under the pointer and for a keyboard that reached
+   inside it. --bg-3 is one step off the viewport's --panel in BOTH
+   themes: --bg-2 measured 1.008:1 against --panel, which is a hover
+   state nobody can see. */
+.cm-msglist__row:hover,
+.cm-msglist__row:focus-within {
+	background: var(--bg-3);
+}
+/* The stamp column, right-aligned so the time reads as a margin note
+   against the avatar it belongs to. */
+.cm-msglist__gutter {
+	grid-column: 1;
+	font-size: var(--text-micro);
+	color: var(--ink-faint);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	text-align: end;
+}
+/* ONE stamp per row: the meta line already stamps an ungrouped row,
+   so its gutter copy goes quiet, and the continuation row - which has
+   no meta at all - keeps its own. visibility rather than display:none
+   so the column's geometry is identical either way; that is what lets
+   a consumer author the gutter on every row and leave the decision
+   to this one rule. */
+.cm-msglist__row:not(.cm-msglist__row--grouped) .cm-msglist__gutter {
+	visibility: hidden;
+}
+/* The avatar lands in the fixed second track, top-aligned with the
+   author line it belongs to. A grouped row hands the SAME track an
+   empty slot: no initials, no border, but the message column behind
+   it does not move a pixel. */
+.cm-msglist__avatar {
+	grid-column: 2;
+	align-self: start;
+}
+.cm-msglist__main {
+	grid-column: 3;
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	min-width: 0;
+}
+.cm-msglist__meta {
+	display: flex;
+	align-items: baseline;
+	gap: var(--space-2);
+	margin: 0;
+	font-size: var(--text-sm);
+	color: var(--ink-faint);
+}
+.cm-msglist__author {
+	color: var(--ink);
+	font-weight: 700;
+}
+.cm-msglist__msg {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	min-width: 0;
+}
+.cm-msglist__text {
+	margin: 0;
+	color: var(--ink);
+	overflow-wrap: break-word;
+}
+/* ONE button, in a track that is already there. opacity +
+   pointer-events, not visibility: the toolbar must be invisible AND
+   unable to swallow a click on the row beneath it, while staying in
+   the layout (the reserved track is what stops the text moving) and
+   in the tab order - a control that only exists under a pointer is a
+   control the keyboard can never reach. */
+.cm-msglist__actions {
+	grid-column: 4;
+	align-self: start;
+	opacity: 0;
+	pointer-events: none;
+}
+.cm-msglist__row:hover .cm-msglist__actions,
+.cm-msglist__row:focus-within .cm-msglist__actions {
+	opacity: 1;
+	pointer-events: auto;
+}
+/* Reactions sit under the text as real toggles: the count is TEXT
+   inside the button, never a ::after or a label, so the number is
+   selectable, translatable and announced with the emoji. */
+.cm-msglist__reactions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-1);
+	margin: 0;
+}
+.cm-msglist__reaction {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	margin: 0;
+	padding-inline: var(--space-1);
+	border: 1px solid var(--line);
+	background: var(--panel-nested);
+	color: var(--ink-dim);
+	font-size: var(--text-micro);
+	line-height: 1.5;
+	cursor: pointer;
+}
+.cm-msglist__reaction:hover {
+	border-color: var(--ink-dim);
+	color: var(--ink);
+}
+/* The reader's own reaction: a heavier edge and a raised fill. The
+   edge is a SHAPE cue, so "you reacted" survives a greyscale read of
+   the row - and aria-pressed carries the same state to AT. */
+.cm-msglist__reaction--mine {
+	border-color: var(--ink);
+	background: var(--surface-raised);
+	color: var(--ink);
+	box-shadow: inset 0 0 0 1px var(--ink);
+}
+.cm-msglist__count {
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+}
+/* The day divider: one label between two hairlines, the way
+   .cm-marker--separator draws it, in the divider's own class because
+   the contract marks this element as a separator in the markup. */
+.cm-msglist__day {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	margin-block: var(--space-3) var(--space-1);
+	font-size: var(--text-micro);
+	color: var(--ink-faint);
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+}
+.cm-msglist__day::before,
+.cm-msglist__day::after {
+	content: "";
+	flex: 1;
+	border-block-start: 1px solid var(--line);
+}
+/* The unread rule. A 2px bar and the label in WORDS: colour is never
+   the only thing telling a reader that messages went unread. */
+.cm-msglist__unread {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	margin-block: var(--space-2);
+	padding-block-start: var(--space-1);
+	border-block-start: 2px solid var(--ink);
+	font-size: var(--text-micro);
+	font-weight: 700;
+	color: var(--ink);
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+}
+/* A mention is a mark AND a tint, and the mark comes first: a bar on
+   the inline-start edge (logical, so RTL is handed the same rule)
+   with the width it eats handed back as padding, so the message
+   column starts where it does in every other row. */
+.cm-msglist__row--mention {
+	border-inline-start: 2px solid var(--ink);
+	padding-inline-start: calc(var(--space-2) - 2px);
+	background: var(--panel-nested);
+}
+/* The lift rule above would otherwise repaint a mentioned row back to
+   a plain one exactly when the reader is looking at it. */
+.cm-msglist__row--mention:hover,
+.cm-msglist__row--mention:focus-within {
+	background: var(--panel-nested);
+}
+/* A continuation row: no header, and the block padding tightens from
+   --space-2 to --space-0 so the turn reads as one paragraph of the
+   log. The empty avatar slot is still there - it is what keeps the
+   message column aligned. */
+.cm-msglist__row--grouped {
+	padding-block-start: var(--space-0);
+}
+/* A system row gives up the grid: one full-width track, so the
+   .cm-marker it carries - bordered, separator or inline - is the only
+   thing on the line. */
+.cm-msglist__row--system {
+	grid-template-columns: minmax(0, 1fr);
+	align-items: center;
+	padding-block: var(--space-1);
+}
+
 /* ---------- attachment: the file/upload card ----------
    shadcn's Attachment is a composed card (media, content, actions, an
    optional full-card trigger) with an upload lifecycle, three sizes, two

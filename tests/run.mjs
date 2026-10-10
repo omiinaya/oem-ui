@@ -15160,6 +15160,379 @@ console.log('\nshadcn-parity: menubar');
 			'stack ownership must remain the last block in the stylesheet');
 	});
 }
+// ---------- contract: the message list (batch 30) ----------
+console.log('\ncontract: .cm-msglist (batch 30)');
+{
+	// The flat timeline, asserted where it lies: the row grid it
+	// promises, which of a row's two stamps is allowed to paint, the
+	// slot an empty avatar is holding open, a mark that is not a hue,
+	// a count that is real text, and a toolbar that appears WITHOUT
+	// moving the thing it acts on. Geometry claims that need a layout
+	// are measured in WebKit (tests/verify-msglist.py); everything
+	// here is what a reader of the source can be held to.
+	const page = read('src/pages/index.astro');
+	const html = read('dist/index.html');
+	const css = compSrc;                       // comments stripped
+	const raw = read('src/styles/components.css');
+	const tokens = read('src/styles/tokens.css');
+	const readme = read('README.md');
+
+	// Bounded by the neighbouring blocks, so a scan below reads THIS
+	// family and not the chat row sitting above it or the file card
+	// below it. Comments are kept: the anchors live in them.
+	const from = raw.indexOf('/* ---------- message list');
+	const to = raw.indexOf('/* ---------- attachment');
+	assert(from !== -1 && to > from,
+		'the msglist block moved: its slice anchors no longer bracket it');
+	const block = raw.slice(from, to);
+	assert(block.length > 2000,
+		`the msglist block is only ${block.length} chars - the anchors cut it short`);
+
+	// The BUILT specimen, bounded by its own section: grepping the
+	// showcase source reads what Astro was asked to render, not what
+	// the browser got, and a renamed class fails only against dist.
+	const sec = html.slice(html.indexOf('id="msglist"'),
+		html.indexOf('id="attachment"'));
+	assert(sec.length > 2000, 'the built page has no msglist section between #msglist and #attachment');
+
+	// Exact, line-anchored rule bodies. A substring match returns the
+	// first rule that MENTIONS the class, which for `.cm-msglist__row`
+	// would be the grouped variant and would report declarations the
+	// base rule never had.
+	const rule = (sel) => {
+		const m = new RegExp('^\\' + sel + ' \\{([^}]*)\\}', 'm').exec(css);
+		return m ? m[1] : null;
+	};
+	const styledIn = (cls) => new RegExp('\\.' + cls + '(?![a-z0-9_-])').test(allCss);
+	// Track breaks only: a comma inside minmax() or calc() separates
+	// nothing, and grid-template-columns does not use commas at all -
+	// tracks are space-separated, so a comma counter reports 1 for a
+	// perfectly good four-track row.
+	const tracks = (decl) => {
+		let depth = 0, tok = '';
+		const out = [];
+		for (const ch of decl) {
+			if (ch === '(') depth++;
+			if (depth === 0 && /\s/.test(ch)) {
+				if (tok) { out.push(tok); tok = ''; }
+				continue;
+			}
+			tok += ch;
+			if (ch === ')') depth--;
+		}
+		if (tok) out.push(tok);
+		return out.length;
+	};
+	// Real class TOKENS out of the built section, not substrings:
+	// `cm-msglist__row` is a substring of `--grouped`, so an includes()
+	// check is satisfied by the variant alone.
+	const rendered = new Set();
+	for (const m of sec.matchAll(/class="([^"]*)"/g)) {
+		for (const t of m[1].split(/\s+/)) if (t) rendered.add(t);
+	}
+	// The rows, opening tag AND body. A check over the opening tag
+	// alone can see the classes and never the meta line inside - which
+	// is exactly the claim "one stamp per row" turns on.
+	const starts = [...sec.matchAll(/<div class="[^"]*\bcm-msglist__row\b[^"]*"[^>]*>/g)];
+	const rows = starts.map((m, i) => ({
+		open: m[0],
+		body: sec.slice(m.index + m[0].length,
+			i + 1 < starts.length ? starts[i + 1].index : sec.length),
+	}));
+	const groupedRows = rows.filter((r) => /cm-msglist__row--grouped\b/.test(r.open));
+
+	const REQUIRED_MSGLIST = [
+		'cm-msglist', 'cm-msglist__day', 'cm-msglist__row', 'cm-msglist__gutter',
+		'cm-msglist__avatar', 'cm-msglist__main', 'cm-msglist__meta',
+		'cm-msglist__author', 'cm-msglist__msg', 'cm-msglist__text',
+		'cm-msglist__actions', 'cm-msglist__reactions', 'cm-msglist__reaction',
+		'cm-msglist__count', 'cm-msglist__unread', 'cm-msglist__row--grouped',
+		'cm-msglist__row--mention', 'cm-msglist__row--system',
+		'cm-msglist__reaction--mine',
+	];
+
+	check('the message list ships every class the contract names', () => {
+		for (const cls of REQUIRED_MSGLIST) {
+			assert(styledIn(cls), `.${cls} is in the contract but no rule styles it`);
+			assert(rendered.has(cls),
+				`the built page never renders .${cls} - a class nothing renders is a promise nobody can check`);
+		}
+		assert(rows.length >= 8, `only ${rows.length} message rows in the specimen; the family needs a real transcript`);
+		assert(rows.every((r) => /data-message-id="/.test(r.open)),
+			'every message row must carry data-message-id or the scroller cannot address it');
+		assert(rows.every((r) => /\bcm-scroller__item\b/.test(r.open)),
+			'a row outside cm-scroller__item skips the scroller content-visibility contract');
+		// The frame the contract puts around it: viewport -> log -> list.
+		assert(/class="cm-scroller__viewport" role="region" aria-label="Message list" tabindex="0"/.test(sec),
+			'the timeline is not inside a labelled focusable scroll region');
+		assert(/class="cm-scroller__content" role="log" aria-relevant="additions"/.test(sec),
+			'the transcript must stay a role="log" with aria-relevant="additions"');
+		const open = sec.indexOf('<div class="cm-msglist">');
+		const close = sec.lastIndexOf('</div>');
+		assert(open !== -1 && open < close, 'the built section has no .cm-msglist list element');
+		// Modifiers render where they belong, not as a stray class.
+		assert(/<p class="cm-msglist__day" role="separator"><span>[^<]+<\/span><\/p>/.test(sec),
+			'the day divider is not the contract\'s <p role="separator"> with a real label');
+		assert(/<div class="cm-msglist__unread" role="separator"><span>[^<]+ unread messages<\/span><\/div>/.test(sec),
+			'the unread divider must carry its label as text, not as a rule alone');
+		assert(/class="[^"]*cm-msglist__row--mention[^"]*"/.test(sec), 'no mention row in the specimen');
+		assert(/class="[^"]*cm-msglist__row--system[^"]*"/.test(sec), 'no system row in the specimen');
+		const sysRow = rows.find((r) => /cm-msglist__row--system\b/.test(r.open));
+		assert(sysRow && /\bcm-marker\b/.test(sysRow.body),
+			'the system row does not compose .cm-marker - it would be a second system-note implementation');
+		// ONE button in the toolbar. Three is the shape the contract
+		// explicitly refuses, so count them where they render - and the
+		// system note is the only row that carries none.
+		const bars = [...sec.matchAll(/<div class="cm-msglist__actions">([\s\S]*?)<\/div>/g)];
+		const toolbarRows = rows.filter((r) => !/cm-msglist__row--system\b/.test(r.open));
+		assert(bars.length === toolbarRows.length,
+			`${bars.length} action toolbars for ${toolbarRows.length} message rows - every row but the system note carries one`);
+		for (const b of bars) {
+			const n = (b[1].match(/<button/g) || []).length;
+			assert(n === 1, `the action toolbar carries ${n} buttons - the contract wants ONE`);
+		}
+	});
+
+	check('the toolbar is hidden until hover or focus-within, in a column that already exists', () => {
+		// The rest state. `opacity` + `pointer-events` and NOT
+		// display:none / position:absolute: the cell has to stay in the
+		// layout (that is the reserved column) and the button has to
+		// stay in the tab order, or the reveal can never fire for a
+		// keyboard and the control is mouse-only by construction.
+		const rest = rule('.cm-msglist__actions');
+		assert(rest, '.cm-msglist__actions has no rule of its own');
+		assert(/opacity:\s*0/.test(rest), 'the toolbar must ship invisible, not merely unhovered');
+		assert(/pointer-events:\s*none/.test(rest),
+			'the invisible toolbar still takes the pointer - it would swallow a click on the row');
+		assert(!/display:\s*none/.test(rest),
+			'display:none would take the button out of the tab order, so :focus-within could never open it');
+		assert(!/position:\s*absolute/.test(rest),
+			'absolute positioning takes the toolbar out of the grid, so its column is not reserved');
+		// The reveal, on BOTH doors the contract names.
+		const show = /\.cm-msglist__row:hover \.cm-msglist__actions,\s*\.cm-msglist__row:focus-within \.cm-msglist__actions \{([^}]*)\}/.exec(css);
+		assert(show, 'no :hover / :focus-within reveal for the toolbar');
+		assert(/opacity:\s*1/.test(show[1]), 'the reveal does not put the toolbar back');
+		assert(/pointer-events:\s*auto/.test(show[1]), 'the revealed toolbar cannot be clicked');
+		// The reserved column itself: four tracks, and the toolbar is
+		// the fourth. A three-track grid with an overlay is exactly the
+		// layout shift this claim exists to prevent.
+		const rowBody = rule('.cm-msglist__row');
+		assert(rowBody, '.cm-msglist__row has no rule of its own');
+		const cols = /grid-template-columns:\s*([^;]+);/.exec(rowBody);
+		assert(cols, 'the row declares no grid-template-columns');
+		assert(tracks(cols[1]) === 4,
+			`the row grid has ${tracks(cols[1])} tracks, not the 4 (gutter/avatar/message/actions) the contract reserves`);
+		assert(/grid-column:\s*4/.test(rest),
+			'the toolbar is not parked on the fourth track, so it would land wherever auto-flow put it');
+		// The other three parts are placed too - auto-placement would
+		// shift every element one column left the moment a gutter is
+		// missing from a grouped row.
+		assert(/grid-column:\s*1/.test(rule('.cm-msglist__gutter') || ''), 'the gutter is not on track 1');
+		assert(/grid-column:\s*2/.test(rule('.cm-msglist__avatar') || ''), 'the avatar is not on track 2');
+		assert(/grid-column:\s*3/.test(rule('.cm-msglist__main') || ''), 'the message is not on track 3');
+		// The system row gives up the grid on purpose (one full-width
+		// track for the marker), so assert it rather than let it read as
+		// a broken row.
+		const sysCols = /grid-template-columns:\s*([^;]+);/.exec(rule('.cm-msglist__row--system') || '');
+		assert(sysCols && tracks(sysCols[1]) === 1,
+			'the system row must collapse to one full-width track for .cm-marker');
+	});
+
+	check('one stamp per row: the gutter goes quiet when the meta line stamps', () => {
+		// Both stamps exist in the markup - that is the point: the
+		// consumer authors ONE row template and CSS decides which of the
+		// two paints. An assertion over markup alone would pass with the
+		// gutter deleted, which is a row with no timestamp at all on a
+		// grouped line.
+		const hide = /^\.cm-msglist__row:not\(\.cm-msglist__row--grouped\) \.cm-msglist__gutter \{([^}]*)\}/m.exec(css);
+		assert(hide, 'no rule quiets the gutter on a row that already carries a meta stamp');
+		assert(/visibility:\s*hidden/.test(hide[1]),
+			'the gutter stamp must be visibility:hidden (not removed): it is still the column the grid reserves');
+		// The specimen exercises BOTH sides of the rule.
+		const plain = rows.filter((r) => !/cm-msglist__row--(grouped|system|mention)/.test(r.open));
+		assert(plain.length >= 2, 'the specimen needs ungrouped rows to show the meta stamp winning');
+		for (const r of plain) {
+			assert(/<span class="cm-msglist__gutter"><time[^>]*>[^<]+<\/time><\/span>/.test(r.body),
+				'an ungrouped row has no gutter stamp for the rule to hide - the rule would be decorative');
+			assert((r.body.match(/<p class="cm-msglist__meta">/g) || []).length === 1,
+				'an ungrouped row must carry exactly one meta line, with its own stamp');
+		}
+		assert(groupedRows.length >= 2, 'the specimen needs grouped rows to show the gutter stamp winning');
+		for (const g of groupedRows) {
+			assert(/<span class="cm-msglist__gutter"><time[^>]*>[^<]+<\/time><\/span>/.test(g.body),
+				'a grouped row has no stamp at all: the header is gone and the gutter is its only one');
+			assert(!/cm-msglist__meta/.test(g.body),
+				'a grouped row still stamps itself in a meta line - that is the double stamp this rule exists to stop');
+		}
+		// And the day/unread/system rows carry no time at all, so the
+		// "exactly one visible stamp per row" claim is checkable.
+		assert(!/<time/.test(sec.match(/<div class="cm-msglist__unread"[^>]*>[\s\S]*?<\/div>/)?.[0] || ''),
+			'the unread divider must not carry a timestamp');
+	});
+
+	check('a grouped row keeps the empty avatar slot that holds the column open', () => {
+		const slot = (sec.match(/<span class="cm-msglist__avatar"><\/span>/g) || []).length;
+		assert(slot === groupedRows.length,
+			`${slot} empty avatar slots for ${groupedRows.length} grouped rows - the slot is what keeps the text aligned`);
+		assert(slot > 0, 'no empty avatar slot in the specimen, so the alignment claim has nothing behind it');
+		// The real avatar composes .cm-avatar instead of restating it.
+		const composed = [...sec.matchAll(/<span class="([^"]*)cm-msglist__avatar([^"]*)"/g)]
+			.filter((m) => /\bcm-avatar\b/.test(m[1] + m[2]));
+		assert(composed.length > 0,
+			'the timeline invents its own avatar instead of composing .cm-avatar');
+		// The two tracks are tokens, and the avatar track's default is
+		// pinned to .cm-avatar's default: a bare slot and a real avatar
+		// must open the same width, or the first grouped row slides.
+		const gutterTok = /^\s*--msglist-gutter:\s*([^;]+);/m.exec(tokens);
+		const avatarTok = /^\s*--msglist-avatar:\s*([^;]+);/m.exec(tokens);
+		assert(gutterTok && avatarTok, '--msglist-gutter / --msglist-avatar are not declared in tokens.css');
+		assert(/var\(--msglist-gutter\)/.test(css), 'the row does not read the gutter token');
+		assert(/var\(--msglist-avatar\)/.test(css), 'the row does not read the avatar token');
+		const cmAvatar = /^\.cm-avatar \{[\s\S]*?--cm-avatar:\s*([^;]+);/m.exec(css);
+		assert(cmAvatar, '.cm-avatar no longer declares its own default size');
+		assert(avatarTok[1].trim() === cmAvatar[1].trim(),
+			`--msglist-avatar is ${avatarTok[1].trim()} but .cm-avatar defaults to ${cmAvatar[1].trim()} - `
+			+ 'an empty slot and a real avatar would open different widths');
+	});
+
+	check('the mention row is a mark and a tint, never a hue alone', () => {
+		const mention = rule('.cm-msglist__row--mention');
+		assert(mention, 'no rule for .cm-msglist__row--mention');
+		// The mark: a rule on the inline-start edge (logical, so RTL
+		// gets the same one), thick enough to read as a shape.
+		const border = /border-inline-start:\s*([^;]+);/.exec(mention)
+			|| /border-inline-start-width:\s*([^;]+);/.exec(mention);
+		assert(border, 'the mention is a background tint only - colour must never carry the meaning alone');
+		const bw = /(\d+(?:\.\d+)?)(px|rem|em)/.exec(border[1]);
+		assert(bw && bw[1] !== '0', `the mention bar is ${border[1].trim()}, i.e. not a mark at all`);
+		// The tint: a real step off the panel, in both themes.
+		assert(/background:\s*var\(--[a-z0-9-]+\)/.test(mention),
+			'the mention also needs a surface step so the row reads as raised before it is read');
+		// And the border must not PUSH the message column sideways: the
+		// padding it eats is handed back.
+		assert(/padding-inline-start:\s*calc\(var\(--space-2\) - 2px\)/.test(mention),
+			'the mention border would shift the message column 2px against every other row');
+		// The hover band must not swallow the tint.
+		const hover = /\.cm-msglist__row--mention:hover,\s*\.cm-msglist__row--mention:focus-within \{([^}]*)\}/.exec(css);
+		assert(hover && /var\(--panel-nested\)/.test(hover[1]),
+			'the row hover band repaints a mentioned row as a plain one');
+		// Words, too: the specimen's mention carries a sentence.
+		const mRow = rows.find((r) => /cm-msglist__row--mention\b/.test(r.open));
+		assert(mRow, 'the mention row is missing from the built specimen');
+		const text = /<p class="cm-msglist__text">([^<]+)<\/p>/.exec(mRow.body);
+		assert(text && text[1].trim().length > 10,
+			'the mention row carries no words - a tint and a bar with no sentence is a colour cue with a shape on it');
+	});
+
+	check('a reaction count is text, and the reader\'s own reaction is marked as pressed', () => {
+		const counts = [...sec.matchAll(/<span class="cm-msglist__count">([^<]*)<\/span>/g)];
+		assert(counts.length >= 3, `only ${counts.length} reaction counts in the specimen`);
+		for (const c of counts) assert(/^\d+$/.test(c[1].trim()),
+			`the count "${c[1]}" is not a number a reader can select and copy`);
+		// Every count sits INSIDE its reaction button, so the number is
+		// part of the control it describes.
+		for (const b of [...sec.matchAll(/<button[^>]*class="[^"]*cm-msglist__reaction[^"]*"[^>]*>([\s\S]*?)<\/button>/g)]) {
+			assert(/cm-msglist__count">\d+</.test(b[1]),
+				'a reaction button renders without a numeric count beside its glyph');
+		}
+		// Nothing fabricates the number from CSS: a `content:` count
+		// cannot be selected or copied, and a rule scoped to the count
+		// is the one that would do it. (Every generated string in the
+		// block is checked with the house rules below.)
+		const countRule = rule('.cm-msglist__count');
+		assert(countRule !== null, '.cm-msglist__count has no rule of its own');
+		assert(!/content:/.test(countRule),
+			'the reaction count is generated by CSS instead of rendered as text');
+		// --mine is the reader's own: a heavier edge, and the state
+		// announced rather than implied by a hue.
+		const mine = rule('.cm-msglist__reaction--mine');
+		assert(mine, 'no rule for .cm-msglist__reaction--mine');
+		assert(/border-color:\s*var\(--ink\)/.test(mine) && /box-shadow:\s*inset/.test(mine),
+			'the reader\'s own reaction is marked by a hue alone - it needs a heavier edge');
+		const mineRow = /<button[^>]*cm-msglist__reaction--mine[^>]*aria-pressed="true"/.test(sec)
+			|| /aria-pressed="true"[^>]*cm-msglist__reaction--mine/.test(sec);
+		assert(mineRow, 'the --mine reaction does not announce aria-pressed="true"');
+		const plain = /<button[^>]*class="cm-msglist__reaction"[^>]*aria-pressed="false"/.test(sec);
+		assert(plain, 'a reaction that is not the reader\'s must still carry aria-pressed="false"');
+	});
+
+	check('the message list stays inside the house rules', () => {
+		// Property scans run on the RULES, comments stripped: a note in
+		// the block that NAMES `z-index` while explaining that nothing
+		// uses one is documentation, not a declaration - a raw scan
+		// fails on its own comment and starts crying wolf.
+		const rules = block.replace(/\/\*[\s\S]*?\*\//g, ' ');
+		// Tokens only: no hex anywhere, and every colour-ish
+		// declaration goes through a var() - the same rule the state
+		// components live under.
+		const hex = rules.match(/#[0-9a-f]{3,8}\b/gi) || [];
+		assert(hex.length === 0, `the msglist block carries literal colours: ${hex.join(', ')}`);
+		const raw_colour = [...rules.matchAll(
+			/(?:^|[;{])\s*((?:-webkit-)?[a-z-]*color|(?:-webkit-)?background(?:-color)?|border(?:-[a-z]+)?-color|outline(?:-[a-z]+)?-color|box-shadow|fill|stroke)\s*:\s*([^;}]+)/g,
+		)].filter((m) => {
+			const v = m[2].trim();
+			if (/^(?:var\(|currentColor$|inherit$|none$|transparent$)/.test(v)) return false;
+			// A multi-part value (an inset ring, a shadow) is still a
+			// token value when nothing literal rides along with it -
+			// and the hex scan above already bans the other half.
+			return !(/var\(/.test(v) && !/#[0-9a-f]/i.test(v) && !/rgba?\(/.test(v));
+		}).map((m) => `${m[1]}: ${m[2].trim()}`);
+		assert(raw_colour.length === 0, `colour must come from a token: ${raw_colour.join(', ')}`);
+		// Sharp, and it does not stack: the chat family is the one
+		// place allowed to paint above itself, and this row is a
+		// sibling of it, not a layer over it.
+		assert(!/border-radius/.test(rules), 'the message list rounds - the house shape is sharp');
+		assert(!/z-index/.test(rules), 'the message list stacks - a row that reveals a toolbar needs no paint order');
+		// No physical direction: the Direction baseline bans left/right
+		// outright, and a timestamp column pinned to `left` is RTL-blind.
+		const physical = rules.match(/(?:^|[{;])\s*(?:margin|padding|border(?:-\w+)?)-(?:left|right)\s*:|text-align:\s*(?:left|right)|(?:^|[{;\s])(?:left|right)\s*:\s*[-\d]/g);
+		assert(!physical, `physical directional declarations in the msglist block: ${physical}`);
+		// Every var() without a fallback resolves (the global check
+		// reads components.css; this pins the two this family added).
+		for (const v of ['--msglist-gutter', '--msglist-avatar']) {
+			assert(new RegExp(`^\\s*${v}:`, 'm').test(tokens), `${v} is consumed but never declared in tokens.css`);
+		}
+		// Fonts: every size the block declares is a scale step, floored.
+		for (const m of rules.matchAll(/font-size:\s*([^;]+);/g)) {
+			assert(/var\(--text|--max\(|max\(var\(--min-font\)/.test(m[1]),
+				`the msglist block declares a raw font-size: ${m[1].trim()}`);
+		}
+		// And no generated text: the count, the stamps and the labels
+		// are all things a reader must be able to select.
+		const contents = [...rules.matchAll(/content:\s*([^;]+);/g)].map((m) => m[1].trim());
+		assert(contents.length > 0, 'the block parses no content: declarations at all - is the slice stale?');
+		for (const c of contents) assert(c === '""',
+			'the message list generates content (`' + c + '`) instead of rendering text');
+	});
+
+	check('the message list is documented where a consumer will look', () => {
+		const rFrom = readme.indexOf('### Message list');
+		assert(rFrom !== -1, 'the README has no "### Message list" section');
+		const rSec = readme.slice(rFrom, readme.indexOf('\n### ', rFrom + 5));
+		assert(rSec.length > 400, `the README Message list section is a stub (${rSec.length} chars)`);
+		for (const cls of REQUIRED_MSGLIST) {
+			assert(rSec.includes('.' + cls), `the README does not document .${cls}`);
+		}
+		// Shown, not merely named: a fenced html block that a consumer
+		// can paste, containing the list element itself.
+		const fences = [...rSec.matchAll(/```html\n([\s\S]*?)```/g)].map((m) => m[1]);
+		assert(fences.some((f) => f.includes('class="cm-msglist"')),
+			'the README names .cm-msglist but shows no markup for it');
+		assert(fences.some((f) => f.includes('cm-msglist__row--grouped') && f.includes('cm-msglist__avatar')),
+			'the README never shows the grouped row and its empty avatar slot');
+		// The grouping rule is a CONSUMER responsibility and the
+		// timespan is the contract: say both, or the reader will look
+		// for the JS that groups.
+		assert(/five minutes|5 minutes/.test(rSec),
+			'the README must state the grouping rule (same author within ~5 minutes)');
+		assert(/consumer/i.test(rSec),
+			'the README must say grouping is the consumer\'s job - this library styles, it does not group');
+		assert(/hover/i.test(rSec) && /focus-within/i.test(rSec),
+			'the README must document the toolbar reveal and its keyboard door');
+		assert(showcaseIndex.includes('msglist'), 'the nav index has no msglist entry, so the scroll-spy skips it');
+		assert(/id="msglist"/.test(page), 'the showcase has no #msglist section to navigate to');
+	});
+}
 // ---------- shadcn-parity: guildrail + composer (batch 29) ----------
 console.log('\nshadcn-parity: guildrail + composer');
 {

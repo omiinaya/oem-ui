@@ -1,5 +1,73 @@
 # Changelog
 
+## Unreleased - batch 30: the transcript as a LOG, not a stack of turns
+
+`.cm-msglist` is the flat timeline the chat family renders when the
+conversation reads as a running log: a day divider, a four-track row
+carrying a timestamp gutter, an avatar and a RESERVED action track,
+continuation rows that drop their header, an unread rule, a mention and
+a system note. It lives inside `.cm-scroller` and owns none of that
+frame - the labelled viewport, the `role="log"` content and the
+`data-message-id` addressing stay the scroller's, which is why every row
+also wears `cm-scroller__item`.
+
+- **The action toolbar ships hidden and its column is already there.**
+  `opacity: 0; pointer-events: none` in a track the row grid declares at
+  rest, revealed on `:hover` and `:focus-within`. Revealing it by adding
+  a TRACK is what makes the message jump when the pointer arrives
+  (measured in WebKit: the text column is 123.63px on a 402px viewport
+  and does not move on hover), and `display: none` is what would drop
+  the button out of the tab order and leave the reveal for a keyboard
+  that can never fire it. `position: absolute` would take the cell out
+  of the grid - the same shift in slow motion.
+- **One stamp per row.** Both stamps exist in the markup -
+  `.cm-msglist__gutter` and the `.cm-msglist__meta` line - and CSS
+  chooses which paints: an ungrouped row is stamped by its meta line and
+  its gutter goes `visibility: hidden`, a grouped row has no header so
+  its gutter stamps it. `display: none` was the tempting fix and is the
+  bug: the gutter column measures 60px on a phone and 60px at 1280px and
+  is identical under the rule, so the stamp column cannot collapse row
+  by row. Author the gutter on EVERY row; two visible stamps on one row
+  is the fault.
+- **The empty avatar slot is load-bearing.** A continuation row ships
+  `<span class="cm-msglist__avatar"></span>`, and `--msglist-avatar` is
+  pinned by a test to `.cm-avatar`'s own default (2.5rem), so a bare
+  slot and a real avatar open the same column: measured 40px and 40px in
+  WebKit, against a 60px gutter token. Drop the slot and the row grid
+  lands correctly only by luck of auto-placement.
+- **A mention is a mark AND a tint.** A 2px `border-inline-start` over a
+  `--panel-nested` surface, with the padding the border eats handed back
+  in the logical axis, so the bar does not slide the message column
+  against its neighbours - measured at 493.19px for the mention row and
+  its neighbours, identical inside the marked row and out. The physical
+  `border-left` is the RTL-blind spelling of the same rule and is the
+  fault the Direction baseline exists to catch.
+- **A count is text, never a glyph.** Every reaction count is a real
+  `.cm-msglist__count` span (measured as selectable text: "2", "1",
+  "4"), and the reader's own chip is a heavier edge plus
+  `aria-pressed="true"` rather than a hue - a 1px inset ring in `--ink`
+  over the raised surface, so the state is announced, not implied.
+- **Grouping is the consumer's job.** CSS styles, the consumer groups: a
+  row is `cm-msglist__row--grouped` when it follows a row from the same
+  author within ~5 minutes. The library ships no script that could
+  inspect an author, a clock or a message body, and its whole
+  responsibility is that the grouped row it is handed aligns with the
+  ungrouped one above it.
+- **Two tokens, one per column the row promises** - `--msglist-gutter:
+  3.75rem` and `--msglist-avatar: 2.5rem` - rather than numbers inlined
+  in the grid.
+- Eight `contract: .cm-msglist (batch 30)` checks in `tests/run.mjs`
+  read the source and the built specimen (the classes ship, the toolbar's
+  rest state, one stamp per row, the empty slot, the mark and the tint, a
+  count that is real text, the house rules, the documented README
+  section). A WebKit harness (`tests/verify-msglist.py`, 65 checks at a
+  402px phone width and a 1280px desktop width) measures the geometry a
+  source scan cannot, and a mutation runner (`tests/mutate-msglist.py`,
+  36 patterns) seeds the faults these checks exist to catch - all 36
+  killed, no survivors. The sweep's own count is the point: a mutant only
+  counts as killed when the failing assertion is named, so the runner
+  prints, for any survivor, the claim no test states.
+
 ## Unreleased - batch 29: calendar gains a third mode (multiple), parity-correct
 
 - **Calendar: `mode="multiple"`.** The one missing mode documented by

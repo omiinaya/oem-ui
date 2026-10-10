@@ -40,7 +40,7 @@ const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'sidebar', 'crumbs', 'lists', 'states', 'surface',
   'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'data-table', 'json', 'rowon', 'switch', 'sheet', 'drawer', 'choice', 'keys-pages-people',
 	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'proselists', 'proselists-order', 'prosetap', 'prosetable', 'tablelabels', 'layout', 'surface-paint',
-	'forms', 'datepicker', 'scrollarea', 'charts', 'utilities', 'chat', 'guildrail', 'composer', 'dropdown-depth', 'navmenu', 'scroller', 'attachment', 'quiz', 'search', 'auth', 'readme',
+	'forms', 'datepicker', 'scrollarea', 'charts', 'utilities', 'chat', 'guildrail', 'composer', 'dropdown-depth', 'navmenu', 'scroller', 'msglist', 'attachment', 'quiz', 'search', 'auth', 'readme',
 ] as const;
 
 /* The log specimen. Long enough to actually scroll, because a sticky
@@ -4957,7 +4957,154 @@ Two helpers shadcn ships under utils, in house CSS. <code>scroll-fade</code>
 				</div>
 			</section>
 
-
+			<section id="msglist" class="cm-section cm-section--pad">
+				<SectionHead title="message list">
+					the flat timeline that lives inside the scroller: a day
+					divider, a four-track row (timestamp gutter, avatar column,
+					message, and a RESERVED action track so the hover toolbar
+					appears without moving the text), continuation rows that
+					drop their header and keep an empty avatar slot, an unread
+					rule, a mention and a system note. Grouping - one author
+					inside about five minutes - is the consumer's job; this
+					layer styles the row it is handed and decides which of a
+					row's two stamps is the visible one.
+				</SectionHead>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">row grid</span>
+						<span class="cm-spec__val">gutter · avatar · message · actions (reserved)</span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">modifiers</span>
+						<span class="cm-spec__val">--grouped · --mention · --system · --mine</span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">grouping</span>
+						<span class="cm-spec__val">consumer groups; CSS only tightens the row</span>
+					</div>
+				</div>
+				<p class="cm-row__meta" style="margin-top: var(--space-4);">
+					hover a row for its toolbar - or tab into it: the button stays in
+					the tab order even while it is invisible
+				</p>
+				<div class="cm-scroller" data-cm-scroller style="margin-top: var(--space-2);">
+					<div class="cm-scroller__bar">
+						<span class="cm-scroller__status" data-scroller-status>transcript</span>
+						<span class="cm-scroller__bar">
+							<button class="cm-btn cm-btn--sm" type="button" data-scroller-start data-active="false" tabindex="-1">jump to start</button>
+							<button class="cm-btn cm-btn--sm" type="button" data-scroller-end data-active="true">jump to latest</button>
+						</span>
+					</div>
+					<div class="cm-scroller__viewport" role="region" aria-label="Message list" tabindex="0" data-scrollable="">
+						<div class="cm-scroller__content" role="log" aria-relevant="additions">
+							<div class="cm-msglist">
+								<p class="cm-msglist__day" role="separator"><span>Today</span></p>
+								<div class="cm-scroller__item cm-msglist__row" data-message-id="ml1" data-scroll-anchor>
+									<span class="cm-msglist__gutter"><time datetime="2026-10-10T11:12">11:12</time></span>
+									<span class="cm-avatar cm-msglist__avatar" aria-hidden="true">AB</span>
+									<div class="cm-msglist__main">
+										<p class="cm-msglist__meta"><b class="cm-msglist__author">alex</b><time datetime="2026-10-10T11:12">11:12</time></p>
+										<div class="cm-msglist__msg">
+											<p class="cm-msglist__text">branch is cut - review the migration step before you approve.</p>
+											<div class="cm-msglist__reactions">
+												<button type="button" class="cm-msglist__reaction" aria-pressed="false">👍 <span class="cm-msglist__count">2</span></button>
+												<button type="button" class="cm-msglist__reaction cm-msglist__reaction--mine" aria-pressed="true">🚀 <span class="cm-msglist__count">1</span></button>
+											</div>
+										</div>
+									</div>
+									<div class="cm-msglist__actions">
+										<button type="button" class="cm-icon-btn" aria-label="Add a reaction to this message">+</button>
+									</div>
+								</div>
+								<div class="cm-scroller__item cm-msglist__row cm-msglist__row--grouped" data-message-id="ml2" data-scroll-anchor>
+									<span class="cm-msglist__gutter"><time datetime="2026-10-10T11:13">11:13</time></span>
+									<span class="cm-msglist__avatar"></span>
+									<div class="cm-msglist__main">
+										<div class="cm-msglist__msg">
+											<p class="cm-msglist__text">same author, three minutes on: no header, and the time moves to the gutter.</p>
+										</div>
+									</div>
+									<div class="cm-msglist__actions">
+										<button type="button" class="cm-icon-btn" aria-label="Add a reaction to this message">+</button>
+									</div>
+								</div>
+								<div class="cm-scroller__item cm-msglist__row cm-msglist__row--grouped" data-message-id="ml3" data-scroll-anchor>
+									<span class="cm-msglist__gutter"><time datetime="2026-10-10T11:14">11:14</time></span>
+									<span class="cm-msglist__avatar"></span>
+									<div class="cm-msglist__main">
+										<div class="cm-msglist__msg">
+											<p class="cm-msglist__text">the empty avatar slot is what keeps this line aligned with the first one.</p>
+										</div>
+									</div>
+									<div class="cm-msglist__actions">
+										<button type="button" class="cm-icon-btn" aria-label="Add a reaction to this message">+</button>
+									</div>
+								</div>
+								<div class="cm-scroller__item cm-msglist__row" data-message-id="ml4" data-scroll-anchor>
+									<span class="cm-msglist__gutter"><time datetime="2026-10-10T11:31">11:31</time></span>
+									<span class="cm-avatar cm-msglist__avatar" aria-hidden="true">SK</span>
+									<div class="cm-msglist__main">
+										<p class="cm-msglist__meta"><b class="cm-msglist__author">sam</b><time datetime="2026-10-10T11:31">11:31</time></p>
+										<div class="cm-msglist__msg">
+											<p class="cm-msglist__text">rerunning against <a class="cm-inline-link" href="#msglist">the runbook</a> now.</p>
+										</div>
+									</div>
+									<div class="cm-msglist__actions">
+										<button type="button" class="cm-icon-btn" aria-label="Add a reaction to this message">+</button>
+									</div>
+								</div>
+								<div class="cm-msglist__unread" role="separator"><span>2 unread messages</span></div>
+								<div class="cm-scroller__item cm-msglist__row cm-msglist__row--mention" data-message-id="ml5" data-scroll-anchor>
+									<span class="cm-msglist__gutter"><time datetime="2026-10-10T11:47">11:47</time></span>
+									<span class="cm-avatar cm-msglist__avatar" aria-hidden="true">OL</span>
+									<div class="cm-msglist__main">
+										<p class="cm-msglist__meta"><b class="cm-msglist__author">olivia</b><time datetime="2026-10-10T11:47">11:47</time></p>
+										<div class="cm-msglist__msg">
+											<p class="cm-msglist__text">You were mentioned in #build</p>
+										</div>
+									</div>
+									<div class="cm-msglist__actions">
+										<button type="button" class="cm-icon-btn" aria-label="Add a reaction to this message">+</button>
+									</div>
+								</div>
+								<div class="cm-scroller__item cm-msglist__row cm-msglist__row--system" data-message-id="ml6" data-scroll-anchor>
+									<div class="cm-marker cm-marker--border">
+										<span class="cm-marker__content">olivia joined #build</span>
+									</div>
+								</div>
+								<div class="cm-scroller__item cm-msglist__row cm-msglist__row--grouped" data-message-id="ml7" data-scroll-anchor>
+									<span class="cm-msglist__gutter"><time datetime="2026-10-10T11:49">11:49</time></span>
+									<span class="cm-msglist__avatar"></span>
+									<div class="cm-msglist__main">
+										<div class="cm-msglist__msg">
+											<p class="cm-msglist__text">rolled back the flag while the migration settles.</p>
+										</div>
+									</div>
+									<div class="cm-msglist__actions">
+										<button type="button" class="cm-icon-btn" aria-label="Add a reaction to this message">+</button>
+									</div>
+								</div>
+								<div class="cm-scroller__item cm-msglist__row" data-message-id="ml8" data-scroll-anchor>
+									<span class="cm-msglist__gutter"><time datetime="2026-10-10T11:52">11:52</time></span>
+									<span class="cm-avatar cm-msglist__avatar" aria-hidden="true">AB</span>
+									<div class="cm-msglist__main">
+										<p class="cm-msglist__meta"><b class="cm-msglist__author">alex</b><time datetime="2026-10-10T11:52">11:52</time></p>
+										<div class="cm-msglist__msg">
+											<p class="cm-msglist__text">green. merging.</p>
+											<div class="cm-msglist__reactions">
+												<button type="button" class="cm-msglist__reaction" aria-pressed="false">✅ <span class="cm-msglist__count">4</span></button>
+											</div>
+										</div>
+									</div>
+									<div class="cm-msglist__actions">
+										<button type="button" class="cm-icon-btn" aria-label="Add a reaction to this message">+</button>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
 
 			<section id="attachment" class="cm-section cm-section--pad">
 				<SectionHead title="attachment">
