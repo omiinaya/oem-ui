@@ -4365,111 +4365,163 @@ Two helpers shadcn ships under utils, in house CSS. <code>scroll-fade</code>
 			</section>
 			<section id="guildrail" class="cm-section cm-section--pad">
 				<SectionHead title="guildrail">
-					the server icon rail: one square per server, an unread badge,
-					a rule, and an add control. The rail owns its own scroll, so a
-					long server list scrolls inside the column instead of
-					stretching the grid row it sits in — the specimen below is
-					capped at 22rem and really does scroll, because a rail that
-					fits has proven nothing. Every square is a real
-					<code>button</code>: Tab walks the column and the tip opens on
-					focus as well as hover.
+					the server icon rail: one square per server, a visible
+					activity pill, an unread count or dot, a rule, and an add
+					control. The rail owns its own scroll, so a long server
+					list scrolls inside the column instead of stretching the
+					grid row it sits in — the specimen below is capped so it
+					really does scroll, because a rail that fits has proven
+					nothing. Every square is a real <code>button</code>, the
+					monogram is <code>aria-hidden</code> and the
+					<code>aria-label</code> carries the name, so Tab walks the
+					column and the tip opens on focus as well as hover.
 				</SectionHead>
-				<div style="display: grid; grid-template-columns: var(--guildrail-w) 1fr; block-size: 22rem; margin-top: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius);">
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">active</span>
+						<span class="cm-spec__val">aria-current="true" + the __pill</span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">unread</span>
+						<span class="cm-spec__val">__badge (count) or __unread (dot), never both</span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">scroll</span>
+						<span class="cm-spec__val">the rail owns it; the bleed is empty padding</span>
+					</div>
+				</div>
+				<div style="display: grid; grid-template-columns: var(--guildrail-w) minmax(0, 1fr); block-size: 22rem; margin-top: var(--space-4); border: 1px solid var(--line);">
 					<nav class="cm-guildrail" aria-label="Servers">
-						<span class="cm-tooltip cm-tooltip--end">
-							<button class="cm-guildrail__icon" data-server="0"
-								aria-describedby="tip-homelab"><span class="cm-guildrail__glyph">OP</span></button>
-							<span class="cm-tooltip__tip" id="tip-homelab" role="tooltip">Homelab</span>
+						<span class="cm-tooltip">
+							<button type="button" class="cm-guildrail__item cm-guildrail__item--home"
+								aria-current="true" aria-label="Direct messages">
+								<span class="cm-guildrail__pill" aria-hidden="true"></span>
+								<span class="cm-guildrail__icon" aria-hidden="true">◇</span>
+							</button>
+							<span class="cm-tooltip__tip" role="tooltip">Direct messages</span>
 						</span>
-						<span class="cm-tooltip cm-tooltip--end">
-							<button class="cm-guildrail__icon" data-server="1"
-								aria-describedby="tip-studio"><span class="cm-guildrail__glyph">ST</span></button>
-							<span class="cm-tooltip__tip" id="tip-studio" role="tooltip">Studio</span>
+
+						<span class="cm-guildrail__sep" role="separator"></span>
+
+						<span class="cm-tooltip">
+							<button type="button" class="cm-guildrail__item" aria-label="OEM HQ">
+								<span class="cm-guildrail__pill" aria-hidden="true"></span>
+								<span class="cm-guildrail__icon" aria-hidden="true">OH</span>
+								<span class="cm-guildrail__badge" aria-hidden="true">3</span>
+							</button>
+							<span class="cm-tooltip__tip" role="tooltip">OEM HQ</span>
 						</span>
-						<span class="cm-tooltip cm-tooltip--end">
-							<button class="cm-guildrail__icon" data-server="2"
-								aria-describedby="tip-arc"><span class="cm-guildrail__glyph">AR</span></button>
-							<span class="cm-tooltip__tip" id="tip-arc" role="tooltip">Arcade</span>
+
+						<span class="cm-tooltip">
+							<button type="button" class="cm-guildrail__item" aria-label="LAN Ops">
+								<span class="cm-guildrail__pill" aria-hidden="true"></span>
+								<span class="cm-guildrail__icon" aria-hidden="true">LO</span>
+								<span class="cm-guildrail__unread" aria-hidden="true"></span>
+							</button>
+							<span class="cm-tooltip__tip" role="tooltip">LAN Ops</span>
 						</span>
-						<span class="cm-tooltip cm-tooltip--end">
-							<button class="cm-guildrail__icon" aria-current="page"
-								data-server="3" aria-describedby="tip-ops"><span class="cm-guildrail__glyph">OP</span></button>
-							<span class="cm-tooltip__tip" id="tip-ops" role="tooltip">Ops</span>
+
+						<span class="cm-tooltip">
+							<button type="button" class="cm-guildrail__item" aria-label="Studio">
+								<span class="cm-guildrail__pill" aria-hidden="true"></span>
+								<span class="cm-guildrail__icon" aria-hidden="true">ST</span>
+							</button>
+							<span class="cm-tooltip__tip" role="tooltip">Studio</span>
 						</span>
-						<span class="cm-tooltip cm-tooltip--end">
-							<button class="cm-guildrail__icon" data-server="4"
-								aria-describedby="tip-zine"><span class="cm-guildrail__glyph">ZN</span><span class="cm-guildrail__badge">3</span></button>
-							<span class="cm-tooltip__tip" id="tip-zine" role="tooltip">Zine — 3 unread</span>
+
+						<span class="cm-tooltip">
+							<button type="button" class="cm-guildrail__item" aria-label="Arcade">
+								<span class="cm-guildrail__pill" aria-hidden="true"></span>
+								<span class="cm-guildrail__icon" aria-hidden="true">AR</span>
+								<span class="cm-guildrail__badge" aria-hidden="true">99+</span>
+							</button>
+							<span class="cm-tooltip__tip" role="tooltip">Arcade — 99+ unread</span>
 						</span>
-						<span class="cm-tooltip cm-tooltip--end">
-							<button class="cm-guildrail__icon" data-server="5"
-								aria-describedby="tip-mrx"><span class="cm-guildrail__glyph">MX</span><span class="cm-guildrail__badge">99+</span></button>
-							<span class="cm-tooltip__tip" id="tip-mrx" role="tooltip">mrx-lab — 99+ unread</span>
+
+						<span class="cm-tooltip">
+							<button type="button" class="cm-guildrail__item" aria-label="Forge">
+								<span class="cm-guildrail__pill" aria-hidden="true"></span>
+								<span class="cm-guildrail__icon" aria-hidden="true">FG</span>
+							</button>
+							<span class="cm-tooltip__tip" role="tooltip">Forge</span>
 						</span>
-						<span class="cm-tooltip cm-tooltip--end">
-							<button class="cm-guildrail__icon" data-server="6"
-								aria-describedby="tip-forge"><span class="cm-guildrail__glyph">FG</span></button>
-							<span class="cm-tooltip__tip" id="tip-forge" role="tooltip">Forge</span>
+
+						<span class="cm-tooltip">
+							<button type="button" class="cm-guildrail__item" aria-label="Vault">
+								<span class="cm-guildrail__pill" aria-hidden="true"></span>
+								<span class="cm-guildrail__icon" aria-hidden="true">VL</span>
+								<span class="cm-guildrail__unread" aria-hidden="true"></span>
+							</button>
+							<span class="cm-tooltip__tip" role="tooltip">Vault</span>
 						</span>
-						<span class="cm-tooltip cm-tooltip--end">
-							<button class="cm-guildrail__icon" data-server="7"
-								aria-describedby="tip-vault"><span class="cm-guildrail__glyph">VL</span></button>
-							<span class="cm-tooltip__tip" id="tip-vault" role="tooltip">Vault</span>
+
+						<span class="cm-tooltip">
+							<button type="button" class="cm-guildrail__item" aria-label="CF Tunnel">
+								<span class="cm-guildrail__pill" aria-hidden="true"></span>
+								<span class="cm-guildrail__icon" aria-hidden="true">CF</span>
+							</button>
+							<span class="cm-tooltip__tip" role="tooltip">CF Tunnel</span>
 						</span>
-						<span class="cm-tooltip cm-tooltip--end">
-							<button class="cm-guildrail__icon" data-server="8"
-								aria-describedby="tip-cf"><span class="cm-guildrail__glyph">CF</span></button>
-							<span class="cm-tooltip__tip" id="tip-cf" role="tooltip">CF-Tunnel</span>
-						</span>
-						<hr class="cm-guildrail__sep">
-						<span class="cm-tooltip cm-tooltip--end">
-							<button class="cm-guildrail__add" aria-label="Add a Server"
-								aria-describedby="tip-add">+</button>
-							<span class="cm-tooltip__tip" id="tip-add" role="tooltip">Add a Server</span>
+
+						<span class="cm-tooltip">
+							<button type="button" class="cm-guildrail__item cm-guildrail__item--add" aria-label="Add a server">
+								<span class="cm-guildrail__pill" aria-hidden="true"></span>
+								<span class="cm-guildrail__icon" aria-hidden="true">＋</span>
+							</button>
+							<span class="cm-tooltip__tip" role="tooltip">Add a server</span>
 						</span>
 					</nav>
-					<div class="cm-panel" style="border: 0; border-radius: 0;">
-						<div class="cm-section__body cm-stack" style="padding: var(--space-4);">
-							<p class="cm-kicker"># general</p>
-							<p class="cm-lede">the rail is the column on the left.</p>
-							<div class="cm-marker">
-								<span class="cm-marker__icon" aria-hidden="true"><span class="cm-spinner"></span></span>
-								<span class="cm-marker__content">oliver is typing…</span>
-							</div>
-							<p class="cm-kv"><span class="cm-kv__k">servers</span><span class="cm-kv__v">9, one current</span></p>
-							<p class="cm-kv"><span class="cm-kv__k">unread</span><span class="cm-kv__v">2 badges</span></p>
-							<p class="cm-kv"><span class="cm-kv__k">rail</span><span class="cm-kv__v">scrolls on its own axis</span></p>
-						</div>
+					<div style="border-inline-start: 1px solid var(--line); padding: var(--space-4);">
+						<p class="cm-kicker"># general</p>
+						<p class="cm-lede">the rail is the column on the left, and the
+							column on the right begins where the rail's margin box ends —
+							not where its clip box does.</p>
 					</div>
 				</div>
 			</section>
 			<section id="composer" class="cm-section cm-section--pad">
 				<SectionHead title="composer">
-					the message box at the foot of a thread: a field, a counter,
-					and the two controls that flank it. Everything behavioural
-					lives in the CONSUMER's JS — Enter sends, Shift+Enter is a
-					newline, and the field grows with its content — so the CSS's
-					job is to leave a control that still behaves when the
-					consumer does none of it. The <code>rows="3"</code> is the
-					reservation; auto-grow raises it.
+					the message box at the foot of a thread: a frame, a field, a
+					reply strip above it, and the controls that flank the field.
+					Everything behavioural is the CONSUMER's — Enter sends,
+					Shift+Enter is a newline, the field grows with its content
+					and the reply strip is shown by removing <code>hidden</code>
+					— so the CSS owes a control that is still correct when the
+					consumer does none of it.
 				</SectionHead>
-				<form class="cm-composer" data-cm-composer style="margin-top: var(--space-4);">
-					<label class="cm-sr-only" for="composer-msg">Message</label>
-					<span class="cm-tooltip">
-						<button type="button" class="cm-composer__attach" aria-label="Attach a file"
-							aria-describedby="tip-attach">+</button>
-						<span class="cm-tooltip__tip" id="tip-attach" role="tooltip">Attach a file</span>
-					</span>
-					<textarea id="composer-msg" class="cm-composer__field" rows="3"
-						placeholder="Message #general" aria-describedby="composer-count"
-						maxlength="2000"></textarea>
-					<div class="cm-composer__toolbar">
-						<span class="cm-composer__counter" id="composer-count"
-							data-cm-composer-count aria-live="polite">0/2000</span>
-						<button type="submit" class="cm-composer__send">send ⏎</button>
+				<div class="cm-spec">
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">consumer js</span>
+						<span class="cm-spec__val">Enter sends · Shift+Enter newline · auto-grow to ~6 lines, then scroll</span>
 					</div>
-					<span class="cm-tooltip__tip" id="tip-attach" role="tooltip">Attach a file</span>
-				</form>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">read-only room</span>
+						<span class="cm-spec__val">[disabled] on the textarea; the box dims, send is disabled</span>
+					</div>
+					<div class="cm-spec__row">
+						<span class="cm-spec__label">send in flight</span>
+						<span class="cm-spec__val">data-cm-sending on the form; the input stays usable</span>
+					</div>
+				</div>
+				<div style="margin-top: var(--space-4); max-width: 42rem;">
+					<form class="cm-composer" data-cm-composer>
+						<div class="cm-composer__reply" hidden>
+							<span class="cm-composer__replytext">Replying to <strong>Ciel</strong></span>
+							<button type="button" class="cm-icon-btn cm-composer__replyclose" aria-label="Cancel reply">✕</button>
+						</div>
+						<div class="cm-composer__bar">
+							<button type="button" class="cm-icon-btn cm-composer__attach" aria-label="Attach a file">＋</button>
+							<textarea class="cm-composer__input" rows="1" placeholder="Message #general" aria-label="Message"></textarea>
+							<div class="cm-composer__tools">
+								<button type="button" class="cm-icon-btn" aria-label="Emoji">☺</button>
+								<button type="button" class="cm-icon-btn cm-composer__send" aria-label="Send message">➤</button>
+							</div>
+						</div>
+					</form>
+					<p class="cm-composer__typing">
+						<span class="cm-marker cm-shimmer" role="status">Ciel is typing…</span>
+					</p>
+				</div>
 			</section>
 			<section id="dropdown-depth" class="cm-section cm-section--pad">
 				<SectionHead title="dropdown depth">
