@@ -14782,6 +14782,15 @@ console.log('\nshadcn-parity: menubar');
 		assert(f.trig[0].getAttribute('tabindex') === '-1'
 			&& f.trig[2].getAttribute('tabindex') === '-1',
 			'the other words must be arrow targets only (tabindex="-1")');
+		// ...and the stop is not a one-shot fixup: it TRAVELS with the focus,
+		// or the next Tab leaves the bar at the word the reader walked off.
+		const g = barFixture([{ attrs: { tabindex: '0' } }, { attrs: { tabindex: '-1' } }]);
+		const run = runOn([g.barEl]);
+		g.trig[0].focus();
+		keyAt(run.doc, g.trig[0], 'ArrowRight');
+		assert(g.trig[0].getAttribute('tabindex') === '-1'
+			&& g.trig[1].getAttribute('tabindex') === '0',
+			'walking the words did not move the tab stop with them');
 	});
 
 	check('shadcn-parity: a disabled word is refused by every door that could open it', () => {
@@ -14921,6 +14930,11 @@ console.log('\nshadcn-parity: menubar');
 		const checked = [r1, r2].filter((r) => r.getAttribute('aria-checked') === 'true');
 		assert(checked.length === 1,
 			`${checked.length} rows are checked - a radio group answers exactly one question`);
+		// The selection has to be SEEN: the dot rides the icon slot and reads
+		// aria-checked, the attribute setRadio() owns. (Before it existed the
+		// slot computed to `content: none` - the state was real and invisible.)
+		assert(/\.cm-dropdown__item\[role='menuitemradio'\]\[aria-checked='true'\] \.cm-dropdown__icon::before/.test(css),
+			'the checked radio row draws no mark on the icon slot - the selection is invisible');
 	});
 
 	check('shadcn-parity: the bar panels compose icons, group labels and hints', () => {
