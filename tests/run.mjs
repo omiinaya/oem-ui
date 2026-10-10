@@ -15320,6 +15320,80 @@ console.log('\nshadcn-parity: guildrail + composer');
 		assert(/background:\s*transparent/.test(input),
 			'the field is not transparent, so the bar is not the visible box');
 		assert(/padding:\s*0/.test(input), 'the field carries its own padding inside the bar');
+		// The bar is a ROW OF CONTROLS ON A BASELINE, not a centred row:
+		// `flex-end` keeps the buttons on the field's last line as it
+		// grows. Centring them would float the attach/send pair to the
+		// middle of a six-line box.
+		assert(/align-items:\s*flex-end/.test(bar),
+			'the bar centres its controls, so they float mid-box once the field grows');
+		// --panel-nested, not --panel: a composer sits ON a panel, and
+		// two identical fills would make the frame the only edge it has.
+		assert(/background:\s*var\(--panel-nested\)/.test(bar),
+			'the bar takes the outer panel fill, so its frame is the only edge it has');
+	});
+
+	check('batch 29: every part of the composer takes its place on the row', () => {
+		// The field takes the LEFTOVER width (flex says so, the width rule
+		// is helpfully overridden by layout otherwise), the tools take the
+		// tail, and send is the one control that reads as a verb.
+		const input = ruleBodies(block, '.cm-composer__bar > textarea.cm-composer__input').join('\n');
+		assert(/flex:\s*1 1 auto/.test(input),
+			'the field does not take the leftover width, so the row is sized by the field');
+		const tools = ruleBodies(block, '.cm-composer__tools').join('\n');
+		assert(tools, 'the tools group has no rule, so it cannot be pushed to the tail');
+		assert(/margin-inline-start:\s*auto/.test(tools),
+			'the tools do not take the tail, so the controls drift to the middle');
+		const send = ruleBodies(block, '.cm-composer__send').join('\n');
+		assert(/border-color:\s*var\(--ink-dim\)/.test(send) && /color:\s*var\(--ink\)/.test(send),
+			'send does not take the ink, so it reads as dim as the emoji button beside it');
+		const reply = ruleBodies(block, '.cm-composer__reply').join('\n');
+		assert(/border-inline-start:\s*1px solid var\(--line\)/.test(reply),
+			'the reply strip has no leading rule, so it is not visibly quoted context');
+	});
+
+	check('batch 29: the named controls clear the tap floor on a coarse pointer', () => {
+		// .cm-icon-btn's own coarse rule is the general case; a composer is
+		// the one place the floor is a contract term, and it must name both
+		// controls - dropping one leaves a 32px target on a phone.
+		const coarse = allAtRuleBodies(read('src/styles/components.css'), '@media (pointer: coarse)');
+		for (const c of ['.cm-composer__attach', '.cm-composer__send']) {
+			assert(new RegExp('\\' + c + '[^{]*\\{[^}]*inline-size:\\s*var\\(--tap\\)').test(coarse)
+				|| new RegExp('\\' + c + '[^{]*\\{[^}]*block-size:\\s*var\\(--tap\\)').test(coarse),
+				`${c} has no --tap floor on a coarse pointer`);
+		}
+		// The typing line is layout only; its spacing is the component's,
+		// because the marker it wraps owns the semantics.
+		const typing = ruleBodies(block, '.cm-composer__typing').join('\n');
+		assert(/margin:\s*var\(--space-1\) 0 0/.test(typing),
+			'the typing line has no spacing, so it collides with the bar');
+		assert(/cm-marker/.test(showcase) && !/cm-composer__typing[^{]*\{[^}]*font/.test(block),
+			'the typing line styles the marker text instead of leaving the semantics to .cm-marker');
+	});
+
+	check('batch 29: the composer specimen carries the contract structure', () => {
+		assert(/<form class="cm-composer" data-cm-composer>/.test(showcase),
+			'the composer is not a real form - Enter/Shift+Enter need one to bind to');
+		assert(/class="cm-icon-btn cm-composer__attach" aria-label="[^"]+"/.test(showcase),
+			'the attach control is missing or unlabelled');
+		assert(/class="cm-icon-btn cm-composer__send" aria-label="[^"]+"/.test(showcase),
+			'the send control is not marked up - it would render as a plain icon button');
+		assert(/<span class="cm-marker cm-shimmer" role="status">/.test(showcase),
+			'the typing line does not expose the status role, so a reader never hears it');
+		// Every cm-composer class the specimen emits must be a contract name.
+		const names = new Set(
+			[...showcase.matchAll(/class="([^"]*)"/g)]
+				.flatMap((m) => m[1].split(/\s+/))
+				.filter((c) => c.startsWith('cm-composer')),
+		);
+		const CONTRACT = new Set([
+			'cm-composer', 'cm-composer__reply', 'cm-composer__replytext',
+			'cm-composer__replyclose', 'cm-composer__bar', 'cm-composer__attach',
+			'cm-composer__input', 'cm-composer__tools', 'cm-composer__send',
+			'cm-composer__typing',
+		]);
+		for (const c of names) {
+			assert(CONTRACT.has(c), `the showcase uses .${c}, which is not a contract name`);
+		}
 	});
 
 	check('batch 29: nothing caps the field, so the consumer can grow it to six lines', () => {

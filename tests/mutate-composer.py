@@ -35,6 +35,9 @@ NEW_SUITE = [
     'batch 29: the font sizes carry the --min-font floor like every other component',
     'batch 29: the new rules sit before .cm-auth, and stack ownership still ends the file',
     'batch 29: the showcase renders both specimens with the contract structure',
+    'batch 29: every part of the composer takes its place on the row',
+    'batch 29: the named controls clear the tap floor on a coarse pointer',
+    'batch 29: the composer specimen carries the contract structure',
     'batch 29: the composer documents the consumer JS rather than implementing it',
 ]
 
