@@ -160,25 +160,42 @@ def run(pw):
         page.wait_for_timeout(250)
         got = page.evaluate(PROBE)
         sw, iw = got['scrollW'], got['innerW']
-        # scrollWidth can exceed innerWidth without the page being
-        # reachable sideways (the repo records a phantom +8px zone from
-        # the reserved scrollbar gutter), so the claim is BEHAVIOURAL:
-        # can the reader actually scroll sideways?
-        real = page.evaluate("""() => {
-          const before = window.scrollX;
+        # THIS CHECK USED TO LIE, so the replacement is written from
+        # the measurement. It scrolled to 9999 and read scrollX without
+        # ever waiting for the scroll to land - the page is styled
+        # scroll-behavior: smooth, so the read happened before the
+        # animation had moved anything and came back 0. It reported
+        # "cannot be scrolled sideways" at 320 while a hand probe moved
+        # the page 146px. The instant-scroll read below is the real
+        # number, and the CLAIM is scoped to what this batch owns.
+        #
+        # Scoped because the page overflow is NOT the chart family's.
+        # Measured at 320: with every .cm-chart hidden, scrollWidth is
+        # still 466; the offenders are .cm-attach (right edge 884) and
+        # .cm-table (right edge 796), and the main oem-ui dist - which
+        # carries no chart markup at all - measures the same 466 and the
+        # same 146px of travel. That is pre-existing debt in two other
+        # components, and a chart harness that asserted the page's
+        # scrollability would be grading them.
+        fit = page.evaluate("""() => {
+          const de = document.documentElement;
+          const charts = [...document.querySelectorAll('.cm-chart')];
+          const withCharts = de.scrollWidth;
+          charts.forEach(c => { c.dataset._d = c.style.display; c.style.display = 'none'; });
+          const without = de.scrollWidth;
+          charts.forEach(c => { c.style.display = c.dataset._d || ''; delete c.dataset._d; });
+          const prev = de.style.scrollBehavior;
+          de.style.scrollBehavior = 'auto';       // read the real travel, not frame 0
           window.scrollTo(9999, 0);
-          let after = 0, stable = 0, last = -1;
-          for (let i = 0; i < 40 && stable < 3; i++) {
-            new Promise(r => requestAnimationFrame(r));
-            const s = getComputedStyle(document.documentElement).scrollBehavior;
-            after = window.scrollX; stable = after === last ? stable + 1 : 0; last = after;
-          }
+          const sx = window.scrollX;
           window.scrollTo(0, 0);
-          return {before: before, after: after};
+          de.style.scrollBehavior = prev;
+          return {withCharts: withCharts, without: without, sx: sx};
         }""")
-        check(f'{w}px: the page cannot be scrolled sideways',
-              real['after'] == 0 and real['before'] == 0,
-              f'scrollWidth={sw} innerWidth={iw} scrollX {real["before"]}->{real["after"]}')
+        check(f'{w}px: the chart family adds no sideways scroll',
+              fit['withCharts'] == fit['without'],
+              f'scrollWidth with charts={fit["withCharts"]} without={fit["without"]} '
+              f'innerWidth={iw} page travel={fit["sx"]}px')
         over = [f'{f["type"]}({f["w"]})' for f in got['figs']
                 if f['w'] and (f['w'] > iw + 1 or f['right'] > iw + 1)]
         check(f'{w}px: every chart fits the viewport',
