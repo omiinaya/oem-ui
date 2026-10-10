@@ -15,9 +15,12 @@ drawing the axis ladder, the paths and arcs, the hit-testing and the
 keyboard cursor itself.
 
 **One function, so parity is countable.** The same `chartMarkup()` renders
-the twelve showcase figures at build time and re-renders them at runtime
+the eleven showcase figures at build time and re-renders them at runtime
 after a resize, so `dist/index.html` is not a picture of the component but
-the component. The harness counts the wrappers in the built page.
+the component. Measured on the built page: 11 tags carry `data-cm-chart`,
+covering all six types (area x2, bar x2, line x2, pie x3, radar x1,
+radial x1), and all 11 carry a `<title>`, `role="img"`, a resolvable
+`aria-describedby`, a hidden table and `tabindex="0"`.
 
 **`.cm-chart__style` is ChartStyle in the house idiom.** A presentation
 attribute cannot take a `var()`, so a token can only reach an SVG path

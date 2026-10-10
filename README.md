@@ -2400,8 +2400,9 @@ a few tens of lines, and the whole module is `chartMarkup()` in
 **`.cm-chart`** is the container:
 
 ```html
-<figure class="cm-chart cm-chart--bar" data-cm-chart data-cm-chart-type="bar"
-        data-cm-chart-h="240" id="reads">
+<div class="cm-chart cm-chart--bar" id="reads"
+     data-cm-chart data-cm-chart-type="bar" data-cm-chart-h="240"
+     data-cm-chart-title="…" data-cm-chart-desc="…" data-cm-chart-state="idle">
   <style class="cm-chart__style">/* one property per series */</style>
   <div class="cm-chart__plot">
     <svg class="cm-chart__svg" viewBox="0 0 640 240" role="img"
@@ -2413,7 +2414,7 @@ a few tens of lines, and the whole module is `chartMarkup()` in
   <div class="cm-sr-only" id="reads-data">
     <table class="cm-chart__table">…</table>
   </div>
-</figure>
+</div>
 ```
 
 One function renders it — `chartMarkup({type, data, series, …})` — so the
