@@ -9040,6 +9040,35 @@ input.cm-slider:disabled {
    it, exactly as the marker docs require. */
 .cm-composer__typing { margin: var(--space-1) 0 0; }
 
+/* A reply quote inside a row: the message this one answers, shown
+   above its text as a one-line context strip. It sits in the MAIN
+   column, not across the row, so it lines up under the author it
+   belongs to rather than under the gutter. The name is the anchor -
+   it is what the reader scans for - and the preview takes whatever
+   is left, ellipsised rather than wrapped, so a long quote can never
+   push the real message out of the first screenful. min-inline-size:
+   0 is what lets a flex child actually shrink; without it the strip
+   grows to its content and the ellipsis never happens. */
+.cm-msglist__reply {
+	display: flex;
+	align-items: baseline;
+	gap: var(--space-2);
+	min-inline-size: 0;
+	margin-block-end: var(--space-1);
+	color: var(--ink-dim);
+	font-size: var(--text-micro);
+}
+.cm-msglist__replyname {
+	flex: none;
+	color: var(--ink-dim);
+	font-weight: 600;
+}
+.cm-msglist__replypreview {
+	min-inline-size: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
 .cm-auth {
 	min-height: 100dvh;
 	display: grid;

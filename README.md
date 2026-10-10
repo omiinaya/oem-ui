@@ -2437,6 +2437,12 @@ row ships fewer children than its neighbour:
   and its gutter goes `visibility: hidden`, a grouped row has no header
   so its gutter stamps it. Author the gutter on EVERY row and let the
   rule decide - two visible stamps on one row is the bug.
+- **`.cm-msglist__reply`** is a reply quote: the message this one answers,
+  shown above its text inside `.cm-msglist__main` so it lines up under the
+  author rather than under the gutter. `.cm-msglist__replyname` is the
+  anchor the reader scans for; `.cm-msglist__replypreview` takes what is
+  left and is **ellipsised, not wrapped** - a long quote must never push
+  the real message out of the first screenful.
 - **The action toolbar is ONE button**, and it ships `opacity: 0;
   pointer-events: none` in a column that already exists. It returns on
   `:hover` and on `:focus-within`. The column is the point: revealing
