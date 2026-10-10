@@ -2473,19 +2473,23 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 					panel hangs from the LEFT edge of its own word.
 				</p>
 				<div class="cm-menubar" data-cm-menubar role="menubar" aria-label="demo menubar">
-					<button type="button" class="cm-menubar__trigger" popovertarget="mb-file" aria-haspopup="menu" role="menuitem">file</button>
+					<!-- ONE tab stop: the first word is the tabbable one, the rest are
+					     focus targets for the arrows only (.cm-tabs roves the same way).
+					     The runtime re-derives this, so a consumer who authors three
+					     tabindex="0"s still ends up with one. -->
+					<button type="button" class="cm-menubar__trigger" popovertarget="mb-file" aria-haspopup="menu" role="menuitem" tabindex="0">file</button>
 					<div class="cm-dropdown__menu cm-menubar__menu" id="mb-file" popover role="menu" aria-label="file">
 						<button type="button" class="cm-dropdown__item" role="menuitem">new</button>
 						<button type="button" class="cm-dropdown__item" role="menuitem">open</button>
 						<hr class="cm-dropdown__sep" />
 						<button type="button" class="cm-dropdown__item" role="menuitem" aria-disabled="true">save</button>
 					</div>
-					<button type="button" class="cm-menubar__trigger" popovertarget="mb-edit" aria-haspopup="menu" role="menuitem">edit</button>
+					<button type="button" class="cm-menubar__trigger" popovertarget="mb-edit" aria-haspopup="menu" role="menuitem" tabindex="-1">edit</button>
 					<div class="cm-dropdown__menu cm-menubar__menu" id="mb-edit" popover role="menu" aria-label="edit">
 						<button type="button" class="cm-dropdown__item" role="menuitem">undo</button>
 						<button type="button" class="cm-dropdown__item" role="menuitem">redo</button>
 					</div>
-					<button type="button" class="cm-menubar__trigger" popovertarget="mb-view" aria-haspopup="menu" role="menuitem">view</button>
+					<button type="button" class="cm-menubar__trigger" popovertarget="mb-view" aria-haspopup="menu" role="menuitem" tabindex="-1">view</button>
 					<div class="cm-dropdown__menu cm-menubar__menu" id="mb-view" popover role="menu" aria-label="view">
 						<button type="button" class="cm-dropdown__item" role="menuitem">zoom in</button>
 						<button type="button" class="cm-dropdown__item" role="menuitem">zoom out</button>

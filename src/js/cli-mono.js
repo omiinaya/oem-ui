@@ -2356,6 +2356,46 @@
 		);
 	}
 
+	/* ONE tab stop. The bar ENTERS the page as a single stop and the arrows
+	   walk the words from there - the .cm-tabs rule, applied to the other
+	   component that needs it. Every trigger at tabindex=0 makes Tab walk
+	   file/edit/view before it reaches anything else, which is exactly the
+	   thing the pattern exists to prevent. The stop is WRITTEN, never read
+	   from the author: whoever authored tabindex on three buttons gets one
+	   tabbable word and two arrow targets. */
+	function menubarRove(bar, cur) {
+		Array.prototype.forEach.call(
+			bar.querySelectorAll('.cm-menubar__trigger'),
+			function (t) {
+				t.setAttribute('tabindex', t === cur ? '0' : '-1');
+			}
+		);
+	}
+	/* Which word holds the stop: the one focus is already on, else the first
+	   one a reader can reach. */
+	function menubarTabStop(bar) {
+		var list = menubarTriggers(bar);
+		if (!list.length) return;
+		var focused = document.activeElement;
+		menubarRove(bar, list.indexOf(focused) !== -1 ? focused : list[0]);
+	}
+	function initMenubar(root) {
+		(root || document).querySelectorAll('[data-cm-menubar]').forEach(function (bar) {
+			if (bar.dataset.cmMenubarBound) return;
+			bar.dataset.cmMenubarBound = '1';
+			menubarTabStop(bar);
+			// Clicking (or Tabbing ONTO) a word moves the stop with it: a
+			// stop left behind on the first word means the NEXT Tab leaves
+			// the bar at a word the reader is no longer looking at.
+			bar.addEventListener('focusin', function (ev) {
+				var t = ev.target;
+				var trg = t && typeof t.closest === 'function'
+					? t.closest('.cm-menubar__trigger') : null;
+				if (trg) menubarRove(bar, trg);
+			});
+		});
+	}
+
 	function onMenubarKey(e) {
 		var bar = e.target && e.target.closest && e.target.closest('[data-cm-menubar]');
 		if (!bar) return;
@@ -2386,6 +2426,9 @@
 		if (!next || next === cur) return;
 		e.preventDefault();
 		if (open && typeof open.hidePopover === 'function') open.hidePopover();
+		// The stop MOVES with the focus, or the next Tab leaves the bar at
+		// the word the reader just walked away from.
+		menubarRove(bar, next);
 		// Focus BEFORE opening: the toggle handler moves focus into the
 		// panel, and doing it in the other order would leave the new
 		// trigger focused while the panel's own focus steal is still to
@@ -3998,6 +4041,7 @@
 		initScrollSpy(document.querySelector('[data-cm-nav]'));
 		initCopy(root);
 		initTabs(root);
+		initMenubar(root);
 		initDialogs(root);
 		initToasts(root);
 		initTooltipClamp(root);
