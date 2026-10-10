@@ -15617,15 +15617,27 @@ console.log('\nshadcn-parity: guildrail + composer');
 
 	check('batch 29: the composer documents the consumer JS rather than implementing it', () => {
 		// The three behaviours the contract hands to the client. They must
-		// be documented, and the library must not quietly implement them.
+		// be documented NAMED, not merely mentioned: `includes('Enter')`
+		// passed on a rewrite that replaced the row with "the return key",
+		// because the word still appears elsewhere in the section (found
+		// by mutation s28, which survived). Match the act, not the token.
 		const readme = read('README.md');
 		const at = readme.indexOf('### The server rail');
 		assert(at > 0, 'the README has no guildrail/composer section');
 		const sec = readme.slice(at, readme.indexOf('\n### ', at + 4) > 0
 			? readme.indexOf('\n### ', at + 4) : undefined);
-		for (const phrase of ['Enter', 'Shift+Enter', 'auto-grow', 'Consumer']) {
-			assert(sec.includes(phrase), `the README section never mentions ${phrase}`);
+		for (const [phrase, re] of [
+			['Enter sends', /Enter\s+sends/],
+			['Shift+Enter inserts a newline', /Shift\+Enter/],
+			['auto-grow', /auto-grow/i],
+			['the consumer owns them', /consumer/i],
+		]) {
+			assert(re.test(sec), `the README section never documents ${phrase}`);
 		}
+		// It must also say these are the CONSUMER's, not the library's:
+		// the table's `who` column is the contract's whole answer.
+		assert(/\|\s*consumer\s*\|/i.test(sec),
+			'the README does not hand the behaviours to the consumer');
 		// Not implemented: no new runtime file was shipped for either
 		// component. The composer's behaviour is the client's.
 		const runtime = read('src/js/cli-mono.js');

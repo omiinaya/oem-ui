@@ -172,7 +172,7 @@ MUTANTS = [
      'suite', False),
     ('s28 the README stops documenting Enter', 'README.md',
      '| **Enter sends** | consumer | a real `<form>` so the client can bind a keydown; the library never binds one |',
-     '| **Enter sends** | nobody | nothing |',
+     '| **the return key** | consumer | a real `<form>` so the client can bind a keydown |',
      'suite', False),
     # ---- live: measured in WebKit ---------------------------------------
     ('l01 the bar stops changing on focus', 'src/styles/components.css',
