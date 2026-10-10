@@ -413,14 +413,15 @@ def run(pw):
     # rather than restated here: a test that carries its own copy of the
     # data proves the test's arithmetic, not the chart's.
     tallest = geo['tallest']
-    # The table carries requests; the axis carries thousands, so compare
-    # in ONE unit and say which. Restating the specimen's unit here
-    # would be the test asserting its own arithmetic.
-    k = 1000 if top.endswith('k') else 1
+    # ONE unit, and it is the raw one: plain() already expands a "4k" to
+    # 4000, so dividing tallest by 1000 as well compared 4000 >= 4.18
+    # and passed for any top tick at all. MEASURED as a survivor: the
+    # mutator dropped the top tick (4k under a tallest of 4,180) and
+    # this claim still went green. Both sides are raw counts now.
+    topv = plain(top)
     check('the top gridline is a round number ABOVE the tallest value',
-          plain(top) >= tallest / k and plain(top) % 250 == 0,
-          f'top tick={top} tallest={tallest} in the axis unit '
-          f'({tallest / k:g})')
+          topv >= tallest and topv % 250 == 0,
+          f'top tick={top} = {topv:g} vs tallest={tallest}')
 
     # The gridlines are evenly spaced, which is what makes them TICKS
     # rather than decoration. Measured from their y positions: the step
