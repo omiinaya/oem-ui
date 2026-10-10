@@ -13,8 +13,12 @@ exclusives through the platform.
 Engines: WebKit (Safari is the engine that matters here).
 """
 from playwright.sync_api import sync_playwright
+import sys
 
-URL = 'http://192.168.1.68:4461/'
+# House convention: overridable, so a run says which tree it measured.
+# A hardcoded port is how this harness reported 40/40 against a server
+# that is not serving this repo at all.
+URL = sys.argv[1] if len(sys.argv) > 1 else 'http://127.0.0.1:4471/'
 OUT = '/root/.hermes/cache/scratch'
 P = []
 

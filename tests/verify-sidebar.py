@@ -11,8 +11,10 @@ The worst bug this shape can carry: a drag that also toggles, or a
 collapsed state that leaks width into the content. Both are measured.
 """
 from playwright.sync_api import sync_playwright
+import sys
 
-URL = 'http://192.168.1.68:4461/'
+# House convention: overridable, so a run says which tree it measured.
+URL = sys.argv[1] if len(sys.argv) > 1 else 'http://127.0.0.1:4471/'
 SC = '#sidebar .cm-sidebar'
 PANEL = SC + ' .cm-sidebar__panel'
 TRIG = '[data-cm-sidebar-trigger]'
