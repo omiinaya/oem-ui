@@ -7,9 +7,10 @@ focus to the parent, checkbox rows flip on Space but NOT when the arrows
 step over them, arriving on a radio row takes the selection, typeahead walks
 by prefix, and a shortcut hint never reaches the accessible name.
 """
+import sys
 from playwright.sync_api import sync_playwright
 
-URL = 'http://192.168.1.68:4461/'
+URL = sys.argv[1] if len(sys.argv) > 1 else 'http://192.168.1.68:4321/'
 TRIG = '[popovertarget="menu-depth"]'
 OWNER = '#menu-depth [aria-haspopup="menu"]'
 

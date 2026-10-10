@@ -14,6 +14,7 @@ product verdict.
 """
 import sys
 from playwright.sync_api import sync_playwright
+from harness_wait import boot_timeout
 
 URL = sys.argv[1] if len(sys.argv) > 1 else 'http://192.168.1.68:4471/'
 SEL = '#cal-multiple'
@@ -103,7 +104,7 @@ def main():
         # `html { scroll-behavior: smooth }` animates every programmatic
         # scroll, so a click lands on a cell that has moved away.
         page.add_style_tag(content='html { scroll-behavior: auto !important; }')
-        page.wait_for_function("() => !!window.cliMono", timeout=15000)
+        page.wait_for_function("() => !!window.cliMono", timeout=boot_timeout())
         page.wait_for_timeout(200)
 
         s = state(page)

@@ -3,6 +3,7 @@
 """
 import sys, json
 from playwright.sync_api import sync_playwright
+from harness_wait import boot_timeout
 
 URL = sys.argv[1] if len(sys.argv) > 1 else 'http://192.168.1.68:4321/'
 
@@ -30,7 +31,7 @@ with sync_playwright() as ph:
     b = ph.webkit.launch()
     p = b.new_page(viewport={'width': 390, 'height': 844})
     p.goto(URL, wait_until='load')
-    p.wait_for_function('() => !!window.cliMono', timeout=15000)
+    p.wait_for_function('() => !!window.cliMono', timeout=boot_timeout())
     p.add_style_tag(content='html { scroll-behavior: auto !important; }')
     p.wait_for_timeout(300)
     print(json.dumps(p.evaluate(JS), indent=1))

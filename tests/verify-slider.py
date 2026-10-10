@@ -7,6 +7,7 @@ values - never asserted from the source.
 """
 import sys, pathlib, struct, zlib
 from playwright.sync_api import sync_playwright
+from harness_wait import boot_timeout
 
 def load_png(path):
     """Read a screenshot with the standard library alone.
@@ -76,7 +77,7 @@ def load_png(path):
     return w, h, get
 
 ROOT = pathlib.Path('/root/projects/oem-ui')
-URL = 'http://192.168.1.68:4461/'
+URL = sys.argv[1] if len(sys.argv) > 1 else 'http://192.168.1.68:4321/'
 SHOT = pathlib.Path('/root/.hermes/cache/scratch/_slider.png')
 results, problems = [], []
 
@@ -151,7 +152,7 @@ with sync_playwright() as pw:
     # The showcase module executes after networkidle, so reading the fill
     # straight after goto raced it and reported an empty variable as a
     # product failure. Wait for the runtime to boot and paint.
-    page.wait_for_function("() => !!window.cliMono", timeout=15000)
+    page.wait_for_function("() => !!window.cliMono", timeout=boot_timeout())
     check('the runtime boots (window.cliMono)', True)
     # The boot paint is an assertion, not a prerequisite: if init() never
     # reaches the slider, waiting quietly for 15s and dying in a traceback

@@ -2,8 +2,9 @@
 """WebKit proof for batch 5: the hover card and the input group."""
 import sys
 from playwright.sync_api import sync_playwright
+from harness_wait import boot_timeout
 
-URL = 'http://192.168.1.68:4461/'
+URL = sys.argv[1] if len(sys.argv) > 1 else 'http://192.168.1.68:4321/'
 results, problems = [], []
 
 def check(name, ok, detail=''):
@@ -17,7 +18,7 @@ with sync_playwright() as pw:
     errs = []
     page.on('pageerror', lambda e: errs.append(str(e)))
     page.goto(URL, wait_until='networkidle')
-    page.wait_for_function("() => !!window.cliMono", timeout=15000)
+    page.wait_for_function("() => !!window.cliMono", timeout=boot_timeout())
 
     def panel_state():
         return page.evaluate("""() => {
