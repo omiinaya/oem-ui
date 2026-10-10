@@ -79,6 +79,7 @@ NEW_LIVE = [
     'guildrail: clicks fall through the bleed to the column behind',
     'guildrail: the scrollbar is suppressed (it would sit in the bleed)',
     'guildrail: aria-current changes the square, in ink not hue',
+    'guildrail: the current square carries the ink, not just the fill',
     'guildrail: the pill reads as a full bar only for the current server',
     'phone: the rail PAINTS --guildrail-w, not the rail plus its bleed',
     "phone: the rail's clip box stays inside the viewport, bleed and all",
@@ -239,17 +240,9 @@ MUTANTS = [
      'background-origin: content-box;\n\tbackground-clip: content-box;',
      'background-clip: border-box;',
      'live', True),
-    ('l06 the scrollbar comes back', 'src/styles/components.css',
-     '.cm-guildrail::-webkit-scrollbar { display: none; }',
-     '.cm-guildrail::-webkit-scrollbar { display: block; }',
-     'live', True),
     ('l07 the tip stays inside the rail', 'src/styles/components.css',
      'inset-inline-start: 100%;\n\tinset-inline-end: auto;',
      'inset-inline-start: auto;\n\tinset-inline-end: 0;',
-     'live', True),
-    ('l08 the tip is uncapped', 'src/styles/components.css',
-     'max-inline-size: var(--guildrail-bleed);',
-     'max-inline-size: none;',
      'live', True),
     ('l09 the tip loses its centring', 'src/styles/components.css',
      "transform: translateY(-50%);\n\t/* The tip's own cap",
@@ -267,15 +260,49 @@ MUTANTS = [
      "aria-current='true'] {\n\tbackground: var(--surface-raised);\n\tcolor: var(--ink);\n}",
      "aria-current='true'] {\n\tbackground: var(--surface-raised);\n}",
      'live', True),
-    ('l13 the reduced-motion guard goes', 'src/styles/components.css',
-     '\t.cm-guildrail__item,\n\t.cm-guildrail__pill,\n\t.cm-composer__bar,',
-     '\t.cm-guildrail__pill,\n\t.cm-composer__bar,',
-     'live', True),
     ('l14 the bleed bleeds the document', 'src/styles/tokens.css',
      '\t--guildrail-bleed: 18rem;',
      '\t--guildrail-bleed: 40rem;',
      'live', True),
 ]
+
+# ---- proven-equivalent mutations, deliberately NOT in the list -------------
+#
+# Each of these was run against the live harness, SURVIVED, and was then
+# MEASURED in WebKit (mutant applied, page rebuilt, property probed) to
+# establish that no correct assertion could ever have caught it. They are
+# recorded here rather than kept as mutants, because a mutant nothing can
+# kill trains the reader to ignore survivors - the failure mode this file
+# exists to prevent. Each is still covered at the SOURCE layer (the sNN
+# named), so the invariant is not lost, only its live duplicate.
+#
+#   bound (s01). Removing `max-block-size: 100%` leaves the rail's used
+#     max-block-size at `none`, and it STILL scrolls: measured scrollRange
+#     187px against a 16rem stage whose grid row is fixed, so the parent
+#     binds the box and the declaration is defensive. Unobservable in this
+#     fixture; s01 kills it at the source.
+#
+#   scroll (s02). `overflow-y: auto` is redundant the moment
+#     `overflow-x: hidden` is stated: CSS computes a `visible` axis to
+#     `auto` when the other axis is not `visible`. Measured: the mutant's
+#     computed overflow-y is still `auto` and the rail still scrolls.
+#
+#   scrollbar (s06). `.cm-guildrail::-webkit-scrollbar { display: block }`
+#     changes nothing. Measured in WebKit: `offsetWidth - clientWidth` is 0
+#     both pristine and mutated (overlay scrollbars on this engine), and
+#     `scrollbar-width: none` already suppresses it. s06 kills the rule.
+#
+#   tip cap (s08). `max-inline-size: none` never binds, because the widest
+#     tip the specimen renders is 166.2px against a 288px bleed - the cap
+#     is a contract guarantee for a longer label, not a constraint this
+#     fixture exercises. Measured over all nine tips: max 166.2px. s08
+#     kills the declaration at the source layer.
+#
+#   reduced motion (s22). Deleting `.cm-guildrail__item` from the
+#     library's reduce guard leaves its transition-duration at 0.00001s
+#     anyway: base.css's `@media (prefers-reduced-motion: reduce) {
+#     *, *::before, *::after { transition-duration: 0.01ms !important } }`
+#     owns it outright. Measured after removing the selector. s22 kills it.
 
 
 def run(cmd, timeout):

@@ -529,6 +529,8 @@ def main():
                     exists: !!cur,
                     curBg: getComputedStyle(cur).backgroundColor,
                     plainBg: getComputedStyle(plain).backgroundColor,
+                    curColor: getComputedStyle(cur).color,
+                    plainColor: getComputedStyle(plain).color,
                     curPillOpacity: getComputedStyle(curPill).opacity,
                     plainPillOpacity: getComputedStyle(plainPill).opacity,
                     curPillH: curPill.getBoundingClientRect().height,
@@ -541,6 +543,17 @@ def main():
                   and current["curPillOpacity"] == "1",
                   f"current bg={current['curBg']} plain bg={current['plainBg']} "
                   f"pill opacity={current['curPillOpacity']}")
+            # The FILL alone is not the state. The contract asks for a fill
+            # AND the ink AND the pill, because a greyscale palette has no
+            # hue to carry "you are here" - and a fill-only active square
+            # is measurably the same square with a different background.
+            # Measured: dropping the `color` declaration leaves the active
+            # square at the idle ink (rgb(139,139,139)), which every other
+            # assertion here passes.
+            check("guildrail: the current square carries the ink, not just the fill",
+                  current["curColor"] != current["plainColor"],
+                  f"current ink={current['curColor']} idle ink={current['plainColor']} "
+                  f"- the active square is distinguished by its background alone")
             check("guildrail: the pill reads as a full bar only for the current server",
                   current["curPillH"] > current["plainPillH"] * 2,
                   f"current pill {current['curPillH']:.0f}px tall against "
