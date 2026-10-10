@@ -5144,8 +5144,6 @@
 			var t0 = tip.querySelector('.cm-chart__tip-title');
 			if (t0) t0.textContent = '';
 			tip.querySelectorAll('.cm-chart__tip-val').forEach(function (v) { v.textContent = ''; });
-			var marks0 = svg.querySelectorAll('.cm-chart__marker');
-			for (var mi = 0; mi < marks0.length; mi++) marks0[mi].removeAttribute('data-cm-on');
 			return;
 		}
 		var row = d.data[i];
