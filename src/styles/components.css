@@ -4042,8 +4042,19 @@ dialog.cm-dialog--spec:not([open]) {
 		z-index: var(--z-header);
 	}
 	/* Scroll anchoring: with a fixed rail the in-page anchors must clear it,
-	   and `--header-h` is the token the scroll-padding already reads. */
-	:root:has(.cm-header--rail) { --header-h: 0px; }
+	   and `--header-h` is the token the scroll-padding already reads.
+
+	   `!important` is load-bearing here, not decoration: the runtime
+	   PUBLISHES this token inline from the header's measured height
+	   (initHeader -> publishHeight), and an inline property outranks this
+	   rule. A rail is `inset-block: 0`, so what it measures is the VIEWPORT
+	   (900px at 1280x900) -> `scroll-padding-top: calc(900px + 1.5rem)`.
+	   scroll-padding governs EVERY browser-initiated scroll-into-view, so
+	   dragging a text selection overshot by ~900px a pass and the page ran
+	   away upward while text was highlighted. The rail sits on the
+	   inline-start edge and covers no block-axis space over the content, so
+	   the honest value is 0 and this rule must win over the measurement. */
+	:root:has(.cm-header--rail) { --header-h: 0px !important; }
 }
 
 /* ============================================================
