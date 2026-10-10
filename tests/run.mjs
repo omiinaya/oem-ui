@@ -13313,10 +13313,15 @@ check('shadcn-parity: dropdown depth carries the documented item kinds', () => {
 	assert(css.includes('.cm-dropdown__icon {\n\tflex: none;'),
 		'the icon slot must be a fixed-width slot');
 	// shortcuts are out of the accessible name
-	// Both hinted rows, not "one of them": a twin-row mutant removes a
-	// single aria-hidden and a single-occurrence regex sails past it.
-	assert((html.match(/cm-dropdown__shortcut" aria-hidden="true"/g) || []).length === 2,
-		'every shortcut hint must be hidden from the name');
+	// Every hinted row on the BUILT page, not a sample of them: a mutant
+	// that drops a single aria-hidden anywhere must fail, wherever that
+	// row lives (the menubar now hints too). The floor keeps the
+	// equality from going vacuous - two counts of zero are not
+	// agreement, they are a check that stopped looking.
+	const hinted = (html.match(/class="cm-dropdown__shortcut"/g) || []).length;
+	const hidden = (html.match(/cm-dropdown__shortcut" aria-hidden="true"/g) || []).length;
+	assert(hinted >= 4 && hidden === hinted,
+		`every shortcut hint must be hidden from the name (${hidden} of ${hinted} are)`);
 	// the runtime: no per-menu init, one delegated handler.
 	// A plain regex here was /" then a CHARACTER CLASS - it matched any one
 	// of those letters and therefore killed nothing. Literal string only.
