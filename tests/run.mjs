@@ -14547,14 +14547,20 @@ check('the header geometry harness owns the behaviour reads, at five widths', ()
    pixel-level no-op today and buys RTL for free later - no `dir`, no mirroring,
    no runtime.
 
-   Two declarations stay physical, each documented AT ITS RULE and listed here
-   with the same reason. A third one appearing anywhere is a regression:
+   Three declarations stay physical, each documented AT ITS RULE and listed
+   here with the same reason. A fourth one appearing anywhere is a regression:
      .cm-hovercard__panel { left: 0 }     the runtime anchor writes a physical
                                           style.left in viewport coordinates;
                                           the CSS rule is its no-JS fallback
      .cm-navmenu__chev { border-right }   glyph geometry: a border pair rotated
                                           45deg IS the caret; a logical mirror
                                           flips the border but not rotate()
+     .cm-chart__tooltip { left: var(..) } the runtime derives the anchor from
+                                          SVG user space (getBBox().x) minus a
+                                          physical rect delta — SVG has no
+                                          logical axis to name, and the value
+                                          is a pixel offset from the drawing's
+                                          left edge
 
    The source scan is half the proof; the built stylesheet is the other half.
    A minifier that rewrote `border-inline-start` back to `border-left` would
@@ -14573,6 +14579,8 @@ check('the header geometry harness owns the behaviour reads, at five widths', ()
 			'runtime anchor: cmClampHovercards() clears and rewrites a physical style.left on every init and resize'],
 		['.cm-navmenu__chev', 'border-right',
 			'glyph geometry: the rotated caret is drawn from physical borders'],
+		['.cm-chart__tooltip', 'left',
+			'runtime anchor: cmInitCharts() writes a pixel offset from SVG user space (getBBox().x) minus a physical rect delta — SVG has no logical axis'],
 	];
 	// A declaration walker: mask comments (newlines survive, so line numbers
 	// stay true), then track braces and read each `prop: value` chunk. The

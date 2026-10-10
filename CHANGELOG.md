@@ -34,6 +34,85 @@
     `position: sticky; top: 0` with no height of its own, and the phone's
     `height: auto; min-height: 60px` stays inside `max-width: 640px`.
 
+## Batch 25 — chart: six hand-rolled SVG types, no dependency
+
+**The gap, and the decision that closed it.** shadcn's Chart is a wrapper
+over Recharts, so "implement Chart" looked like "add a charting
+dependency" and the parity list carried it as not-implemented with a stated
+reason. It was listed for the same reason Navigation Menu was listed as a
+substitution, and it fails for the same reason: what shadcn actually
+documents is BEHAVIOUR — six chart types (area, bar, line, pie, radar,
+radial), a container, a style pass-through, a tooltip, a legend — and none
+of that needs Recharts to be drawn. So it was built by hand: no runtime
+dependency, no package added, `chartMarkup()` in `src/js/cli-mono.js`
+drawing the axis ladder, the paths and arcs, the hit-testing and the
+keyboard cursor itself.
+
+**One function, so parity is countable.** The same `chartMarkup()` renders
+the twelve showcase figures at build time and re-renders them at runtime
+after a resize, so `dist/index.html` is not a picture of the component but
+the component. The harness counts the wrappers in the built page.
+
+**`.cm-chart__style` is ChartStyle in the house idiom.** A presentation
+attribute cannot take a `var()`, so a token can only reach an SVG path
+through a rule: the style block binds each series key to a component-scoped
+property (`--cm-chart-reads: var(--chart-c1)`) and rewrites every mark
+carrying that key to read it, plus the `url(#uid-g-key)` gradient ids the
+area fill needs. The uid in the id is why two charts on one page cannot
+collide. Colour is five grey steps, `--chart-c1`…`--chart-c5`, declared per
+theme in `tokens.css`; a consumer restyles a series by setting one
+property. No hex appears anywhere in the chart's JS.
+
+**Two formatters, because the axis and the tooltip answer different
+questions.** `chFmt` prints `6k` beside its neighbours where a glance is
+the reading mode; `chExact` prints `1,860` in the tooltip and the data
+table where the reader came for the figure. Measured on the specimen's own
+row: the rounded formatter said `1.9k` about the month whose table row
+reads `1,860` four inches below it.
+
+**Sharp corners, proven rather than asserted.** A bar is a `<rect>`, a
+slice an arc between two radii, a radar mark a polygon — all with join and
+cap left at `miter`/`butt`. The library's radius exceptions are the radio,
+the spinner and `.cm-term__dot`, and a chart does not join them: a rounded
+bar is the one mark whose shape carries no data. The harness reads the
+COMPUTED join and cap of every mark in every chart and requires none to be
+round, rather than trusting the stylesheet to say so.
+
+**Accessibility is three layers.** `role="img"` with a `<title>` and
+`<desc>` named through `aria-labelledby`; `tabindex="0"` so a keyboard
+reader reaches the chart at all; arrow keys that move a cursor across the
+bands while the tooltip (`role="status"`, `aria-live="polite"`) announces
+the focused category and its values; and a visually-hidden
+`.cm-chart__table` carrying every number the chart draws — the same table
+the axis and the tooltip are derived from, so the text alternative cannot
+drift from the marks.
+
+**Two harness defects found by the mutator, and both were the harness
+lying, not the chart.**
+
+- **The top-tick claim compared two units.** `plain('4k')` returns 4000,
+  and the check then divided the tallest value by 1000 as well, so it
+  asked `4000 >= 4.18` and passed for any top tick at all. A mutant that
+  dropped the top tick (4k under a tallest of 4,180 — the tallest mark
+  touching the frame) survived. Both sides are raw counts now, and that
+  mutant dies.
+- **The sideways-scroll claim never waited for the scroll.** The page is
+  styled `scroll-behavior: smooth`; the check scrolled to 9999 and read
+  `scrollX` in a loop whose `Promise` was never awaited, so it read frame
+  0 every time and reported "the page cannot be scrolled sideways" at 320
+  while a hand probe moved it 146px. The claim is now measured with an
+  instant scroll AND scoped, because the overflow is not the chart
+  family's: hiding every `.cm-chart` leaves `scrollWidth` at 466, the
+  offenders are `.cm-attach` (right edge 884) and `.cm-table` (right edge
+  796), and the main oem-ui dist — which carries no chart markup at all —
+  measures the same 466 and the same 146px. That is pre-existing debt in
+  two other components; a chart harness asserting the page's scrollability
+  would have been grading them.
+
+**Gates:** suite 587/0 · `tests/verify-chart.py` 65/65 stable 3/3 ·
+`tests/mutate-chart.py` 7 patterns, killed=7 survived=0 · select-tabs
+40/40 · sidebar 34/34 · navmenu 52/52.
+
 ## Unreleased — the navigation menu: the nav that opens PANELS
 ## Unreleased — the Direction baseline: every directional declaration is logical
 

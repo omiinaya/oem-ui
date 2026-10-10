@@ -2387,19 +2387,120 @@ Three things follow from a bar being able to nest, and all three are load-bearin
 
 **Proof:** suite 587/0 · navmenu 52/52 stable 3/3 · mutation 11/11 killed, one pattern cut as a mutation-proved equivalent and documented in `tests/mutate-navmenu-sub.py` · select-tabs 40/40 · sidebar 34/34. The mutator's first run is what found the hover bug above — it was shipped code, not a test weakness.
 
+### Charts
+
+shadcn's Chart is a wrapper over Recharts, and the parity gap it leaves is
+not an API gap — it is a *behaviour* gap. This library's charts are drawn
+in hand-rolled SVG with **no runtime dependency**: the axis ladder, the
+path and arc generation, the hit-testing and the keyboard cursor are each
+a few tens of lines, and the whole module is `chartMarkup()` in
+`src/js/cli-mono.js`. Six types ship, all six documented by shadcn:
+`area`, `bar` (grouped and stacked), `line`, `pie`, `radar`, `radial`.
+
+**`.cm-chart`** is the container:
+
+```html
+<figure class="cm-chart cm-chart--bar" data-cm-chart data-cm-chart-type="bar"
+        data-cm-chart-h="240" id="reads">
+  <style class="cm-chart__style">/* one property per series */</style>
+  <div class="cm-chart__plot">
+    <svg class="cm-chart__svg" viewBox="0 0 640 240" role="img"
+         aria-labelledby="reads-title reads-desc" aria-describedby="reads-data"
+         tabindex="0"></svg>
+    <div class="cm-chart__tooltip" data-cm-chart-tip role="status"></div>
+  </div>
+  <ul class="cm-chart__legend" role="list">…</ul>
+  <div class="cm-sr-only" id="reads-data">
+    <table class="cm-chart__table">…</table>
+  </div>
+</figure>
+```
+
+One function renders it — `chartMarkup({type, data, series, …})` — so the
+specimens in the showcase and the runtime re-render after a resize are the
+same bytes, and the parity of the built page is countable rather than
+assumed.
+
+**`.cm-chart__style` is shadcn's ChartStyle, in the house idiom.** A
+presentation attribute cannot take a `var()`, so a token can only reach an
+SVG path through a *rule*. The style block binds each series key to a
+component-scoped property — `--cm-chart-reads: var(--chart-c1)` — and then
+rewrites every mark that carries that key to read it, plus the
+`url(#uid-g-key)` gradient ids the area fill needs. Two charts on one page
+cannot collide, because the id carries the figure's own uid, and a theme
+switch repaints every series with no script at all.
+
+**Colour is five grey steps: `--chart-c1`…`--chart-c5`.** They are declared
+per theme in `tokens.css` (light and dark carry different steps, not one
+inverted set), and a consumer restyles a series by setting its
+`--chart-c3` — nothing else. No hex appears anywhere in the chart's JS.
+
+**The axis is a nice-number ladder, and the tooltip is exact.** Two
+formatters on purpose: `chFmt` prints `6k` next to its neighbours where a
+glance is the reading mode, and `chExact` prints `1,860` in the tooltip and
+the data table, where a reader came for the figure. Measured on this page's
+own specimen, the rounded one said `1.9k` about the month whose table row
+reads `1,860` four inches below it.
+
+**Sharp corners, and a chart does not join the exception list.** A bar is a
+`<rect>`, a slice is an arc between two radii, a radar mark is a polygon —
+all with `stroke-linejoin`/`stroke-linecap` left at `miter`/`butt`. The
+sanctioned radius exceptions in this library are the radio, the spinner and
+`.cm-term__dot`; a rounded bar is the one mark whose shape carries no data,
+so rounding it costs meaning and buys nothing. The harness reads the
+computed join and cap of every mark in every chart and requires none of
+them to be round, rather than trusting the stylesheet to say so.
+
+**Accessibility is three layers, not one attribute.** The `<svg>` is
+`role="img"` with a `<title>` and a `<desc>` it names through
+`aria-labelledby`, and it takes `tabindex="0"` so a keyboard reader can
+reach it at all. Arrow keys move a cursor across the bands; the tooltip is
+`role="status"` with `aria-live="polite"`, so the focused category and its
+values are announced rather than only drawn. And behind both, a
+visually-hidden **`.cm-chart__table`** carries every number the chart
+draws — the same table the tooltip and the axis derive from, so the text
+alternative cannot drift from the marks.
+
+**Fit.** Measured in WebKit at 320/360/390/402/768/1280: every chart's box
+stays inside the viewport (widest at 320 is 221.63px against a 320px
+viewport), and the chart family adds no sideways scroll of its own. The
+chart block in `components.css` sits *before* the stack-ownership block
+and before `.cm-auth`, and its component-scoped properties are all written
+`var(--x, default)`.
+
+Class table: `.cm-chart` and its `--bar` / `--pie` / `--radar` /
+`--radial` variants; `.cm-chart__plot`, `__svg`, `__style`, `__grid`,
+`__grid--vertical`, `__tick`, `__tick-label`, `__line`, `__area`,
+`__stop`, `__bar`, `__bar--stacked`, `__slice`, `__slice--active`,
+`__ring`, `__radar`, `__spoke`, `__marker`, `__cursor`, `__hit`,
+`__tooltip`, `__tip-title`, `__tip-row`, `__tip-dot`, `__tip-name`,
+`__tip-val`, `__legend`, `__legend-item`, `__legend-dot`,
+`__legend-label`, `__table`.
+
+Proof: suite 587/0 · `tests/verify-chart.py` 65/65 (stable across three
+consecutive runs) · `tests/mutate-chart.py` 7 patterns, killed=7
+survived=0. The mutation sweep found two real defects worth naming, both
+in the harness: one claim compared a "4k" label against a tallest value
+that had also been divided by 1000, so a top tick of 4k under a tallest of
+4,180 passed as "above"; and the sideways-scroll check never waited for
+the smooth scroll, so it read frame 0 and called the page unscrollable
+while a hand probe moved it 146px. Both fixed, both measured, both in the
+commit messages.
+
 ## shadcn/ui parity status
 
 The standing goal is component parity with
 [shadcn/ui](https://ui.shadcn.com/docs/components) in the established
 theme. The catalog is 64 components as of this writing: this library
-implements **62** and does not yet implement **2**, each for a
+implements **63** and does not yet implement **1**, for a
 stated reason.
 
-**Implemented (56):** Accordion, Alert, Alert Dialog (a confirming
+**Implemented (57):** Accordion, Alert, Alert Dialog (a confirming
 Dialog), Aspect Ratio, Attachment, Avatar, Badge, Bubble,
 Breadcrumb, Button (including
 destructive, outline and joined), Button Group, Calendar, Card,
-Carousel, Checkbox, Collapsible, Combobox, Command (palette), Context
+Carousel, Chart (six hand-rolled SVG types - see *Charts* above; no
+Recharts, no runtime dependency), Checkbox, Collapsible, Combobox, Command (palette), Context
 Menu, Data Table (filter, pagination, column visibility, row selection), Date Picker, Dialog, Drawer, Dropdown
 Menu, Empty, Field (label/help/error wiring), Hover Card, Input, Input
 Group, Input OTP, Item, Kbd, Label, Marker, Message, Message Scroller, Menubar, Native Select (a styled
@@ -2410,24 +2511,34 @@ Resizable, Scroll Area, Select, Separator, Sheet, Sidebar, Skeleton,
 Slider, Spinner, Switch, Table, Tabs, Textarea, Toast, Toggle, Toggle
 Group, Tooltip, Typography.
 
-**Not implemented (2):**
+**Not implemented (1):**
 
-- **Chart** - a Recharts wrapper, not a design primitive; consumers
-  compose their own charts.
 - **Direction** - an RTL/i18n direction helper; this system is LTR and
   owns no locale state. Declined as a *component* - but the part that
   needs no locale state is DONE: every directional declaration in the
   stylesheets is LOGICAL (`margin-inline-start`, `padding-inline-end`,
   `border-inline-start` and its longhands, `inset-inline-start` /
   `inset-inline-end`, `text-align: start` / `end`), so a consumer who
-  flips the document to `dir="rtl"` gets mirrored layout for free. Two
+  flips the document to `dir="rtl"` gets mirrored layout for free. Three
   declarations stay physical, each commented at its rule: the hover
   card's runtime-written `left` (`cmClampHovercards()` writes viewport
-  pixels) and the nav-menu chevron's glyph border (a rotated caret is
-  geometry, not an axis). Three checks in `tests/run.mjs` hold the
+  pixels), the nav-menu chevron's glyph border (a rotated caret is
+  geometry, not an axis), and the chart tooltip's anchor (an offset
+  derived from SVG user space, which has no logical axis). Three checks
+  in `tests/run.mjs` hold the
   baseline - source scan, permit list, built CSS - and
   `tests/mutate-logical-props.py` reverts all 153 logical declarations
   one at a time to prove they are caught.
+
+Chart was the other one, listed for the same reason Navigation Menu was
+listed as a *substitution*: shadcn's Chart is a wrapper over Recharts, so
+the catalog item looked like a dependency rather than a component. That
+reason does not survive the question "what does a consumer actually get?".
+shadcn documents six chart types and a container, a style pass-through, a
+tooltip and a legend - BEHAVIOUR, all of it - and none of that needs
+Recharts to be drawn. `.cm-chart` now exists as six types in hand-rolled
+SVG with its own showcase section, a WebKit harness and a mutation runner —
+documented in *Charts* above.
 
 Navigation Menu was once listed here as a *substitution*: this site's own
 pages use the desktop rail and the sticky header, which remains the house
