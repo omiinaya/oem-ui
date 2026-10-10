@@ -2442,6 +2442,14 @@
 		var list = menubarTriggers(bar);
 		if (!list.length) return;
 		var open = e.target.closest('.cm-menubar__menu');
+		/* A key inside a NESTED panel belongs to that panel, not to the bar:
+		   Left closes the submenu (closeSubmenu() has already handled it
+		   and preventDefault'd), and Right walks the submenu's own rows.
+		   Without this the bar would step to the next word with a panel
+		   still open underneath - one press, two moves, and the submenu it
+		   never looked at left hanging in the top layer. */
+		var nested = e.target.closest('[popover]');
+		if (nested && nested !== open) return;
 		var cur = open
 			? popTrigger(open) || trg
 			: trg;
@@ -2453,7 +2461,18 @@
 		else next = list[(i + (e.key === 'ArrowLeft' ? -1 : 1) + list.length) % list.length];
 		if (!next || next === cur) return;
 		e.preventDefault();
-		if (open && typeof open.hidePopover === 'function') open.hidePopover();
+		/* The panel walks away and takes its SUBMENUS with it: a nested
+		   popover is its own top-layer box, so hiding the host leaves it
+		   open over a menu that is gone. Deepest first, the order
+		   closeSubmenu() steps out in - and before the host, so focus
+		   unwinds to the owner row while that row still has a panel. */
+		if (open) {
+			Array.prototype.forEach.call(
+				open.querySelectorAll('[popover]:popover-open'),
+				function (s) { if (typeof s.hidePopover === 'function') s.hidePopover(); }
+			);
+			if (typeof open.hidePopover === 'function') open.hidePopover();
+		}
 		// The stop MOVES with the focus, or the next Tab leaves the bar at
 		// the word the reader just walked away from.
 		menubarRove(bar, next);

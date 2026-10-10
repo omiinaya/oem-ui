@@ -2482,6 +2482,19 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 						<button type="button" class="cm-dropdown__item" role="menuitem">new</button>
 						<button type="button" class="cm-dropdown__item" role="menuitem">open</button>
 						<hr class="cm-dropdown__sep" />
+						<!-- The submenu: a nested popover OWNED by a row. Right (or
+						     Enter) opens it, Left closes it and puts focus back on this
+						     row - the same machinery the dropdown specimen proves, so the
+						     bar gains no second implementation of a submenu. -->
+						<button type="button" class="cm-dropdown__item" role="menuitem" aria-haspopup="menu" aria-controls="mb-export">
+							<span class="cm-dropdown__label"><span class="cm-dropdown__label-text">export</span></span>
+							<span class="cm-dropdown__caret" aria-hidden="true">&rsaquo;</span>
+						</button>
+						<div class="cm-dropdown__menu" id="mb-export" popover role="menu" aria-label="export">
+							<button type="button" class="cm-dropdown__item" role="menuitem">as markdown</button>
+							<button type="button" class="cm-dropdown__item" role="menuitem">as html</button>
+						</div>
+						<hr class="cm-dropdown__sep" />
 						<button type="button" class="cm-dropdown__item" role="menuitem" aria-disabled="true">save</button>
 					</div>
 					<button type="button" class="cm-menubar__trigger" popovertarget="mb-edit" aria-haspopup="menu" role="menuitem" tabindex="-1">edit</button>
