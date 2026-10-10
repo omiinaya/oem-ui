@@ -148,6 +148,34 @@ with sync_playwright() as pw:
           tail == {'info': 'page 3 of 3', 'next': True, 'prev': False}
           and vis(page) == 3, {**tail, 'vis': vis(page)})
 
+    # ---- E2. 320px: the table's scroller stays clipped to the card,
+    #     no page scroll. 402px passes, but the table is 496px wide and
+    #     an iPhone SE / older-device viewport is 320 - this is the case
+    #     where the page went sideways before the wrapper gained a
+    #     positioning context, so it must be covered explicitly.
+    page.set_viewport_size({"width": 320, "height": 667})
+    page.wait_for_timeout(300)
+    narrow = page.evaluate("""() => {
+        const w = document.querySelector('#data-table .cm-scroll-fade-x');
+        const t = document.querySelector('#data-table table');
+        return {
+          docW: document.documentElement.scrollWidth,
+          vw: document.documentElement.clientWidth,
+          wrapRight: Math.round(w.getBoundingClientRect().right),
+          tableRight: Math.round(t.getBoundingClientRect().right),
+        };
+    }""")
+    # the table is WIDER than its scroller by design (it scrolls), so
+    # the right thing to assert is that the SCROLLBOX's edge is in-bounds,
+    # not the table's - and that the page itself has no overflow.
+    check('at 320 the page does not scroll sideways',
+          narrow['docW'] <= narrow['vw'],
+          f"docW={narrow['docW']} vw={narrow['vw']}")
+    check('at 320 the table scrollbox is contained',
+          narrow['wrapRight'] <= narrow['vw'],
+          f"wrapRight={narrow['wrapRight']} vw={narrow['vw']}")
+    page.set_viewport_size({"width": 402, "height": 667})
+    page.wait_for_timeout(200)
     # ---- F. desktop: first/last come back and jump. We are sitting on
     # the LAST page (E ended there), so `last` must be honestly
     # disabled right now - that is its own assertion before we jump.

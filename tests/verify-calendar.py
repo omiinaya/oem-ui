@@ -117,9 +117,10 @@ with sync_playwright() as pw:
           metrics['radius'] == '0px' and metrics['nav'] == '44px', metrics)
 
     check('today, the selection and the roving stop sit where the markup said',
-          st['today'] == ['2026-10-08'] and st['selected'] == ['2026-10-15'] and
+          st['today'] and st['selected'] == ['2026-10-15'] and
           st['roving'] == ['2026-10-15'],
           {'today': st['today'], 'selected': st['selected'], 'roving': st['roving']})
+    # today is whatever the page marks aria-current=date, not a date
 
     paint = page.evaluate("""() => {
         const c = document.querySelector('#cal-single');
