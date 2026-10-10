@@ -836,6 +836,34 @@ which buys light-dismiss, `Escape` and focus return for free.
   `display` outranks it — without this rule a consumer's reset leaves a
   menu on screen that the author closed.
 
+**`.cm-popover__emoji`** — the chooser half of a reaction picker, sized
+to live inside the existing `.cm-popover` so the trigger supplies the
+frame, light dismiss, `Escape` and focus return.
+
+```html
+<div class="cm-popover" id="pop-emoji" popover role="dialog" aria-labelledby="pop-emoji-title">
+  <p class="cm-popover__title" id="pop-emoji-title">pick a reaction</p>
+  <ul class="cm-popover__emoji">
+    <li class="cm-popover__emoji-item">
+      <button type="button" class="cm-popover__emoji-btn" aria-pressed="false" aria-label="thumbs up">👍</button>
+    </li>
+  </ul>
+</div>
+```
+
+- A grid of square cells, not a list. The whole affordance is "pick one
+  of these", so the cells must be equal and equidistant. Measured in
+  WebKit at 390px: full-width rows forced a sideways scroll to reach the
+  last one; a `repeat(auto-fill, minmax(--tap, 1fr))` grid wraps inside
+  the popover's own `max-width`.
+- The cell is `--tap`, so it is a real touch target at any root size with
+  no coarse-pointer override, and the glyph is `calc(--tap * 0.55)` so it
+  cannot overflow its cell.
+- Every cell is a real `<button>` with an `aria-label`: a grid of `div`s
+  would read as an image and take no keyboard focus. `aria-pressed` marks
+  the key the reader has already chosen and carries the filled state, so
+  the selection survives the popover closing.
+
 **`.cm-tooltip`** — a real element, revealed by `:hover` and
 `:focus-within`. No JavaScript at all.
 

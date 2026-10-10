@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased - emoji grid
+
+- **`.cm-popover__emoji` / `.cm-popover__emoji-item` /
+  `.cm-popover__emoji-btn`.** A chat could show reactions but there was no
+  way to CHOOSE one, so a reader could only toggle a key that already
+  existed. The grid is square `--tap` cells in a `repeat(auto-fill,
+  minmax(--tap, 1fr))` track — measured in WebKit at 390px, where a list
+  of full-width rows needed a sideways scroll to reach its last row. Each
+  cell is a real `<button>` with an `aria-label` and an `aria-pressed`
+  that carries the chosen state, and the whole thing sits inside the
+  existing `.cm-popover`, so light dismiss, Escape and focus return are
+  the platform's rather than ours.
+
 ## Unreleased - media rows in the message list
 
 - **`.cm-msglist__media` / `.cm-msglist__file`.** The message list could

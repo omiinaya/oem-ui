@@ -6534,6 +6534,64 @@ input.cm-slider:disabled {
 .cm-popover__body:last-child { margin-bottom: 0; }
 .cm-popover__row { display: flex; gap: var(--space-2); justify-content: flex-end; }
 
+/* An emoji grid: the chooser half of a reaction picker. It is a plain grid
+   of square buttons rather than a list, because the whole affordance is
+   "pick one of these" -- the reader scans faces, so the cells must all be
+   the same size and equally far from their neighbours. Measured in WebKit
+   at 390px: a list of full-width rows forced a horizontal scroll to reach
+   the last row, while a fixed grid wraps inside the popover's max-width.
+
+   The cell size is `--tap` rather than a bare rem, so it stays a real
+   touch target and never needs a separate coarse-pointer override; the
+   font size is scaled off the same `--tap` so the glyph cannot overflow
+   its cell at any root size.
+
+   The grid is wrapped in its own popover body, so the trigger's popover
+   supplies the frame and light-dismiss, and this block supplies only the
+   arrangement. Every cell is a real <button>: a grid of divs would read
+   as an image to a screen reader and would take no keyboard focus. */
+.cm-popover__emoji {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(var(--tap), 1fr));
+	gap: var(--space-1);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.cm-popover__emoji-item {
+	display: block;
+}
+.cm-popover__emoji-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	/* Square cells: `1fr` on both tracks would stretch the last row to fill
+	   a wide popover, so the row height is pinned to the cell width instead. */
+	aspect-ratio: 1;
+	width: 100%;
+	padding: 0;
+	border: 1px solid transparent;
+	border-radius: var(--radius-sm);
+	background: none;
+	color: var(--ink);
+	font-size: calc(var(--tap) * 0.55);
+	line-height: 1;
+	cursor: pointer;
+}
+.cm-popover__emoji-btn:hover,
+.cm-popover__emoji-btn:focus-visible {
+	border-color: var(--line);
+	background: var(--bg-3);
+	color: var(--ink);
+}
+/* A cell the reader has already chosen reads as chosen, not merely hovered:
+   `aria-pressed` is the state the picker itself set when it opened, so the
+   fill follows the data rather than a hover that has already gone. */
+.cm-popover__emoji-btn[aria-pressed='true'] {
+	border-color: var(--ink-dim);
+	background: var(--bg-3);
+}
+
 /* A combobox is an input and a listbox that share one frame. The frame
    keeps a single hairline, and the list is hidden with a DISPLAY rule
    because an author `display: grid` outranks the UA's `[hidden]` - the

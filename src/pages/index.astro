@@ -2413,6 +2413,34 @@ Five surfaces that sit on top of the page. Four of the five are native elements 
 						<button type="button" class="cm-btn cm-btn--sm cm-btn--primary" popovertarget="pop-demo" popovertargetaction="hide">deploy</button>
 					</div>
 				</div>
+				<h3 class="cm-kicker">emoji grid</h3>
+				<p>
+					<code>.cm-popover__emoji</code> is the chooser half of a
+					reaction picker: a fixed grid of square cells, each a real
+					button, so a new reaction can be chosen rather than only
+					toggled. Light dismiss, Escape and focus return all come
+					from the platform's <code>[popover]</code>, the same way
+					<code>.cm-popover</code> above gets them.
+				</p>
+				<div class="cm-btn-group">
+					<button type="button" class="cm-btn" popovertarget="pop-emoji" aria-haspopup="dialog">
+						add reaction
+					</button>
+				</div>
+				<div class="cm-popover" id="pop-emoji" popover role="dialog" aria-labelledby="pop-emoji-title">
+					<p class="cm-popover__title" id="pop-emoji-title">pick a reaction</p>
+					<ul class="cm-popover__emoji">
+						<li class="cm-popover__emoji-item"><button type="button" class="cm-popover__emoji-btn" aria-pressed="false" aria-label="thumbs up">&#128077;</button></li>
+						<li class="cm-popover__emoji-item"><button type="button" class="cm-popover__emoji-btn" aria-pressed="false" aria-label="joy">&#128514;</button></li>
+						<li class="cm-popover__emoji-item"><button type="button" class="cm-popover__emoji-btn" aria-pressed="false" aria-label="heart">&#10084;&#65039;</button></li>
+						<li class="cm-popover__emoji-item"><button type="button" class="cm-popover__emoji-btn" aria-pressed="false" aria-label="fire">&#128293;</button></li>
+						<li class="cm-popover__emoji-item"><button type="button" class="cm-popover__emoji-btn" aria-pressed="true" aria-label="already reacted">&#128075;</button></li>
+						<li class="cm-popover__emoji-item"><button type="button" class="cm-popover__emoji-btn" aria-pressed="false" aria-label="rocket">&#128640;</button></li>
+						<li class="cm-popover__emoji-item"><button type="button" class="cm-popover__emoji-btn" aria-pressed="false" aria-label="eyes">&#128064;</button></li>
+						<li class="cm-popover__emoji-item"><button type="button" class="cm-popover__emoji-btn" aria-pressed="false" aria-label="thinking">&#129300;</button></li>
+						<li class="cm-popover__emoji-item"><button type="button" class="cm-popover__emoji-btn" aria-pressed="false" aria-label="check">&#10004;&#65039;</button></li>
+					</ul>
+				</div>
 				<dialog class="cm-dialog" id="dlg-demo" aria-labelledby="dlg-demo-title">
 					<form method="dialog" class="cm-dialog__head">
 						<h3 class="cm-dialog__title" id="dlg-demo-title">Close the build?</h3>
