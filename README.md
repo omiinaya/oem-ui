@@ -3227,6 +3227,57 @@ To theme a subtree (an iframe, an embedded widget, a shadow root) use
 <div data-cm-theme="light">…</div>
 ```
 
+### Hero and gradient text
+
+`.cm-hero` is the landing composition, and it exists because the library's
+`main` is a READING column (`--maxw: 860px`). That is right for an article
+and wrong for a landing page: a hero's line length is a choice, not an
+inherited value. Every consumer that needed one re-declared `main`, which is
+the drift this library removes. So the width decision lives on the block
+that wants it — `.cm-hero` is self-sizing and centred, `main` keeps its
+reading measure, and a page applies the class rather than widening the page.
+
+`.cm-grad-text` is the system's one painted-surface primitive. It is the
+mechanism of a gradient headline — the clip, the safe fallback — and the
+COLOUR is yours. The library is deliberately zero-chroma (`--accent` is a
+grey ramp), so it never ships a stop; you set the pair:
+
+```html
+<div class="cm-hero">
+  <p class="cm-kicker cm-kicker--plain">oem-ui</p>
+  <h2 class="cm-hero__title">
+    Your headline, <span class="cm-grad-text">with a gradient you own</span>.
+  </h2>
+  <p class="cm-lede cm-hero__lede">One sentence on what this is.</p>
+  <div class="cm-hero__actions">
+    <a class="cm-btn cm-btn--primary" href="/docs">Read the docs</a>
+    <a class="cm-btn" href="/components">Browse</a>
+  </div>
+</div>
+
+<!-- the two stops, per-theme, declared on the element -->
+<h2 style="--cm-grad-from:#7a4bd0; --cm-grad-to:#2ea3c7">
+  <span class="cm-grad-text">Gradient headline</span>
+</h2>
+```
+
+- `--cm-grad-from`, `--cm-grad-to`, `--cm-grad-angle` are the knobs. They
+  fall back to `currentColor`, so an unset value is flat text rather than
+  nothing. Declare them on the ELEMENT and they follow `data-theme` for
+  free — one rule, both themes.
+- The two stops are a PAIR. A gradient whose leading stop fails contrast on
+  the page is a bug with a smooth edge: the half that passes is the half that
+  hides it. Check the leading step, not the trailing one.
+- The rule lives inside an `@supports (background-clip: text)` gate. The
+  mechanism needs `color: transparent`, which without the clip is INVISIBLE
+  TEXT. The gate is the guarantee.
+- `.cm-grad-text--none` is the stop sign, for forced colours, print, or any
+  engine without the clip: it paints the text in ink.
+
+The title is the library's first fluid ramp, floored at `--head-h1` and
+capped at `4rem`. A page title must not shift between routes, so `--head-h1`
+is fixed; a hero title is the one element allowed to be large.
+
 ### JS API
 
 ```js

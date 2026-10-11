@@ -8890,9 +8890,39 @@ check('the auth surface composes existing components instead of re-declaring the
 	const ALLOWED_NEW = new Set([
 		'cm-auth', 'cm-auth--wide', 'cm-card--auth', 'cm-code-input', 'cm-divider',
 	]);
-	const block = compNoComment.slice(compNoComment.indexOf('.cm-auth {'));
-	assert(block !== '', 'the auth block is missing from components.css');
-	const rest = compNoComment.slice(0, compNoComment.indexOf('.cm-auth {'));
+	// The slice must be BOUNDED, not "from .cm-auth { to end of file". It
+	// was open-ended, so every rule written after the auth block was judged
+	// as part of it: adding `.cm-hero` reported "the auth block defines a
+	// private vocabulary" for six classes in a different family it had
+	// never heard of.
+	//
+	// The bound cannot be the next header comment, because this runs on
+	// `compNoComment` - comments are already stripped. It is the next
+	// brace-depth-0 rule, which is what "block" means structurally and is
+	// the same walk the logical-baseline declaration walker does.
+	//
+	// Unbounded was not merely wrong, it was GREEN in the wrong way: every
+	// assertion of the form "is X in ALLOWED_NEW, or defined in rest"
+	// trivially passed for any class appended after auth, because
+	// `definedIn(c, rest)` was true for all of them BY CONSTRUCTION. A
+	// check scoped wider than its subject reports correct forever.
+	const authStart = compNoComment.indexOf('.cm-auth {');
+	assert(authStart !== -1, 'the auth block is missing from components.css');
+	const ruleEnd = (src, from) => {
+		let depth = 0;
+		for (let i = from; i < src.length; i++) {
+			if (src[i] === '{') depth++;
+			else if (src[i] === '}') {
+				depth--;
+				// depth 0 again means the rule that opened at `from` closed.
+				if (depth === 0) return i + 1;
+			}
+		}
+		return src.length;
+	};
+	const firstRuleEnd = ruleEnd(compNoComment, authStart + '.cm-auth {'.length - 1);
+	const block = compNoComment.slice(authStart, firstRuleEnd);
+	const rest = compNoComment.slice(0, authStart) + compNoComment.slice(firstRuleEnd);
 	const definedIn = (cls, src) =>
 		new RegExp(`\\.${cls.replace(/[-]/g, '\\-')}[\\s,{:]`).test(src)
 		|| new RegExp(`\\.${cls.replace(/[-]/g, '\\-')}\\s*:`).test(src);
@@ -16108,5 +16138,186 @@ console.log('\nshadcn-parity: guildrail + composer');
 			'the runtime implements the composer - Enter/Shift+Enter/auto-grow are the consumer\'s');
 		const hint = /auto-grow|Enter sends/.test(runtime);
 		assert(!hint, 'the runtime has a partial composer implementation');
+	});
+}
+
+/* ================= the hero: the landing composition =================
+   `.cm-hero` and `.cm-grad-text` (batch 30). Each assertion below is shaped
+   around a defect that has actually shipped on this fleet, not around the
+   presence of a declaration - the shape the whole suite is built around.
+
+   The one that matters most: `background-clip: text` with
+   `color: transparent` is INVISIBLE TEXT the moment the clip does not
+   apply. So the invariant is the @supports GATE, not the clip's presence -
+   a test that greps for `background-clip: text` passes on a rule that
+   blanks the headline in every engine without the feature. */
+{
+	const heroCss = read('src/styles/components.css').replace(/\/\*[\s\S]*?\*\//g, ' ');
+	const showcase = read('dist/index.html');
+
+	// The rule body, so a comment can never satisfy an assertion.
+	const ruleBody = (sel) => {
+		const i = heroCss.indexOf(sel);
+		if (i === -1) return null;
+		const open = heroCss.indexOf('{', i);
+		let depth = 0;
+		for (let j = open; j < heroCss.length; j++) {
+			if (heroCss[j] === '{') depth++;
+			else if (heroCss[j] === '}' && --depth === 0) return heroCss.slice(open + 1, j);
+		}
+		return null;
+	};
+
+	check('hero: the gradient text is behind a supports gate, and that is the invariant', () => {
+		// The gate must WRAP the rule, not merely exist nearby.
+		//
+		// `indexOf(gate)` finds the FIRST occurrence, and `.cm-shimmer`
+		// already used the identical gate text before this block shipped -
+		// so the first match is somebody else's rule and the assertion
+		// reported "not inside the gate" for a rule that plainly is. Find
+		// the gate whose body actually contains the selector instead: a
+		// probe that pins an ambiguous needle tests which needle came
+		// first, not whether the component is protected.
+		const gate = '@supports ((background-clip: text) or (-webkit-background-clip: text))';
+		const gateBodies = [];
+		{
+			let from = 0;
+			for (;;) {
+				const at = heroCss.indexOf(gate, from);
+				if (at === -1) break;
+				const open = heroCss.indexOf('{', at);
+				let depth = 0, end = -1;
+				for (let j = open; j < heroCss.length; j++) {
+					if (heroCss[j] === '{') depth++;
+					else if (heroCss[j] === '}' && --depth === 0) { end = j; break; }
+				}
+				if (end < 0) break;
+				gateBodies.push({ start: open, end, text: heroCss.slice(open, end) });
+				from = end;
+			}
+		}
+		assert(gateBodies.length >= 2,
+			`only ${gateBodies.length} background-clip gate(s) in the layer; shimmer and the `
+			+ 'gradient primitive each need one, so fewer than two means one is missing');
+		const mine = gateBodies.find((g) => /\.cm-grad-text\s*\{/.test(g.text));
+		assert(mine, '.cm-grad-text is NOT inside any @supports gate, so an engine without '
+			+ 'background-clip paints its text with color: transparent - the headline is invisible');
+		assert(mine.text.includes('color: transparent'),
+			'the gated rule no longer sets color: transparent; if that is deliberate, the '
+			+ 'gate is not protecting anything and this comment is lying');
+
+		// And the reverse direction, which is the one a presence test misses
+		// entirely: `--none` must be declared AFTER the gate, so equal
+		// specificity lands later and wins. Inside the gate it would be dead.
+		const noneAt = heroCss.indexOf('.cm-grad-text--none {');
+		assert(noneAt > mine.end,
+			'.cm-grad-text--none is declared INSIDE the @supports gate (or before it); '
+			+ 'at (0,1,0) against (0,1,0) the cascade is decided by source order, so it '
+			+ 'must come after the gate closes to be reachable at all');
+		assert(/background-image:\s*none/.test(ruleBody('.cm-grad-text--none') || ''),
+			'the stop sign does not clear the painted gradient');
+		assert(/color:\s*inherit/.test(ruleBody('.cm-grad-text--none') || ''),
+			'the stop sign leaves the text transparent, which is the exact failure the '
+			+ 'gate exists to prevent');
+	});
+
+	check('hero: the gradient stops fall back to currentColor, never to transparent', () => {
+		const body = ruleBody('.cm-grad-text') || '';
+		assert(body.includes('--cm-grad-from'), 'the from stop is not a knob');
+		assert(body.includes('--cm-grad-to'), 'the to stop is not a knob');
+		// The COLOUR stops must degrade to something that renders.
+		// `var(--x, transparent)` would reintroduce invisible text by a
+		// different route: the stop vanishes instead of the clip failing.
+		// The ANGLE is not a colour and has its own correct default - it is
+		// not a stop, and holding it to the colour rule would push the
+		// real failure (a transparent colour) out of the test's reach.
+		for (const m of body.matchAll(/var\(\s*(--cm-grad-(?:from|to))\s*,\s*([^)]+)\)/g)) {
+			assert(m[2].trim() === 'currentColor',
+				`${m[1]} falls back to \`${m[2].trim()}\`; a colour stop must degrade to `
+				+ 'currentColor, because a missing stop must never be the difference between '
+				+ 'readable and invisible');
+		}
+		assert(/var\(\s*--cm-grad-angle\s*,/.test(body), 'the angle has no fallback');
+		// The library is zero-chroma, so it must not ship a stop of its own.
+		assert(!/--(cm-grad-(from|to|angle))\s*:\s*#/.test(body),
+			'the library ships its own gradient stop; --accent is a grey ramp and the '
+			+ "stops are the consumer's - the mechanism is ours, the colour is theirs");
+	});
+
+	check('hero: the composition is token-driven, not raw', () => {
+		const hero = ruleBody('.cm-hero') || '';
+		const title = ruleBody('.cm-hero__title') || '';
+		assert(hero !== '' && title !== '', 'the hero rules are missing');
+		// Spacing comes from the scale; a raw rem here is the exact regression
+		// the library's own spacing guard was written to catch.
+		for (const m of hero.matchAll(/(?:margin|padding)(?:-[a-z]+)?\s*:\s*([^;]+)/g)) {
+			const v = m[1];
+			for (const raw of v.matchAll(/(-?[\d.]+)(rem|px)\b/g)) {
+				const allowed = v.includes('var(--') || v.includes('clamp(');
+				assert(allowed,
+					`.cm-hero declares a raw ${raw[1]}${raw[2]} in \`${v.trim()}\`; spacing `
+					+ 'must come from the --space-* scale');
+			}
+		}
+		// The title ramp's ENDS are the scale's own, so it cannot drift from
+		// the rest of the system. A `clamp(2rem, ..., 3.5rem)` written as
+		// literals would satisfy every check above and still be a parallel scale.
+		assert(/clamp\(\s*var\(--head-h1\)/.test(title),
+			"the title ramp does not floor at the scale's own --head-h1, so it is a "
+			+ 'parallel scale that can drift from the page title');
+		assert(/--hero-maxw\s*:/.test(hero) && /width:\s*min\(\s*var\(--hero-maxw/.test(hero),
+			'the composition width is not the composition\'s own; a consumer that wants a '
+			+ 'landing page should not have to widen `main` and lose the reading measure');
+	});
+
+	check('hero: the action row cannot strand a divider at the end of a wrapped line', () => {
+		// The classic bug is a divider ELEMENT inside a flex-wrap row: it is
+		// its own flex item, so when the row wraps the line ENDS with it. The
+		// fix is ::before on the row (the mark belongs to what it precedes),
+		// and the row carries the spacing. Assert the DIRECTION, not presence.
+		const row = ruleBody('.cm-hero__actions') || '';
+		assert(/flex-wrap:\s*wrap/.test(row), 'the action row does not wrap, so this is untested');
+		const before = ruleBody('.cm-hero__actions::before') || '';
+		assert(before !== '', 'the row has no ::before divider');
+		assert(/flex:\s*0 0 100%/.test(before),
+			'the divider is not a full-width line; as a same-line flex item it would sit '
+			+ 'beside the first button instead of above the row');
+		assert(/^\s*content:\s*'?'?"?'\s*;?\s*$|content:\s*''/.test(before)
+			|| /content:\s*''/.test(before),
+			'the ::before declares no content, so it paints nothing at all');
+		assert(!row.includes('border-top'), 'the divider is a border on the row; a border '
+			+ 'cannot strand, but it also cannot be given the row\'s own gap, so the two '
+			+ 'would disagree about where the rule is');
+	});
+
+	check('hero: the showcase demonstrates the component, the knobs and the stop sign', () => {
+		assert(showcase.includes('id="hero"'), 'no hero section in the built page');
+		assert(showcase.includes('href="#hero"'), 'the hero section is not in the nav');
+		assert(/class="[^"]*cm-hero[^"]*"/.test(showcase), 'no .cm-hero specimen');
+		assert(/class="[^"]*cm-hero__title[^"]*"/.test(showcase), 'no .cm-hero__title specimen');
+		assert(/class="[^"]*cm-hero__lede[^"]*"/.test(showcase), 'no .cm-hero__lede specimen');
+		assert(/class="[^"]*cm-hero__actions[^"]*"/.test(showcase), 'no .cm-hero__actions specimen');
+		assert(/class="[^"]*cm-grad-text[^"]*"/.test(showcase), 'no .cm-grad-text specimen');
+		// The stop sign has to be VISIBLE, or "the guarantee exists" is a claim
+		// about a class nobody can see render.
+		assert(/cm-grad-text cm-grad-text--none/.test(showcase),
+			'the --none escape hatch is not demonstrated; an escape hatch nobody can see is not a guarantee');
+		// The knobs, on the ELEMENT: that is how a consumer makes the pair
+		// per-theme without a second rule.
+		assert(/--cm-grad-from:[^;"']+/.test(showcase),
+			'no specimen declares the stops on the element, so the per-theme contract is undocumented');
+	});
+
+	check('hero: the components README documents what the consumer owns', () => {
+		const readme = read('README.md');
+		const at = readme.search(/###\s+[^\n]*hero/i);
+		assert(at > 0, 'the README has no hero section');
+		const sec = readme.slice(at, readme.indexOf('\n### ', at + 4) > 0
+			? readme.indexOf('\n### ', at + 4) : undefined);
+		assert(/cm-grad-text/.test(sec), 'the hero section never names the gradient primitive');
+		assert(/--cm-grad-from/.test(sec) && /--cm-grad-to/.test(sec),
+			'the hero section does not name both stops, so a consumer cannot set them');
+		// The whole design hinges on the split of ownership; say it in the doc.
+		assert(/consumer/i.test(sec), 'the hero section does not say who owns the colour');
 	});
 }

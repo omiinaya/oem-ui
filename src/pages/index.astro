@@ -39,7 +39,7 @@ import SectionHead from '../astro/SectionHead.astro';
 const SECTION_ORDER = [
 	'foundation', 'buttons', 'nav', 'sidebar', 'crumbs', 'lists', 'states', 'surface',
   'selection', 'stack', 'density', 'badge', 'tblaction', 'table', 'data-table', 'json', 'rowon', 'switch', 'sheet', 'drawer', 'choice', 'keys-pages-people',
-	'code', 'overlays', 'records', 'cards', 'tiles', 'prose', 'proselists', 'proselists-order', 'prosetap', 'prosetable', 'tablelabels', 'layout', 'surface-paint',
+	'code', 'overlays', 'records', 'cards', 'hero', 'tiles', 'prose', 'proselists', 'proselists-order', 'prosetap', 'prosetable', 'tablelabels', 'layout', 'surface-paint',
 	'forms', 'datepicker', 'scrollarea', 'charts', 'utilities', 'chat', 'guildrail', 'composer', 'dropdown-depth', 'navmenu', 'scroller', 'msglist', 'attachment', 'quiz', 'search', 'auth', 'readme',
 ] as const;
 
@@ -3134,6 +3134,93 @@ A card is a unit of content with a title, so <code>.cm-cards</code> is a grid an
 							</div>
 						</aside>
 					</div>
+				</div>
+			</section>
+
+			<!-- ==================================================== hero
+			     The landing composition. It exists because the
+			     library's `main` is a READING column (--maxw: 860px)
+			     and a hero is not prose: five consumer sites each
+			     shipped their own `main { width: auto; max-width: none }`
+			     to escape it. The width decision now lives on the
+			     block that wants it, and `main` keeps its measure.
+
+			     Both gradient specimens below carry the SAME class
+			     and differ only in the two custom properties. That is
+			     the contract: the library owns the mechanism (the clip,
+			     the transparent colour, the safe fallback) and the
+			     consumer owns the two stops. The second one is
+			     deliberately declared on the ELEMENT, not on :root,
+			     which is how a consumer makes the pair per-theme -
+			     a property resolved on the element follows data-theme
+			     for free, with no second rule and no dark-mode copy.
+
+			     `.cm-grad-text--none` is shown for the same reason
+			     `.cm-shimmer--none` is: an escape hatch nobody can
+			     see is not a guarantee. ->
+			<section id="hero" class="cm-section cm-section--pad">
+				<SectionHead title="Hero and gradient text">
+					The landing block, and the one painted-surface
+					primitive in the system. <code>.cm-hero</code> is
+					self-sizing and centred, so a page that wants a landing
+					width applies it and <code>main</code> keeps its reading
+					measure. The title is a ramp between
+					<code>--head-h1</code> and <code>4rem</code> — the
+					first fluid clamp in the library, because a page title must
+					not shift between routes but a hero title is the one thing
+					allowed to be large.
+				</SectionHead>
+
+				<div class="cm-hero cm-card">
+					<p class="cm-kicker cm-kicker--plain">oem-ui</p>
+					<h2 class="cm-hero__title">
+						Everything your oem site needs,
+						<span class="cm-grad-text">down to the colour of the headline</span>.
+					</h2>
+					<p class="cm-lede cm-hero__lede">
+						Tokens, components and a runtime, with zero dependencies —
+						and the measured fixes that keep working after the site stops
+						shipping its own copy of the button.
+					</p>
+					<div class="cm-hero__actions">
+						<a class="cm-btn cm-btn--primary" href="#hero">Read the docs</a>
+						<a class="cm-btn" href="#hero">Browse components</a>
+					</div>
+				</div>
+
+				<p class="cm-head__sub">
+					The gradient is <code>background-clip: text</code>, which is
+					invisible text if the clip does not apply — so the whole rule lives
+					inside an <code>@supports</code> gate, the same guard
+					<code>.cm-shimmer</code> uses. The stops are yours: the library is
+					zero-chroma, so it owns the mechanism and never the colour.
+				</p>
+				<div class="cm-hero cm-card">
+					<h3 class="cm-hero__title" style="--cm-grad-from:#7a4bd0;--cm-grad-to:#2ea3c7">
+						<span class="cm-grad-text">Two stops, declared on the element</span>
+					</h3>
+					<p class="cm-lede cm-hero__lede">
+						A property resolved on the element follows
+						<code>data-theme</code> for free. The stops below are a PAIR —
+						a gradient whose leading step fails contrast on the page is a
+						bug with a smooth edge, because the half that passes is the
+						half that hides it.
+					</p>
+					<div class="cm-hero__actions">
+						<span class="cm-chip">--cm-grad-from</span>
+						<span class="cm-chip">--cm-grad-to</span>
+						<span class="cm-chip">--cm-grad-angle</span>
+					</div>
+				</div>
+
+				<p class="cm-head__sub">
+					The stop sign. Forced colours, print, or an engine without the
+					clip all land here, and <strong>the text is ink, not a blank</strong>:
+				</p>
+				<div class="cm-hero cm-card">
+					<h3 class="cm-hero__title">
+						<span class="cm-grad-text cm-grad-text--none">Plain text when the clip is gone</span>
+					</h3>
 				</div>
 			</section>
 

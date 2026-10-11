@@ -9327,6 +9327,129 @@ input.cm-slider:disabled {
 	background: var(--line);
 }
 
+/* ---------- hero: the landing composition ----------
+   The library's page-width rule sizes `main` to a READING column
+   (--maxw: 860px), which is right for an article and wrong for a landing
+   page: a hero's line length and a feature grid's are both chosen, not
+   inherited. Every consumer that needed one re-declared `main`, which is
+   exactly the drift this library exists to remove.
+
+   So the width decision moves ONTO the block that wants it. `.cm-hero` is
+   self-sizing and centred; `main` keeps its reading measure; the page that
+   wants a landing width applies the class. MEASURED on the showcase at
+   320/390/402/768/1280: an unclassed `main` is 860px inside a 1280 viewport
+   while `.cm-hero` is 980px - the composition is wider than the prose
+   column and neither value is wrong, which is the whole reason they are
+   two different rules.
+
+   The title ramp is the FIRST fluid clamp in this library, and it is here
+   for a measured reason: `--head-h1` is a fixed 2rem because a PAGE title
+   must not shift between routes. A hero's title is the opposite - it is the
+   one element on the page that is allowed to be large - and pinning it to
+   the page scale made a landing hero render at the same size as a document
+   heading. The clamp's bounds are the scale's own: --head-h1 as the floor
+   (the page title) and 4rem as the cap. Both ends are token-derived so the
+   ramp cannot drift from the rest of the system; the viewport term in the
+   middle is what makes it a ramp rather than a step.
+
+   --hero-maxw is the composition's own width, NOT a second --maxw: it is
+   wider than the reading column on purpose, and naming it separately is
+   what stops a consumer from editing the reading measure to get a landing
+   page - the regression that produced five projects each shipping a local
+   `main { width: auto; max-width: none }` override. */
+.cm-hero {
+	--hero-maxw: 61.25rem;
+	--hero-title: clamp(var(--head-h1), 2rem + 4vw, 4rem);
+	width: min(var(--hero-maxw, 61.25rem), 100%);
+	margin-inline: auto;
+	padding: var(--space-8) var(--gutter) var(--space-7);
+	text-align: center;
+}
+.cm-hero__title {
+	font-size: var(--hero-title, clamp(var(--head-h1), 2rem + 4vw, 4rem));
+	line-height: 1.05;
+	letter-spacing: -0.02em;
+	font-weight: 700;
+	margin: 0 0 var(--space-4);
+}
+/* The lede is centered here, not in `.cm-lede`: `.cm-lede` is a block that
+   starts at the text edge (prose, list rows), and a hero's lede has to be
+   centered by margin or the paragraph box runs to the composition's edge
+   while its words sit flush left. Narrowing the BOX is the fix, so the rule
+   is scoped to the hero and leaves the prose rule alone. */
+.cm-hero__lede {
+	max-width: var(--measure-title, 42ch);
+	margin-inline: auto;
+}
+.cm-hero__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-3);
+	justify-content: center;
+}
+/* A hairline above the action row. The classic landing divider is a
+   pseudo-element on the first action; as a child it is a flex item, so a
+   wrap strands it - the same defect the footer separator had, and the fix
+   is the same direction (see the footer note): the mark belongs to the
+   thing it PRECEDES. `::before` on the row, and the row carries the
+   spacing, so no wrapped line can END with a divider. */
+.cm-hero__actions::before {
+	content: '';
+	flex: 0 0 100%;
+	height: 1px;
+	background: var(--line);
+	margin-block-end: var(--space-4);
+}
+
+/* ---------- gradient text: the one painted-surface primitive ----------
+   `background-clip: text` is how a landing hero gets a gradient headline,
+   and the hand-rolled copies of it share one bug: the rule sets
+   `color: transparent`, so if the clip does not apply the text is
+   INVISIBLE. That is not a degraded render, it is the headline gone.
+   `.cm-shimmer` already guards its whole rule inside an @supports gate for
+   exactly this reason, and this primitive is the static sibling of it -
+   same gate, same reason, and the gate is the invariant a test must pin
+   rather than the declaration's presence.
+
+   The library is deliberately zero-chroma (`--accent` is a grey ramp), so
+   the STOPS are the consumer's and only the MECHANISM is ours:
+   `--cm-grad-from` / `--cm-grad-to` are read with fallbacks, so an unset
+   value degrades to flat currentColor rather than to nothing. That is why
+   the fallback is `currentColor` and not `transparent` - a missing stop
+   must never be the difference between readable and invisible.
+
+   The two stops are a PAIR: a gradient whose leading stop fails contrast
+   on the page is "a bug with a smooth edge", and the half that passes is
+   the half that makes the defect hard to see. nodeterm.dev MEASURED this on
+   its own hand-rolled copy - the dark pair's leading step read 2.62:1 on
+   #fafafa while large text still needs 3:1 - and it declared a SECOND pair
+   for the light theme rather than reusing the dark one. The knobs here are
+   per-theme by construction, because a custom property resolved on the
+   element follows `data-theme` for free. */
+@supports ((background-clip: text) or (-webkit-background-clip: text)) {
+	.cm-grad-text {
+		--cm-grad-angle: 120deg;
+		--cm-grad-from: currentColor;
+		--cm-grad-to: currentColor;
+		background-image: linear-gradient(var(--cm-grad-angle, 120deg),
+			var(--cm-grad-from, currentColor),
+			var(--cm-grad-to, currentColor));
+		-webkit-background-clip: text;
+		background-clip: text;
+		color: transparent;
+	}
+}
+/* The stop sign, and the ONLY thing that makes this component's guarantee
+   true rather than aspirational: with the gate closed, `.cm-grad-text`
+   must be ordinary text. Declared after the gate so equal specificity
+   lands later and wins (the same ordering rule the scroll-fade `--none`
+   stop sign uses). A consumer that needs plain text - forced colours, a
+   print stylesheet, an engine without the clip - gets ink, not a blank. */
+.cm-grad-text--none {
+	background-image: none;
+	color: inherit;
+}
+
 @media (prefers-reduced-motion: reduce) {
 	/* Every animation in the system is listed here, not next to its own
 	   rule. A guard that lives beside one component silently leaves the next
