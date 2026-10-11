@@ -889,7 +889,19 @@ check('form controls are element defaults, so a bare input is on-brand', () => {
 	// 59 files across the fleet use an <input>; none of them had a class on
 	// it. If these are scoped to .cm-* they would still re-declare the field.
 	const b = read('src/styles/base.css');
-	const formBlock = b.slice(b.indexOf('form controls'));
+	// Anchor on the section's own HEADING marker, not on the bare phrase.
+	// `b.indexOf('form controls')` matched the first mention of those two
+	// words ANYWHERE in the file, so a comment above the section that
+	// happened to name the form controls moved the slice into that comment
+	// and the font-size assertion below then read the wrong declaration.
+	// MEASURED: adding a prose note above this section (which mentioned
+	// "the form controls" in passing) turned this green check red while
+	// neither the section nor its font-size had changed at all. The banner
+	// is the section's identity; the phrase is not.
+	const HEAD = '/* ============ form controls ============';
+	const at = b.indexOf(HEAD);
+	assert(at !== -1, `base.css has no "${HEAD}" banner, so this check cannot find the form layer`);
+	const formBlock = b.slice(at);
 	assert(formBlock.length > 400, 'form defaults are not in the base layer');
 	for (const sel of ["input:not([type='checkbox'])", 'textarea', 'select']) {
 		assert(formBlock.includes(sel), `${sel} has no base default`);
@@ -16335,5 +16347,205 @@ console.log('\nshadcn-parity: guildrail + composer');
 			'the hero section does not name both stops, so a consumer cannot set them');
 		// The whole design hinges on the split of ownership; say it in the doc.
 		assert(/consumer/i.test(sec), 'the hero section does not say who owns the colour');
+	});
+}
+
+
+/* ================= the scoped prose contract =================
+   `.cm-prose` declares only `color` and `font-size` in components.css. Every
+   actual typographic declaration it renders - the heading ramp, the `p`
+   rhythm, `code`/`pre` fill and `display: block`, the blockquote, the table's
+   `border-collapse` and cell padding - lives in base.css as a bare-element
+   rule. A SCOPED adoption (make-scoped-entry.mjs) gets components.css and
+   cannot import base.css at all, so `.cm-prose` rendered a DIFFERENT design
+   system there: MEASURED, 786 deltas across 38 properties, including
+   `pre > code` losing `display: block` (six lines of code collapsed into one
+   paragraph) and 74 of 76 elements reading `font-family: -webkit-standard`
+   instead of the mono stack.
+
+   Each assertion below is shaped around a defect that actually shipped during
+   the fix, not around the presence of a declaration.
+   ============================================================ */
+{
+	const baseRaw = read('src/styles/base.css');
+	const baseSrc = baseRaw.replace(/\/\*[\s\S]*?\*\//g, '');
+	const genSrc = read('scripts/make-scoped-entry.mjs');
+	// Slice from the RAW text (the banners ARE comments, so they are gone from
+	// baseSrc), then strip comments from the slice. Slicing the stripped copy
+	// by an index taken from the raw one is how the first version of this
+	// block measured a 0-char block and reported the CSS as missing.
+	const PROSE_BANNER = '/* ============ prose typography';
+	const FORM_BANNER = '/* ============ form controls';
+	const mirrorRaw = baseRaw.slice(baseRaw.indexOf(PROSE_BANNER), baseRaw.indexOf(FORM_BANNER));
+	const mirror = mirrorRaw.replace(/\/\*[\s\S]*?\*\//g, '');
+
+	// Emit the real entry once; several checks below read it.
+	const emitted = (() => {
+		const dir = mkdtempSync(join(tmpdir(), 'cm-prose-emit-'));
+		try {
+			mkdirSync(join(dir, 'cli-mono'), { recursive: true });
+			copyFileSync(join(root, 'src/styles/components.css'), join(dir, 'cli-mono', 'components.css'));
+			const out = join(dir, 'entry.css');
+			execFileSync('node', [GENERATOR, '--out', out, '--components', 'cli-mono/components.css'],
+				{ cwd: root, stdio: 'pipe', encoding: 'utf8' });
+			return readFileSync(out, 'utf8');
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	})();
+
+	check('scoped prose: base.css carries the block the generator extracts', () => {
+		assert(baseRaw.includes(PROSE_BANNER),
+			'base.css has no "prose typography" banner, so the generator cannot find its source');
+		assert(baseRaw.includes(FORM_BANNER),
+			'base.css has no "form controls" banner; the generator slice has no terminator');
+		assert(mirror.length > 2000,
+			`the prose mirror block is only ${mirror.length} chars - the slice is not reaching it`);
+		assert(baseRaw.indexOf(PROSE_BANNER) < baseRaw.indexOf(FORM_BANNER),
+			'the prose block is written after the form section, so the generator slice would swallow the form defaults');
+	});
+
+	check('scoped prose: the generator EXTRACTS the block rather than retyping it', () => {
+		// A hand-written second copy drifts the moment either side is edited -
+		// the parallel-definition defect the token scale exists to prevent,
+		// applied to CSS. Prove the extraction by finding base.css's OWN text
+		// in the emitted file.
+		assert(/scopedElementDefaults/.test(genSrc), 'the generator has no scopedElementDefaults()');
+		assert(/readFileSync\(BASE/.test(genSrc),
+			'the generator does not read base.css, so it must be retyping the rules');
+		assert(/:where\(\[data-cm-theme\]\) blockquote \{/.test(emitted),
+			'the emitted entry has no scoped blockquote rule, so the extraction is not reaching base.css');
+		// The blockquote's own start-rule declaration is the fingerprint: it
+		// exists in base.css and nowhere else in the generator, so retyping
+		// would have to reproduce this exact token reference by hand.
+		const bq = emitted.slice(emitted.indexOf(':where([data-cm-theme]) blockquote {'));
+		assert(/border-inline-start:\s*2px solid var\(--accent-dim\)/.test(bq.slice(0, 300)),
+			'the emitted blockquote lost its start rule, so it is not the base.css rule');
+	});
+
+	check('scoped prose: :where() preserves the specificity of every mirrored rule', () => {
+		// `:where()` zeroes its WHOLE argument, so where the attribute selector
+		// sits decides the mirrored rule's weight. Two shapes were measured
+		// wrong before they were right:
+		//   `:where([data-cm-theme])` alone          -> (0,0,0)
+		//   `pre > :where(code)`                     -> (0,0,1), losing its own size
+		assert(/:where\(\[data-cm-theme\]\) pre > code \{/.test(mirror),
+			'a descendant pair must not wrap its ELEMENT in :where(): `pre > :where(code)` drops (0,0,2) to (0,0,1) and then loses its own font-size to the plainer `code` rule - measured 12px against 13.12px');
+		// A rule whose ENTIRE selector is the bare :where([data-cm-theme]) is
+		// (0,0,0), and it loses to the generator's own theme block at (0,1,0).
+		const bareGated = [...mirror.matchAll(/(^|\})\s*(:where\(\[data-cm-theme\]\))\s*\{/gm)];
+		assert(bareGated.length === 0,
+			'a bare :where([data-cm-theme]) selector is (0,0,0) - :where() zeroes the attribute too, so it loses to the generator\'s own [data-cm-theme=\'dark\'] theme block');
+		// The token mirror in the generator needs an ancestor OUTSIDE the
+		// :where() for the same reason.
+		assert(/:where\(\[data-cm-theme\]\) \[data-cm-theme\]/.test(genSrc),
+			'the responsive token mirror has no ancestor outside the :where(), so it is (0,0,0) and the theme block beats it');
+	});
+
+	check('scoped prose: the responsive step is emitted AFTER the theme block that would beat it', () => {
+		// Both are (0,1,0) and both match the scoped subtree, so source order
+		// decides - and the theme block carries `--head-h1: 2rem`.
+		const theme = emitted.indexOf('--head-h1: 2rem');
+		const resp = emitted.lastIndexOf('--head-h1: 1.95rem');
+		assert(theme !== -1, 'the theme block does not declare --head-h1 at all');
+		assert(resp !== -1, 'the responsive --head-h1 step is not in the emitted entry');
+		assert(resp > theme,
+			'the responsive --head-h1 step is emitted BEFORE the theme block that ties it on specificity, so source order hands the win to 2rem and a 390px h1 renders 32px where a full install gives 31.2px');
+	});
+
+	check('scoped prose: the prose link twin matches BOTH the ancestor and the same-element tree', () => {
+		// hermes-articles ships `class="article-content cm-prose" data-cm-theme="dark"`
+		// on ONE div, so the theme hook is not an ancestor of the prose
+		// container - it IS it. The ancestor-only spelling matches nothing
+		// there, and the twin would be inert on the consumer it exists for:
+		// MEASURED, the link still computed `underline`.
+		assert(/:where\(\[data-cm-theme\]\)\s+\.cm-prose a\b/.test(mirror),
+			'the prose link has no ancestor-tree twin');
+		assert(/:where\(\[data-cm-theme\]\)\.cm-prose a\b/.test(mirror),
+			'the prose link has no SAME-ELEMENT twin, so it is inert on a consumer that puts data-cm-theme on the prose container itself');
+		// The value must be the full install's, or the "fix" changes the
+		// design instead of matching it. base.css REMOVES the underline; a
+		// scoped consumer otherwise keeps the UA default.
+		const linkRule = /:where\(\[data-cm-theme\]\)(?:\.cm-prose|\s+\.cm-prose) a\s*\{([^}]*)\}/.exec(mirror);
+		assert(linkRule, 'the prose link twin is not where this test looks for it');
+		// The VALUE is the thing, not the property's presence: a twin that
+		// declares `text-decoration: underline` would also pass a check that
+		// only asks whether the rule exists, while changing the design.
+		assert(/text-decoration:\s*none/.test(linkRule[1]),
+			'the prose link twin must declare `text-decoration: none` to MATCH base.css, which removes the underline; a scoped consumer otherwise keeps the UA default, which is the drift this twin exists to stop');
+		// ...and the ratio in the comment above must be TRUE, because a
+		// wrong number in a comment is a claim the next reader will build
+		// on. The block's own comment first said 3.3:1; measured against the
+		// real tokens it is 2.2:1, and the number is now pinned here.
+		const tokens = read('src/styles/tokens.css');
+		const hex = (name, block) => {
+			const m = new RegExp(`${name}:\\s*(#[0-9a-f]{6})`, 'i').exec(block);
+			return m ? m[1] : null;
+		};
+		// Both anchors are searched FORWARD from the dark block's start. The
+		// first version used a plain `indexOf("…light…")` for the end, which
+		// matched the mention in tokens.css's own header COMMENT - above the
+		// dark block - so the slice ran backwards and came back empty. Same
+		// trap as the base.css banner slice above: an anchor phrase is not a
+		// position, and a comment can contain it.
+		const darkAt = tokens.indexOf(":root[data-theme='dark']");
+		assert(darkAt !== -1, 'tokens.css has no :root[data-theme=\'dark\'] block');
+		const lightAt = tokens.indexOf(":root[data-theme='light']", darkAt);
+		assert(lightAt > darkAt, 'the light block does not follow the dark one');
+		const dark = tokens.slice(darkAt, lightAt);
+		const lum = (h) => {
+			const c = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
+				.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+			return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+		};
+		const inkDim = hex('--ink-dim', dark);
+		const ink = hex('--ink', dark);
+		assert(inkDim && ink, 'tokens.css is missing --ink / --ink-dim in the dark block');
+		const [hi, lo] = [lum(ink), lum(inkDim)].sort((a, b) => b - a);
+		const ratio = (hi + 0.05) / (lo + 0.05);
+		assert(ratio > 2 && ratio < 3,
+			`the prose link contrast is ${ratio.toFixed(2)}:1, not the 2.2:1 the scoped-mirror comment cites - update the comment or the tokens`);
+	});
+
+	check('scoped prose: the mirror does not leak onto a host element it does not own', () => {
+		// The whole reason the block is spelled with :where([data-cm-theme]):
+		// a scoped consumer's build inlines this beside its own CMS, and a
+		// bare `h2 { }` would repaint the host app's headings.
+		const body = mirror.replace(/\/\*[\s\S]*?\*\//g, '');
+		// Selectors are what precedes `{` at rule level; drop at-rules
+		// (`@media ...`). Split on TOP-LEVEL commas only: `:where(a, b)` has
+		// commas inside brackets, and a naive split reports `ol)` as a
+		// selector with no gate - which is how the first version of this
+		// check failed on the fix it is meant to police.
+		const topLevelSelectors = (text) => {
+			const parts = [];
+			let depth = 0;
+			let buf = '';
+			for (const ch of text) {
+				if (ch === '(') depth++;
+				else if (ch === ')') depth--;
+				if (ch === ',' && depth === 0) { parts.push(buf); buf = ''; continue; }
+				buf += ch;
+			}
+			parts.push(buf);
+			return parts.map((s) => s.trim()).filter(Boolean);
+		};
+		const selectors = [...body.matchAll(/(?:^|\})\s*([^{}@]+?)\s*\{/g)]
+			.flatMap((m) => topLevelSelectors(m[1]));
+		assert(selectors.length >= 15,
+			`only ${selectors.length} selectors parsed out of the mirror block - the walk is broken, not the CSS`);
+		for (const sel of selectors) {
+			assert(/\[data-cm-theme\]/.test(sel),
+				`"${sel}" in the prose mirror block has no [data-cm-theme] gate, so it leaks onto the host app's own elements`);
+		}
+		// The two container-scoped rules must gate on the CLASS as well, or
+		// they reach every link in the host app.
+		const decoration = [...body.matchAll(/([^{}]+)\{[^}]*text-decoration[^}]*\}/g)]
+			.flatMap((m) => topLevelSelectors(m[1]));
+		assert(decoration.length > 0, 'the prose link twin disappeared from the mirror block');
+		for (const sel of decoration) {
+			assert(/\.cm-prose\b/.test(sel),
+				`"${sel}" reaches a bare element inside the host app's own subtree instead of the prose container`);
+		}
 	});
 }

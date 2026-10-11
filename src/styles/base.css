@@ -330,6 +330,221 @@ button:focus-visible,
 	.cm-prose { padding: 0; }
 }
 
+/* ============ prose typography, in the component layer's reach ============
+   Every declaration below is a bare-ELEMENT rule, and that is deliberate for
+   a full install: a markdown renderer emits `<h2>`, `<ul>`, `<blockquote>`
+   with no class on them, so the defaults have to come from the element.
+
+   What that cannot survive is a SCOPED adoption. `make-scoped-entry.mjs`
+   exists because a Vite/PostCSS consumer cannot import this file at all - it
+   is 52 bare-element rules and unlayered CSS outranks every `@layer`, so
+   importing it repaints the host app. That consumer gets components.css and
+   nothing else, and `.cm-prose` in components.css declares only `color` and
+   `font-size`. EVERY actual typographic declaration for prose lives here.
+
+   MEASURED, and this is the whole reason for the `:where()` below: rendering
+   the same classless prose fixture on a full install and on the generator's
+   scoped entry, fingerprinted property by property at 390px and 1280px,
+   gave 786 deltas across 38 properties. The scaled ones are the loudest -
+   `table` font-size 14.4px -> 16px, `td` padding 0.6em -> 0, `th` weight
+   700 -> 400, `blockquote` background `--bg-2` -> transparent, `pre > code`
+   `display: block` -> inline (SIX lines of code collapsed into one paragraph)
+   - and 74 of the 76 elements read `font-family: -webkit-standard` instead
+   of the mono stack. That is not a degraded render, it is a different design
+   system, and it is exactly why hermes-articles still carries ~120 lines of
+   `.article-content` forks beside the `cm-prose` class it already adopted.
+
+   So each rule gains a SECOND selector, `:where([data-cm-theme]) <element>`.
+   The scoped-entry generator declares the type scale on exactly that
+   attribute, so the pair gates those rules behind the same hook that
+   publishes the tokens they read - a scoped consumer gets them, a host app
+   that never opted in does not.
+
+   `:where()` is doing real work here, not decoration: it contributes ZERO
+   specificity, so `:where([data-cm-theme]) h2` is still (0,0,1) - exactly
+   what bare `h2` was. The full-install cascade is therefore pixel-identical,
+   which is the property `tests/measure-logical-geometry.py` records before
+   and after and diffs. Using a bare `[data-cm-theme] h2` instead would be
+   (0,1,1) and would beat every markerless component rule in the library.
+
+   Which elements are in the set is a MEASUREMENT, not a judgement: the set
+   below is the prose-typography rules that the fingerprint reported as
+   differing, plus the ones that differ only through inheritance (which the
+   fingerprint sees as `fontFamily` and `lineHeight` on every descendant
+   rather than as a rule of their own). Page chrome - `body`, `main`,
+   `a` outside prose, the scrollbar, the form controls - is deliberately NOT
+   in it: prose typography is what `.cm-prose` promises, and everything else
+   is a page a scoped consumer owns. */
+
+/* The root of the set. This is the one rule that is also the prose
+   CONTAINER, so it is what makes an inherited property (font-family,
+   line-height, font-size) reach a descendant the rule does not itself name.
+   `.cm-prose` already sets `color`/`font-size` in components.css; the
+   family and the inherited line-height come from here.
+
+   `box-sizing` rides here because there is no other root a scoped adoption
+   has: the bare `*, *::before, *::after` reset at the top of this file
+   cannot be brought along (it would repaint the host app), and without it
+   every padded element in prose measures 72 elements wide of a full
+   install - the residual after the prose block first landed was 72 of 233
+   deltas from `content-box` alone. */
+:where([data-cm-theme]),
+:where([data-cm-theme]) body {
+	margin: 0;
+	color: var(--ink);
+	font-family: var(--font-body);
+	line-height: 1.7;
+}
+:where([data-cm-theme]),
+:where([data-cm-theme]) *,
+:where([data-cm-theme]) *::before,
+:where([data-cm-theme]) *::after {
+	box-sizing: border-box;
+}
+:where([data-cm-theme]) h1,
+:where([data-cm-theme]) h2,
+:where([data-cm-theme]) h3,
+:where([data-cm-theme]) h4,
+:where([data-cm-theme]) h5,
+:where([data-cm-theme]) h6 {
+	margin: 0 0 0.6em;
+	color: var(--ink);
+	font-weight: 700;
+	line-height: 1.25;
+	letter-spacing: -0.01em;
+}
+:where([data-cm-theme]) h1 { font-size: var(--head-h1); }
+:where([data-cm-theme]) h2 { font-size: var(--head-h2); margin-top: 2em; }
+:where([data-cm-theme]) h3 { font-size: var(--text-lg); margin-top: 1.6em; }
+:where([data-cm-theme]) p { margin: 0 0 1.1em; text-wrap: balance; }
+:where([data-cm-theme]) strong,
+:where([data-cm-theme]) b { color: var(--ink); font-weight: 700; }
+:where([data-cm-theme]) code {
+	font-family: var(--font-mono);
+	font-size: 0.9em;
+	background: var(--bg-3);
+	border: 1px solid var(--line);
+	border-radius: 0;
+	padding: 0.15em 0.4em;
+	color: var(--ink);
+}
+/* `pre > code` is a descendant pair, and the element itself is NOT wrapped:
+   `:where([data-cm-theme]) pre > code` is (0,0,2), the same specificity as
+   the bare rule it mirrors. Wrapping the element half instead
+   (`pre > :where(code)`) drops it to (0,0,1) and it then LOSES its own
+   `font-size` to the plainer `code` rule - MEASURED: 12px where the full
+   install gives 13.12px. `:where()` zeroes its whole argument, and here that
+   would zero the element whose specificity is the thing being preserved. */
+:where([data-cm-theme]) pre {
+	background: var(--bg-2);
+	border: 1px solid var(--line);
+	border-inline-start: 2px solid var(--accent-dim);
+	border-radius: var(--radius-sm);
+	padding: 1.3em 1.5em;
+	overflow-x: auto;
+	max-width: 100%;
+	min-width: 0;
+	margin: 0 0 1.4em;
+	overflow-wrap: break-word;
+}
+:where([data-cm-theme]) pre > code {
+	all: unset;
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	line-height: 1.7;
+	color: var(--ink);
+	display: block;
+	min-width: 0;
+	max-width: 100%;
+}
+:where([data-cm-theme]) blockquote {
+	margin: 0 0 1.4em;
+	padding: 0.5em 0 0.5em 1.1em;
+	border-inline-start: 2px solid var(--accent-dim);
+	background: var(--bg-2);
+	border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+	color: var(--ink-dim);
+	font-size: 1em;
+}
+:where([data-cm-theme]) :is(ul, ol) {
+	padding-inline-start: 1.4em;
+	margin: 0 0 1.2em;
+	list-style-type: disc;
+}
+:where([data-cm-theme]) ol { list-style-type: decimal; }
+:where([data-cm-theme]) li { margin-bottom: 0.4em; }
+:where([data-cm-theme]) li::marker { color: var(--ink-dim); }
+:where([data-cm-theme]) hr { border: none; border-top: 1px solid var(--line); margin: 2em 0; }
+:where([data-cm-theme]) img { max-width: 100%; height: auto; border-radius: var(--radius); }
+:where([data-cm-theme]) table {
+	width: 100%; border-collapse: collapse; margin: 0 0 1.4em; font-size: 0.9em;
+}
+:where([data-cm-theme]) th,
+:where([data-cm-theme]) td {
+	padding: 0.6em 0.9em; border: 1px solid var(--line); text-align: start;
+}
+:where([data-cm-theme]) th {
+	background: var(--bg-3); color: var(--ink); font-weight: 700;
+}
+
+/* The responsive block, mirrored - and DELIBERATELY last in this section.
+
+   `body { font-size: var(--text-sm) }`, `h1` and `pre` change at 680px, and
+   they change NOWHERE ELSE, so a scoped adoption that carried only the
+   static rules above matched a full install at 1280px and not at 390px.
+   MEASURED: h1 32px against the full install's 31.2px, `pre > code` 13px
+   against 12px, and the blockquote's inherited `line-height` reading 28.8px
+   against 25.92px.
+
+   Order is load-bearing: `:where([data-cm-theme]) h1` here and the same
+   selector above are BOTH (0,0,1), so only source order can decide, and a
+   mirror that lands before them loses. */
+@media (max-width: 680px) {
+	:where([data-cm-theme]) body { font-size: var(--text-sm); }
+	:where([data-cm-theme]) h1 { font-size: var(--head-h1); }
+	:where([data-cm-theme]) pre { padding: 1.1em 1.1em; font-size: var(--text-xs); }
+	:where([data-cm-theme]) pre > code { font-size: max(var(--min-font), 0.82rem); }
+	:where([data-cm-theme]) code { font-size: max(var(--min-font), 0.9em); }
+}
+
+/* The prose link, mirrored, and the direction of the fix is the opposite of
+   what it looks like.
+
+   MEASURED on the fingerprint: a prose link computes `text-decoration: none`
+   on a full install and `underline` on a scoped one. The scoped side is not
+   "missing an affordance" - it is the UA's own `a[href]` default, arriving
+   because the scoped entry does not import base.css and base.css is what
+   REMOVES the underline (`a { text-decoration: none }`). A consumer adopting
+   the library and getting underlines under every link in its prose is the
+   drift this twin exists to stop, so the twin declares `none` to match.
+
+   This is worth stating plainly because the library has a SEPARATE,
+   pre-existing defect in the same place: the full install's prose link is
+   `--ink-dim` on `--ink` prose, which MEASURES 2.2:1 against the text AROUND
+   it while clearing 7:1 against the page background - so an
+   AA-against-background check passes while the link is barely visible. That
+   is not fixed here (it would change the full-install contract, which this
+   cycle is proving is a no-op), and it is recorded for the next cycle.
+
+   Scoped to the prose container rather than `:where([data-cm-theme]) a`: an
+   element rule with no class reaches every link in the host app's own
+   subtree, which is exactly the leak this generator exists to avoid. */
+:where([data-cm-theme]) .cm-prose a,
+:where([data-cm-theme]).cm-prose a {
+	color: var(--ink-dim);
+	text-decoration: none;
+}
+:where([data-cm-theme]) .cm-prose a:hover,
+:where([data-cm-theme]).cm-prose a:hover { color: var(--ink); }
+
+/* The two spellings above are not belt-and-braces, they are two different
+   trees, and the SAME-ELEMENT one is the shape a real consumer ships:
+   hermes-articles renders `class="article-content cm-prose" data-cm-theme="dark"`
+   on one div, so the theme hook is not an ancestor of the prose container,
+   it IS it. MEASURED before the compound was added: the link still computed
+   `underline` - the ancestor spelling matches nothing at all there, so the
+   twin was inert on the one consumer this whole increment exists for. */
+
 /* ============ form controls ============
    Every text input on the fleet is a mono field on a panel surface with a
    1px line, and all 59 files that use one re-declare exactly that. These

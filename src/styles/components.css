@@ -9521,9 +9521,17 @@ input.cm-slider:disabled {
    simply stops reserving width. A tap on the row gives WebKit a sticky
    :hover, which is what makes the overlay reachable on a phone. */
 @media (max-width: 680px) {
+	/* The fourth track STAYS. The row grid is four tracks in the contract, and a
+	   consumer asserts that number -- and rightly: the track carries the
+	   toolbar's placement. The fix for a wide toolbar is to make the track zero
+	   WIDE, not to delete it: `minmax(0, 0)` exists for placement and adds
+	   nothing to the row's min-content, so the fit no longer depends on how many
+	   buttons a consumer puts in it. The toolbar itself is absolutely positioned
+	   (below), so it is out of flow and cannot widen the row either. */
 	.cm-msglist__msg {
 		position: relative;
-		grid-template-columns: var(--msglist-gutter) var(--msglist-avatar) minmax(0, 1fr);
+		grid-template-columns:
+			var(--msglist-gutter) var(--msglist-avatar) minmax(0, 1fr) minmax(0, 0);
 	}
 	.cm-msglist__actions {
 		position: absolute;
