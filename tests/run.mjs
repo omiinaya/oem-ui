@@ -16250,11 +16250,27 @@ console.log('\nshadcn-parity: guildrail + composer');
 		assert(hero !== '' && title !== '', 'the hero rules are missing');
 		// Spacing comes from the scale; a raw rem here is the exact regression
 		// the library's own spacing guard was written to catch.
-		for (const m of hero.matchAll(/(?:margin|padding)(?:-[a-z]+)?\s*:\s*([^;]+)/g)) {
+		//
+		// The escape hatch has to be PER RAW VALUE, not per declaration.
+		// The first version asked "does this declaration contain a var()?"
+		// - and `padding: 48px var(--gutter) 32px` contains one, so the
+		// two raw literals rode through on the strength of the token in
+		// the middle. That is the trap this repo keeps hitting: an
+		// allowance for the part you checked is a licence for the part
+		// you did not. `clamp(` is the other half - a fluid ramp is a
+		// deliberate raw stop, and it is allowed here for the title.
+		const allowed = (v, raw) => {
+			const at = v.indexOf(raw[0] + raw[1]);
+			const before = v.slice(0, at);
+			// inside a clamp(), and that clamp is itself var()-backed
+			const clampAt = before.lastIndexOf('clamp(');
+			if (clampAt !== -1 && v.indexOf(')', clampAt) > at) return true;
+			return /\(\s*$/.test(before) || /,\s*$/.test(before);
+		};
+		for (const m of hero.matchAll(/(?:margin|padding)(?:-[a-z]+)?\s*:?\s*([^;]+)/g)) {
 			const v = m[1];
 			for (const raw of v.matchAll(/(-?[\d.]+)(rem|px)\b/g)) {
-				const allowed = v.includes('var(--') || v.includes('clamp(');
-				assert(allowed,
+				assert(allowed(v, raw),
 					`.cm-hero declares a raw ${raw[1]}${raw[2]} in \`${v.trim()}\`; spacing `
 					+ 'must come from the --space-* scale');
 			}

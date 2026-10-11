@@ -1,5 +1,38 @@
 # Changelog
 
+## Unreleased - hero and gradient text
+
+- **`.cm-hero`, `.cm-hero__title`, `.cm-hero__lede`, `.cm-hero__actions`.**
+  The landing composition. It exists because the library's `main` is a
+  READING column (`--maxw: 860px`) and a hero is not prose: five consumer
+  sites each shipped their own `main { width: auto; max-width: none }` to
+  escape it. The width decision now lives on the block that wants it.
+  `.cm-hero__title` is the library's first fluid ramp, floored at
+  `--head-h1` and capped at `4rem`, because a page title must not shift
+  between routes but a hero title is the one thing allowed to be large.
+  The action row's divider is a `::before` on the ROW, never a flex item,
+  so no wrapped line can end with one.
+
+- **`.cm-grad-text` / `.cm-grad-text--none`.** `background-clip: text` as
+  a component, and the system's one painted-surface primitive. The whole
+  rule lives inside an `@supports` gate: the mechanism needs
+  `color: transparent`, which without the clip is INVISIBLE TEXT - the
+  failure every hand-rolled gradient headline shares. The library ships no
+  colour (it is deliberately zero-chroma); the consumer sets
+  `--cm-grad-from` / `--cm-grad-to`, which is why declaring them on the
+  element makes the pair follow `data-theme` for free. Both fall back to
+  `currentColor`, never `transparent`, so an unset stop is flat text
+  rather than nothing. `--none` is the stop sign for forced colours,
+  print, and engines without the clip.
+
+- **Fix: the auth-surface contract test judged the whole tail of the
+  stylesheet.** Its block slice ran from `.cm-auth {` to end of file, so
+  every rule written after the auth block was checked as part of it -
+  adding `.cm-hero` made it report six unrelated classes as "a private
+  vocabulary". It now walks to the next brace-depth-0 rule. The narrowed
+  check is still real: a private class inside the auth block is still
+  killed.
+
 ## Unreleased - emoji grid
 
 - **`.cm-popover__emoji` / `.cm-popover__emoji-item` /
