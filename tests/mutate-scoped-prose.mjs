@@ -59,8 +59,8 @@ const MUTATIONS = [
 	{
 		name: 'the token mirror loses its ancestor (0,0,0, loses to the theme block)',
 		file: GEN,
-		from: "'\	:where([data-cm-theme]) [data-cm-theme],\\n' +\n		'\	:where([data-cm-theme])[data-cm-theme] {\\n' +",
-		to: "'\	:where([data-cm-theme]) {\\n' +",
+		from: "\t\t\"\t:where([data-cm-theme]) [data-cm-theme],\\n\" +\n\t\t\"\t:where([data-cm-theme])[data-cm-theme] {\\n\" +",
+		to: "\t\t\"\\t:where([data-cm-theme]) {\\\\n\" +",
 		expect: 'scoped prose: :where() preserves the specificity',
 	},
 	{

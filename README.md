@@ -334,6 +334,45 @@ class is load-bearing, not decorative.
 Use `.cm-surface--flat` if your app already paints its own fixed chrome, so
 the library does not composite a second vignette over it.
 
+#### `.cm-prose` renders identically on a scoped adoption (it did not before)
+
+`.cm-prose` declares only `color` and `font-size` in `components.css`. Every
+typographic declaration a reader actually sees — the heading ramp, the `p`
+rhythm, `code`/`pre` fill and `pre > code`'s `display: block`, the blockquote,
+the table's `border-collapse` and cell padding — lived in `base.css` as a
+bare-element rule, which a scoped adoption cannot import.
+
+**MEASURED**, the same classless prose fixture rendered both ways in WebKit at
+390px and 1280px: **786 deltas across 38 properties**. `pre > code` lost
+`display: block`, so six lines of code collapsed into a single paragraph; `td`
+padding went `0.6em` → `0`; `blockquote`’s background went `--bg-2` →
+transparent; and 74 of 76 elements read `font-family: -webkit-standard`
+instead of the mono stack. That is not a degraded render of our design system,
+it is a different one.
+
+The generator now also emits those rules, extracted from `base.css` at build
+time (the banners `/* ============ prose typography …` and
+`/* ============ form controls …` are the block's boundaries, so the rules are
+never retyped and cannot drift). The mirror renders **identically** — the same
+fingerprint now reports **zero deltas** at both widths.
+
+Three things worth knowing if you maintain the block:
+
+- **`:where()` is doing real work.** `:where([data-cm-theme]) h2` contributes
+  nothing to specificity, so it is still (0,0,1) — exactly what bare `h2` was.
+  That is what makes the full install a pixel-level no-op. But `:where()`
+  zeroes its **entire** argument, not just what it wraps, so
+  `:where([data-cm-theme])` alone is **(0,0,0)** and loses to the theme block,
+  and `pre > :where(code)` drops (0,0,2) to (0,0,1) and loses its own size.
+  Both shapes were measured wrong before they were right.
+- **It covers prose, not the page.** `body`, `main`, the scrollbar and the
+  form controls are deliberately out — a scoped consumer owns its own page
+  chrome. Use `.cm-surface` for the paint.
+- **It is engine-verified, not just asserted.** `tests/verify-scoped-prose.py`
+  renders the fixture both ways in WebKit and diffs 61 properties per element;
+  a nonzero delta fails. `tests/mutate-scoped-prose.mjs` proves each contract
+  check can actually fail.
+
 #### A SPA no longer needs to call `init()` by hand
 
 The runtime used to require it, and the README said so. As of the
@@ -2401,6 +2440,7 @@ is why every row also wears `cm-scroller__item` and keeps
     <div class="cm-msglist__main">
       <header class="cm-msglist__meta"><span class="cm-msglist__author">alex</span>
         <time class="cm-msglist__stamp" datetime="2026-10-10T11:12">Today at 11:12 AM</time>
+        <span class="cm-msglist__sent cm-msglist__sent--seen">Seen</span>
       </header>
       <div class="cm-msglist__text">branch is cut - review the migration step.</div>
         <div class="cm-msglist__reactions">
@@ -2425,6 +2465,15 @@ A continuation row has no header, so its time lives in the gutter as
 The row's modifiers are `.cm-msglist__msg--grouped`,
 `.cm-msglist__msg--mention` and `.cm-msglist__msg--system`; the
 reader's own chip is `.cm-msglist__reaction--mine`.
+
+`.cm-msglist__sent` is delivery state and belongs to the reader's OWN
+rows: it rides the meta line, which is where a row already says when it
+was sent, so that is where it says whether anyone has seen it. It is
+text rather than a tick - a tick is unreadable at `--text-micro` and
+silent to a screen reader, and this is a state that has to survive
+both. Absent, not empty, when nothing is known: a row nobody has read
+has no state to announce. `.cm-msglist__sent--seen` is the one that
+settles, at `--ink` against the dim meta.
 
 Media rows sit in the same `main` column as the text: an image is
 `.cm-msglist__media` (a `<figure>` capped to `--measure-narrow`, hairline

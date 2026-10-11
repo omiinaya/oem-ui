@@ -7647,6 +7647,24 @@ input.cm-slider:disabled {
 	opacity: 1;
 	pointer-events: auto;
 }
+/* Delivery state, on the reader's OWN rows only. It rides the meta line,
+   which is where a row already says when it was sent, so that is where it
+   says whether anyone has seen it. Text, never a glyph: a tick is unreadable
+   at --text-micro and silent to a screen reader, and this is a state that has
+   to survive both. Absent, not empty, when nothing is known -- a row nobody
+   has read has no state to announce, and an empty span would still take the
+   flex gap and read as a rendered nothing. */
+.cm-msglist__sent {
+	font-size: var(--text-micro);
+	color: var(--ink-dim);
+}
+/* Seen is the one that settles: --ink against the row's dim meta reads as
+   "this one landed" without a second colour, and the state is a receipt, so
+   it is never stronger than the evidence behind it. */
+.cm-msglist__sent--seen {
+	color: var(--ink);
+}
+
 /* Reactions sit under the text as real toggles: the count is TEXT
    inside the button, never a ::after or a label, so the number is
    selectable, translatable and announced with the emoji. */

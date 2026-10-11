@@ -15291,6 +15291,7 @@ console.log('\ncontract: .cm-msglist (batch 30)');
 		'cm-msglist__count', 'cm-msglist__unread', 'cm-msglist__msg--grouped',
 		'cm-msglist__msg--mention', 'cm-msglist__msg--system',
 		'cm-msglist__reaction--mine',
+		'cm-msglist__sent', 'cm-msglist__sent--seen',
 		'cm-msglist__stamp', 'cm-msglist__hoverstamp',
 		'cm-msglist__daylabel', 'cm-msglist__unreadlabel',
 		'cm-msglist__daylabel', 'cm-msglist__unreadlabel',
