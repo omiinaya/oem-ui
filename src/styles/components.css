@@ -9506,6 +9506,35 @@ input.cm-slider:disabled {
 	.cm-chart__slice,
 	.cm-chart__tooltip { transition: none; }
 }
+/* Narrow screens: the toolbar stops being a grid track and rides the row.
+   MEASURED, and it was a real bug: the fourth track is `auto`, which is
+   minmax(auto, max-content) -- it CANNOT shrink past the toolbar's own
+   max-content width. With the three buttons the showcase demonstrates
+   (Add reaction / Reply / More) that floor fit. A consumer with four
+   (Reply / Copy / Delete / Edit = 128px) pushed the ROW's min-content
+   width past the space available at 402px: the row measured 332 inside a
+   330-wide track, the transcript 374 inside a 330 main, and the last
+   button sat at x=385..417 in a 402 viewport -- clipped by an ancestor's
+   `overflow: hidden`, so `scrollWidth` reported no overflow at all while
+   the button was untappable. Note the reveal is still opacity +
+   pointer-events, so this stays a no-JS, no-geometry-shift toolbar; it
+   simply stops reserving width. A tap on the row gives WebKit a sticky
+   :hover, which is what makes the overlay reachable on a phone. */
+@media (max-width: 680px) {
+	.cm-msglist__msg {
+		position: relative;
+		grid-template-columns: var(--msglist-gutter) var(--msglist-avatar) minmax(0, 1fr);
+	}
+	.cm-msglist__actions {
+		position: absolute;
+		inset-block-start: 0;
+		inset-inline-end: 0;
+		grid-column: auto;
+		/* the row's own hover fill, so the controls do not sit on live text */
+		background: var(--bg-3);
+	}
+}
+
 /* ============ stack ownership (LAST, on purpose) ============
    These two rules must beat every component's own block margin. They are
    at the end of the layer for that reason, and `gap` is a single number
